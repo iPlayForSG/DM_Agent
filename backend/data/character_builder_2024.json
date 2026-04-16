@@ -1,0 +1,1655 @@
+{
+  "ability_generation": {
+    "standard_array": [
+      15,
+      14,
+      13,
+      12,
+      10,
+      8
+    ],
+    "point_buy": {
+      "budget": 27,
+      "minimum": 8,
+      "maximum": 15
+    }
+  },
+  "species": [
+    {
+      "id": "human",
+      "name": "Human",
+      "speed": 30,
+      "traits": [
+        "Resourceful",
+        "Skilled Adaptation"
+      ]
+    },
+    {
+      "id": "elf",
+      "name": "Elf",
+      "speed": 30,
+      "traits": [
+        "Darkvision",
+        "Fey Ancestry",
+        "Keen Senses"
+      ]
+    },
+    {
+      "id": "dwarf",
+      "name": "Dwarf",
+      "speed": 30,
+      "traits": [
+        "Darkvision",
+        "Dwarven Resilience"
+      ]
+    },
+    {
+      "id": "halfling",
+      "name": "Halfling",
+      "speed": 30,
+      "traits": [
+        "Brave",
+        "Halfling Nimbleness",
+        "Luck"
+      ]
+    }
+  ],
+  "origin_feats": [
+    {
+      "id": "alert",
+      "name": "Alert"
+    },
+    {
+      "id": "crafter",
+      "name": "Crafter"
+    },
+    {
+      "id": "lucky",
+      "name": "Lucky"
+    },
+    {
+      "id": "magic-initiate-cleric",
+      "name": "Magic Initiate (Cleric)"
+    },
+    {
+      "id": "magic-initiate-druid",
+      "name": "Magic Initiate (Druid)"
+    },
+    {
+      "id": "magic-initiate-wizard",
+      "name": "Magic Initiate (Wizard)"
+    },
+    {
+      "id": "musician",
+      "name": "Musician"
+    },
+    {
+      "id": "savage-attacker",
+      "name": "Savage Attacker"
+    },
+    {
+      "id": "skilled",
+      "name": "Skilled"
+    },
+    {
+      "id": "tough",
+      "name": "Tough"
+    }
+  ],
+  "backgrounds": [
+    {
+      "id": "acolyte",
+      "name": "Acolyte",
+      "ability_bonuses": {
+        "wisdom": 2,
+        "intelligence": 1
+      },
+      "origin_feat": "Magic Initiate (Cleric)",
+      "skill_proficiencies": [
+        "Insight",
+        "Religion"
+      ]
+    },
+    {
+      "id": "criminal",
+      "name": "Criminal",
+      "ability_bonuses": {
+        "dexterity": 2,
+        "constitution": 1
+      },
+      "origin_feat": "Alert",
+      "skill_proficiencies": [
+        "Sleight of Hand",
+        "Stealth"
+      ]
+    },
+    {
+      "id": "entertainer",
+      "name": "Entertainer",
+      "ability_bonuses": {
+        "charisma": 2,
+        "dexterity": 1
+      },
+      "origin_feat": "Musician",
+      "skill_proficiencies": [
+        "Acrobatics",
+        "Performance"
+      ]
+    },
+    {
+      "id": "farmer",
+      "name": "Farmer",
+      "ability_bonuses": {
+        "constitution": 2,
+        "wisdom": 1
+      },
+      "origin_feat": "Tough",
+      "skill_proficiencies": [
+        "Animal Handling",
+        "Nature"
+      ]
+    },
+    {
+      "id": "sage",
+      "name": "Sage",
+      "ability_bonuses": {
+        "intelligence": 2,
+        "wisdom": 1
+      },
+      "origin_feat": "Magic Initiate (Wizard)",
+      "skill_proficiencies": [
+        "Arcana",
+        "History"
+      ]
+    },
+    {
+      "id": "soldier",
+      "name": "Soldier",
+      "ability_bonuses": {
+        "strength": 2,
+        "constitution": 1
+      },
+      "origin_feat": "Savage Attacker",
+      "skill_proficiencies": [
+        "Athletics",
+        "Intimidation"
+      ]
+    },
+    {
+      "id": "wayfarer",
+      "name": "Wayfarer",
+      "ability_bonuses": {
+        "dexterity": 2,
+        "wisdom": 1
+      },
+      "origin_feat": "Lucky",
+      "skill_proficiencies": [
+        "Insight",
+        "Stealth"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "id": "bard",
+      "name": "Bard",
+      "spell_library_key": "鍚熸父璇椾汉",
+      "hit_die": 8,
+      "spellcasting_ability": "CHA",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 2,
+      "save_proficiencies": [
+        "dexterity",
+        "charisma"
+      ],
+      "skill_choices": [
+        "Acrobatics",
+        "Animal Handling",
+        "Arcana",
+        "Athletics",
+        "Deception",
+        "History",
+        "Insight",
+        "Intimidation",
+        "Investigation",
+        "Medicine",
+        "Nature",
+        "Perception",
+        "Performance",
+        "Persuasion",
+        "Religion",
+        "Sleight of Hand",
+        "Stealth",
+        "Survival"
+      ],
+      "skills_to_choose": 3,
+      "starting_prepared_spells": 4,
+      "starting_spell_slots": {
+        "1": 2
+      },
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Rapier",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d8+3",
+          "damage_type": "piercing",
+          "properties": [
+            "Finesse"
+          ]
+        },
+        {
+          "name": "Leather Armor",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 1
+        },
+        {
+          "name": "Dagger",
+          "type": "weapon",
+          "quantity": 2,
+          "damage_expression": "1d4+3",
+          "damage_type": "piercing",
+          "properties": [
+            "Finesse",
+            "Light",
+            "Thrown"
+          ]
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Leather Armor, 2 Daggers, a chosen Musical Instrument, an Entertainer's Pack, and 19 gp.",
+          "gold_gp": 19,
+          "items": [
+            {
+              "name": "Leather Armor",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 1
+            },
+            {
+              "name": "Dagger",
+              "type": "weapon",
+              "quantity": 2,
+              "damage_expression": "1d4+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light",
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Entertainer's Pack",
+              "type": "pack"
+            }
+          ],
+          "choices": [
+            {
+              "id": "musical_instrument",
+              "label": "Musical Instrument",
+              "description": "Choose one musical instrument for this starter package.",
+              "options": [
+                {
+                  "id": "lute",
+                  "label": "Lute",
+                  "items": [
+                    {
+                      "name": "Lute",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "drum",
+                  "label": "Drum",
+                  "items": [
+                    {
+                      "name": "Drum",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "flute",
+                  "label": "Flute",
+                  "items": [
+                    {
+                      "name": "Flute",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "lyre",
+                  "label": "Lyre",
+                  "items": [
+                    {
+                      "name": "Lyre",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "viol",
+                  "label": "Viol",
+                  "items": [
+                    {
+                      "name": "Viol",
+                      "type": "tool"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 90 gp instead of the default package.",
+          "gold_gp": 90,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "cleric",
+      "name": "Cleric",
+      "spell_library_key": "鐗у笀",
+      "hit_die": 8,
+      "spellcasting_ability": "WIS",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 3,
+      "save_proficiencies": [
+        "wisdom",
+        "charisma"
+      ],
+      "skill_choices": [
+        "History",
+        "Insight",
+        "Medicine",
+        "Persuasion",
+        "Religion"
+      ],
+      "skills_to_choose": 2,
+      "starting_prepared_spells": 4,
+      "starting_spell_slots": {
+        "1": 2
+      },
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Mace",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d6+2",
+          "damage_type": "bludgeoning"
+        },
+        {
+          "name": "Shield",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 2
+        },
+        {
+          "name": "Scale Mail",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 4
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Chain Shirt, Shield, Mace, a Holy Symbol, a Priest's Pack, and 7 gp.",
+          "gold_gp": 7,
+          "items": [
+            {
+              "name": "Chain Shirt",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 3
+            },
+            {
+              "name": "Mace",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+2",
+              "damage_type": "bludgeoning"
+            },
+            {
+              "name": "Shield",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 2
+            },
+            {
+              "name": "Priest's Pack",
+              "type": "pack"
+            }
+          ],
+          "choices": [
+            {
+              "id": "holy_symbol",
+              "label": "Holy Symbol",
+              "description": "Choose the form of your holy symbol.",
+              "options": [
+                {
+                  "id": "amulet",
+                  "label": "Amulet",
+                  "items": [
+                    {
+                      "name": "Holy Symbol (Amulet)",
+                      "type": "focus"
+                    }
+                  ]
+                },
+                {
+                  "id": "emblem",
+                  "label": "Emblem",
+                  "items": [
+                    {
+                      "name": "Holy Symbol (Emblem)",
+                      "type": "focus"
+                    }
+                  ]
+                },
+                {
+                  "id": "reliquary",
+                  "label": "Reliquary",
+                  "items": [
+                    {
+                      "name": "Holy Symbol (Reliquary)",
+                      "type": "focus"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 110 gp instead of the default package.",
+          "gold_gp": 110,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "druid",
+      "name": "Druid",
+      "spell_library_key": "寰烽瞾浼�",
+      "hit_die": 8,
+      "spellcasting_ability": "WIS",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 2,
+      "save_proficiencies": [
+        "intelligence",
+        "wisdom"
+      ],
+      "skill_choices": [
+        "Arcana",
+        "Animal Handling",
+        "Insight",
+        "Medicine",
+        "Nature",
+        "Perception",
+        "Religion",
+        "Survival"
+      ],
+      "skills_to_choose": 2,
+      "starting_prepared_spells": 4,
+      "starting_spell_slots": {
+        "1": 2
+      },
+      "resources": {
+        "Wild Shape": {
+          "current_value": 2,
+          "max_value": 2,
+          "recovery": "short_rest",
+          "description": "Wild Shape uses"
+        }
+      },
+      "starter_equipment": [
+        {
+          "name": "Quarterstaff",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d6+2",
+          "damage_type": "bludgeoning"
+        },
+        {
+          "name": "Leather Armor",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 1
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Leather Armor, Shield, Sickle, a Druidic Focus (Quarterstaff), an Explorer's Pack, Herbalism Kit, and 9 gp.",
+          "gold_gp": 9,
+          "items": [
+            {
+              "name": "Leather Armor",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 1
+            },
+            {
+              "name": "Shield",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 2
+            },
+            {
+              "name": "Sickle",
+              "type": "weapon",
+              "is_equipped": false,
+              "damage_expression": "1d4+2",
+              "damage_type": "slashing",
+              "properties": [
+                "Light"
+              ]
+            },
+            {
+              "name": "Quarterstaff",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+2",
+              "damage_type": "bludgeoning"
+            },
+            {
+              "name": "Explorer's Pack",
+              "type": "pack"
+            },
+            {
+              "name": "Herbalism Kit",
+              "type": "tool"
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 50 gp instead of the default package.",
+          "gold_gp": 50,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "spell_library_key": "鎴樺＋",
+      "hit_die": 10,
+      "save_proficiencies": [
+        "strength",
+        "constitution"
+      ],
+      "skill_choices": [
+        "Acrobatics",
+        "Animal Handling",
+        "Athletics",
+        "History",
+        "Insight",
+        "Intimidation",
+        "Perception",
+        "Survival"
+      ],
+      "skills_to_choose": 2,
+      "starting_spell_slots": {},
+      "resources": {
+        "Second Wind": {
+          "current_value": 1,
+          "max_value": 1,
+          "recovery": "short_rest",
+          "description": "Second Wind uses"
+        }
+      },
+      "starter_equipment": [
+        {
+          "name": "Longsword",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d8+3",
+          "damage_type": "slashing"
+        },
+        {
+          "name": "Chain Mail",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 6
+        },
+        {
+          "name": "Shield",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 2
+        },
+        {
+          "name": "Javelin",
+          "type": "weapon",
+          "quantity": 4,
+          "damage_expression": "1d6+3",
+          "damage_type": "piercing",
+          "properties": [
+            "Thrown"
+          ]
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Chain Mail, Greatsword, Flail, 8 Javelins, a Dungeoneer's Pack, and 4 gp.",
+          "gold_gp": 4,
+          "items": [
+            {
+              "name": "Chain Mail",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 6
+            },
+            {
+              "name": "Greatsword",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "2d6+3",
+              "damage_type": "slashing"
+            },
+            {
+              "name": "Flail",
+              "type": "weapon",
+              "is_equipped": false,
+              "damage_expression": "1d8+3",
+              "damage_type": "bludgeoning"
+            },
+            {
+              "name": "Javelin",
+              "type": "weapon",
+              "quantity": 8,
+              "damage_expression": "1d6+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Dungeoneer's Pack",
+              "type": "pack"
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Studded Leather Armor, Scimitar, Shortsword, Longbow, 20 Arrows, a Quiver, a Dungeoneer's Pack, and 11 gp.",
+          "gold_gp": 11,
+          "items": [
+            {
+              "name": "Studded Leather Armor",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 2
+            },
+            {
+              "name": "Scimitar",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+3",
+              "damage_type": "slashing",
+              "properties": [
+                "Finesse",
+                "Light"
+              ]
+            },
+            {
+              "name": "Shortsword",
+              "type": "weapon",
+              "is_equipped": false,
+              "damage_expression": "1d6+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light"
+              ]
+            },
+            {
+              "name": "Longbow",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d8+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Ranged"
+              ]
+            },
+            {
+              "name": "Arrow",
+              "type": "ammo",
+              "quantity": 20
+            },
+            {
+              "name": "Quiver",
+              "type": "gear"
+            },
+            {
+              "name": "Dungeoneer's Pack",
+              "type": "pack"
+            }
+          ]
+        },
+        {
+          "id": "package_c",
+          "label": "Package C",
+          "description": "Start with 155 gp instead of a starter loadout.",
+          "gold_gp": 155,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "monk",
+      "name": "Monk",
+      "spell_library_key": "姝﹀儳",
+      "hit_die": 8,
+      "save_proficiencies": [
+        "strength",
+        "dexterity"
+      ],
+      "skill_choices": [
+        "Acrobatics",
+        "Athletics",
+        "History",
+        "Insight",
+        "Religion",
+        "Stealth"
+      ],
+      "skills_to_choose": 2,
+      "starting_spell_slots": {},
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Quarterstaff",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d6+3",
+          "damage_type": "bludgeoning"
+        },
+        {
+          "name": "Dart",
+          "type": "weapon",
+          "quantity": 10,
+          "damage_expression": "1d4+3",
+          "damage_type": "piercing",
+          "properties": [
+            "Thrown"
+          ]
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Spear, 5 Daggers, a chosen Artisan's Tools or Musical Instrument, an Explorer's Pack, and 11 gp.",
+          "gold_gp": 11,
+          "items": [
+            {
+              "name": "Spear",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Thrown",
+                "Versatile"
+              ]
+            },
+            {
+              "name": "Dagger",
+              "type": "weapon",
+              "quantity": 5,
+              "damage_expression": "1d4+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light",
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Explorer's Pack",
+              "type": "pack"
+            }
+          ],
+          "choices": [
+            {
+              "id": "tool_or_instrument",
+              "label": "Tool or Instrument",
+              "description": "Choose one artisan's tool set or musical instrument for this starter package.",
+              "options": [
+                {
+                  "id": "calligraphers_supplies",
+                  "label": "Calligrapher's Supplies",
+                  "items": [
+                    {
+                      "name": "Calligrapher's Supplies",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "potters_tools",
+                  "label": "Potter's Tools",
+                  "items": [
+                    {
+                      "name": "Potter's Tools",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "woodcarvers_tools",
+                  "label": "Woodcarver's Tools",
+                  "items": [
+                    {
+                      "name": "Woodcarver's Tools",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "drum",
+                  "label": "Drum",
+                  "items": [
+                    {
+                      "name": "Drum",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "flute",
+                  "label": "Flute",
+                  "items": [
+                    {
+                      "name": "Flute",
+                      "type": "tool"
+                    }
+                  ]
+                },
+                {
+                  "id": "lute",
+                  "label": "Lute",
+                  "items": [
+                    {
+                      "name": "Lute",
+                      "type": "tool"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 50 gp instead of the default package.",
+          "gold_gp": 50,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "paladin",
+      "name": "Paladin",
+      "spell_library_key": "鍦ｆ�﹀＋",
+      "hit_die": 10,
+      "spellcasting_ability": "CHA",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 0,
+      "save_proficiencies": [
+        "wisdom",
+        "charisma"
+      ],
+      "skill_choices": [
+        "Athletics",
+        "Insight",
+        "Intimidation",
+        "Medicine",
+        "Persuasion",
+        "Religion"
+      ],
+      "skills_to_choose": 2,
+      "starting_prepared_spells": 2,
+      "starting_spell_slots": {
+        "1": 2
+      },
+      "resources": {
+        "Lay on Hands": {
+          "current_value": 5,
+          "max_value": 5,
+          "recovery": "long_rest",
+          "description": "Healing pool"
+        }
+      },
+      "starter_equipment": [
+        {
+          "name": "Warhammer",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d8+3",
+          "damage_type": "bludgeoning"
+        },
+        {
+          "name": "Chain Mail",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 6
+        },
+        {
+          "name": "Shield",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 2
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Chain Mail, Shield, Longsword, 6 Javelins, a Holy Symbol, a Priest's Pack, and 9 gp.",
+          "gold_gp": 9,
+          "items": [
+            {
+              "name": "Chain Mail",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 6
+            },
+            {
+              "name": "Shield",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 2
+            },
+            {
+              "name": "Longsword",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d8+3",
+              "damage_type": "slashing",
+              "properties": [
+                "Versatile"
+              ]
+            },
+            {
+              "name": "Javelin",
+              "type": "weapon",
+              "quantity": 6,
+              "damage_expression": "1d6+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Priest's Pack",
+              "type": "pack"
+            }
+          ],
+          "choices": [
+            {
+              "id": "holy_symbol",
+              "label": "Holy Symbol",
+              "description": "Choose the form of your holy symbol.",
+              "options": [
+                {
+                  "id": "amulet",
+                  "label": "Amulet",
+                  "items": [
+                    {
+                      "name": "Holy Symbol (Amulet)",
+                      "type": "focus"
+                    }
+                  ]
+                },
+                {
+                  "id": "emblem",
+                  "label": "Emblem",
+                  "items": [
+                    {
+                      "name": "Holy Symbol (Emblem)",
+                      "type": "focus"
+                    }
+                  ]
+                },
+                {
+                  "id": "reliquary",
+                  "label": "Reliquary",
+                  "items": [
+                    {
+                      "name": "Holy Symbol (Reliquary)",
+                      "type": "focus"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 150 gp instead of the default package.",
+          "gold_gp": 150,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "ranger",
+      "name": "Ranger",
+      "spell_library_key": "娓镐緺",
+      "hit_die": 10,
+      "spellcasting_ability": "WIS",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 0,
+      "save_proficiencies": [
+        "strength",
+        "dexterity"
+      ],
+      "skill_choices": [
+        "Animal Handling",
+        "Athletics",
+        "Insight",
+        "Investigation",
+        "Nature",
+        "Perception",
+        "Stealth",
+        "Survival"
+      ],
+      "skills_to_choose": 3,
+      "starting_prepared_spells": 2,
+      "starting_spell_slots": {
+        "1": 2
+      },
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Longbow",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d8+3",
+          "damage_type": "piercing",
+          "properties": [
+            "Ranged"
+          ]
+        },
+        {
+          "name": "Arrow",
+          "type": "ammo",
+          "quantity": 20
+        },
+        {
+          "name": "Leather Armor",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 1
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Studded Leather Armor, Scimitar, Shortsword, Longbow, 20 Arrows, a Quiver, a Druidic Focus, an Explorer's Pack, and 7 gp.",
+          "gold_gp": 7,
+          "items": [
+            {
+              "name": "Studded Leather Armor",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 2
+            },
+            {
+              "name": "Scimitar",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+3",
+              "damage_type": "slashing",
+              "properties": [
+                "Finesse",
+                "Light"
+              ]
+            },
+            {
+              "name": "Shortsword",
+              "type": "weapon",
+              "is_equipped": false,
+              "damage_expression": "1d6+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light"
+              ]
+            },
+            {
+              "name": "Longbow",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d8+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Ranged"
+              ]
+            },
+            {
+              "name": "Arrow",
+              "type": "ammo",
+              "quantity": 20
+            },
+            {
+              "name": "Quiver",
+              "type": "gear"
+            },
+            {
+              "name": "Explorer's Pack",
+              "type": "pack"
+            }
+          ],
+          "choices": [
+            {
+              "id": "druidic_focus",
+              "label": "Druidic Focus",
+              "description": "Choose a druidic focus for this starter package.",
+              "options": [
+                {
+                  "id": "mistletoe",
+                  "label": "Sprig of Mistletoe",
+                  "items": [
+                    {
+                      "name": "Druidic Focus (Sprig of Mistletoe)",
+                      "type": "focus"
+                    }
+                  ]
+                },
+                {
+                  "id": "totem",
+                  "label": "Totem",
+                  "items": [
+                    {
+                      "name": "Druidic Focus (Totem)",
+                      "type": "focus"
+                    }
+                  ]
+                },
+                {
+                  "id": "wooden_staff",
+                  "label": "Wooden Staff",
+                  "items": [
+                    {
+                      "name": "Druidic Focus (Wooden Staff)",
+                      "type": "focus"
+                    }
+                  ]
+                },
+                {
+                  "id": "yew_wand",
+                  "label": "Yew Wand",
+                  "items": [
+                    {
+                      "name": "Druidic Focus (Yew Wand)",
+                      "type": "focus"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 150 gp instead of the default package.",
+          "gold_gp": 150,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "rogue",
+      "name": "Rogue",
+      "spell_library_key": "",
+      "hit_die": 8,
+      "save_proficiencies": [
+        "dexterity",
+        "intelligence"
+      ],
+      "skill_choices": [
+        "Acrobatics",
+        "Athletics",
+        "Deception",
+        "Insight",
+        "Intimidation",
+        "Investigation",
+        "Perception",
+        "Performance",
+        "Persuasion",
+        "Sleight of Hand",
+        "Stealth"
+      ],
+      "skills_to_choose": 4,
+      "starting_spell_slots": {},
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Shortsword",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d6+3",
+          "damage_type": "piercing",
+          "properties": [
+            "Finesse",
+            "Light"
+          ]
+        },
+        {
+          "name": "Dagger",
+          "type": "weapon",
+          "quantity": 2,
+          "damage_expression": "1d4+3",
+          "damage_type": "piercing",
+          "properties": [
+            "Finesse",
+            "Light",
+            "Thrown"
+          ]
+        },
+        {
+          "name": "Leather Armor",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 1
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Leather Armor, 2 Daggers, Shortsword, Shortbow, 20 Arrows, a Quiver, Thieves' Tools, a Burglar's Pack, and 8 gp.",
+          "gold_gp": 8,
+          "items": [
+            {
+              "name": "Leather Armor",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 1
+            },
+            {
+              "name": "Dagger",
+              "type": "weapon",
+              "quantity": 2,
+              "damage_expression": "1d4+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light",
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Shortsword",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light"
+              ]
+            },
+            {
+              "name": "Shortbow",
+              "type": "weapon",
+              "is_equipped": false,
+              "damage_expression": "1d6+3",
+              "damage_type": "piercing",
+              "properties": [
+                "Ranged"
+              ]
+            },
+            {
+              "name": "Arrow",
+              "type": "ammo",
+              "quantity": 20
+            },
+            {
+              "name": "Quiver",
+              "type": "gear"
+            },
+            {
+              "name": "Thieves' Tools",
+              "type": "tool"
+            },
+            {
+              "name": "Burglar's Pack",
+              "type": "pack"
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 100 gp instead of the default package.",
+          "gold_gp": 100,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "sorcerer",
+      "name": "Sorcerer",
+      "spell_library_key": "鏈�澹�",
+      "hit_die": 6,
+      "spellcasting_ability": "CHA",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 4,
+      "save_proficiencies": [
+        "constitution",
+        "charisma"
+      ],
+      "skill_choices": [
+        "Arcana",
+        "Deception",
+        "Insight",
+        "Intimidation",
+        "Persuasion",
+        "Religion"
+      ],
+      "skills_to_choose": 2,
+      "starting_prepared_spells": 2,
+      "starting_spell_slots": {
+        "1": 2
+      },
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Dagger",
+          "type": "weapon",
+          "quantity": 2,
+          "damage_expression": "1d4+2",
+          "damage_type": "piercing",
+          "properties": [
+            "Finesse",
+            "Light",
+            "Thrown"
+          ]
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Spear, 2 Daggers, an Arcane Focus (Crystal), a Dungeoneer's Pack, and 28 gp.",
+          "gold_gp": 28,
+          "items": [
+            {
+              "name": "Spear",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+2",
+              "damage_type": "piercing",
+              "properties": [
+                "Thrown",
+                "Versatile"
+              ]
+            },
+            {
+              "name": "Dagger",
+              "type": "weapon",
+              "quantity": 2,
+              "damage_expression": "1d4+2",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light",
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Arcane Focus (Crystal)",
+              "type": "focus"
+            },
+            {
+              "name": "Dungeoneer's Pack",
+              "type": "pack"
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 50 gp instead of the default package.",
+          "gold_gp": 50,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "warlock",
+      "name": "Warlock",
+      "spell_library_key": "榄斿�戝笀",
+      "hit_die": 8,
+      "spellcasting_ability": "CHA",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 2,
+      "save_proficiencies": [
+        "wisdom",
+        "charisma"
+      ],
+      "skill_choices": [
+        "Arcana",
+        "Deception",
+        "History",
+        "Intimidation",
+        "Investigation",
+        "Nature",
+        "Religion"
+      ],
+      "skills_to_choose": 2,
+      "starting_prepared_spells": 2,
+      "starting_spell_slots": {
+        "1": 1
+      },
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Light Crossbow",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d8+2",
+          "damage_type": "piercing",
+          "properties": [
+            "Ranged"
+          ]
+        },
+        {
+          "name": "Bolt",
+          "type": "ammo",
+          "quantity": 20
+        },
+        {
+          "name": "Leather Armor",
+          "type": "armor",
+          "is_equipped": true,
+          "armor_class_bonus": 1
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "Leather Armor, Sickle, 2 Daggers, an Arcane Focus (Orb), a Book of occult lore, a Scholar's Pack, and 15 gp.",
+          "gold_gp": 15,
+          "items": [
+            {
+              "name": "Leather Armor",
+              "type": "armor",
+              "is_equipped": true,
+              "armor_class_bonus": 1
+            },
+            {
+              "name": "Sickle",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d4+2",
+              "damage_type": "slashing",
+              "properties": [
+                "Light"
+              ]
+            },
+            {
+              "name": "Dagger",
+              "type": "weapon",
+              "quantity": 2,
+              "damage_expression": "1d4+2",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light",
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Arcane Focus (Orb)",
+              "type": "focus"
+            },
+            {
+              "name": "Book (Occult Lore)",
+              "type": "book"
+            },
+            {
+              "name": "Scholar's Pack",
+              "type": "pack"
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 100 gp instead of the default package.",
+          "gold_gp": 100,
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "wizard",
+      "name": "Wizard",
+      "spell_library_key": "娉曞笀",
+      "hit_die": 6,
+      "spellcasting_ability": "INT",
+      "spellcasting_mode": "prepared",
+      "starting_cantrips": 3,
+      "save_proficiencies": [
+        "intelligence",
+        "wisdom"
+      ],
+      "skill_choices": [
+        "Arcana",
+        "History",
+        "Insight",
+        "Investigation",
+        "Medicine",
+        "Religion"
+      ],
+      "skills_to_choose": 2,
+      "starting_prepared_spells": 4,
+      "starting_spell_slots": {
+        "1": 2
+      },
+      "resources": {},
+      "starter_equipment": [
+        {
+          "name": "Quarterstaff",
+          "type": "weapon",
+          "is_equipped": true,
+          "damage_expression": "1d6+2",
+          "damage_type": "bludgeoning"
+        },
+        {
+          "name": "Dagger",
+          "type": "weapon",
+          "quantity": 1,
+          "damage_expression": "1d4+2",
+          "damage_type": "piercing",
+          "properties": [
+            "Finesse",
+            "Light",
+            "Thrown"
+          ]
+        }
+      ],
+      "starter_equipment_options": [
+        {
+          "id": "package_a",
+          "label": "Package A",
+          "description": "2 Daggers, an Arcane Focus (Quarterstaff), Robes, a Spellbook, a Scholar's Pack, and 5 gp.",
+          "gold_gp": 5,
+          "items": [
+            {
+              "name": "Dagger",
+              "type": "weapon",
+              "quantity": 2,
+              "damage_expression": "1d4+2",
+              "damage_type": "piercing",
+              "properties": [
+                "Finesse",
+                "Light",
+                "Thrown"
+              ]
+            },
+            {
+              "name": "Quarterstaff",
+              "type": "weapon",
+              "is_equipped": true,
+              "damage_expression": "1d6+2",
+              "damage_type": "bludgeoning"
+            },
+            {
+              "name": "Robes",
+              "type": "clothing"
+            },
+            {
+              "name": "Spellbook",
+              "type": "book"
+            },
+            {
+              "name": "Scholar's Pack",
+              "type": "pack"
+            }
+          ]
+        },
+        {
+          "id": "package_b",
+          "label": "Package B",
+          "description": "Start with 55 gp instead of the default package.",
+          "gold_gp": 55,
+          "items": []
+        }
+      ]
+    }
+  ]
+}

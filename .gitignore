@@ -1,0 +1,37 @@
+# Environment and secrets
+.env
+*.env
+!.env.example
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.uv-cache/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Local runtime saves and generated content
+backend/Game/
+backend/Characters/
+backend/Monsters/
+
+# Local D&D source material and generated RAG indexes
+backend/Documents/
+backend/Knowledge/
+backend/D&D 2024.json
+backend/test.json
+backend/data/spells.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.log
