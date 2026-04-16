@@ -395,7 +395,7 @@ async def get_config():
     return {
         "rag_enabled": agent.rag_engine.is_ready(),
         "rag_status": agent.rag_engine.status_payload(),
-        "chat_backend": "google-adk",
+        "chat_backend": agent.backend_name,
         "model_provider": "openai-compatible",
     }
 

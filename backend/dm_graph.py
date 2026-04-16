@@ -7,11 +7,16 @@ from models import ChatMessage, GameState, SessionEvent, ToolResult, TurnResult
 from prompts import build_dm_instruction
 
 try:
+    from langchain_core.messages import HumanMessage, SystemMessage
+    from langchain_openai import ChatOpenAI
     from langgraph.graph import END, START, StateGraph
 except ImportError:
+    ChatOpenAI = None
     END = None
+    HumanMessage = None
     START = None
     StateGraph = None
+    SystemMessage = None
 
 
 class LangGraphUnavailableError(RuntimeError):
@@ -39,9 +44,21 @@ class DMGraphRunner:
     It models turn preparation/context/finalization now; model and tool nodes are added in the next phase.
     """
 
-    def __init__(self, rag_engine):
+    def __init__(
+        self,
+        rag_engine,
+        model_name: str = "",
+        api_key: str = "",
+        base_url: str = "",
+        enable_model: bool = False,
+    ):
         self.rag_engine = rag_engine
+        self.model_name = model_name
+        self.api_key = api_key
+        self.base_url = base_url
+        self.enable_model = enable_model
         self._graph = None
+        self._model = None
 
     @property
     def is_available(self) -> bool:
@@ -52,6 +69,23 @@ class DMGraphRunner:
             raise LangGraphUnavailableError(
                 "LangGraph is not installed. Install backend requirements before enabling the LangGraph runner."
             )
+
+    def _create_model(self):
+        if self._model is not None:
+            return self._model
+        if ChatOpenAI is None:
+            raise LangGraphUnavailableError("langchain-openai is not installed.")
+        if not self.api_key:
+            raise RuntimeError("OPENAI_API_KEY is missing.")
+
+        model_kwargs: Dict[str, Any] = {
+            "model": self.model_name or "gpt-5.1",
+            "api_key": self.api_key,
+        }
+        if self.base_url:
+            model_kwargs["base_url"] = self.base_url
+        self._model = ChatOpenAI(**model_kwargs)
+        return self._model
 
     @staticmethod
     def _build_event(
@@ -103,6 +137,34 @@ class DMGraphRunner:
             )
         }
 
+    @staticmethod
+    def _extract_message_content(message: Any) -> str:
+        content = getattr(message, "content", "")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts: List[str] = []
+            for item in content:
+                if isinstance(item, dict):
+                    text = item.get("text") or item.get("content")
+                    if text:
+                        parts.append(str(text))
+                elif item:
+                    parts.append(str(item))
+            return "\n".join(parts).strip()
+        return str(content).strip() if content else ""
+
+    def _call_model(self, graph_state: DMGraphState) -> DMGraphState:
+        model = self._create_model()
+        response = model.invoke(
+            [
+                SystemMessage(content=graph_state.get("instruction", "")),
+                HumanMessage(content=graph_state.get("user_input", "")),
+            ]
+        )
+        final_response = self._extract_message_content(response)
+        return {"final_response": final_response or "I could not complete this turn."}
+
     def _finalize_turn(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
@@ -144,7 +206,8 @@ class DMGraphRunner:
         builder = StateGraph(DMGraphState)
         builder.add_node("prepare_turn", self._prepare_turn)
         builder.add_node("prepare_context", self._prepare_context)
-        builder.add_node("draft_response", self._draft_response_placeholder)
+        model_node = self._call_model if self.enable_model else self._draft_response_placeholder
+        builder.add_node("draft_response", model_node)
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
         builder.add_edge("prepare_turn", "prepare_context")

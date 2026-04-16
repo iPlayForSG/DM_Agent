@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 from agent_tools import AgentToolExecution, AgentToolService
+from dm_graph import DMGraphRunner
 from game_logic import DiceRoller, GameLogic
 from models import (
     Character,
@@ -62,6 +63,7 @@ class DMAgent:
         self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.base_url = os.getenv("OPENAI_API_BASE") or os.getenv("OPENAI_BASE_URL", "")
         self.model_name = os.getenv("LLM_MODEL", "gpt-5.1")
+        self.chat_backend = os.getenv("CHAT_BACKEND", os.getenv("AGENT_BACKEND", "google-adk")).lower()
         self.app_name = os.getenv("ADK_APP_NAME", "dnd_dm_agent")
         self.user_id = os.getenv("ADK_USER_ID", "local_dm")
         self.monster_storage = MonsterStorage()
@@ -71,6 +73,13 @@ class DMAgent:
             rag_engine=self.rag_engine,
             monster_storage=self.monster_storage,
             rules_catalog=self.rules_catalog,
+        )
+        self.dm_graph_runner = DMGraphRunner(
+            rag_engine=self.rag_engine,
+            model_name=self.model_name,
+            api_key=self.api_key,
+            base_url=self.base_url,
+            enable_model=True,
         )
 
         if self.api_key:
@@ -85,6 +94,12 @@ class DMAgent:
             )
         if not self.api_key:
             raise RuntimeError("OPENAI_API_KEY is missing.")
+
+    @property
+    def backend_name(self) -> str:
+        if self.chat_backend in {"langgraph", "langchain", "graph"}:
+            return "langgraph" if self.dm_graph_runner.is_available else "langgraph-unavailable"
+        return "google-adk"
 
     def _resolve_model_name(self) -> str:
         if "/" in self.model_name:
@@ -1764,6 +1779,9 @@ class DMAgent:
         return "\n".join(texts).strip()
 
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
+        if self.chat_backend in {"langgraph", "langchain", "graph"}:
+            return self.dm_graph_runner.run_turn(state, user_input)
+
         self._require_adk()
 
         # Copy the persisted state before the turn so tool execution can mutate it freely without side effects.

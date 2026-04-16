@@ -256,8 +256,10 @@ POST /api/v1/games/{game_id}/turns
 - 已新增 `backend/dm_graph.py`。
 - 已声明 `langgraph`、`langchain`、`langchain-openai` 后端依赖。
 - `DMGraphRunner` 目前包含 `prepare_turn -> prepare_context -> draft_response -> finalize_turn` 的最小图骨架。
-- 该骨架暂未接管 `/turns`，也尚未启用真实模型节点和工具执行节点。
-- 由于当前本地环境尚未安装 LangGraph 依赖，`dm_graph.py` 使用可选导入保护，不影响现有 ADK 路径启动。
+- `draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI` 模型节点。
+- `DMAgent` 已支持通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 切换到 LangGraph runner。
+- 默认仍使用 `google-adk`，因为 LangGraph 工具执行循环尚未接入。
+- `dm_graph.py` 使用可选导入保护，依赖缺失时不会影响默认 ADK 路径启动。
 
 ### 6.2 建议图状态
 
@@ -392,8 +394,9 @@ LangGraph 节点负责：
 
 当前状态：
 
-- Phase 2A 已完成：LangGraph runner 骨架已落地，但没有接管生产路径。
-- 尚未完成：安装依赖、接入 OpenAI-compatible 模型节点、执行工具调用循环、提供运行时切换开关。
+- Phase 2A 已完成：LangGraph runner 骨架已落地。
+- Phase 2B 已完成：依赖已声明并安装到本地 `DM_Agent` conda 环境，OpenAI-compatible 模型节点和运行时切换开关已接入。
+- 尚未完成：执行工具调用循环、阶段化工具白名单、将默认后端切换为 `langgraph`。
 
 ### Phase 3: 显式阶段路由
 
