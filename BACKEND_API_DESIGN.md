@@ -28,6 +28,16 @@
 6. 前端不应该感知 ADK 或 LangGraph 的内部差异。
 7. 后续所有 Agent 写入都应能形成 `tool_results`、`state_delta` 和 `timeline_append`。
 
+## 2.1 当前模型配置
+
+当前本地 `.env` 使用 Z.AI 的 OpenAI-compatible 接口：
+
+- `LLM_MODEL=glm-5.1`
+- `OPENAI_API_BASE=https://api.z.ai/api/paas/v4/`
+- `OPENAI_BASE_URL=https://api.z.ai/api/paas/v4/`
+
+真实 `OPENAI_API_KEY` 只允许写入本地 `backend/.env`，该文件已经被 `.gitignore` 忽略，不能提交或推送。公开仓库只保留无密钥的 `backend/.env.example`。
+
 ## 3. 核心数据模型
 
 ### 3.1 GameState

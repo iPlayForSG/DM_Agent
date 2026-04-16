@@ -16,6 +16,8 @@
 
 最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D 和 Phase 2E。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换。
 
+当前本地模型配置已切换为 Z.AI GLM-5.1：`LLM_MODEL=glm-5.1`，base URL 使用 `https://api.z.ai/api/paas/v4/`。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
+
 ## 2. 项目最终目标
 
 DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。
@@ -59,10 +61,11 @@ DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。
 
 1. 后端使用 FastAPI。
 2. 当前 DM 对话链路使用 Google ADK + LiteLLM 连接 OpenAI-compatible 模型。
-3. 游戏真相保存在本地 `GameState` JSON，而不是只存在模型上下文里。
-4. Agent 已接入本地规则检索工具 `lookup_rules`。
-5. RAG 优先走 Chroma 向量库，缺少 `chromadb` 时可回退到本地 markdown 词法检索。
-6. Python 环境使用 conda 的 `DM_Agent` 虚拟环境。
+3. 本地 `.env` 当前指向 Z.AI GLM-5.1，公开的 `.env.example` 只保留无密钥配置。
+4. 游戏真相保存在本地 `GameState` JSON，而不是只存在模型上下文里。
+5. Agent 已接入本地规则检索工具 `lookup_rules`。
+6. RAG 优先走 Chroma 向量库，缺少 `chromadb` 时可回退到本地 markdown 词法检索。
+7. Python 环境使用 conda 的 `DM_Agent` 虚拟环境。
 
 ### 3.2 角色与规则目录
 
