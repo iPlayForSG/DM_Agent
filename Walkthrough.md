@@ -14,7 +14,7 @@
 
 当前下一阶段重点：**重构后端 Agent 编排，从 Google ADK 迁移到 LangGraph**。
 
-最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C 和 Phase 2D。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环和独立 `route_phase` 节点，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换。
+最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D 和 Phase 2E。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换。
 
 ## 2. 项目最终目标
 
@@ -535,6 +535,8 @@ Phase 2: LangGraph 单回合等价链路
 补充状态：Phase 2C 已完成。LangGraph runner 已能绑定 26 个工具 schema，按场景生成 `allowed_tools`，执行 tool calls 并把工具结果、时间线事件和状态 delta 合并回图状态。
 
 补充状态：Phase 2D 已完成。`route_phase` 已从 `prepare_turn` 中拆出，成为独立图节点，后续可以从这里扩展探索、战斗、升级分支。
+
+补充状态：Phase 2E 已完成。非战斗阶段工具白名单保留检定、豁免、施法、HP 与状态变化等常见规则结算能力；战斗阶段再额外暴露攻击、先攻、推进回合和结束遭遇工具。
 
 Phase 3: 显式阶段路由
 

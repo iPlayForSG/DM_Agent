@@ -258,7 +258,7 @@ POST /api/v1/games/{game_id}/turns
 - `DMGraphRunner` 目前包含 `prepare_turn -> prepare_context -> draft_response -> finalize_turn` 的最小图骨架。
 - `draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI` 模型节点。
 - 已接入 `execute_tools` 节点，能够执行模型返回的 tool calls，并把 `ToolResult`、`timeline_append` 和 `state_delta` 合并回图状态。
-- 已按当前场景生成 `allowed_tools`，探索阶段默认不暴露大部分战斗结算工具，战斗阶段暴露完整遭遇工具。
+- 已按当前场景生成 `allowed_tools`。非战斗阶段保留检定、豁免、施法、HP 与状态变化等常见规则结算工具；战斗阶段额外暴露遭遇、攻击、先攻、推进回合和结束遭遇工具。
 - 已将 `route_phase` 拆成独立节点，当前负责写入 `phase`、`scene` 和 `allowed_tools`；后续可以从这里扩展条件分支。
 - `DMAgent` 已支持通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 切换到 LangGraph runner。
 - 默认仍使用 `google-adk`，因为 LangGraph 路径还需要更多真实回合 smoke test 后再切默认。
@@ -401,6 +401,7 @@ LangGraph 节点负责：
 - Phase 2B 已完成：依赖已声明并安装到本地 `DM_Agent` conda 环境，OpenAI-compatible 模型节点和运行时切换开关已接入。
 - Phase 2C 已完成：LangGraph 工具调用循环和第一版阶段化工具过滤已接入。
 - Phase 2D 已完成：`route_phase` 已成为独立图节点。
+- Phase 2E 已完成：非战斗阶段工具白名单已补齐常见规则结算能力。
 - 尚未完成：真实模型回合 smoke test、默认后端切换为 `langgraph`、更细的条件分支。
 
 ### Phase 3: 显式阶段路由
