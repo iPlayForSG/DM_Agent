@@ -272,6 +272,7 @@ POST /api/v1/games/{game_id}/turns
 - 已将 `route_phase` 拆成独立节点，当前负责写入 `phase`、`scene` 和 `allowed_tools`；后续可以从这里扩展条件分支。
 - `DMAgent` 已支持通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 切换到 LangGraph runner。
 - 默认仍使用 `google-adk`，因为 LangGraph 路径还需要更多真实回合 smoke test 后再切默认。
+- LangGraph 模型节点会捕获 provider 调用异常并返回安全的回合失败信息，避免 API 直接抛出堆栈。
 - `dm_graph.py` 使用可选导入保护，依赖缺失时不会影响默认 ADK 路径启动。
 
 ### 6.2 建议图状态
@@ -412,7 +413,8 @@ LangGraph 节点负责：
 - Phase 2C 已完成：LangGraph 工具调用循环和第一版阶段化工具过滤已接入。
 - Phase 2D 已完成：`route_phase` 已成为独立图节点。
 - Phase 2E 已完成：非战斗阶段工具白名单已补齐常见规则结算能力。
-- 尚未完成：真实模型回合 smoke test、默认后端切换为 `langgraph`、更细的条件分支。
+- Phase 2F 已完成：模型 provider 异常兜底已接入；真实 GLM smoke test 已确认请求到达 Z.AI，当前被 provider 余额 / 资源包错误阻断，LangGraph 路径会返回安全失败信息而不是堆栈。
+- 尚未完成：provider 资源可用后的完整模型 + 工具调用 smoke test、默认后端切换为 `langgraph`、更细的条件分支。
 
 ### Phase 3: 显式阶段路由
 

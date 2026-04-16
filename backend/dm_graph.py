@@ -558,7 +558,16 @@ class DMGraphRunner:
                 HumanMessage(content=graph_state.get("user_input", "")),
             ]
         model = self._create_tool_bound_model(graph_state.get("allowed_tools", []))
-        response = model.invoke(messages)
+        try:
+            response = model.invoke(messages)
+        except Exception as exc:
+            return {
+                "messages": messages,
+                "final_response": (
+                    "The model provider rejected this turn before completion "
+                    f"({exc.__class__.__name__}). Check provider quota and API settings."
+                ),
+            }
         final_response = self._extract_message_content(response)
         result: DMGraphState = {"messages": [*messages, response]}
         if final_response:
