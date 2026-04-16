@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
+from agent_tools import AgentToolExecution, AgentToolService
 from game_logic import DiceRoller, GameLogic
 from models import (
     Character,
@@ -66,6 +67,11 @@ class DMAgent:
         self.monster_storage = MonsterStorage()
         self.rules_catalog = RuleCatalog()
         self.rag_engine = RAGEngine()
+        self.tool_service = AgentToolService(
+            rag_engine=self.rag_engine,
+            monster_storage=self.monster_storage,
+            rules_catalog=self.rules_catalog,
+        )
 
         if self.api_key:
             os.environ.setdefault("OPENAI_API_KEY", self.api_key)
@@ -149,7 +155,450 @@ class DMAgent:
             current_delta = dict(tool_context.state.get("state_delta", {}))
             tool_context.state["state_delta"] = merge_patch(current_delta, state_patch)
 
+    def _store_tool_execution(
+        self,
+        tool_context: ToolContext,
+        state: GameState,
+        execution: AgentToolExecution,
+    ) -> None:
+        self._store_runtime_state(
+            tool_context,
+            state,
+            tool_result=execution.tool_result,
+            state_patch=execution.state_patch,
+            timeline_event=execution.timeline_event,
+        )
+
+    def _run_agent_tool(
+        self,
+        tool_context: ToolContext,
+        tool_call,
+        *args,
+        include_ok: bool = True,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        state = self._load_runtime_state(tool_context)
+        execution = tool_call(state, *args, **kwargs)
+        if execution.ok:
+            self._store_tool_execution(tool_context, state, execution)
+        return execution.response(include_ok=include_ok)
+
     def _build_tools(self):
+        # Phase 1 bridge: ADK still owns model orchestration, but tool behavior now lives in a runtime-neutral service.
+        def lookup_rules(
+            query: str,
+            n_results: int = 3,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Search the local D&D rules knowledge base for relevant snippets and sources."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.lookup_rules,
+                query=query,
+                n_results=n_results,
+            )
+
+        def roll_dice(expression: str, reason: str = "", tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Roll dice locally. Use this for checks, saves, attacks, damage, healing, and random outcomes."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.roll_dice,
+                expression=expression,
+                reason=reason,
+                include_ok=False,
+            )
+
+        def adjust_hp(
+            target_ref: str,
+            amount: int,
+            reason: str = "",
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Adjust HP for a party character or encounter combatant. Positive heals, negative deals damage."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.adjust_hp,
+                target_ref=target_ref,
+                amount=amount,
+                reason=reason,
+            )
+
+        def add_status(target_ref: str, status: str, tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Add a condition or status effect to a tracked party character or encounter combatant."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.add_status,
+                target_ref=target_ref,
+                status=status,
+            )
+
+        def remove_status(target_ref: str, status: str, tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Remove a condition or status effect from a tracked party character or encounter combatant."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.remove_status,
+                target_ref=target_ref,
+                status=status,
+            )
+
+        def append_adventure_log(entry: str, tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Append an important story event to the adventure log."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.append_adventure_log,
+                entry=entry,
+            )
+
+        def add_inventory_item(
+            character_ref: str,
+            item_name: str,
+            quantity: int = 1,
+            item_type: str = "misc",
+            notes: str = "",
+            source: str = "",
+            tags: Optional[List[str]] = None,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Add a named item, clue, or piece of loot to a character inventory."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.add_inventory_item,
+                character_ref=character_ref,
+                item_name=item_name,
+                quantity=quantity,
+                item_type=item_type,
+                notes=notes,
+                source=source,
+                tags=tags,
+            )
+
+        def record_evidence(
+            title: str,
+            summary: str,
+            holder_ref: str = "",
+            source_ref: str = "",
+            location: str = "",
+            tags: Optional[List[str]] = None,
+            add_to_inventory: bool = True,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Persist a clue or document as structured evidence and optionally place it in inventory."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.record_evidence,
+                title=title,
+                summary=summary,
+                holder_ref=holder_ref,
+                source_ref=source_ref,
+                location=location,
+                tags=tags,
+                add_to_inventory=add_to_inventory,
+            )
+
+        def record_search_outcome(
+            searcher_ref: str,
+            target_ref: str,
+            summary: str,
+            location: str = "",
+            recovered_items: Optional[List[str]] = None,
+            recovered_evidence_ids: Optional[List[str]] = None,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Record the structured result of searching a body, room, or suspect."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.record_search_outcome,
+                searcher_ref=searcher_ref,
+                target_ref=target_ref,
+                summary=summary,
+                location=location,
+                recovered_items=recovered_items,
+                recovered_evidence_ids=recovered_evidence_ids,
+            )
+
+        def record_major_experience(
+            character_ref: str,
+            entry: str,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Record a major experience or milestone on a character sheet."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.record_major_experience,
+                character_ref=character_ref,
+                entry=entry,
+            )
+
+        def record_chapter_progress(
+            chapter_title: str,
+            summary: str,
+            chapter_number: int = 0,
+            completed: bool = False,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Persist the current chapter title and summary, optionally marking it complete."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.record_chapter_progress,
+                chapter_title=chapter_title,
+                summary=summary,
+                chapter_number=chapter_number,
+                completed=completed,
+            )
+
+        def set_defeat_state(
+            target_ref: str,
+            defeat_state: str,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Set a tracked combatant or character defeat state such as active, unconscious, captured, or dead."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.set_defeat_state,
+                target_ref=target_ref,
+                defeat_state=defeat_state,
+            )
+
+        def set_scene(scene: str, tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Set the current scene. Preferred values: setup, exploration, combat, downtime."""
+            return self._run_agent_tool(tool_context, self.tool_service.set_scene, scene=scene)
+
+        def set_active_character(character_ref: str, tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Switch the active character to the specified party member."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.set_active_character,
+                character_ref=character_ref,
+            )
+
+        def start_encounter(
+            enemy_names: List[str],
+            enemy_hp: int = 10,
+            enemy_ac: int = 10,
+            auto_roll_initiative: bool = True,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Start a combat encounter and add enemy combatants."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.start_encounter,
+                enemy_names=enemy_names,
+                enemy_hp=enemy_hp,
+                enemy_ac=enemy_ac,
+                auto_roll_initiative=auto_roll_initiative,
+            )
+
+        def add_enemy(
+            name: str,
+            hp_max: int = 10,
+            ac: int = 10,
+            initiative_bonus: int = 0,
+            side: str = "enemy",
+            auto_roll_initiative: bool = True,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Add a new enemy combatant to the current encounter."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.add_enemy,
+                name=name,
+                hp_max=hp_max,
+                ac=ac,
+                initiative_bonus=initiative_bonus,
+                side=side,
+                auto_roll_initiative=auto_roll_initiative,
+            )
+
+        def save_monster_template(
+            name: str,
+            creature_type: str = "Beast",
+            challenge_rating: str = "1",
+            hp_max: int = 10,
+            ac: int = 10,
+            initiative_bonus: int = 0,
+            size: str = "Medium",
+            alignment: str = "Unaligned",
+            speed: int = 30,
+            notes: str = "",
+            traits: Optional[List[str]] = None,
+            actions: Optional[List[str]] = None,
+            reactions: Optional[List[str]] = None,
+            bonus_actions: Optional[List[str]] = None,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Persist a reusable monster template designed during play."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.save_monster_template,
+                name=name,
+                creature_type=creature_type,
+                challenge_rating=challenge_rating,
+                hp_max=hp_max,
+                ac=ac,
+                initiative_bonus=initiative_bonus,
+                size=size,
+                alignment=alignment,
+                speed=speed,
+                notes=notes,
+                traits=traits,
+                actions=actions,
+                reactions=reactions,
+                bonus_actions=bonus_actions,
+            )
+
+        def spawn_monster_from_template(
+            monster_ref: str,
+            quantity: int = 1,
+            custom_name: str = "",
+            hp_override: int = 0,
+            side: str = "enemy",
+            auto_roll_initiative: bool = True,
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Spawn one or more combatants from a saved monster template."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.spawn_monster_from_template,
+                monster_ref=monster_ref,
+                quantity=quantity,
+                custom_name=custom_name,
+                hp_override=hp_override,
+                side=side,
+                auto_roll_initiative=auto_roll_initiative,
+            )
+
+        def attack_target(
+            attacker_ref: str,
+            target_ref: str,
+            attack_bonus: int,
+            damage_expression: str,
+            damage_type: str = "",
+            resolution_mode: str = "normal",
+            reason: str = "",
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Resolve an attack roll against target AC and apply damage on hit."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.attack_target,
+                attacker_ref=attacker_ref,
+                target_ref=target_ref,
+                attack_bonus=attack_bonus,
+                damage_expression=damage_expression,
+                damage_type=damage_type,
+                resolution_mode=resolution_mode,
+                reason=reason,
+            )
+
+        def roll_skill_check(
+            actor_ref: str,
+            skill_name: str,
+            modifier: Optional[int] = None,
+            dc: int = 0,
+            reason: str = "",
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Roll a skill check against an optional DC."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.roll_skill_check,
+                actor_ref=actor_ref,
+                skill_name=skill_name,
+                modifier=modifier,
+                dc=dc,
+                reason=reason,
+            )
+
+        def roll_saving_throw(
+            target_ref: str,
+            save_name: str,
+            dc: int,
+            modifier: Optional[int] = None,
+            reason: str = "",
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Roll a saving throw against a DC."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.roll_saving_throw,
+                target_ref=target_ref,
+                save_name=save_name,
+                dc=dc,
+                modifier=modifier,
+                reason=reason,
+            )
+
+        def cast_spell(
+            caster_ref: str,
+            spell_name: str,
+            slot_level: int = 0,
+            reason: str = "",
+            tool_context: ToolContext = None,
+        ) -> Dict[str, Any]:
+            """Validate prepared/known spell access and spend a spell slot if required."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.cast_spell,
+                caster_ref=caster_ref,
+                spell_name=spell_name,
+                slot_level=slot_level,
+                reason=reason,
+            )
+
+        def set_initiative(combatant_ref: str, initiative: int, tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Set a combatant initiative score directly."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.set_initiative,
+                combatant_ref=combatant_ref,
+                initiative=initiative,
+            )
+
+        def roll_initiative(combatant_ref: str, tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Roll initiative for a combatant using 1d20 plus initiative bonus."""
+            return self._run_agent_tool(
+                tool_context,
+                self.tool_service.roll_initiative,
+                combatant_ref=combatant_ref,
+            )
+
+        def advance_turn(tool_context: ToolContext = None) -> Dict[str, Any]:
+            """Advance the encounter to the next combatant."""
+            return self._run_agent_tool(tool_context, self.tool_service.advance_turn)
+
+        def end_encounter(tool_context: ToolContext = None) -> Dict[str, Any]:
+            """End the current encounter and leave combat scene."""
+            return self._run_agent_tool(tool_context, self.tool_service.end_encounter)
+
+        return [
+            lookup_rules,
+            roll_dice,
+            adjust_hp,
+            add_status,
+            remove_status,
+            append_adventure_log,
+            add_inventory_item,
+            record_evidence,
+            record_search_outcome,
+            record_major_experience,
+            record_chapter_progress,
+            set_defeat_state,
+            set_scene,
+            set_active_character,
+            start_encounter,
+            add_enemy,
+            save_monster_template,
+            spawn_monster_from_template,
+            attack_target,
+            roll_skill_check,
+            roll_saving_throw,
+            cast_spell,
+            set_initiative,
+            roll_initiative,
+            advance_turn,
+            end_encounter,
+        ]
+
         # Tool closures are defined here so each turn gets a fresh view of runtime state.
         def _combatant_ability_modifier(combatant, ability_name: str) -> int:
             attr = ABILITY_ALIAS.get(ability_name, ability_name).lower()
