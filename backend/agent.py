@@ -74,6 +74,7 @@ class DMAgent:
         )
         self.dm_graph_runner = DMGraphRunner(
             rag_engine=self.rag_engine,
+            tool_service=self.tool_service,
             model_name=self.model_name,
             api_key=self.api_key,
             base_url=self.base_url,
