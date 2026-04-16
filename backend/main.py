@@ -696,7 +696,7 @@ def _load_game_or_404(game_id: str) -> GameState:
     return state
 
 
-# Deterministic local action routes complement the freer ADK text turns.
+# Deterministic local action routes complement the freer LangGraph text turns.
 @app.post("/api/v1/games/{game_id}/actions/advance-turn")
 async def advance_turn_action(game_id: str):
     state = _load_game_or_404(game_id)

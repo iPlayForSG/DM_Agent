@@ -356,7 +356,7 @@ class CampaignFlowState(BaseModel):
         return None
 
 
-# Timeline and combat state power both the UI and the ADK runtime state.
+# Timeline and combat state power both the UI and the LangGraph runtime state.
 class SessionEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

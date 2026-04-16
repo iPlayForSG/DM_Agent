@@ -1,10 +1,10 @@
 # DM_Agent
 
-DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目通过 FastAPI 后端、React/Vite 前端、Google ADK 编排层，以及一组确定性的本地游戏状态工具，维护跑团过程中的掷骰、战斗动作、物品、证物和章节进度。
+DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目通过 FastAPI 后端、React/Vite 前端、LangGraph 编排层，以及一组确定性的本地游戏状态工具，维护跑团过程中的掷骰、战斗动作、物品、证物和章节进度。
 
 ## 项目内容
 
-- `backend/`：FastAPI API、ADK Agent 封装、本地游戏逻辑、规则目录、存储工具和 RAG 接入代码。
+- `backend/`：FastAPI API、LangGraph Agent 封装、本地游戏逻辑、规则目录、存储工具和 RAG 接入代码。
 - `frontend/`：React/Vite 前端应用。
 - `BACKEND_API_DESIGN.md`、`FRONTEND_API_DESIGN.md`、`Walkthrough.md`：当前设计说明和交接文档。
 
@@ -31,7 +31,7 @@ copy .env.example .env
 python main.py
 ```
 
-在 `.env` 中配置 OpenAI-compatible 接口。后端会通过 Google ADK 和 LiteLLM 调用该接口。
+在 `.env` 中配置 OpenAI-compatible 接口。后端会通过 LangGraph 和 LangChain 调用该接口。
 
 ## 前端运行
 

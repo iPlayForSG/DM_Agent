@@ -14,9 +14,9 @@
 6. 最小遭遇与战斗状态。
 7. 本地确定性动作接口。
 8. RAG / 本地规则检索入口。
-9. Google ADK + LiteLLM 驱动的 DM 对话链路。
+9. LangGraph + LangChain 驱动的 DM 对话链路。
 
-接下来后端重构的核心目标是：**把当前 ADK 单回合 Agent 链路重构为 LangGraph 显式流程图**，使 DM 回合的阶段、工具、状态更新和校验都更可控。
+当前后端重构的核心目标是：**用 LangGraph 显式流程图完全替换原 ADK 单回合 Agent 链路**，使 DM 回合的阶段、工具、状态更新和校验都更可控。
 
 ## 2. 设计原则
 
@@ -25,7 +25,7 @@
 3. 本地规则逻辑优先于模型自由判断。
 4. 工具调用必须被阶段和状态约束。
 5. RAG 只作为规则片段检索，不把大段资料长期塞进系统提示词。
-6. 前端不应该感知 ADK 或 LangGraph 的内部差异。
+6. 前端不应该感知 Agent 编排框架的内部细节。
 7. 后续所有 Agent 写入都应能形成 `tool_results`、`state_delta` 和 `timeline_append`。
 
 ## 2.1 当前模型配置
@@ -107,7 +107,7 @@ LangGraph 重构后该响应结构保持兼容。
 - `GET /api/v1/health`
 - `GET /api/v1/config`
 
-`GET /api/v1/config` 当前返回 `chat_backend: "google-adk"`。完成 LangGraph 替换后应改为：
+`GET /api/v1/config` 当前返回：
 
 ```json
 {
@@ -202,9 +202,9 @@ LangGraph 重构后该响应结构保持兼容。
 
 这些接口在激活遭遇中会校验当前行动者，拒绝非当前回合持有者的本地动作请求。
 
-## 5. 当前 ADK 工具能力
+## 5. 当前 LangGraph 工具能力
 
-当前 `DMAgent` 通过 ADK tools 暴露的能力包括：
+当前 `DMAgent` 通过 LangGraph tool calling 暴露的能力包括：
 
 - `lookup_rules`
 - `roll_dice`
@@ -231,15 +231,15 @@ LangGraph 重构后该响应结构保持兼容。
 - `advance_turn`
 - `end_encounter`
 
-重构目标不是删除这些能力，而是把它们从 ADK `ToolContext` 闭包中拆出来，变成框架无关的本地 tool/service，再由 LangGraph 节点调用。
+这些能力已经从原 ADK `ToolContext` 闭包中拆出，变成框架无关的本地 tool/service，再由 LangGraph 节点调用。
 
 当前进展：
 
 - 已新增 `backend/agent_tools.py`。
 - 已引入 `AgentToolService` 与 `AgentToolExecution`，用于承载框架无关工具执行结果。
-- 当前 ADK tool wrapper 已开始委托到 `AgentToolService`。
-- `agent.py` 仍保留 ADK orchestration 外壳，下一阶段再接入 LangGraph runner。
-- `_build_tools()` 中迁移前的不可达旧闭包代码已经删除，ADK wrapper 现在只保留委托到 `AgentToolService` 的薄封装。
+- LangGraph 工具执行节点已委托到 `AgentToolService`。
+- `agent.py` 已变为 LangGraph-only facade，不再保留 ADK orchestration 外壳。
+- 原 ADK wrapper 与 `_build_tools()` 已删除。
 
 ## 6. LangGraph 重构目标
 
@@ -265,15 +265,15 @@ POST /api/v1/games/{game_id}/turns
 
 - 已新增 `backend/dm_graph.py`。
 - 已声明 `langgraph`、`langchain`、`langchain-openai` 后端依赖。
-- `DMGraphRunner` 目前包含 `prepare_turn -> prepare_context -> draft_response -> finalize_turn` 的最小图骨架。
+- `DMGraphRunner` 目前包含 `prepare_turn -> route_phase -> prepare_context -> draft_response -> execute_tools -> finalize_turn` 的单回合图。
 - `draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI` 模型节点。
 - 已接入 `execute_tools` 节点，能够执行模型返回的 tool calls，并把 `ToolResult`、`timeline_append` 和 `state_delta` 合并回图状态。
 - 已按当前场景生成 `allowed_tools`。非战斗阶段保留检定、豁免、施法、HP 与状态变化等常见规则结算工具；战斗阶段额外暴露遭遇、攻击、先攻、推进回合和结束遭遇工具。
 - 已将 `route_phase` 拆成独立节点，当前负责写入 `phase`、`scene` 和 `allowed_tools`；后续可以从这里扩展条件分支。
-- `DMAgent` 已支持通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 切换到 LangGraph runner。
-- 默认仍使用 `google-adk`，因为 LangGraph 路径还需要更多真实回合 smoke test 后再切默认。
+- `DMAgent` 已固定使用 LangGraph runner，不再支持 ADK 后端切换。
+- 默认后端已切换为 `langgraph`。
 - LangGraph 模型节点直接调用模型 provider，不再吞掉 provider 异常；真实 smoke test 需要直接暴露 provider 与工具调用链路问题。
-- `dm_graph.py` 使用可选导入保护，依赖缺失时不会影响默认 ADK 路径启动。
+- `dm_graph.py` 使用可选导入保护，依赖缺失时会在 LangGraph runner 初始化或执行阶段显式报错。
 
 ### 6.2 建议图状态
 
@@ -351,7 +351,7 @@ DMGraphState
 - `backend/dm_graph.py`
 - `backend/tool_registry.py`
 
-工具函数不应该依赖 ADK `ToolContext` 或 LangGraph runtime；它们应接收显式参数：
+工具函数不应该依赖 LangGraph runtime；它们应接收显式参数：
 
 ```text
 tool(state: GameState, args: ToolArgs, services: ToolServices) -> ToolExecutionResult
@@ -376,20 +376,20 @@ LangGraph 节点负责：
 
 目标：
 
-- 保持 ADK 仍可运行。
+- 保持 HTTP API 契约不变。
 - 把 `agent.py` 中的工具闭包逐步拆到框架无关模块。
 - 工具结果结构统一。
 
 验收：
 
-- ADK 旧链路仍能跑通。
+- LangGraph 工具链路能跑通。
 - 本地动作接口不回退。
 - `python -m compileall backend` 通过。
 
 当前状态：
 
 - Phase 1A 已完成：`backend/agent_tools.py` 已承载当前 Agent 工具执行逻辑。
-- ADK wrapper 已经通过 `_run_agent_tool()` 调用新工具服务。
+- LangGraph 工具节点已经通过 `AgentToolService` 调用新工具服务。
 - Phase 1B 已完成：`_build_tools()` 中迁移前的旧闭包参考代码已经删除。
 
 ### Phase 2: 建立 LangGraph 单回合等价链路
@@ -398,7 +398,7 @@ LangGraph 节点负责：
 
 - 新增 LangGraph runner。
 - 保持 `DMAgent.run_turn()` 对外签名不变。
-- 用 LangGraph 完成当前 ADK 同等能力。
+- 用 LangGraph 完成原 ADK 同等能力。
 
 验收：
 
@@ -414,7 +414,8 @@ LangGraph 节点负责：
 - Phase 2D 已完成：`route_phase` 已成为独立图节点。
 - Phase 2E 已完成：非战斗阶段工具白名单已补齐常见规则结算能力。
 - Phase 2F 已完成：Z.AI GLM-5.1 可用后，LangGraph 普通探索回合和要求模型调用 `roll_dice` 的工具回合 smoke test 均已通过；模型节点恢复为直接 `model.invoke(...)`，不做 provider 异常兜底。
-- 尚未完成：默认后端切换为 `langgraph`、更细的条件分支。
+- Phase 2G 已完成：`agent.py` 已删除 ADK orchestration，后端依赖已移除 `google-adk` 与 `litellm`，`DMAgent` 固定委托到 LangGraph。
+- 尚未完成：更细的条件分支、显式 RAG 节点、节点级状态校验。
 
 ### Phase 3: 显式阶段路由
 

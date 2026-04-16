@@ -1,10 +1,8 @@
 fastapi
 uvicorn
-google-adk
 langchain
 langchain-openai
 langgraph
-litellm
 python-dotenv
 pydantic
 chromadb

@@ -41,7 +41,7 @@ class AgentToolExecution:
 
 
 class AgentToolService:
-    """Runs DM tools without depending on ADK or LangGraph runtime objects."""
+    """Runs DM tools without depending on orchestration runtime objects."""
 
     def __init__(
         self,
