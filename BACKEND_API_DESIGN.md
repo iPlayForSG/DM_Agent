@@ -1,111 +1,55 @@
-# 后端顶层 API 设计
+# 后端 API 设计与 LangGraph 重构计划
 
-## 当前定位
+## 1. 当前定位
+
+后端是 DM Agent 的权威状态层和规则执行层。大模型负责叙事、判断意图和提出工具调用，但游戏事实必须落在本地结构化状态里。
 
 当前后端已经具备：
 
-1. 规则目录驱动的角色创建
-2. 初始剧本生成与选择流程
-3. 怪物模板保存与实例化
-4. 最小遭遇/战斗状态
-5. ADK 驱动的 DM 对话
-6. 可直接调用的本地动作接口
-7. 已正式接入 Agent 的本地规则检索工具
+1. FastAPI 顶层 HTTP API。
+2. 本地 JSON 存档。
+3. 角色创建规则目录。
+4. 初始冒险生成与选择流程。
+5. 怪物模板保存与遭遇实例化。
+6. 最小遭遇与战斗状态。
+7. 本地确定性动作接口。
+8. RAG / 本地规则检索入口。
+9. Google ADK + LiteLLM 驱动的 DM 对话链路。
 
-当前 RAG 运行链路约定为：
+接下来后端重构的核心目标是：**把当前 ADK 单回合 Agent 链路重构为 LangGraph 显式流程图**，使 DM 回合的阶段、工具、状态更新和校验都更可控。
 
-1. 优先使用持久化 Chroma 向量库
-2. 若 `chromadb` 依赖不可用，则回退到基于 `rg` 的本地 markdown 词法检索
-3. Agent 通过 `lookup_rules` 工具显式拉取规则片段，而不是把大段检索文本永久塞进系统提示词
+## 2. 设计原则
 
-## 规则目录
+1. `GameState` 是唯一权威游戏状态。
+2. HTTP API 尽量保持兼容，优先重构内部实现。
+3. 本地规则逻辑优先于模型自由判断。
+4. 工具调用必须被阶段和状态约束。
+5. RAG 只作为规则片段检索，不把大段资料长期塞进系统提示词。
+6. 前端不应该感知 ADK 或 LangGraph 的内部差异。
+7. 后续所有 Agent 写入都应能形成 `tool_results`、`state_delta` 和 `timeline_append`。
 
-规则目录数据来自：
+## 3. 核心数据模型
 
-- `backend/data/character_builder_2024.json`
-- `backend/rules_catalog.py`
+### 3.1 GameState
 
-当前规则目录已覆盖：
+`GameState` 是游戏存档主体，当前关键字段包括：
 
-1. 种族/物种
-2. 背景
-3. 起源专长
-4. 职业目录
-5. 职业技能选择
-6. 起始法术位
-7. 起始职业资源
-8. 起始装备
+- `characters`
+- `active_character_id`
+- `scene`
+- `turn_number`
+- `adventure_log`
+- `evidence_records`
+- `search_records`
+- `chat_history`
+- `timeline`
+- `latest_tool_results`
+- `encounter`
+- `campaign`
 
-`GET /api/v1/rules/character-builder` 当前返回的每个职业定义也包含前端可直接消费的：
+重构后仍保持 `GameState` 为 API 和存档的主体模型。LangGraph 内部可以使用字典或 TypedDict 承载图状态，但进入和离开图时必须严格转换为 `GameState`。
 
-- `starting_cantrips`
-- `starter_equipment_options`
-- `starter_equipment`
-- `resources`
-- `starting_spell_slots`
-- `starting_prepared_spells`
-
-当前角色保存会自动填充：
-
-- `save_proficiencies`
-- `spells.ability`
-- `spells.casting_mode`
-- `spells.slots`
-- `resources`
-- `inventory`
-- `gold_gp`
-- 基础 `ac`
-
-其中起始装备当前支持通过 `starter_option_id` 选择目录中的装备包，再由后端自动补全对应的 `inventory` 和 `gold_gp`。
-`starter_equipment_options` 当前支持真实多分支包，例如 `package_a / package_b / package_c`，并允许某个分支只提供金币而不提供物品。
-若某个起始包包含二级选择，则通过 `starter_choice_ids` 指定具体选项，再由后端解析成最终物品。
-
-当前已落地的二级选择组示例包括：
-
-- `musical_instrument`
-- `tool_or_instrument`
-- `holy_symbol`
-- `druidic_focus`
-
-当前 level 1 角色校验也会优先使用职业目录中的：
-
-- `starting_cantrips`
-- `starting_prepared_spells`
-
-并要求戏法与已准备法术数量都与目录值一致，而不是旧的属性调整值推导。
-
-## 核心数据
-
-### Character
-
-角色当前包含这些关键字段：
-
-- `species`
-- `background_name`
-- `origin_feat`
-- `starter_option_id`
-- `starter_choice_ids`
-- `gold_gp`
-- `skill_proficiencies`
-- `save_proficiencies`
-- `resources`
-- `spells`
-- `inventory`
-- `major_experiences`
-
-其中 `spells` 当前至少包括：
-
-- `cantrips`
-- `prepared`
-- `slots`
-- `ability`
-- `casting_mode`
-
-### MonsterTemplate
-
-怪物模板是长期资产层，可由 AI 保存，并在遭遇系统中实例化为敌人。
-
-### CampaignFlowState
+### 3.2 CampaignFlowState
 
 当前流程阶段包括：
 
@@ -116,19 +60,141 @@
 - `combat`
 - `level_up`
 
-### EncounterState
+LangGraph 重构后，`campaign.phase` 与 `scene` 将成为图路由的重要输入。
 
-最小战斗状态当前包含：
+### 3.3 EncounterState
 
-- 轮次
-- 当前行动者
-- 先攻序列
-- 战斗单位
-- 战斗单位与角色/怪物模板的关联
+当前遭遇状态包括：
 
-## ADK 工具
+- `active`
+- `round_number`
+- `current_combatant_id`
+- `turn_order_started`
+- `initiative_order`
+- `combatants`
 
-当前 ADK 工具包括：
+战斗阶段的图节点必须继续遵守当前行动者约束，不能允许模型绕过本地回合规则。
+
+### 3.4 TurnResult
+
+`POST /api/v1/games/{game_id}/turns` 当前返回：
+
+- `response`
+- `history`
+- `history_append`
+- `timeline`
+- `timeline_append`
+- `tool_results`
+- `state_delta`
+- `game_state`
+
+LangGraph 重构后该响应结构保持兼容。
+
+## 4. 当前 HTTP API
+
+### 4.1 基础接口
+
+- `GET /api/v1/health`
+- `GET /api/v1/config`
+
+`GET /api/v1/config` 当前返回 `chat_backend: "google-adk"`。完成 LangGraph 替换后应改为：
+
+```json
+{
+  "chat_backend": "langgraph",
+  "model_provider": "openai-compatible"
+}
+```
+
+### 4.2 规则目录
+
+- `GET /api/v1/rules/character-builder`
+
+该接口返回角色创建器所需规则目录，包括物种、背景、起源专长、职业、起始资源、起始装备、起始法术和职业法术位。
+
+### 4.3 RAG / 知识检索
+
+- `POST /api/v1/rag/search`
+
+该接口主要用于手动验证知识库是否可检索。Agent 侧继续通过工具调用进入同一套底层检索逻辑。
+
+当前 RAG 链路约定：
+
+1. 优先使用持久化 Chroma 向量库。
+2. 如果 `chromadb` 不可用，则回退到基于 `rg` 的本地 markdown 检索。
+3. Agent 通过规则检索工具显式拉取片段，不把大段检索文本永久写入系统提示词。
+
+### 4.4 资料接口
+
+- `GET /api/v1/library/classes`
+- `GET /api/v1/library/spells/{class_name}`
+
+`GET /api/v1/library/spells/{class_name}` 会经过 `RuleCatalog.resolve_spell_library_key()` 做兼容映射，避免历史编码或职业名称差异直接影响前端。
+
+### 4.5 角色接口
+
+- `GET /api/v1/characters`
+- `POST /api/v1/characters`
+- `GET /api/v1/characters/{identifier}`
+
+角色保存时会自动补全或校验：
+
+- `save_proficiencies`
+- `spells.ability`
+- `spells.casting_mode`
+- `spells.slots`
+- `resources`
+- `inventory`
+- `gold_gp`
+- 基础 `ac`
+
+### 4.6 怪物模板接口
+
+- `GET /api/v1/monsters`
+- `POST /api/v1/monsters`
+- `GET /api/v1/monsters/{identifier}`
+
+怪物模板是长期资产，可以由 DM Agent 保存，并在遭遇系统中实例化为敌方或其他阵营的 combatant。
+
+### 4.7 游戏流程接口
+
+- `GET /api/v1/games`
+- `POST /api/v1/games`
+- `GET /api/v1/games/{game_id}`
+- `GET /api/v1/games/{game_id}/action-options`
+- `POST /api/v1/games/{game_id}/select-adventure`
+- `POST /api/v1/games/{game_id}/turns`
+
+`POST /api/v1/games/{game_id}/turns` 是 Agent 回合入口。LangGraph 重构必须保持该接口的输入输出兼容。
+
+### 4.8 遭遇接口
+
+- `POST /api/v1/games/{game_id}/encounters/start`
+- `POST /api/v1/games/{game_id}/encounters/add-enemy`
+- `POST /api/v1/games/{game_id}/encounters/spawn-template`
+- `POST /api/v1/games/{game_id}/encounters/end`
+- `POST /api/v1/games/{game_id}/encounters/remove-combatant`
+- `POST /api/v1/games/{game_id}/encounters/set-initiative`
+- `POST /api/v1/games/{game_id}/encounters/roll-initiative`
+
+这些接口由本地逻辑直接执行，不依赖大模型。
+
+`encounters/end` 会通过 `GameLogic` 的统一总结入口结束遭遇，返回结构化遭遇摘要，并把文本摘要追加到 `adventure_log`。
+
+### 4.9 本地确定性动作接口
+
+- `POST /api/v1/games/{game_id}/actions/advance-turn`
+- `POST /api/v1/games/{game_id}/actions/attack`
+- `POST /api/v1/games/{game_id}/actions/skill-check`
+- `POST /api/v1/games/{game_id}/actions/saving-throw`
+- `POST /api/v1/games/{game_id}/actions/cast-spell`
+- `POST /api/v1/games/{game_id}/actions/use-item`
+
+这些接口在激活遭遇中会校验当前行动者，拒绝非当前回合持有者的本地动作请求。
+
+## 5. 当前 ADK 工具能力
+
+当前 `DMAgent` 通过 ADK tools 暴露的能力包括：
 
 - `lookup_rules`
 - `roll_dice`
@@ -155,149 +221,227 @@
 - `advance_turn`
 - `end_encounter`
 
-其中 `end_encounter` 现在与公开 `POST /api/v1/games/{game_id}/encounters/end` 共用同一套遭遇总结逻辑：都会生成同样的结果摘要，并把摘要写入 `adventure_log`。
-其中 `attack_target` 现在也支持非致命/俘获结果；剧情推进时可把证物、重大经历和章节收束结构化写回游戏状态。
-其中 `lookup_rules` 会查询本地知识库，返回带来源路径的规则片段；当前配置下若向量库依赖不可用，会自动退回本地 markdown 词法检索。
+重构目标不是删除这些能力，而是把它们从 ADK `ToolContext` 闭包中拆出来，变成框架无关的本地 tool/service，再由 LangGraph 节点调用。
 
-## HTTP API
+## 6. LangGraph 重构目标
 
-### 基础
+### 6.1 目标流程
 
-- `GET /api/v1/health`
-- `GET /api/v1/config`
+```text
+POST /api/v1/games/{game_id}/turns
+  -> load GameState
+  -> DMGraph.invoke(...)
+     -> prepare_turn
+     -> route_phase
+     -> prepare_context
+     -> retrieve_rules
+     -> call_dm_model
+     -> execute_tool_calls
+     -> validate_state
+     -> finalize_turn
+  -> save GameState
+  -> return TurnResult
+```
 
-### 规则目录
+### 6.2 建议图状态
 
-- `GET /api/v1/rules/character-builder`
+```text
+DMGraphState
+  game_state: dict
+  user_input: str
+  phase: str
+  scene: str
+  messages: list
+  state_summary: str
+  recent_history: str
+  rule_snippets: list
+  allowed_tools: list[str]
+  pending_tool_calls: list
+  tool_results: list
+  state_delta: dict
+  timeline_append: list
+  final_response: str
+```
 
-### RAG / 知识检索
+### 6.3 建议节点职责
 
-- `POST /api/v1/rag/search`
+`prepare_turn`
 
-该接口主要用于手工验证当前知识库是否可检索；Agent 侧通过 `lookup_rules` 工具走同一套底层检索逻辑。
+- 深拷贝传入的 `GameState`。
+- 追加玩家事件。
+- 初始化 `tool_results`、`state_delta`、`timeline_append`。
 
-### 资料
+`route_phase`
 
-- `GET /api/v1/library/classes`
-- `GET /api/v1/library/spells/{class_name}`
+- 根据 `campaign.phase`、`scene`、`encounter.active` 决定当前回合走探索、战斗、升级或冒险选择流程。
 
-其中 `GET /api/v1/library/spells/{class_name}` 会先经过 `RuleCatalog.resolve_spell_library_key()` 的兼容映射，再查询法术库，以兼容英文职业名和历史编码问题。
+`prepare_context`
 
-### 角色
+- 调用 `GameLogic.get_state_summary()`。
+- 读取近期历史。
+- 生成模型需要的最小上下文。
 
-- `GET /api/v1/characters`
-- `POST /api/v1/characters`
-- `GET /api/v1/characters/{identifier}`
+`retrieve_rules`
 
-### 怪物模板
+- 当用户输入或当前阶段需要规则支持时调用本地 RAG。
+- 返回带来源的规则片段。
 
-- `GET /api/v1/monsters`
-- `POST /api/v1/monsters`
-- `GET /api/v1/monsters/{identifier}`
+`call_dm_model`
 
-### 游戏流程
+- 使用 OpenAI-compatible chat model。
+- 将可用工具限制在当前阶段允许范围内。
 
-- `GET /api/v1/games`
-- `POST /api/v1/games`
-- `GET /api/v1/games/{game_id}`
-- `GET /api/v1/games/{game_id}/action-options`
-- `POST /api/v1/games/{game_id}/encounters/start`
-- `POST /api/v1/games/{game_id}/encounters/add-enemy`
-- `POST /api/v1/games/{game_id}/encounters/spawn-template`
-- `POST /api/v1/games/{game_id}/encounters/end`
-- `POST /api/v1/games/{game_id}/encounters/remove-combatant`
-- `POST /api/v1/games/{game_id}/encounters/set-initiative`
-- `POST /api/v1/games/{game_id}/encounters/roll-initiative`
-- `POST /api/v1/games/{game_id}/select-adventure`
-- `POST /api/v1/games/{game_id}/turns`
+`execute_tool_calls`
 
-这些 encounter 接口会在创建或追加敌人时自动补齐遭遇状态，并默认为仍未设置先攻的参战单位自动掷先攻。
-其中 `add-enemy` 与 `spawn-template` 也支持通过 `side` 控制参战阵营；`spawn-template` 额外支持 `custom_name` 与 `hp_override`。
-其中 `encounters/end` 会通过 `GameLogic` 的统一总结入口结束遭遇，返回同一份结构化遭遇摘要，并把文本摘要追加到 `adventure_log`。
-该接口的顶层响应当前会额外包含：
-- `summary`
-- `encounter_summary`
+- 执行模型请求的工具。
+- 工具必须只通过本地 service 修改 `GameState`。
+- 每次工具执行都生成 `ToolResult`。
 
-### 本地确定性动作
+`validate_state`
 
-- `POST /api/v1/games/{game_id}/actions/advance-turn`
-- `POST /api/v1/games/{game_id}/actions/attack`
-- `POST /api/v1/games/{game_id}/actions/skill-check`
-- `POST /api/v1/games/{game_id}/actions/saving-throw`
-- `POST /api/v1/games/{game_id}/actions/cast-spell`
-- `POST /api/v1/games/{game_id}/actions/use-item`
+- 校验遭遇状态、当前行动者、资源消耗、法术位、物品数量和状态变更。
+- 对不合法工具调用返回错误结果，而不是让模型直接修改状态。
 
-其中 `attack / skill-check / cast-spell / use-item` 在激活遭遇中会校验当前行动者，拒绝非当前回合持有者的本地动作请求。
-敌方回合仍然由 DM 手动决定动作内容；本地动作接口只负责规则内执行，不提供自动敌方 AI。
-其中 `attack` 当前额外支持 `resolution_mode`，可区分普通伤害、非致命击倒和俘获导向的攻击结算。
+`finalize_turn`
 
-## action-options
+- 追加 DM 回复事件。
+- 更新 `chat_history`。
+- 写入 `latest_tool_results`。
+- 返回兼容的 `TurnResult`。
 
-`GET /api/v1/games/{game_id}/action-options` 当前会返回：
+## 7. 工具分层计划
 
-1. 可选角色与战斗单位引用
-2. 角色的戏法、已准备法术与法术位
-3. 角色的物品列表与金币
-4. 角色的技能/豁免
-5. 角色资源池
-6. 从装备自动推导的攻击项
-7. 从怪物动作文本中尽量解析出的攻击项
+### 7.1 第一层：框架无关工具服务
 
-其中每个角色的 `spells` 当前字段为：
+新增或整理一个工具执行层，例如：
 
-- `cantrips`
-- `prepared`
-- `slots`
-- `options`
+- `backend/agent_tools.py`
+- `backend/dm_graph.py`
+- `backend/tool_registry.py`
 
-其中每个角色当前也会返回：
+工具函数不应该依赖 ADK `ToolContext` 或 LangGraph runtime；它们应接收显式参数：
 
-- `gold_gp`
-- `starter_option_id`
-- `is_current_actor`
-- `defeat_state`
+```text
+tool(state: GameState, args: ToolArgs, services: ToolServices) -> ToolExecutionResult
+```
 
-顶层 `encounter` 当前也会返回：
+### 7.2 第二层：LangGraph 适配层
 
-- `active`
-- `round_number`
-- `current_combatant_id`
-- `current_actor_ref`
-- `current_actor_name`
-- `current_actor_side`
+LangGraph 节点负责：
 
-其中每个 `attacks[]` 项当前字段为：
+- 从图状态取出 `GameState`。
+- 校验当前阶段是否允许该工具。
+- 调用工具服务。
+- 把结果合并回图状态。
 
-- `name`
-- `attack_bonus`
-- `damage_expression`
-- `damage_type`
-- `source`
+### 7.3 第三层：HTTP 复用
 
-## 当前阶段成果
+公开的本地动作 API 应继续复用同一套 service，避免 HTTP 路径和 Agent 路径产生两套规则。
 
-当前后端已经能做到：
+## 8. 阶段化迁移计划
 
-1. 创建角色后自动获得职业起始资源、起始装备和起始法术位
-2. 角色创建页已经可以切换真实起始装备分支并正确落库金币/物品
-3. 部分起始包已经支持包内二级选择并正确解析成最终物品
-4. 战斗面板能通过 `action-options` 获取并自动回填可用攻击项
-5. 施法走本地合法性校验和法术位消耗
-6. 初始剧本选择前禁用自由冒险输入
-7. 敌方回合可以通过本地动作接口在 DM 控制下执行，同时受到当前行动者约束
-8. 遭遇创建已经有公开 HTTP 入口，不再需要内部脚本强行注入敌人
-9. 遭遇公开接口已经支持追加不同阵营的单位，以及在结束遭遇时生成统一结果摘要、写入 `adventure_log` 并回到 exploration
-10. 遭遇公开接口已经支持移除非队友单位，以及公开的手动先攻编辑
-11. 战斗状态现在会在先攻齐备时锁定真正的当前行动者，本地动作不能再越回合抢行动
-12. 结构化状态现在支持证物/战利品写入 `inventory`、重大经历写入 `major_experiences`、以及章节总结落入 `campaign.completed_chapters`
-13. Agent 现在可以通过 `lookup_rules` 查询本地知识库；即使未安装 `chromadb`，也可退回到基于本地 markdown 语料的检索模式
+### Phase 1: 拆出工具执行层
 
-## 当前仍保留的边界
+目标：
 
-当前还没做：
+- 保持 ADK 仍可运行。
+- 把 `agent.py` 中的工具闭包逐步拆到框架无关模块。
+- 工具结果结构统一。
 
-1. 更完整的 2024 角色构建规则
-2. 完整升级模板
-3. 更细的法术、专长、职业特性校验
-4. 更高质量的 RAG 召回、切片与排序
-5. 更完整的战斗动作库
+验收：
+
+- ADK 旧链路仍能跑通。
+- 本地动作接口不回退。
+- `python -m compileall backend` 通过。
+
+### Phase 2: 建立 LangGraph 单回合等价链路
+
+目标：
+
+- 新增 LangGraph runner。
+- 保持 `DMAgent.run_turn()` 对外签名不变。
+- 用 LangGraph 完成当前 ADK 同等能力。
+
+验收：
+
+- `/turns` 返回结构不变。
+- `config.chat_backend` 可以切换为 `langgraph`。
+- 探索对话、工具调用、时间线追加正常。
+
+### Phase 3: 显式阶段路由
+
+目标：
+
+- 按 `campaign.phase` 和 `scene` 划分 graph 路径。
+- 战斗阶段限制工具白名单。
+- 冒险选择、探索、战斗、升级流程分离。
+
+验收：
+
+- 战斗中不允许越过当前行动者执行本地动作。
+- 非战斗阶段不会暴露战斗推进工具。
+- 遭遇结束后正确回到 `exploration`。
+
+### Phase 4: 强化 RAG 与规则守卫
+
+目标：
+
+- RAG 查询成为 graph 中可观察节点。
+- 按阶段和意图决定是否检索规则。
+- 规则片段进入模型上下文前做长度和来源控制。
+
+验收：
+
+- `lookup_rules` 等价能力保留。
+- RAG 不可用时仍有本地 fallback。
+- 工具调用错误能回传给模型修正。
+
+### Phase 5: 可恢复执行与观测
+
+目标：
+
+- 评估是否接入 LangGraph checkpointer。
+- 给每个游戏回合分配 thread/run id。
+- 记录节点级工具执行和状态变更。
+
+验收：
+
+- 失败回合可以定位到节点。
+- 工具副作用具备幂等保护。
+- 长流程中断恢复方案明确。
+
+## 9. 不在本次重构第一阶段处理的内容
+
+以下内容暂不和 LangGraph 替换绑定：
+
+- 完整 D&D 资料 RAG 重切片。
+- 远程数据库存档。
+- 多用户账户系统。
+- Google Cloud / Agent Engine 部署。
+- 完整升级规则。
+- 前端大组件拆分。
+
+这些事项应在 Agent 编排稳定后再逐步推进。
+
+## 10. 后续验证清单
+
+每个后端重构阶段至少执行：
+
+1. `python -m compileall backend`
+2. 前端 `npm run build`
+3. 创建角色 smoke test
+4. 创建游戏 smoke test
+5. 选择冒险 smoke test
+6. `/turns` 普通探索回合 smoke test
+7. 开始遭遇、攻击、推进回合 smoke test
+8. 施法与法术位消耗 smoke test
+9. 结束遭遇并写入 `adventure_log` smoke test
+10. RAG 查询 smoke test
+
+## 11. 重要约束
+
+1. 不要让模型直接写任意 `GameState` JSON。
+2. 不要把工具权限只写在 prompt 中。
+3. 不要为了迁移 LangGraph 改动前端 API 契约。
+4. 不要在第一阶段引入新的持久化基础设施。
+5. 不要把本地 D&D 资料和测试存档纳入 Git。

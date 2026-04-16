@@ -23,6 +23,7 @@ frontend/.vite/
 backend/Game/
 backend/Characters/
 backend/Monsters/
+LOCAL_FRAMEWORK_DECISION.md
 
 # Local D&D source material and generated RAG indexes
 backend/Documents/
