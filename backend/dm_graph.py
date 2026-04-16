@@ -492,13 +492,18 @@ class DMGraphRunner:
         state.timeline.append(player_event)
         return {
             "game_state": state.model_dump(mode="json"),
-            "phase": state.campaign.phase,
-            "scene": state.scene,
-            "allowed_tools": self._allowed_tool_names(state),
             "tool_call_rounds": 0,
             "tool_results": [],
             "state_delta": {},
             "timeline_append": [player_event.model_dump(mode="json")],
+        }
+
+    def _route_phase(self, graph_state: DMGraphState) -> DMGraphState:
+        state = GameState.model_validate(graph_state["game_state"])
+        return {
+            "phase": state.campaign.phase,
+            "scene": state.scene,
+            "allowed_tools": self._allowed_tool_names(state),
         }
 
     def _prepare_context(self, graph_state: DMGraphState) -> DMGraphState:
@@ -683,13 +688,15 @@ class DMGraphRunner:
         self._require_langgraph()
         builder = StateGraph(DMGraphState)
         builder.add_node("prepare_turn", self._prepare_turn)
+        builder.add_node("route_phase", self._route_phase)
         builder.add_node("prepare_context", self._prepare_context)
         model_node = self._call_model if self.enable_model else self._draft_response_placeholder
         builder.add_node("draft_response", model_node)
         builder.add_node("execute_tools", self._execute_tools)
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
-        builder.add_edge("prepare_turn", "prepare_context")
+        builder.add_edge("prepare_turn", "route_phase")
+        builder.add_edge("route_phase", "prepare_context")
         builder.add_edge("prepare_context", "draft_response")
         builder.add_conditional_edges(
             "draft_response",

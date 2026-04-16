@@ -14,7 +14,7 @@
 
 当前下一阶段重点：**重构后端 Agent 编排，从 Google ADK 迁移到 LangGraph**。
 
-最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B 和 Phase 2C。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点和工具调用循环，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换。
+最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C 和 Phase 2D。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环和独立 `route_phase` 节点，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换。
 
 ## 2. 项目最终目标
 
@@ -237,7 +237,7 @@ FastAPI 路由入口，暴露角色、怪物、游戏、规则目录、剧本选
 
 `backend/dm_graph.py`
 
-LangGraph workflow。当前包含 `prepare_turn`、`prepare_context`、`draft_response`、`execute_tools`、`finalize_turn` 节点，用可选导入保护 LangGraph 依赖缺失场景。`draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI`，并在模型返回 tool calls 时路由到 `execute_tools`。
+LangGraph workflow。当前包含 `prepare_turn`、`route_phase`、`prepare_context`、`draft_response`、`execute_tools`、`finalize_turn` 节点，用可选导入保护 LangGraph 依赖缺失场景。`route_phase` 当前负责写入 `phase`、`scene` 和 `allowed_tools`；`draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI`，并在模型返回 tool calls 时路由到 `execute_tools`。
 
 `backend/action_service.py`
 
@@ -533,6 +533,8 @@ Phase 2: LangGraph 单回合等价链路
 补充状态：Phase 2B 已完成。依赖已声明并安装到本地 `DM_Agent` conda 环境，`DMGraphRunner` 已能创建真实模型节点，`DMAgent` 已支持环境变量切换。
 
 补充状态：Phase 2C 已完成。LangGraph runner 已能绑定 26 个工具 schema，按场景生成 `allowed_tools`，执行 tool calls 并把工具结果、时间线事件和状态 delta 合并回图状态。
+
+补充状态：Phase 2D 已完成。`route_phase` 已从 `prepare_turn` 中拆出，成为独立图节点，后续可以从这里扩展探索、战斗、升级分支。
 
 Phase 3: 显式阶段路由
 
