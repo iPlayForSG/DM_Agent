@@ -14,7 +14,7 @@
 
 当前下一阶段重点：**重构后端 Agent 编排，从 Google ADK 迁移到 LangGraph**。
 
-最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D、Phase 2E 和 Phase 2F。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点、第一版阶段化工具白名单和模型 provider 异常兜底，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换。
+最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D、Phase 2E 和 Phase 2F。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换；Z.AI GLM-5.1 下的普通回合与 `roll_dice` 工具回合 smoke test 已通过。
 
 当前本地模型配置已切换为 Z.AI GLM-5.1：`LLM_MODEL=glm-5.1`，base URL 使用 `https://api.z.ai/api/paas/v4/`。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
 
@@ -541,7 +541,7 @@ Phase 2: LangGraph 单回合等价链路
 
 补充状态：Phase 2E 已完成。非战斗阶段工具白名单保留检定、豁免、施法、HP 与状态变化等常见规则结算能力；战斗阶段再额外暴露攻击、先攻、推进回合和结束遭遇工具。
 
-补充状态：Phase 2F 已完成。LangGraph 模型节点现在会捕获 provider 调用异常并返回安全失败信息。当前真实 GLM-5.1 smoke test 已确认请求到达 Z.AI，但被 provider 返回的余额 / 资源包错误阻断；普通探索回合和要求 `roll_dice` 的回合都会返回可控失败响应，不再向 API 上层抛出堆栈。provider 资源可用后，需要补跑完整模型回复和工具调用闭环。
+补充状态：Phase 2F 已完成。真实 GLM-5.1 smoke test 已通过：普通探索回合可以返回模型文本，要求模型调用 `roll_dice` 的回合可以产生 `dice.roll` 工具结果并写入时间线。模型节点已经恢复为直接调用 `model.invoke(...)`，不再做 provider 异常兜底。
 
 Phase 3: 显式阶段路由
 
