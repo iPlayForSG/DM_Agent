@@ -229,7 +229,7 @@ LangGraph 重构后该响应结构保持兼容。
 - 已引入 `AgentToolService` 与 `AgentToolExecution`，用于承载框架无关工具执行结果。
 - 当前 ADK tool wrapper 已开始委托到 `AgentToolService`。
 - `agent.py` 仍保留 ADK orchestration 外壳，下一阶段再接入 LangGraph runner。
-- 旧 ADK 闭包代码暂时保留在 `_build_tools()` 的早返回之后，作为迁移期间的参考；等 LangGraph 等价链路跑通后再删除。
+- `_build_tools()` 中迁移前的不可达旧闭包代码已经删除，ADK wrapper 现在只保留委托到 `AgentToolService` 的薄封装。
 
 ## 6. LangGraph 重构目标
 
@@ -376,7 +376,7 @@ LangGraph 节点负责：
 
 - Phase 1A 已完成：`backend/agent_tools.py` 已承载当前 Agent 工具执行逻辑。
 - ADK wrapper 已经通过 `_run_agent_tool()` 调用新工具服务。
-- 尚未完成：删除 `_build_tools()` 中迁移前的旧闭包参考代码。
+- Phase 1B 已完成：`_build_tools()` 中迁移前的旧闭包参考代码已经删除。
 
 ### Phase 2: 建立 LangGraph 单回合等价链路
 
