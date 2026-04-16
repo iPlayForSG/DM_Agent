@@ -251,6 +251,14 @@ POST /api/v1/games/{game_id}/turns
   -> return TurnResult
 ```
 
+当前进展：
+
+- 已新增 `backend/dm_graph.py`。
+- 已声明 `langgraph`、`langchain`、`langchain-openai` 后端依赖。
+- `DMGraphRunner` 目前包含 `prepare_turn -> prepare_context -> draft_response -> finalize_turn` 的最小图骨架。
+- 该骨架暂未接管 `/turns`，也尚未启用真实模型节点和工具执行节点。
+- 由于当前本地环境尚未安装 LangGraph 依赖，`dm_graph.py` 使用可选导入保护，不影响现有 ADK 路径启动。
+
 ### 6.2 建议图状态
 
 ```text
@@ -381,6 +389,11 @@ LangGraph 节点负责：
 - `/turns` 返回结构不变。
 - `config.chat_backend` 可以切换为 `langgraph`。
 - 探索对话、工具调用、时间线追加正常。
+
+当前状态：
+
+- Phase 2A 已完成：LangGraph runner 骨架已落地，但没有接管生产路径。
+- 尚未完成：安装依赖、接入 OpenAI-compatible 模型节点、执行工具调用循环、提供运行时切换开关。
 
 ### Phase 3: 显式阶段路由
 
