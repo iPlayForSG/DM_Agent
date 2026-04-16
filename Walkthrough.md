@@ -16,7 +16,7 @@
 
 最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D、Phase 2E 和 Phase 2F。`backend/agent_tools.py` 已承载框架无关工具层，当前 ADK tool wrapper 已委托到该工具层；`backend/agent.py` 中迁移前的不可达旧闭包代码已经删除；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单，可通过 `CHAT_BACKEND=langgraph` 或 `AGENT_BACKEND=langgraph` 手动切换；Z.AI GLM-5.1 下的普通回合与 `roll_dice` 工具回合 smoke test 已通过。
 
-当前本地模型配置已切换为 Z.AI GLM-5.1：`LLM_MODEL=glm-5.1`，base URL 使用 `https://api.z.ai/api/paas/v4/`。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
+当前本地模型配置已切换为 Z.AI GLM-5.1：`LLM_MODEL=glm-5.1`，base URL 使用 `https://open.bigmodel.cn/api/coding/paas/v4`。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
 
 ## 2. 项目最终目标
 
