@@ -64,7 +64,7 @@ DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。
 3. 本地 `.env` 当前指向 Z.AI GLM-5.1，公开的 `.env.example` 只保留无密钥配置。
 4. 游戏真相保存在本地 `GameState` JSON，而不是只存在模型上下文里。
 5. Agent 已接入本地规则检索工具 `lookup_rules`。
-6. RAG 优先走 Chroma 向量库，缺少 `chromadb` 时可回退到本地 markdown 词法检索。
+6. RAG 已切换到 Qwen3-Embedding-8B + Chroma 方案；LangGraph 每回合会先经过 `retrieve_rules` 节点注入少量带来源规则片段。缺少目标向量库时会明确标记未就绪，不再回退到旧的 markdown 词法检索。
 7. Python 环境使用 conda 的 `DM_Agent` 虚拟环境。
 
 ### 3.2 角色与规则目录
@@ -296,11 +296,29 @@ LangGraph workflow。当前包含 `prepare_turn`、`route_phase`、`prepare_cont
 
 `backend/rag.py`
 
-Agent 规则检索层。优先 Chroma，缺依赖时回退到基于 `rg` 的本地 markdown 检索。
+Agent 规则检索层。运行时只读取 Qwen3-Embedding-8B 构建的 Chroma collection；缺少依赖、数据库或非空 collection 时会返回未就绪状态。
+
+当前 Chroma collection 默认为 `dnd_rules_qwen3_embedding_8b`，query embedding 使用 `Qwen/Qwen3-Embedding-8B` 的 `query` prompt。
 
 `backend/rag_ingest.py`
 
 离线构建或重建本地知识库索引。
+
+默认读取 `backend/Documents/DND5e 2024`，把切片、来源路径和标题层级写入 `backend/Knowledge/vector_db`。构建命令：
+
+```powershell
+cd backend
+$env:PYTHONNOUSERSITE="1"
+python rag_ingest.py --reset
+```
+
+快速验证切片但不下载或加载 8B 模型：
+
+```powershell
+cd backend
+$env:PYTHONNOUSERSITE="1"
+python rag_ingest.py --dry-run
+```
 
 `backend/storage.py`
 
@@ -457,7 +475,7 @@ LangGraph workflow 定义。当前已固定接管 `/api/v1/games/{game_id}/turns
 
 `retrieve_rules`
 
-- 按需要查询本地 RAG
+- 每回合按用户输入查询本地 RAG，默认取 3 条片段
 
 `call_dm_model`
 
@@ -556,6 +574,8 @@ Phase 4: RAG 与 Rules Guard 强化
 - 把 RAG 变成图中的可观察节点。
 - 控制规则片段长度、来源和注入位置。
 - 工具调用失败时让模型有机会修正。
+
+补充状态：Phase 4A 已完成。`backend/rag_ingest.py` 已切换为 Qwen3-Embedding-8B ingestion，并提供 `--dry-run` 切片验证；本地全量 dry-run 已确认 2948 个源文件会生成 9695 个 chunk；`backend/rag.py` runtime 检索使用同一 embedding 模型且不再保留 `rg` fallback；`DMGraphRunner` 已加入 `retrieve_rules` 节点。
 
 Phase 5: 可恢复执行和观测
 

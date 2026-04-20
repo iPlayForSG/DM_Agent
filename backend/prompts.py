@@ -60,11 +60,24 @@ Tool protocol:
 """
 
 
-def build_dm_instruction(state_summary: str, recent_history: str, rag_enabled: bool = False) -> str:
+def build_dm_instruction(
+    state_summary: str,
+    recent_history: str,
+    rag_enabled: bool = False,
+    retrieved_context: str = "",
+) -> str:
     rag_status = (
         "Rules retrieval is available. Use `lookup_rules` before citing detailed rules or niche monster lore."
         if rag_enabled
         else "Rules retrieval is unavailable in this runtime. Do not pretend to quote exact rule text."
+    )
+    retrieved_block = (
+        f"""
+Retrieved rule snippets for this turn:
+{retrieved_context}
+""".strip()
+        if retrieved_context
+        else "Retrieved rule snippets for this turn: none."
     )
     return f"""
 {CORE_DM_MANDATE}
@@ -75,6 +88,8 @@ def build_dm_instruction(state_summary: str, recent_history: str, rag_enabled: b
 
 Knowledge base status:
 - {rag_status}
+
+{retrieved_block}
 
 Current game state:
 {state_summary}

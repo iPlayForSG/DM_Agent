@@ -130,9 +130,12 @@ LangGraph 重构后该响应结构保持兼容。
 
 当前 RAG 链路约定：
 
-1. 优先使用持久化 Chroma 向量库。
-2. 如果 `chromadb` 不可用，则回退到基于 `rg` 的本地 markdown 检索。
-3. Agent 通过规则检索工具显式拉取片段，不把大段检索文本永久写入系统提示词。
+1. 使用持久化 Chroma 向量库，默认 collection 为 `dnd_rules_qwen3_embedding_8b`。
+2. 向量由 `Qwen/Qwen3-Embedding-8B` 生成，文档向量不加 query prompt，查询向量使用模型内置 `query` prompt。
+3. 源文档目录为 `backend/Documents/DND5e 2024`，生成的 Chroma 数据库写入 `backend/Knowledge/vector_db`。
+4. 如果 `chromadb` 或目标 collection 不可用，则 RAG 状态明确标记为未就绪，不再回退到旧的词法检索。
+5. LangGraph 每回合通过 `retrieve_rules` 节点自动注入少量带来源片段；模型仍可通过 `lookup_rules` 工具做二次检索。
+6. Agent 不把大段检索文本永久写入系统提示词，只在当前回合上下文中使用片段。
 
 ### 4.4 资料接口
 
@@ -251,8 +254,8 @@ POST /api/v1/games/{game_id}/turns
   -> DMGraph.invoke(...)
      -> prepare_turn
      -> route_phase
-     -> prepare_context
      -> retrieve_rules
+     -> prepare_context
      -> call_dm_model
      -> execute_tool_calls
      -> validate_state
@@ -268,6 +271,7 @@ POST /api/v1/games/{game_id}/turns
 - `DMGraphRunner` 目前包含 `prepare_turn -> route_phase -> prepare_context -> draft_response -> execute_tools -> finalize_turn` 的单回合图。
 - `draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI` 模型节点。
 - 已接入 `execute_tools` 节点，能够执行模型返回的 tool calls，并把 `ToolResult`、`timeline_append` 和 `state_delta` 合并回图状态。
+- 已接入 `retrieve_rules` 节点，能够在模型调用前从 Qwen3/Chroma RAG 中取回带来源片段。
 - 已按当前场景生成 `allowed_tools`。非战斗阶段保留检定、豁免、施法、HP 与状态变化等常见规则结算工具；战斗阶段额外暴露遭遇、攻击、先攻、推进回合和结束遭遇工具。
 - 已将 `route_phase` 拆成独立节点，当前负责写入 `phase`、`scene` 和 `allowed_tools`；后续可以从这里扩展条件分支。
 - `DMAgent` 已固定使用 LangGraph runner，不再支持 ADK 后端切换。
@@ -415,7 +419,8 @@ LangGraph 节点负责：
 - Phase 2E 已完成：非战斗阶段工具白名单已补齐常见规则结算能力。
 - Phase 2F 已完成：Z.AI GLM-5.1 可用后，LangGraph 普通探索回合和要求模型调用 `roll_dice` 的工具回合 smoke test 均已通过；模型节点恢复为直接 `model.invoke(...)`，不做 provider 异常兜底。
 - Phase 2G 已完成：`agent.py` 已删除 ADK orchestration，后端依赖已移除 `google-adk` 与 `litellm`，`DMAgent` 固定委托到 LangGraph。
-- 尚未完成：更细的条件分支、显式 RAG 节点、节点级状态校验。
+- Phase 4A 已完成：Qwen3-Embedding-8B ingestion/runtime 检索方案已接入，`retrieve_rules` 成为 LangGraph 显式节点。
+- 尚未完成：完整索引构建验证、更细的条件分支、节点级状态校验。
 
 ### Phase 3: 显式阶段路由
 
@@ -442,8 +447,17 @@ LangGraph 节点负责：
 验收：
 
 - `lookup_rules` 等价能力保留。
-- RAG 不可用时仍有本地 fallback。
+- RAG 不可用时明确返回未就绪状态和错误信息，不隐式切换到旧检索路径。
 - 工具调用错误能回传给模型修正。
+
+当前状态：
+
+- Phase 4A 已完成：`backend/rag_ingest.py` 使用 `Qwen/Qwen3-Embedding-8B` 为 `backend/Documents/DND5e 2024` 构建 Chroma collection。
+- `rag_ingest.py --dry-run` 可在不加载大模型、不写入 Chroma 的情况下验证 D&D markdown 切片。
+- 本地全量 dry-run 已验证 2948 个源文件会生成 9695 个 chunk；完整向量写入仍依赖 8B 模型下载完成和本地算力。
+- Runtime `RAGEngine` 使用同一模型生成 query embedding，并通过 `query_embeddings` 检索，避免 ingestion 和 query 使用不同 embedding 函数。
+- Runtime 已移除 `rg` fallback；只有目标 Qwen3/Chroma collection 非空时 `rag_enabled` 才为 true。
+- `DMGraphRunner` 已在 `prepare_context` 前加入 `retrieve_rules` 节点。
 
 ### Phase 5: 可恢复执行与观测
 

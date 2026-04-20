@@ -33,6 +33,28 @@ python main.py
 
 在 `.env` 中配置 OpenAI-compatible 接口。后端会通过 LangGraph 和 LangChain 调用该接口。
 
+## RAG 知识库构建
+
+本地 D&D 2024 文档位于 `backend/Documents/DND5e 2024`，该目录不会提交到公开仓库。构建 Qwen3-Embedding-8B 向量库：
+
+```powershell
+cd backend
+$env:PYTHONNOUSERSITE="1"
+python rag_ingest.py --reset
+```
+
+如需先验证切片而不下载或加载 8B 模型，可以运行：
+
+```powershell
+cd backend
+$env:PYTHONNOUSERSITE="1"
+python rag_ingest.py --dry-run
+```
+
+索引会写入 `backend/Knowledge/vector_db`，collection 名称为 `dnd_rules_qwen3_embedding_8b`。首次正式构建会从 Hugging Face 下载 `Qwen/Qwen3-Embedding-8B`，模型缓存位于 `backend/Knowledge/hf_cache`。运行时只使用该 Qwen3 + Chroma collection；索引不存在时 RAG 会明确显示未就绪，不会切换到旧的词法检索路径。
+
+当前本地全量 dry-run 统计为 2948 个源文件、9695 个 chunk。完整嵌入构建依赖本地完成 8B 模型下载和可用算力，生成产物仍留在 `backend/Knowledge/` 下。
+
 ## 前端运行
 
 ```powershell
@@ -54,4 +76,4 @@ Vite 开发服务器会把 `/api` 代理到 `http://127.0.0.1:23333`。
 - 通过本地动作接口执行攻击、施法、技能检定、豁免检定、使用物品和推进回合
 - 将战斗结果、时间线和重要剧情进展写回本地 `GameState`
 
-RAG 相关代码已经保留，但规则原文和向量库不会随公开仓库发布。
+RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库不会随公开仓库发布。

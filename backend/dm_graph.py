@@ -1,6 +1,7 @@
 """LangGraph workflow for deterministic DM turn orchestration."""
 
 import json
+import os
 from typing import Any, Dict, List, Optional, TypedDict
 
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
@@ -365,6 +366,8 @@ class DMGraphState(TypedDict, total=False):
     state_summary: str
     recent_history: str
     instruction: str
+    rag_snippets: List[Dict[str, Any]]
+    rag_context: str
     allowed_tools: List[str]
     tool_call_rounds: int
     final_response: str
@@ -515,6 +518,7 @@ class DMGraphRunner:
             state_summary=state_summary,
             recent_history=recent_history,
             rag_enabled=self.rag_engine.is_ready(),
+            retrieved_context=graph_state.get("rag_context", ""),
         )
         return {
             "state_summary": state_summary,
@@ -524,6 +528,28 @@ class DMGraphRunner:
                 SystemMessage(content=instruction),
                 HumanMessage(content=graph_state.get("user_input", "")),
             ],
+        }
+
+    @staticmethod
+    def _format_rag_context(snippets: List[Dict[str, str]]) -> str:
+        formatted: List[str] = []
+        for snippet in snippets:
+            heading = f" | {snippet.get('heading', '')}" if snippet.get("heading") else ""
+            formatted.append(
+                f"--- Rule Snippet ({snippet.get('source', 'unknown')}#{snippet.get('chunk_index', '')}{heading}) ---\n"
+                f"{snippet.get('content', '')}"
+            )
+        return "\n\n".join(formatted).strip()
+
+    def _retrieve_rules(self, graph_state: DMGraphState) -> DMGraphState:
+        n_results = int(os.getenv("RAG_AUTO_CONTEXT_RESULTS", "3") or 0)
+        if n_results <= 0 or not self.rag_engine.is_ready():
+            return {"rag_snippets": [], "rag_context": ""}
+
+        snippets = self.rag_engine.search(graph_state.get("user_input", ""), n_results=n_results)
+        return {
+            "rag_snippets": snippets,
+            "rag_context": self._format_rag_context(snippets),
         }
 
     def _draft_response_placeholder(self, graph_state: DMGraphState) -> DMGraphState:
@@ -689,6 +715,7 @@ class DMGraphRunner:
         builder = StateGraph(DMGraphState)
         builder.add_node("prepare_turn", self._prepare_turn)
         builder.add_node("route_phase", self._route_phase)
+        builder.add_node("retrieve_rules", self._retrieve_rules)
         builder.add_node("prepare_context", self._prepare_context)
         model_node = self._call_model if self.enable_model else self._draft_response_placeholder
         builder.add_node("draft_response", model_node)
@@ -696,7 +723,8 @@ class DMGraphRunner:
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
         builder.add_edge("prepare_turn", "route_phase")
-        builder.add_edge("route_phase", "prepare_context")
+        builder.add_edge("route_phase", "retrieve_rules")
+        builder.add_edge("retrieve_rules", "prepare_context")
         builder.add_edge("prepare_context", "draft_response")
         builder.add_conditional_edges(
             "draft_response",
