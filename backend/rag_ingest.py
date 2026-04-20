@@ -7,6 +7,7 @@ import os
 import site
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List
 
@@ -38,6 +39,9 @@ env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path, override=True)
 
 SUPPORTED_SUFFIXES = {".md", ".txt"}
+DEFAULT_CHUNK_SIZE = 512
+DEFAULT_CHUNK_OVERLAP = 80
+DEFAULT_CPU_CHUNK_LIMIT = 32
 
 
 @dataclass
@@ -195,7 +199,13 @@ def chunk_markdown_file(path: Path, source_root: str, chunk_size: int, overlap: 
     return chunks
 
 
-def build_chunks(source_root: str, chunk_size: int, overlap: int, limit: int = 0) -> List[RagChunk]:
+def build_chunks(
+    source_root: str,
+    chunk_size: int,
+    overlap: int,
+    limit: int = 0,
+    max_chunks: int = 0,
+) -> List[RagChunk]:
     files = iter_source_files(source_root)
     if limit > 0:
         files = files[:limit]
@@ -206,12 +216,53 @@ def build_chunks(source_root: str, chunk_size: int, overlap: int, limit: int = 0
         chunks.extend(file_chunks)
         if index % 100 == 0:
             print(f"Chunked {index}/{len(files)} files, {len(chunks)} chunks...")
+        if max_chunks > 0 and len(chunks) >= max_chunks:
+            return chunks[:max_chunks]
     return chunks
 
 
 def write_manifest(db_path: str, payload: Dict[str, object]) -> None:
     manifest_path = Path(db_path) / "rag_manifest.json"
     manifest_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def now_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def existing_ids(collection, ids: List[str]) -> set[str]:
+    try:
+        payload = collection.get(ids=ids, include=[])
+    except Exception:
+        payload = collection.get(ids=ids)
+    return set(payload.get("ids", []))
+
+
+def cuda_available() -> bool:
+    try:
+        import torch
+
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
+
+
+def enforce_cpu_guard(args: argparse.Namespace, chunk_count: int) -> None:
+    requested_device = (args.device or os.getenv("RAG_EMBEDDING_DEVICE", "")).strip().lower()
+    if requested_device and requested_device != "cpu":
+        return
+    if cuda_available():
+        return
+    if args.allow_slow_cpu or os.getenv("RAG_ALLOW_SLOW_CPU", "").lower() in {"1", "true", "yes"}:
+        return
+    if chunk_count <= args.cpu_chunk_limit:
+        return
+    raise RuntimeError(
+        "Qwen3-Embedding-8B is running on CPU and the requested ingestion is too large. "
+        f"Chunk count: {chunk_count}. Set RAG_EMBEDDING_DEVICE=cuda on a CUDA machine, "
+        "use --max-chunks for a smoke test, or pass --allow-slow-cpu if you intentionally "
+        "want a very long CPU run."
+    )
 
 
 def ingest(args: argparse.Namespace) -> None:
@@ -235,6 +286,7 @@ def ingest(args: argparse.Namespace) -> None:
         chunk_size=args.chunk_size,
         overlap=args.overlap,
         limit=args.limit,
+        max_chunks=args.max_chunks,
     )
     print(f"Generated {len(chunks)} chunks.")
     if not chunks:
@@ -249,7 +301,9 @@ def ingest(args: argparse.Namespace) -> None:
         )
         return
 
-    embedder = Qwen3EmbeddingFunction(model_name=model_name, batch_size=args.embed_batch_size)
+    enforce_cpu_guard(args, len(chunks))
+    source_file_count = len(iter_source_files(source_root))
+    embedder = Qwen3EmbeddingFunction(model_name=model_name, batch_size=args.embed_batch_size, device=args.device)
     client = chromadb.PersistentClient(path=db_path)
     if args.reset:
         try:
@@ -268,9 +322,48 @@ def ingest(args: argparse.Namespace) -> None:
         },
     )
 
+    resume_enabled = not args.reset and not args.no_resume
+    if resume_enabled:
+        print("Resume mode: existing chunk ids in the target collection will be skipped.")
+
+    manifest_base = {
+        "collection": name,
+        "embedding_model": model_name,
+        "source_root": source_root,
+        "chunk_count": len(chunks),
+        "chunk_size": args.chunk_size,
+        "overlap": args.overlap,
+        "source_file_count": source_file_count,
+        "embed_batch_size": args.embed_batch_size,
+        "upsert_batch_size": args.upsert_batch_size,
+        "embedding_device": args.device or os.getenv("RAG_EMBEDDING_DEVICE", "") or "auto",
+        "started_at": now_utc(),
+    }
+    embedded_count = 0
+    skipped_count = 0
+    write_manifest(
+        db_path,
+        {
+            **manifest_base,
+            "status": "running",
+            "embedded_chunk_count": embedded_count,
+            "skipped_chunk_count": skipped_count,
+            "updated_at": now_utc(),
+        },
+    )
+
     total_batches = (len(chunks) + args.upsert_batch_size - 1) // args.upsert_batch_size
     for batch_index, start in enumerate(range(0, len(chunks), args.upsert_batch_size), start=1):
         batch = chunks[start : start + args.upsert_batch_size]
+        batch_ids = [chunk.chunk_id for chunk in batch]
+        if resume_enabled:
+            present_ids = existing_ids(collection, batch_ids)
+            batch = [chunk for chunk in batch if chunk.chunk_id not in present_ids]
+            skipped_count += len(present_ids)
+        if not batch:
+            print(f"Skipped batch {batch_index}/{total_batches} ({start + len(batch_ids)}/{len(chunks)} chunks already present).")
+            continue
+
         embeddings = embedder.embed_documents(chunk.text for chunk in batch)
         collection.upsert(
             ids=[chunk.chunk_id for chunk in batch],
@@ -278,18 +371,32 @@ def ingest(args: argparse.Namespace) -> None:
             metadatas=[chunk.metadata for chunk in batch],
             embeddings=embeddings,
         )
-        print(f"Upserted batch {batch_index}/{total_batches} ({start + len(batch)}/{len(chunks)} chunks).")
+        embedded_count += len(batch)
+        print(
+            f"Upserted batch {batch_index}/{total_batches} "
+            f"({min(start + len(batch_ids), len(chunks))}/{len(chunks)} chunks, "
+            f"embedded={embedded_count}, skipped={skipped_count})."
+        )
+        write_manifest(
+            db_path,
+            {
+                **manifest_base,
+                "status": "running",
+                "embedded_chunk_count": embedded_count,
+                "skipped_chunk_count": skipped_count,
+                "updated_at": now_utc(),
+            },
+        )
 
     write_manifest(
         db_path,
         {
-            "collection": name,
-            "embedding_model": model_name,
-            "source_root": source_root,
-            "chunk_count": len(chunks),
-            "chunk_size": args.chunk_size,
-            "overlap": args.overlap,
-            "source_file_count": len(iter_source_files(source_root)),
+            **manifest_base,
+            "status": "complete",
+            "embedded_chunk_count": embedded_count,
+            "skipped_chunk_count": skipped_count,
+            "completed_at": now_utc(),
+            "updated_at": now_utc(),
         },
     )
     print("RAG ingestion complete.")
@@ -301,12 +408,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--db-path", default="", help="Persistent Chroma database path.")
     parser.add_argument("--collection", default="", help="Chroma collection name.")
     parser.add_argument("--model", default="", help="SentenceTransformer embedding model.")
-    parser.add_argument("--chunk-size", type=int, default=int(os.getenv("RAG_CHUNK_SIZE", "1800")))
-    parser.add_argument("--overlap", type=int, default=int(os.getenv("RAG_CHUNK_OVERLAP", "240")))
+    parser.add_argument("--chunk-size", type=int, default=int(os.getenv("RAG_CHUNK_SIZE", str(DEFAULT_CHUNK_SIZE))))
+    parser.add_argument("--overlap", type=int, default=int(os.getenv("RAG_CHUNK_OVERLAP", str(DEFAULT_CHUNK_OVERLAP))))
+    parser.add_argument("--device", default=os.getenv("RAG_EMBEDDING_DEVICE", ""), help="Embedding device passed to SentenceTransformer, for example cuda or cpu.")
     parser.add_argument("--embed-batch-size", type=int, default=int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "4")))
     parser.add_argument("--upsert-batch-size", type=int, default=int(os.getenv("RAG_UPSERT_BATCH_SIZE", "32")))
     parser.add_argument("--limit", type=int, default=0, help="Only ingest the first N files for smoke testing.")
+    parser.add_argument("--max-chunks", type=int, default=0, help="Only ingest the first N generated chunks for smoke testing.")
+    parser.add_argument("--cpu-chunk-limit", type=int, default=int(os.getenv("RAG_CPU_CHUNK_LIMIT", str(DEFAULT_CPU_CHUNK_LIMIT))))
+    parser.add_argument("--allow-slow-cpu", action="store_true", help="Allow large Qwen3-8B ingestion on CPU.")
     parser.add_argument("--reset", action="store_true", help="Delete the target collection before ingestion.")
+    parser.add_argument("--no-resume", action="store_true", help="Re-embed existing chunk ids instead of skipping them.")
     parser.add_argument("--dry-run", action="store_true", help="Only chunk source files; do not load embeddings or write Chroma.")
     return parser.parse_args()
 

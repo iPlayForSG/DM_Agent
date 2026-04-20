@@ -535,8 +535,11 @@ class DMGraphRunner:
         formatted: List[str] = []
         for snippet in snippets:
             heading = f" | {snippet.get('heading', '')}" if snippet.get("heading") else ""
+            lines = ""
+            if snippet.get("start_line") and snippet.get("end_line"):
+                lines = f":L{snippet.get('start_line')}-L{snippet.get('end_line')}"
             formatted.append(
-                f"--- Rule Snippet ({snippet.get('source', 'unknown')}#{snippet.get('chunk_index', '')}{heading}) ---\n"
+                f"--- Rule Snippet ({snippet.get('source', 'unknown')}#{snippet.get('chunk_index', '')}{lines}{heading}) ---\n"
                 f"{snippet.get('content', '')}"
             )
         return "\n\n".join(formatted).strip()

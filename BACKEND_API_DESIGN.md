@@ -124,9 +124,10 @@ LangGraph 重构后该响应结构保持兼容。
 
 ### 4.3 RAG / 知识检索
 
+- `GET /api/v1/rag/status`
 - `POST /api/v1/rag/search`
 
-该接口主要用于手动验证知识库是否可检索。Agent 侧继续通过工具调用进入同一套底层检索逻辑。
+这些接口主要用于手动验证知识库是否可检索。Agent 侧继续通过图节点和工具调用进入同一套底层检索逻辑。
 
 当前 RAG 链路约定：
 
@@ -136,6 +137,7 @@ LangGraph 重构后该响应结构保持兼容。
 4. 如果 `chromadb` 或目标 collection 不可用，则 RAG 状态明确标记为未就绪，不再回退到旧的词法检索。
 5. LangGraph 每回合通过 `retrieve_rules` 节点自动注入少量带来源片段；模型仍可通过 `lookup_rules` 工具做二次检索。
 6. Agent 不把大段检索文本永久写入系统提示词，只在当前回合上下文中使用片段。
+7. 运行时会限制单次注入总长度，并对同一来源的候选结果做轻量去重。
 
 ### 4.4 资料接口
 
@@ -454,9 +456,12 @@ LangGraph 节点负责：
 
 - Phase 4A 已完成：`backend/rag_ingest.py` 使用 `Qwen/Qwen3-Embedding-8B` 为 `backend/Documents/DND5e 2024` 构建 Chroma collection。
 - `rag_ingest.py --dry-run` 可在不加载大模型、不写入 Chroma 的情况下验证 D&D markdown 切片。
-- 本地全量 dry-run 已验证 2948 个源文件会生成 9695 个 chunk；完整向量写入仍依赖 8B 模型下载完成和本地算力。
+- 默认切片已调整为 512 字符、80 字符 overlap，本地全量 dry-run 已验证 2948 个源文件会生成 19694 个 chunk。
+- Qwen3-Embedding-8B 模型已能在本地加载并输出 4096 维向量；无 CUDA 时单个 520 字符 chunk 的 CPU embedding 约需 174 秒，因此 ingestion 默认阻止大批量 CPU 构建，必须显式传入 `--allow-slow-cpu` 才会强制运行。
+- ingestion 写入 `rag_manifest.json`，记录 running/complete 状态、chunk 总数、已嵌入数和跳过数；非 `--reset` 运行会跳过已有 chunk id 以支持续跑。
 - Runtime `RAGEngine` 使用同一模型生成 query embedding，并通过 `query_embeddings` 检索，避免 ingestion 和 query 使用不同 embedding 函数。
 - Runtime 已移除 `rg` fallback；只有目标 Qwen3/Chroma collection 非空时 `rag_enabled` 才为 true。
+- Runtime 支持 `refresh()`，`GET /api/v1/rag/status` 会刷新并返回 collection 计数、模型、路径和错误信息。
 - `DMGraphRunner` 已在 `prepare_context` 前加入 `retrieve_rules` 节点。
 
 ### Phase 5: 可恢复执行与观测
@@ -477,7 +482,7 @@ LangGraph 节点负责：
 
 以下内容暂不和 LangGraph 替换绑定：
 
-- 完整 D&D 资料 RAG 重切片。
+- 在 CUDA 环境中执行完整 D&D 资料向量索引构建。
 - 远程数据库存档。
 - 多用户账户系统。
 - Google Cloud / Agent Engine 部署。

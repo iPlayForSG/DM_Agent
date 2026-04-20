@@ -427,6 +427,12 @@ async def search_rules(req: RuleLookupRequest):
     }
 
 
+@app.get("/api/v1/rag/status")
+async def get_rag_status():
+    agent.rag_engine.refresh()
+    return agent.rag_engine.status_payload()
+
+
 @app.get("/api/v1/characters")
 async def list_characters():
     return characters_payload()

@@ -35,11 +35,12 @@ python main.py
 
 ## RAG 知识库构建
 
-本地 D&D 2024 文档位于 `backend/Documents/DND5e 2024`，该目录不会提交到公开仓库。构建 Qwen3-Embedding-8B 向量库：
+本地 D&D 2024 文档位于 `backend/Documents/DND5e 2024`，该目录不会提交到公开仓库。Qwen3-Embedding-8B 是 8B 模型，完整构建建议在 CUDA 环境中执行：
 
 ```powershell
 cd backend
 $env:PYTHONNOUSERSITE="1"
+$env:RAG_EMBEDDING_DEVICE="cuda"
 python rag_ingest.py --reset
 ```
 
@@ -51,9 +52,17 @@ $env:PYTHONNOUSERSITE="1"
 python rag_ingest.py --dry-run
 ```
 
+CPU 环境只建议做小批量 smoke test：
+
+```powershell
+cd backend
+$env:PYTHONNOUSERSITE="1"
+python rag_ingest.py --max-chunks 2 --reset --db-path Knowledge/vector_db_smoke --collection rag_smoke
+```
+
 索引会写入 `backend/Knowledge/vector_db`，collection 名称为 `dnd_rules_qwen3_embedding_8b`。首次正式构建会从 Hugging Face 下载 `Qwen/Qwen3-Embedding-8B`，模型缓存位于 `backend/Knowledge/hf_cache`。运行时只使用该 Qwen3 + Chroma collection；索引不存在时 RAG 会明确显示未就绪，不会切换到旧的词法检索路径。
 
-当前本地全量 dry-run 统计为 2948 个源文件、9695 个 chunk。完整嵌入构建依赖本地完成 8B 模型下载和可用算力，生成产物仍留在 `backend/Knowledge/` 下。
+当前默认切片为 512 字符、80 字符 overlap，本地全量 dry-run 统计为 2948 个源文件、19694 个 chunk。无 CUDA 时，脚本会阻止大批量 CPU 构建；确实要强制执行可加 `--allow-slow-cpu`，但预计会非常慢。中断后的构建可以去掉 `--reset` 直接续跑，脚本会跳过 collection 中已有的 chunk id。
 
 ## 前端运行
 

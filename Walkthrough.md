@@ -296,7 +296,7 @@ LangGraph workflow。当前包含 `prepare_turn`、`route_phase`、`prepare_cont
 
 `backend/rag.py`
 
-Agent 规则检索层。运行时只读取 Qwen3-Embedding-8B 构建的 Chroma collection；缺少依赖、数据库或非空 collection 时会返回未就绪状态。
+Agent 规则检索层。运行时只读取 Qwen3-Embedding-8B 构建的 Chroma collection；缺少依赖、数据库或非空 collection 时会返回未就绪状态。召回会多取候选，再按来源做轻量去重，并限制注入模型上下文的总长度。
 
 当前 Chroma collection 默认为 `dnd_rules_qwen3_embedding_8b`，query embedding 使用 `Qwen/Qwen3-Embedding-8B` 的 `query` prompt。
 
@@ -304,11 +304,12 @@ Agent 规则检索层。运行时只读取 Qwen3-Embedding-8B 构建的 Chroma c
 
 离线构建或重建本地知识库索引。
 
-默认读取 `backend/Documents/DND5e 2024`，把切片、来源路径和标题层级写入 `backend/Knowledge/vector_db`。构建命令：
+默认读取 `backend/Documents/DND5e 2024`，把切片、来源路径和标题层级写入 `backend/Knowledge/vector_db`。完整构建建议在 CUDA 环境中运行：
 
 ```powershell
 cd backend
 $env:PYTHONNOUSERSITE="1"
+$env:RAG_EMBEDDING_DEVICE="cuda"
 python rag_ingest.py --reset
 ```
 
@@ -319,6 +320,16 @@ cd backend
 $env:PYTHONNOUSERSITE="1"
 python rag_ingest.py --dry-run
 ```
+
+当前默认切片为 512 字符、80 字符 overlap。全量 dry-run 统计为 2948 个源文件、19694 个 chunk。无 CUDA 时脚本默认阻止大批量 CPU 构建；CPU 只建议做小批量 smoke test：
+
+```powershell
+cd backend
+$env:PYTHONNOUSERSITE="1"
+python rag_ingest.py --max-chunks 2 --reset --db-path Knowledge/vector_db_smoke --collection rag_smoke
+```
+
+非 `--reset` 运行会跳过 collection 中已有的 chunk id，可用于中断后续跑。`rag_manifest.json` 会记录 running/complete 状态、chunk 总数、已嵌入数量和跳过数量。
 
 `backend/storage.py`
 
@@ -378,6 +389,7 @@ Vite 代理配置。
 - `GET /api/v1/rules/character-builder`
 - `GET /api/v1/library/classes`
 - `GET /api/v1/library/spells/{class_name}`
+- `GET /api/v1/rag/status`
 - `POST /api/v1/rag/search`
 
 ### 6.3 角色与怪物模板
@@ -575,7 +587,7 @@ Phase 4: RAG 与 Rules Guard 强化
 - 控制规则片段长度、来源和注入位置。
 - 工具调用失败时让模型有机会修正。
 
-补充状态：Phase 4A 已完成。`backend/rag_ingest.py` 已切换为 Qwen3-Embedding-8B ingestion，并提供 `--dry-run` 切片验证；本地全量 dry-run 已确认 2948 个源文件会生成 9695 个 chunk；`backend/rag.py` runtime 检索使用同一 embedding 模型且不再保留 `rg` fallback；`DMGraphRunner` 已加入 `retrieve_rules` 节点。
+补充状态：Phase 4A 已完成。`backend/rag_ingest.py` 已切换为 Qwen3-Embedding-8B ingestion，并提供 `--dry-run`、CPU 大批量保护、manifest 进度记录和续跑能力；本地全量 dry-run 已确认 2948 个源文件会生成 19694 个 chunk；Qwen3-Embedding-8B 已下载并通过 4096 维 embedding 加载测试，但当前无 CUDA，CPU 大批量索引不可接受；`backend/rag.py` runtime 检索使用同一 embedding 模型且不再保留 `rg` fallback；`DMGraphRunner` 已加入 `retrieve_rules` 节点。
 
 Phase 5: 可恢复执行和观测
 
