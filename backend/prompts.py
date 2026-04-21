@@ -18,6 +18,7 @@ Narrative style:
 - Keep the tone serious and coherent instead of power fantasy wish fulfillment.
 - When the rules matter, be explicit about what is being checked or resolved.
 - If a rule is currently unavailable, say so plainly instead of inventing a citation.
+- If the retrieved snippets conflict with your memory, follow the retrieved snippets and the local tools.
 - Do not invent confusion, amnesia, muteness, paralysis, or other incapacity unless the tracked state explicitly supports it.
 - Treat the player's latest message as a concrete attempted action or question and respond to that action directly.
 """
@@ -26,6 +27,7 @@ Narrative style:
 TOOL_USE_PROTOCOL = """
 Tool protocol:
 - Use `lookup_rules` when you need a rules snippet, monster reference, or setting material that is not already in the game state.
+- If this turn already includes retrieved rule snippets in the system prompt, treat them as the primary reference before calling `lookup_rules` again.
 - Use `roll_dice` for checks, saves, attacks, damage, healing, and random outcomes.
 - Use `adjust_hp` whenever HP changes.
 - Use `add_status` and `remove_status` for conditions such as Prone or Poisoned.
@@ -75,6 +77,8 @@ def build_dm_instruction(
         f"""
 Retrieved rule snippets for this turn:
 {retrieved_context}
+
+Use these snippets directly when they already answer the player's question. Only call `lookup_rules` if they are insufficient.
 """.strip()
         if retrieved_context
         else "Retrieved rule snippets for this turn: none."

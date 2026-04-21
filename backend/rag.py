@@ -148,34 +148,91 @@ class RAGEngine:
         }
 
     def search(self, query: str, n_results: int = 3) -> List[Dict[str, str]]:
-        normalized_query = (query or "").strip()
-        if not normalized_query:
+        return self.search_many([query], n_results=n_results)
+
+    def search_many(self, queries: List[str], n_results: int = 3) -> List[Dict[str, str]]:
+        normalized_queries = self._normalize_queries(queries)
+        if not normalized_queries:
             return []
         if not self.collection:
             if not self.refresh():
                 return []
 
+        requested = max(1, min(int(n_results or 3), 8))
+        query_limit = max(requested, min(requested * 4, 24))
+        merged: Dict[str, Dict[str, Any]] = {}
+
         try:
-            requested = max(1, min(int(n_results or 3), 8))
-            query_limit = max(requested, min(requested * 4, 24))
-            query_embedding = get_query_embedder().embed_queries([normalized_query])[0]
-            results = self.collection.query(
-                query_embeddings=[query_embedding],
-                n_results=query_limit,
-                include=["documents", "metadatas", "distances"],
-            )
+            for query in normalized_queries:
+                for candidate in self._query_collection(query, query_limit):
+                    key = f"{candidate.get('source', 'unknown')}::{candidate.get('chunk_index', '0')}"
+                    existing = merged.get(key)
+                    if not existing or candidate["_distance_value"] < existing["_distance_value"]:
+                        merged[key] = candidate
         except Exception as exc:
             self.last_error = str(exc)
             return []
 
+        ordered = sorted(
+            merged.values(),
+            key=lambda item: (
+                item.get("_distance_value", float("inf")),
+                item.get("source", ""),
+                item.get("chunk_index", ""),
+            ),
+        )
+        cleaned: List[Dict[str, str]] = []
+        for item in ordered:
+            cleaned.append(
+                {
+                    "source": str(item.get("source", "unknown")),
+                    "chunk_index": str(item.get("chunk_index", "")),
+                    "heading": str(item.get("heading", "")),
+                    "start_line": str(item.get("start_line", "")),
+                    "end_line": str(item.get("end_line", "")),
+                    "distance": str(item.get("distance", "")),
+                    "content": str(item.get("content", "")),
+                }
+            )
+        return self._select_diverse(cleaned, requested)
+
+    @staticmethod
+    def _normalize_queries(queries: List[str]) -> List[str]:
+        unique: List[str] = []
+        seen = set()
+        for raw in queries or []:
+            text = " ".join(str(raw or "").split()).strip()
+            if not text:
+                continue
+            key = text.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(text)
+            if len(unique) >= 4:
+                break
+        return unique
+
+    def _query_collection(self, query: str, n_results: int) -> List[Dict[str, Any]]:
+        normalized_query = (query or "").strip()
+        if not normalized_query:
+            return []
+        query_embedding = get_query_embedder().embed_queries([normalized_query])[0]
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=n_results,
+            include=["documents", "metadatas", "distances"],
+        )
+
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
-        candidates: List[Dict[str, str]] = []
+        candidates: List[Dict[str, Any]] = []
 
         for index, document in enumerate(documents):
             metadata = metadatas[index] if index < len(metadatas) and isinstance(metadatas[index], dict) else {}
             distance = distances[index] if index < len(distances) else ""
+            distance_value = float(distance) if distance not in ("", None) else float("inf")
             candidates.append(
                 {
                     "source": str(metadata.get("source", "unknown")),
@@ -185,10 +242,10 @@ class RAGEngine:
                     "end_line": str(metadata.get("end_line", "")),
                     "distance": str(distance),
                     "content": self._truncate_text(str(document).strip(), self.max_snippet_chars),
+                    "_distance_value": distance_value,
                 }
             )
-
-        return self._select_diverse(candidates, requested)
+        return candidates
 
     def _select_diverse(self, snippets: List[Dict[str, str]], limit: int) -> List[Dict[str, str]]:
         selected: List[Dict[str, str]] = []

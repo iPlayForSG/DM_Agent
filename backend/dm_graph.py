@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, TypedDict
 
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
@@ -357,6 +358,126 @@ class LangGraphUnavailableError(RuntimeError):
     pass
 
 
+RULE_QUESTION_TERMS = [
+    "?",
+    "？",
+    "如何",
+    "怎么",
+    "怎样",
+    "是否",
+    "能不能",
+    "可以吗",
+    "是什么",
+    "什么意思",
+    "规则",
+    "解释",
+    "说明",
+    "rule",
+    "rules",
+]
+
+RULE_TRIGGER_TERMS = [
+    "优势",
+    "劣势",
+    "豁免",
+    "检定",
+    "技能",
+    "攻击",
+    "伤害",
+    "命中",
+    "先攻",
+    "法术",
+    "法术位",
+    "戏法",
+    "专注",
+    "条件",
+    "状态",
+    "附赠动作",
+    "反应",
+    "动作",
+    "移动",
+    "借机攻击",
+    "掩护",
+    "长休",
+    "短休",
+    "死亡豁免",
+    "隐匿",
+    "潜行",
+    "感知",
+    "调查",
+    "擒抱",
+    "推撞",
+    "倒地",
+    "武器",
+    "护甲",
+    "熟练",
+    "职业",
+    "专长",
+    "背景",
+    "物种",
+    "attack",
+    "damage",
+    "save",
+    "check",
+    "spell",
+    "slot",
+    "initiative",
+    "condition",
+    "concentration",
+    "advantage",
+    "disadvantage",
+    "grapple",
+    "shove",
+    "reaction",
+    "bonus action",
+    "opportunity attack",
+    "armor",
+    "weapon",
+    "proficiency",
+]
+
+COMBAT_RULE_TERMS = [
+    "攻击",
+    "伤害",
+    "命中",
+    "豁免",
+    "法术",
+    "法术位",
+    "先攻",
+    "回合",
+    "附赠动作",
+    "反应",
+    "借机攻击",
+    "擒抱",
+    "推撞",
+    "倒地",
+    "优势",
+    "劣势",
+    "attack",
+    "damage",
+    "save",
+    "spell",
+    "initiative",
+    "turn",
+    "reaction",
+    "bonus action",
+    "opportunity",
+    "grapple",
+    "shove",
+]
+
+SCENE_LABELS = {
+    "setup": "准备",
+    "exploration": "探索",
+    "combat": "战斗",
+    "downtime": "休整",
+    "adventure_selection": "冒险选择",
+    "character_creation": "角色创建",
+    "party_creation": "队伍创建",
+    "level_up": "升级",
+}
+
+
 class DMGraphState(TypedDict, total=False):
     game_state: Dict[str, Any]
     user_input: str
@@ -368,6 +489,8 @@ class DMGraphState(TypedDict, total=False):
     instruction: str
     rag_snippets: List[Dict[str, Any]]
     rag_context: str
+    rag_queries: List[str]
+    rag_reason: str
     allowed_tools: List[str]
     tool_call_rounds: int
     final_response: str
@@ -375,6 +498,7 @@ class DMGraphState(TypedDict, total=False):
     state_delta: Dict[str, Any]
     timeline_append: List[Dict[str, Any]]
     history_append: List[Dict[str, Any]]
+    validation_notes: List[str]
 
 
 class DMGraphRunner:
@@ -483,6 +607,88 @@ class DMGraphRunner:
     ) -> SessionEvent:
         return SessionEvent(type=event_type, summary=summary, content=content, payload=payload or {})
 
+    @staticmethod
+    def _contains_any(text: str, terms: List[str]) -> bool:
+        lowered = (text or "").casefold()
+        return any(term.casefold() in lowered for term in terms if term)
+
+    @staticmethod
+    def _unique_texts(values: List[str], limit: int = 4) -> List[str]:
+        unique: List[str] = []
+        seen = set()
+        for raw in values:
+            text = " ".join(str(raw or "").split()).strip()
+            if not text:
+                continue
+            key = text.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(text)
+            if len(unique) >= limit:
+                break
+        return unique
+
+    @staticmethod
+    def _scene_label(scene: str) -> str:
+        return SCENE_LABELS.get((scene or "").strip().lower(), scene or "当前场景")
+
+    def _matched_spell_names(self, state: GameState, user_input: str) -> List[str]:
+        active = state.get_active_char()
+        if not active:
+            return []
+
+        lowered = (user_input or "").casefold()
+        matched: List[str] = []
+        for spell_name in [*active.spells.cantrips, *active.spells.prepared]:
+            normalized = str(spell_name or "").strip()
+            if normalized and normalized.casefold() in lowered:
+                matched.append(normalized)
+        return self._unique_texts(matched, limit=2)
+
+    def _should_auto_retrieve_rules(self, state: GameState, user_input: str) -> tuple[bool, str]:
+        normalized_input = (user_input or "").strip()
+        if not normalized_input:
+            return False, "empty user input"
+        if self._contains_any(normalized_input, RULE_QUESTION_TERMS):
+            return True, "player asked an explicit rules question"
+        if self._matched_spell_names(state, normalized_input):
+            return True, "player referenced an active spell by name"
+        if self._contains_any(normalized_input, RULE_TRIGGER_TERMS):
+            return True, "player action mentioned a rules-relevant term"
+        if (state.scene or "").lower() == "combat" and self._contains_any(normalized_input, COMBAT_RULE_TERMS):
+            return True, "combat turn with rules-sensitive action"
+        return False, "no automatic rules trigger matched"
+
+    def _build_rag_queries(self, state: GameState, user_input: str) -> List[str]:
+        normalized_input = " ".join((user_input or "").split()).strip()
+        if not normalized_input:
+            return []
+
+        active = state.get_active_char()
+        matched_spells = self._matched_spell_names(state, normalized_input)
+        lowered = normalized_input.casefold()
+        matched_terms = [
+            term
+            for term in RULE_TRIGGER_TERMS
+            if term and term.casefold() in lowered and len(term.strip()) > 1
+        ]
+        matched_terms = self._unique_texts(matched_terms, limit=6)
+
+        contextual_terms: List[str] = [self._scene_label(state.scene), self._scene_label(state.campaign.phase)]
+        if active:
+            contextual_terms.extend([active.class_name, active.species, active.background_name])
+        contextual_terms.extend(matched_terms[:4])
+        contextual_query = "D&D 2024 " + " ".join(term for term in contextual_terms if term)
+
+        queries = [normalized_input, contextual_query]
+        for spell_name in matched_spells:
+            queries.append(f"D&D 2024 法术 规则 {spell_name}")
+        if matched_terms:
+            queries.append(f"D&D 2024 规则 {' '.join(matched_terms[:4])}")
+
+        return self._unique_texts(queries, limit=4)
+
     def _prepare_turn(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
@@ -531,8 +737,10 @@ class DMGraphRunner:
         }
 
     @staticmethod
-    def _format_rag_context(snippets: List[Dict[str, str]]) -> str:
+    def _format_rag_context(snippets: List[Dict[str, str]], queries: Optional[List[str]] = None) -> str:
         formatted: List[str] = []
+        if queries:
+            formatted.append(f"Retrieval focus: {' | '.join(queries[:3])}")
         for snippet in snippets:
             heading = f" | {snippet.get('heading', '')}" if snippet.get("heading") else ""
             lines = ""
@@ -547,12 +755,20 @@ class DMGraphRunner:
     def _retrieve_rules(self, graph_state: DMGraphState) -> DMGraphState:
         n_results = int(os.getenv("RAG_AUTO_CONTEXT_RESULTS", "3") or 0)
         if n_results <= 0 or not self.rag_engine.is_ready():
-            return {"rag_snippets": [], "rag_context": ""}
+            return {"rag_snippets": [], "rag_context": "", "rag_queries": [], "rag_reason": "automatic retrieval disabled"}
 
-        snippets = self.rag_engine.search(graph_state.get("user_input", ""), n_results=n_results)
+        state = GameState.model_validate(graph_state["game_state"])
+        should_retrieve, reason = self._should_auto_retrieve_rules(state, graph_state.get("user_input", ""))
+        if not should_retrieve:
+            return {"rag_snippets": [], "rag_context": "", "rag_queries": [], "rag_reason": reason}
+
+        queries = self._build_rag_queries(state, graph_state.get("user_input", ""))
+        snippets = self.rag_engine.search_many(queries, n_results=n_results)
         return {
             "rag_snippets": snippets,
-            "rag_context": self._format_rag_context(snippets),
+            "rag_context": self._format_rag_context(snippets, queries=queries),
+            "rag_queries": queries,
+            "rag_reason": reason,
         }
 
     def _draft_response_placeholder(self, graph_state: DMGraphState) -> DMGraphState:
@@ -677,6 +893,52 @@ class DMGraphRunner:
             "allowed_tools": self._allowed_tool_names(state),
         }
 
+    def _validate_state(self, graph_state: DMGraphState) -> DMGraphState:
+        state = GameState.model_validate(graph_state["game_state"])
+        state_delta = dict(graph_state.get("state_delta", {}))
+        validation_notes: List[str] = []
+
+        if state.characters and (
+            not state.active_character_id or state.active_character_id not in state.characters
+        ):
+            first_character = next(iter(state.characters.values()))
+            state.active_character_id = first_character.character_id
+            state_delta = merge_patch(state_delta, {"active_character_id": first_character.character_id})
+            validation_notes.append("Recovered missing active character reference.")
+
+        encounter = state.encounter
+        if encounter and encounter.active:
+            patch: Dict[str, Any] = {}
+            if state.scene != "combat":
+                state.scene = "combat"
+                patch["scene"] = "combat"
+                validation_notes.append("Forced scene back to combat while encounter is active.")
+            if state.campaign.phase != "combat":
+                state.campaign.phase = "combat"
+                patch["campaign"] = {"phase": "combat"}
+                validation_notes.append("Forced campaign phase back to combat while encounter is active.")
+            if encounter.current_combatant_id and encounter.current_combatant_id not in encounter.combatants:
+                encounter.current_combatant_id = None
+                patch["encounter"] = encounter.model_dump(mode="json")
+                validation_notes.append("Cleared an invalid current combatant reference.")
+            if patch:
+                state_delta = merge_patch(state_delta, patch)
+        elif state.scene == "combat":
+            state.scene = "exploration"
+            patch = {"scene": "exploration"}
+            if state.campaign.phase == "combat":
+                state.campaign.phase = "exploration"
+                patch["campaign"] = {"phase": "exploration"}
+            state_delta = merge_patch(state_delta, patch)
+            validation_notes.append("Recovered from dangling combat scene without an active encounter.")
+
+        return {
+            "game_state": state.model_dump(mode="json"),
+            "state_delta": state_delta,
+            "allowed_tools": self._allowed_tool_names(state),
+            "validation_notes": validation_notes,
+        }
+
     def _finalize_turn(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
@@ -723,6 +985,7 @@ class DMGraphRunner:
         model_node = self._call_model if self.enable_model else self._draft_response_placeholder
         builder.add_node("draft_response", model_node)
         builder.add_node("execute_tools", self._execute_tools)
+        builder.add_node("validate_state", self._validate_state)
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
         builder.add_edge("prepare_turn", "route_phase")
@@ -737,7 +1000,8 @@ class DMGraphRunner:
                 "finalize_turn": "finalize_turn",
             },
         )
-        builder.add_edge("execute_tools", "draft_response")
+        builder.add_edge("execute_tools", "validate_state")
+        builder.add_edge("validate_state", "draft_response")
         builder.add_edge("finalize_turn", END)
         return builder.compile()
 

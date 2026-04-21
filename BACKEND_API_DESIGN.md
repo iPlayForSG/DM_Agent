@@ -136,9 +136,10 @@ LangGraph 重构后该响应结构保持兼容。
 3. 文档向量直接嵌入切片正文；查询向量会统一加上 `Instruct: ... / Query: ...` 前缀后再嵌入，以保持 Qwen3 retrieval 用法一致。
 4. 源文档目录为 `backend/Documents/DND5e 2024`，生成的 Chroma 数据库写入 `backend/Knowledge/vector_db`。
 5. 如果 `chromadb` 或目标 collection 不可用，则 RAG 状态明确标记为未就绪，不再回退到旧的词法检索。
-6. LangGraph 每回合通过 `retrieve_rules` 节点自动注入少量带来源片段；模型仍可通过 `lookup_rules` 工具做二次检索。
-7. Agent 不把大段检索文本永久写入系统提示词，只在当前回合上下文中使用片段。
-8. 运行时会限制单次注入总长度，并对同一来源的候选结果做轻量去重；`GET /api/v1/rag/status` 当前会把后端标记为 `chroma-llama-cpp-gguf`。
+6. LangGraph 每回合通过 `retrieve_rules` 节点先判断当前输入是否属于规则敏感回合；命中触发条件时才自动检索，模型仍可通过 `lookup_rules` 工具做二次检索。
+7. 自动检索不会只拿用户原句做一次向量召回，而是会结合当前 `scene`、`campaign.phase`、主动角色职业/法术和命中的规则关键词规划多条 query，再合并结果做轻量去重。
+8. Agent 不把大段检索文本永久写入系统提示词，只在当前回合上下文中使用片段。
+9. 运行时会限制单次注入总长度，并对同一来源的候选结果做轻量去重；`GET /api/v1/rag/status` 当前会把后端标记为 `chroma-llama-cpp-gguf`。
 
 ### 4.4 资料接口
 
@@ -271,12 +272,13 @@ POST /api/v1/games/{game_id}/turns
 
 - 已新增 `backend/dm_graph.py`。
 - 已声明 `langgraph`、`langchain`、`langchain-openai` 后端依赖。
-- `DMGraphRunner` 目前包含 `prepare_turn -> route_phase -> prepare_context -> draft_response -> execute_tools -> finalize_turn` 的单回合图。
+- `DMGraphRunner` 当前包含 `prepare_turn -> route_phase -> retrieve_rules -> prepare_context -> draft_response -> execute_tools -> validate_state -> finalize_turn` 的单回合图。
 - `draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI` 模型节点。
 - 已接入 `execute_tools` 节点，能够执行模型返回的 tool calls，并把 `ToolResult`、`timeline_append` 和 `state_delta` 合并回图状态。
-- 已接入 `retrieve_rules` 节点，能够在模型调用前从 Qwen3/Chroma RAG 中取回带来源片段。
+- 已接入 `retrieve_rules` 节点，能够在模型调用前按触发词和当前状态做自动 query planning，并从 Qwen3/Chroma RAG 中取回带来源片段。
 - 已按当前场景生成 `allowed_tools`。非战斗阶段保留检定、豁免、施法、HP 与状态变化等常见规则结算工具；战斗阶段额外暴露遭遇、攻击、先攻、推进回合和结束遭遇工具。
 - 已将 `route_phase` 拆成独立节点，当前负责写入 `phase`、`scene` 和 `allowed_tools`；后续可以从这里扩展条件分支。
+- 已接入 `validate_state` 节点，当前会在工具执行后修复缺失的 `active_character_id`、悬空的 `current_combatant_id`，并在遭遇激活/结束时校正 `scene` 与 `campaign.phase`。
 - `DMAgent` 已固定使用 LangGraph runner，不再支持 ADK 后端切换。
 - 默认后端已切换为 `langgraph`。
 - LangGraph 模型节点直接调用模型 provider，不再吞掉 provider 异常；真实 smoke test 需要直接暴露 provider 与工具调用链路问题。
@@ -293,7 +295,9 @@ DMGraphState
   messages: list
   state_summary: str
   recent_history: str
-  rule_snippets: list
+  rag_snippets: list
+  rag_context: str
+  rag_queries: list[str]
   allowed_tools: list[str]
   pending_tool_calls: list
   tool_results: list
@@ -423,7 +427,7 @@ LangGraph 节点负责：
 - Phase 2F 已完成：Z.AI GLM-5.1 可用后，LangGraph 普通探索回合和要求模型调用 `roll_dice` 的工具回合 smoke test 均已通过；模型节点恢复为直接 `model.invoke(...)`，不做 provider 异常兜底。
 - Phase 2G 已完成：`agent.py` 已删除 ADK orchestration，后端依赖已移除 `google-adk` 与 `litellm`，`DMAgent` 固定委托到 LangGraph。
 - Phase 4A 已完成：Qwen3-Embedding-4B-GGUF + llama.cpp ingestion/runtime 检索方案已接入，`retrieve_rules` 成为 LangGraph 显式节点。
-- 尚未完成：完整索引构建验证、更细的条件分支、节点级状态校验。
+- 尚未完成：更细的条件分支、更完整的节点级状态校验和后续 RAG 排序策略。
 
 ### Phase 3: 显式阶段路由
 
@@ -461,9 +465,10 @@ LangGraph 节点负责：
 - RTX 3060 Laptop 6GB 已验证可本地加载该 GGUF 模型并输出 2560 维归一化向量；仓库默认配置改为 `RAG_LLAMA_SERVER_CTX=4096`、`RAG_EMBEDDING_BATCH_SIZE=32`，优先保证中文规则 chunk 的稳定嵌入。
 - ingestion 写入 `rag_manifest.json`，记录 running/complete 状态、chunk 总数、已嵌入数和跳过数；非 `--reset` 运行会跳过已有 chunk id 以支持续跑。
 - Runtime `RAGEngine` 使用同一 GGUF 模型生成 query embedding，并通过 `query_embeddings` 检索，避免 ingestion 和 query 使用不同 embedding 函数。
+- Runtime `RAGEngine` 现已支持多 query 合并召回；`DMGraphRunner` 会先按问题类型决定是否自动检索，再结合 `scene`、`phase`、主动角色和规则关键词规划最多 4 条 query。
 - Runtime 已移除 `rg` fallback；只有目标 Qwen3/Chroma collection 非空时 `rag_enabled` 才为 true。
 - Runtime 支持 `refresh()`，`GET /api/v1/rag/status` 会刷新并返回 collection 计数、模型、路径和错误信息；当前本地默认 collection `dnd_rules_qwen3_embedding_4b_q6_k` 已构建完成，计数为 19694。
-- `DMGraphRunner` 已在 `prepare_context` 前加入 `retrieve_rules` 节点。
+- `DMGraphRunner` 已在 `prepare_context` 前加入 `retrieve_rules` 节点，并把规则片段直接注入当前回合 prompt；普通叙事输入默认跳过自动检索，规则问题和战斗规则动作会触发注入。
 
 ### Phase 5: 可恢复执行与观测
 
