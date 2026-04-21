@@ -60,7 +60,7 @@ $env:PYTHONNOUSERSITE="1"
 python rag_ingest.py --max-chunks 2 --reset --db-path Knowledge/vector_db_smoke --collection rag_smoke
 ```
 
-索引会写入 `backend/Knowledge/vector_db`，默认 collection 名称为 `dnd_rules_qwen3_embedding_4b_q6_k`。首次正式构建会把 GGUF 模型缓存到 `backend/Knowledge/hf_cache`，并使用 `backend/Knowledge/llama_cpp/` 下的本地二进制运行嵌入服务。运行时只使用该 GGUF + Chroma collection；索引不存在时 RAG 会明确显示未就绪，不会切换到旧的词法检索路径。LangGraph 当前会在规则敏感回合先判断是否需要自动检索，再规划多条 query 合并召回，并把规则片段注入本回合提示词。
+索引会写入 `backend/Knowledge/vector_db`，默认 collection 名称为 `dnd_rules_qwen3_embedding_4b_q6_k`。首次正式构建会把 GGUF 模型缓存到 `backend/Knowledge/hf_cache`，并使用 `backend/Knowledge/llama_cpp/` 下的本地二进制运行嵌入服务。运行时只使用该 GGUF + Chroma collection；索引不存在时 RAG 会明确显示未就绪，不会切换到旧的词法检索路径。LangGraph 当前会在规则敏感回合先判断是否需要自动检索，再规划多条 query 合并召回，并把规则片段注入本回合提示词；召回结果还会按规则关键词、标题和来源路径做一层轻量本地重排。
 
 当前默认切片为 512 字符、80 字符 overlap，本地全量 dry-run 统计为 2948 个源文件、19694 个 chunk，当前默认知识库也已经在本机构建完成。为保证中文规则文本的稳定嵌入，`RAG_LLAMA_SERVER_CTX` 建议保持 `4096`；无 CUDA 时，脚本会阻止大批量 CPU 构建。确实要强制执行可加 `--allow-slow-cpu`，但预计会非常慢。中断后的构建可以去掉 `--reset` 直接续跑，脚本会跳过 collection 中已有的 chunk id，也支持通过 `--start-chunk` 从指定偏移继续。
 

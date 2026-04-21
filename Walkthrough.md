@@ -298,7 +298,7 @@ LangGraph workflow。当前包含 `prepare_turn`、`route_phase`、`prepare_cont
 
 Agent 规则检索层。运行时只读取 Qwen3-Embedding-4B-GGUF 构建的 Chroma collection；缺少依赖、数据库或非空 collection 时会返回未就绪状态。召回会多取候选，再按来源做轻量去重，并限制注入模型上下文的总长度。
 
-当前 Chroma collection 默认为 `dnd_rules_qwen3_embedding_4b_q6_k`，query embedding 通过本地 `llama.cpp` OpenAI-compatible `/v1/embeddings` 接口生成，并在查询前统一补上 retrieval instruct 前缀。RAG runtime 现已支持多 query 合并召回，供 LangGraph 自动规则注入复用。
+当前 Chroma collection 默认为 `dnd_rules_qwen3_embedding_4b_q6_k`，query embedding 通过本地 `llama.cpp` OpenAI-compatible `/v1/embeddings` 接口生成，并在查询前统一补上 retrieval instruct 前缀。RAG runtime 现已支持多 query 合并召回和轻量本地重排，供 LangGraph 自动规则注入复用。
 
 `backend/rag_ingest.py`
 
@@ -587,7 +587,7 @@ Phase 4: RAG 与 Rules Guard 强化
 - 控制规则片段长度、来源和注入位置。
 - 工具调用失败时让模型有机会修正。
 
-补充状态：Phase 4A 已完成。`backend/rag_ingest.py` 已切换为 Qwen3-Embedding-4B-GGUF ingestion，并提供 `--dry-run`、CPU 大批量保护、manifest 进度记录和续跑能力；本地全量 dry-run 已确认 2948 个源文件会生成 19694 个 chunk；官方 `Qwen3-Embedding-4B-Q6_K.gguf` 已下载，配合本地 `llama.cpp` CUDA 版 runtime 已在 RTX 3060 Laptop 6GB 上完成验证，并已成功构建默认 collection `dnd_rules_qwen3_embedding_4b_q6_k`；`backend/rag.py` runtime 检索使用同一 embedding 模型且不再保留 `rg` fallback；`DMGraphRunner` 已加入 `retrieve_rules` 节点，并已实现规则敏感输入判定、多 query planning、回合内规则片段 prompt 注入和工具执行后的最小状态校验。
+补充状态：Phase 4A 已完成。`backend/rag_ingest.py` 已切换为 Qwen3-Embedding-4B-GGUF ingestion，并提供 `--dry-run`、CPU 大批量保护、manifest 进度记录和续跑能力；本地全量 dry-run 已确认 2948 个源文件会生成 19694 个 chunk；官方 `Qwen3-Embedding-4B-Q6_K.gguf` 已下载，配合本地 `llama.cpp` CUDA 版 runtime 已在 RTX 3060 Laptop 6GB 上完成验证，并已成功构建默认 collection `dnd_rules_qwen3_embedding_4b_q6_k`；`backend/rag.py` runtime 检索使用同一 embedding 模型且不再保留 `rg` fallback，并已加入多 query 合并召回与轻量本地重排；`DMGraphRunner` 已加入 `retrieve_rules` 节点，并已实现规则敏感输入判定、多 query planning、回合内规则片段 prompt 注入和工具执行后的最小状态校验；最新一轮又补上了先攻顺序整理、自动启动回合序列和验证备注回灌消息流。
 
 Phase 5: 可恢复执行和观测
 

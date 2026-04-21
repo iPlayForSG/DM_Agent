@@ -893,10 +893,19 @@ class DMGraphRunner:
             "allowed_tools": self._allowed_tool_names(state),
         }
 
+    @staticmethod
+    def _build_validation_message(notes: List[str]) -> Optional[Any]:
+        if not notes or SystemMessage is None:
+            return None
+        content = "State validation updates:\n- " + "\n- ".join(notes)
+        return SystemMessage(content=content)
+
     def _validate_state(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
+        messages = list(graph_state.get("messages", []))
         state_delta = dict(graph_state.get("state_delta", {}))
         validation_notes: List[str] = []
+        logic = GameLogic(state)
 
         if state.characters and (
             not state.active_character_id or state.active_character_id not in state.characters
@@ -917,10 +926,61 @@ class DMGraphRunner:
                 state.campaign.phase = "combat"
                 patch["campaign"] = {"phase": "combat"}
                 validation_notes.append("Forced campaign phase back to combat while encounter is active.")
-            if encounter.current_combatant_id and encounter.current_combatant_id not in encounter.combatants:
+
+            if not encounter.combatants:
+                encounter.active = False
                 encounter.current_combatant_id = None
-                patch["encounter"] = encounter.model_dump(mode="json")
-                validation_notes.append("Cleared an invalid current combatant reference.")
+                encounter.turn_order_started = False
+                state.scene = "exploration"
+                state.campaign.phase = "exploration"
+                patch = {
+                    "scene": "exploration",
+                    "campaign": {"phase": "exploration"},
+                    "encounter": encounter.model_dump(mode="json"),
+                }
+                validation_notes.append("Closed an invalid encounter with no combatants.")
+            else:
+                previous_order = list(encounter.initiative_order)
+                previous_current = encounter.current_combatant_id
+                previous_started = encounter.turn_order_started
+                logic._refresh_initiative_order()
+                if encounter.initiative_order != previous_order:
+                    validation_notes.append("Normalized initiative order to match current combatants and initiative values.")
+                if encounter.current_combatant_id and encounter.current_combatant_id not in encounter.combatants:
+                    encounter.current_combatant_id = None
+                    validation_notes.append("Cleared an invalid current combatant reference.")
+
+                eligible_order = [
+                    combatant_id
+                    for combatant_id in encounter.initiative_order
+                    if logic._combatant_can_take_turn(encounter.combatants.get(combatant_id))
+                ]
+
+                if not encounter.turn_order_started:
+                    if logic._start_turn_order_if_ready():
+                        validation_notes.append("Started turn order automatically after all initiatives became available.")
+                elif eligible_order:
+                    if encounter.current_combatant_id not in eligible_order:
+                        encounter.current_combatant_id = eligible_order[0]
+                        validation_notes.append("Moved current combatant to the next eligible combatant.")
+                else:
+                    if encounter.current_combatant_id is not None:
+                        encounter.current_combatant_id = None
+                        validation_notes.append("Cleared current combatant because no combatant can currently act.")
+
+                current = encounter.get_current_combatant()
+                if current and current.linked_character_id and current.linked_character_id in state.characters:
+                    if state.active_character_id != current.linked_character_id:
+                        state.active_character_id = current.linked_character_id
+                        patch["active_character_id"] = current.linked_character_id
+                        validation_notes.append("Synced active character to the acting party combatant.")
+
+                if (
+                    encounter.initiative_order != previous_order
+                    or encounter.current_combatant_id != previous_current
+                    or encounter.turn_order_started != previous_started
+                ):
+                    patch["encounter"] = encounter.model_dump(mode="json")
             if patch:
                 state_delta = merge_patch(state_delta, patch)
         elif state.scene == "combat":
@@ -932,8 +992,13 @@ class DMGraphRunner:
             state_delta = merge_patch(state_delta, patch)
             validation_notes.append("Recovered from dangling combat scene without an active encounter.")
 
+        validation_message = self._build_validation_message(validation_notes)
+        if validation_message is not None:
+            messages.append(validation_message)
+
         return {
             "game_state": state.model_dump(mode="json"),
+            "messages": messages,
             "state_delta": state_delta,
             "allowed_tools": self._allowed_tool_names(state),
             "validation_notes": validation_notes,

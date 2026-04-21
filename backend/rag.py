@@ -1,6 +1,7 @@
 """Optional Chroma-backed rules retrieval used by the DM agent."""
 
 import os
+import re
 import sys
 import site
 from typing import Any, Dict, List, Optional
@@ -45,6 +46,7 @@ class RAGEngine:
         self.max_context_chars = self._env_int("RAG_MAX_CONTEXT_CHARS", 6000)
         self.max_snippet_chars = self._env_int("RAG_MAX_SNIPPET_CHARS", 1800)
         self.max_results_per_source = max(1, self._env_int("RAG_MAX_RESULTS_PER_SOURCE", 2))
+        self.rerank_enabled = os.getenv("RAG_RERANK_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
         self.client = None
         self.collection: Optional[Collection] = None
         self.collection_count = 0
@@ -130,6 +132,7 @@ class RAGEngine:
         self.max_context_chars = self._env_int("RAG_MAX_CONTEXT_CHARS", self.max_context_chars)
         self.max_snippet_chars = self._env_int("RAG_MAX_SNIPPET_CHARS", self.max_snippet_chars)
         self.max_results_per_source = max(1, self._env_int("RAG_MAX_RESULTS_PER_SOURCE", self.max_results_per_source))
+        self.rerank_enabled = os.getenv("RAG_RERANK_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
         self._load_collection()
         return self.is_ready()
 
@@ -145,6 +148,7 @@ class RAGEngine:
             "error": self.last_error,
             "max_context_chars": self.max_context_chars,
             "max_snippet_chars": self.max_snippet_chars,
+            "rerank_enabled": self.rerank_enabled,
         }
 
     def search(self, query: str, n_results: int = 3) -> List[Dict[str, str]]:
@@ -173,14 +177,7 @@ class RAGEngine:
             self.last_error = str(exc)
             return []
 
-        ordered = sorted(
-            merged.values(),
-            key=lambda item: (
-                item.get("_distance_value", float("inf")),
-                item.get("source", ""),
-                item.get("chunk_index", ""),
-            ),
-        )
+        ordered = self._rerank_candidates(list(merged.values()), normalized_queries)
         cleaned: List[Dict[str, str]] = []
         for item in ordered:
             cleaned.append(
@@ -195,6 +192,65 @@ class RAGEngine:
                 }
             )
         return self._select_diverse(cleaned, requested)
+
+    @staticmethod
+    def _extract_query_terms(queries: List[str]) -> List[str]:
+        unique: List[str] = []
+        seen = set()
+        for query in queries:
+            parts = re.findall(r"[A-Za-z0-9_+\-]{2,}|[\u4e00-\u9fff]{2,12}", str(query or ""))
+            for part in parts:
+                cleaned = part.strip().casefold()
+                if not cleaned or cleaned in {"d", "2024", "rules", "rule", "规则"}:
+                    continue
+                if cleaned in seen:
+                    continue
+                seen.add(cleaned)
+                unique.append(cleaned)
+                if len(unique) >= 24:
+                    return unique
+        return unique
+
+    def _rerank_candidates(self, candidates: List[Dict[str, Any]], queries: List[str]) -> List[Dict[str, Any]]:
+        if not candidates:
+            return []
+        if not self.rerank_enabled:
+            return sorted(
+                candidates,
+                key=lambda item: (
+                    item.get("_distance_value", float("inf")),
+                    item.get("source", ""),
+                    item.get("chunk_index", ""),
+                ),
+            )
+
+        query_terms = self._extract_query_terms(queries)
+        scored: List[Dict[str, Any]] = []
+        for candidate in candidates:
+            source = str(candidate.get("source", "")).casefold()
+            heading = str(candidate.get("heading", "")).casefold()
+            content = str(candidate.get("content", "")).casefold()
+            lexical_score = 0
+            for term in query_terms:
+                if term in heading:
+                    lexical_score += 4
+                elif term in source:
+                    lexical_score += 3
+                elif term in content:
+                    lexical_score += 1
+            enriched = dict(candidate)
+            enriched["_lexical_score"] = lexical_score
+            scored.append(enriched)
+
+        return sorted(
+            scored,
+            key=lambda item: (
+                -int(item.get("_lexical_score", 0)),
+                item.get("_distance_value", float("inf")),
+                item.get("source", ""),
+                item.get("chunk_index", ""),
+            ),
+        )
 
     @staticmethod
     def _normalize_queries(queries: List[str]) -> List[str]:
