@@ -1,10 +1,12 @@
-"""Build the local D&D 2024 RAG vector store with Qwen3 embeddings."""
+"""Build the local D&D 2024 RAG vector store with Qwen3 GGUF embeddings."""
 
 import argparse
 import hashlib
 import json
 import os
 import site
+import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -239,17 +241,25 @@ def existing_ids(collection, ids: List[str]) -> set[str]:
 
 
 def cuda_available() -> bool:
+    if not shutil.which("nvidia-smi"):
+        return False
     try:
-        import torch
-
-        return bool(torch.cuda.is_available())
+        completed = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
     except Exception:
         return False
+    return completed.returncode == 0 and bool(completed.stdout.strip())
 
 
 def enforce_cpu_guard(args: argparse.Namespace, chunk_count: int) -> None:
     requested_device = (args.device or os.getenv("RAG_EMBEDDING_DEVICE", "")).strip().lower()
-    if requested_device and requested_device != "cpu":
+    if requested_device in {"cuda", "gpu"}:
         return
     if cuda_available():
         return
@@ -258,7 +268,7 @@ def enforce_cpu_guard(args: argparse.Namespace, chunk_count: int) -> None:
     if chunk_count <= args.cpu_chunk_limit:
         return
     raise RuntimeError(
-        "Qwen3-Embedding-8B is running on CPU and the requested ingestion is too large. "
+        "Qwen3-Embedding-4B-GGUF is running without CUDA acceleration and the requested ingestion is too large. "
         f"Chunk count: {chunk_count}. Set RAG_EMBEDDING_DEVICE=cuda on a CUDA machine, "
         "use --max-chunks for a smoke test, or pass --allow-slow-cpu if you intentionally "
         "want a very long CPU run."
@@ -281,13 +291,18 @@ def ingest(args: argparse.Namespace) -> None:
     print(f"Embedding model: {model_name}")
     print(f"Chunk size / overlap: {args.chunk_size} / {args.overlap}")
 
-    chunks = build_chunks(
+    all_chunks = build_chunks(
         source_root=source_root,
         chunk_size=args.chunk_size,
         overlap=args.overlap,
         limit=args.limit,
         max_chunks=args.max_chunks,
     )
+    full_chunk_count = len(all_chunks)
+    start_chunk = max(0, int(args.start_chunk or 0))
+    chunks = all_chunks[start_chunk:] if start_chunk > 0 else all_chunks
+    if start_chunk > 0:
+        print(f"Resuming from chunk offset: {start_chunk}")
     print(f"Generated {len(chunks)} chunks.")
     if not chunks:
         raise RuntimeError("No chunks generated from the source documents.")
@@ -331,9 +346,12 @@ def ingest(args: argparse.Namespace) -> None:
         "embedding_model": model_name,
         "source_root": source_root,
         "chunk_count": len(chunks),
+        "full_chunk_count": full_chunk_count,
+        "remaining_chunk_count": len(chunks),
         "chunk_size": args.chunk_size,
         "overlap": args.overlap,
         "source_file_count": source_file_count,
+        "start_chunk": start_chunk,
         "embed_batch_size": args.embed_batch_size,
         "upsert_batch_size": args.upsert_batch_size,
         "embedding_device": args.device or os.getenv("RAG_EMBEDDING_DEVICE", "") or "auto",
@@ -403,20 +421,21 @@ def ingest(args: argparse.Namespace) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build the local D&D 2024 RAG index.")
+    parser = argparse.ArgumentParser(description="Build the local D&D 2024 RAG index with GGUF embeddings.")
     parser.add_argument("--source-root", default="", help="Directory containing D&D markdown documents.")
     parser.add_argument("--db-path", default="", help="Persistent Chroma database path.")
     parser.add_argument("--collection", default="", help="Chroma collection name.")
-    parser.add_argument("--model", default="", help="SentenceTransformer embedding model.")
+    parser.add_argument("--model", default="", help="GGUF model path or model repo identifier.")
     parser.add_argument("--chunk-size", type=int, default=int(os.getenv("RAG_CHUNK_SIZE", str(DEFAULT_CHUNK_SIZE))))
     parser.add_argument("--overlap", type=int, default=int(os.getenv("RAG_CHUNK_OVERLAP", str(DEFAULT_CHUNK_OVERLAP))))
-    parser.add_argument("--device", default=os.getenv("RAG_EMBEDDING_DEVICE", ""), help="Embedding device passed to SentenceTransformer, for example cuda or cpu.")
-    parser.add_argument("--embed-batch-size", type=int, default=int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "4")))
+    parser.add_argument("--device", default=os.getenv("RAG_EMBEDDING_DEVICE", ""), help="Embedding device hint for llama.cpp, for example cuda or cpu.")
+    parser.add_argument("--embed-batch-size", type=int, default=int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "32")))
     parser.add_argument("--upsert-batch-size", type=int, default=int(os.getenv("RAG_UPSERT_BATCH_SIZE", "32")))
     parser.add_argument("--limit", type=int, default=0, help="Only ingest the first N files for smoke testing.")
     parser.add_argument("--max-chunks", type=int, default=0, help="Only ingest the first N generated chunks for smoke testing.")
+    parser.add_argument("--start-chunk", type=int, default=0, help="Skip the first N generated chunks before embedding.")
     parser.add_argument("--cpu-chunk-limit", type=int, default=int(os.getenv("RAG_CPU_CHUNK_LIMIT", str(DEFAULT_CPU_CHUNK_LIMIT))))
-    parser.add_argument("--allow-slow-cpu", action="store_true", help="Allow large Qwen3-8B ingestion on CPU.")
+    parser.add_argument("--allow-slow-cpu", action="store_true", help="Allow large Qwen3 GGUF ingestion on CPU.")
     parser.add_argument("--reset", action="store_true", help="Delete the target collection before ingestion.")
     parser.add_argument("--no-resume", action="store_true", help="Re-embed existing chunk ids instead of skipping them.")
     parser.add_argument("--dry-run", action="store_true", help="Only chunk source files; do not load embeddings or write Chroma.")

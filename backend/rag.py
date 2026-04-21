@@ -74,7 +74,7 @@ class RAGEngine:
                 self.collection = None
                 self.last_error = f"{self.collection_name} collection is empty"
             else:
-                self.backend = "chroma-qwen3"
+                self.backend = "chroma-llama-cpp-gguf"
         except Exception as exc:
             self.collection = None
             self.last_error = str(exc)

@@ -35,7 +35,7 @@ python main.py
 
 ## RAG 知识库构建
 
-本地 D&D 2024 文档位于 `backend/Documents/DND5e 2024`，该目录不会提交到公开仓库。Qwen3-Embedding-8B 是 8B 模型，完整构建建议在 CUDA 环境中执行：
+本地 D&D 2024 文档位于 `backend/Documents/DND5e 2024`，该目录不会提交到公开仓库。当前默认方案使用 `Qwen/Qwen3-Embedding-4B-GGUF` 的 `Qwen3-Embedding-4B-Q6_K.gguf`，并通过本地 `llama.cpp` CUDA 版 `llama-server` 提供 OpenAI-compatible `/v1/embeddings` 接口。该组合已经在 RTX 3060 Laptop 6GB 上完成验证，并已成功构建完整知识库。
 
 ```powershell
 cd backend
@@ -44,7 +44,7 @@ $env:RAG_EMBEDDING_DEVICE="cuda"
 python rag_ingest.py --reset
 ```
 
-如需先验证切片而不下载或加载 8B 模型，可以运行：
+如需先验证切片而不加载 GGUF 模型、也不写入 Chroma，可以运行：
 
 ```powershell
 cd backend
@@ -60,9 +60,9 @@ $env:PYTHONNOUSERSITE="1"
 python rag_ingest.py --max-chunks 2 --reset --db-path Knowledge/vector_db_smoke --collection rag_smoke
 ```
 
-索引会写入 `backend/Knowledge/vector_db`，collection 名称为 `dnd_rules_qwen3_embedding_8b`。首次正式构建会从 Hugging Face 下载 `Qwen/Qwen3-Embedding-8B`，模型缓存位于 `backend/Knowledge/hf_cache`。运行时只使用该 Qwen3 + Chroma collection；索引不存在时 RAG 会明确显示未就绪，不会切换到旧的词法检索路径。
+索引会写入 `backend/Knowledge/vector_db`，默认 collection 名称为 `dnd_rules_qwen3_embedding_4b_q6_k`。首次正式构建会把 GGUF 模型缓存到 `backend/Knowledge/hf_cache`，并使用 `backend/Knowledge/llama_cpp/` 下的本地二进制运行嵌入服务。运行时只使用该 GGUF + Chroma collection；索引不存在时 RAG 会明确显示未就绪，不会切换到旧的词法检索路径。
 
-当前默认切片为 512 字符、80 字符 overlap，本地全量 dry-run 统计为 2948 个源文件、19694 个 chunk。无 CUDA 时，脚本会阻止大批量 CPU 构建；确实要强制执行可加 `--allow-slow-cpu`，但预计会非常慢。中断后的构建可以去掉 `--reset` 直接续跑，脚本会跳过 collection 中已有的 chunk id。
+当前默认切片为 512 字符、80 字符 overlap，本地全量 dry-run 统计为 2948 个源文件、19694 个 chunk，当前默认知识库也已经在本机构建完成。为保证中文规则文本的稳定嵌入，`RAG_LLAMA_SERVER_CTX` 建议保持 `4096`；无 CUDA 时，脚本会阻止大批量 CPU 构建。确实要强制执行可加 `--allow-slow-cpu`，但预计会非常慢。中断后的构建可以去掉 `--reset` 直接续跑，脚本会跳过 collection 中已有的 chunk id，也支持通过 `--start-chunk` 从指定偏移继续。
 
 ## 前端运行
 

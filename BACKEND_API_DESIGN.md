@@ -131,13 +131,14 @@ LangGraph 重构后该响应结构保持兼容。
 
 当前 RAG 链路约定：
 
-1. 使用持久化 Chroma 向量库，默认 collection 为 `dnd_rules_qwen3_embedding_8b`。
-2. 向量由 `Qwen/Qwen3-Embedding-8B` 生成，文档向量不加 query prompt，查询向量使用模型内置 `query` prompt。
-3. 源文档目录为 `backend/Documents/DND5e 2024`，生成的 Chroma 数据库写入 `backend/Knowledge/vector_db`。
-4. 如果 `chromadb` 或目标 collection 不可用，则 RAG 状态明确标记为未就绪，不再回退到旧的词法检索。
-5. LangGraph 每回合通过 `retrieve_rules` 节点自动注入少量带来源片段；模型仍可通过 `lookup_rules` 工具做二次检索。
-6. Agent 不把大段检索文本永久写入系统提示词，只在当前回合上下文中使用片段。
-7. 运行时会限制单次注入总长度，并对同一来源的候选结果做轻量去重。
+1. 使用持久化 Chroma 向量库，默认 collection 为 `dnd_rules_qwen3_embedding_4b_q6_k`。
+2. 向量由 `Qwen/Qwen3-Embedding-4B-GGUF` 的 `Qwen3-Embedding-4B-Q6_K.gguf` 生成，嵌入服务通过本地 `llama.cpp` `llama-server` 提供 OpenAI-compatible `/v1/embeddings` 接口。
+3. 文档向量直接嵌入切片正文；查询向量会统一加上 `Instruct: ... / Query: ...` 前缀后再嵌入，以保持 Qwen3 retrieval 用法一致。
+4. 源文档目录为 `backend/Documents/DND5e 2024`，生成的 Chroma 数据库写入 `backend/Knowledge/vector_db`。
+5. 如果 `chromadb` 或目标 collection 不可用，则 RAG 状态明确标记为未就绪，不再回退到旧的词法检索。
+6. LangGraph 每回合通过 `retrieve_rules` 节点自动注入少量带来源片段；模型仍可通过 `lookup_rules` 工具做二次检索。
+7. Agent 不把大段检索文本永久写入系统提示词，只在当前回合上下文中使用片段。
+8. 运行时会限制单次注入总长度，并对同一来源的候选结果做轻量去重；`GET /api/v1/rag/status` 当前会把后端标记为 `chroma-llama-cpp-gguf`。
 
 ### 4.4 资料接口
 
@@ -421,7 +422,7 @@ LangGraph 节点负责：
 - Phase 2E 已完成：非战斗阶段工具白名单已补齐常见规则结算能力。
 - Phase 2F 已完成：Z.AI GLM-5.1 可用后，LangGraph 普通探索回合和要求模型调用 `roll_dice` 的工具回合 smoke test 均已通过；模型节点恢复为直接 `model.invoke(...)`，不做 provider 异常兜底。
 - Phase 2G 已完成：`agent.py` 已删除 ADK orchestration，后端依赖已移除 `google-adk` 与 `litellm`，`DMAgent` 固定委托到 LangGraph。
-- Phase 4A 已完成：Qwen3-Embedding-8B ingestion/runtime 检索方案已接入，`retrieve_rules` 成为 LangGraph 显式节点。
+- Phase 4A 已完成：Qwen3-Embedding-4B-GGUF + llama.cpp ingestion/runtime 检索方案已接入，`retrieve_rules` 成为 LangGraph 显式节点。
 - 尚未完成：完整索引构建验证、更细的条件分支、节点级状态校验。
 
 ### Phase 3: 显式阶段路由
@@ -454,14 +455,14 @@ LangGraph 节点负责：
 
 当前状态：
 
-- Phase 4A 已完成：`backend/rag_ingest.py` 使用 `Qwen/Qwen3-Embedding-8B` 为 `backend/Documents/DND5e 2024` 构建 Chroma collection。
+- Phase 4A 已完成：`backend/rag_ingest.py` 使用 `Qwen/Qwen3-Embedding-4B-GGUF` 的 `Qwen3-Embedding-4B-Q6_K.gguf` 为 `backend/Documents/DND5e 2024` 构建 Chroma collection，并通过本地 `llama.cpp` server 生成 embeddings。
 - `rag_ingest.py --dry-run` 可在不加载大模型、不写入 Chroma 的情况下验证 D&D markdown 切片。
 - 默认切片已调整为 512 字符、80 字符 overlap，本地全量 dry-run 已验证 2948 个源文件会生成 19694 个 chunk。
-- Qwen3-Embedding-8B 模型已能在本地加载并输出 4096 维向量；无 CUDA 时单个 520 字符 chunk 的 CPU embedding 约需 174 秒，因此 ingestion 默认阻止大批量 CPU 构建，必须显式传入 `--allow-slow-cpu` 才会强制运行。
+- RTX 3060 Laptop 6GB 已验证可本地加载该 GGUF 模型并输出 2560 维归一化向量；仓库默认配置改为 `RAG_LLAMA_SERVER_CTX=4096`、`RAG_EMBEDDING_BATCH_SIZE=32`，优先保证中文规则 chunk 的稳定嵌入。
 - ingestion 写入 `rag_manifest.json`，记录 running/complete 状态、chunk 总数、已嵌入数和跳过数；非 `--reset` 运行会跳过已有 chunk id 以支持续跑。
-- Runtime `RAGEngine` 使用同一模型生成 query embedding，并通过 `query_embeddings` 检索，避免 ingestion 和 query 使用不同 embedding 函数。
+- Runtime `RAGEngine` 使用同一 GGUF 模型生成 query embedding，并通过 `query_embeddings` 检索，避免 ingestion 和 query 使用不同 embedding 函数。
 - Runtime 已移除 `rg` fallback；只有目标 Qwen3/Chroma collection 非空时 `rag_enabled` 才为 true。
-- Runtime 支持 `refresh()`，`GET /api/v1/rag/status` 会刷新并返回 collection 计数、模型、路径和错误信息。
+- Runtime 支持 `refresh()`，`GET /api/v1/rag/status` 会刷新并返回 collection 计数、模型、路径和错误信息；当前本地默认 collection `dnd_rules_qwen3_embedding_4b_q6_k` 已构建完成，计数为 19694。
 - `DMGraphRunner` 已在 `prepare_context` 前加入 `retrieve_rules` 节点。
 
 ### Phase 5: 可恢复执行与观测
@@ -482,7 +483,7 @@ LangGraph 节点负责：
 
 以下内容暂不和 LangGraph 替换绑定：
 
-- 在 CUDA 环境中执行完整 D&D 资料向量索引构建。
+- RAG 的自动化增量重建、召回排序和后续重排策略。
 - 远程数据库存档。
 - 多用户账户系统。
 - Google Cloud / Agent Engine 部署。
