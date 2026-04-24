@@ -1170,24 +1170,24 @@ class GameLogic:
 
     def build_encounter_end_summary(self, summary: Dict[str, Any]) -> str:
         parts = [
-            f"Encounter ended at round {summary['round_number']}",
-            f"party HP total {summary['party_hp_total']}",
+            f"遭遇在第 {summary['round_number']} 轮结束",
+            f"队伍 HP 合计 {summary['party_hp_total']}",
         ]
         if summary["enemy_total"] > 0:
             parts.append(
-                f"enemies defeated {summary['enemy_defeated']}/{summary['enemy_total']}"
+                f"敌人被击败 {summary['enemy_defeated']}/{summary['enemy_total']}"
             )
             nonlethal_parts = []
             if summary.get("enemy_dead", 0) > 0:
-                nonlethal_parts.append(f"dead {summary['enemy_dead']}")
+                nonlethal_parts.append(f"死亡 {summary['enemy_dead']}")
             if summary.get("enemy_unconscious", 0) > 0:
-                nonlethal_parts.append(f"unconscious {summary['enemy_unconscious']}")
+                nonlethal_parts.append(f"昏迷 {summary['enemy_unconscious']}")
             if summary.get("enemy_captured", 0) > 0:
-                nonlethal_parts.append(f"captured {summary['enemy_captured']}")
+                nonlethal_parts.append(f"被俘 {summary['enemy_captured']}")
             if nonlethal_parts:
                 parts.append(", ".join(nonlethal_parts))
         if summary["ally_total"] > 0:
-            parts.append(f"allies remaining {summary['ally_remaining']}/{summary['ally_total']}")
+            parts.append(f"盟友剩余 {summary['ally_remaining']}/{summary['ally_total']}")
         return " | ".join(parts)
 
     def finalize_encounter(self) -> Optional[Dict[str, Any]]:

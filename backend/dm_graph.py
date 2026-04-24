@@ -1089,7 +1089,9 @@ class DMGraphRunner:
             }
 
         queries = self._build_intent_rag_queries(state, graph_state.get("user_input", ""), intent_payload)
-        snippets = self.rag_engine.search_many(queries, n_results=n_results)
+        snippets = self.library.localize_rag_snippets(
+            self.rag_engine.search_many(queries, n_results=n_results)
+        )
         intent = str(intent_payload.get("intent", "none"))
         reason = str(intent_payload.get("reason", ""))
         sources = self._unique_texts(

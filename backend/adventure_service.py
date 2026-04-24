@@ -8,32 +8,36 @@ from models import AdventureHook, Character
 # Fixed seeds keep early-game QA stable while still rotating by party makeup.
 ADVENTURE_TEMPLATES = [
     {
-        "title": "Ashes Under Blackbarrow",
-        "summary": "A mining village has gone silent after smoke began rising from sealed burial tunnels beneath the old barrow.",
-        "tone": "grim",
-        "difficulty": "medium",
-        "opening_scene": "The party arrives in a rain-soaked frontier village where every chimney is cold except one."
+        "adventure_id": "adv-ashes-under-blackbarrow",
+        "title": "黑冢下的余烬",
+        "summary": "一座矿业村落在旧墓丘下方的封闭墓道冒出烟雾后陷入死寂。",
+        "tone": "阴郁",
+        "difficulty": "中等",
+        "opening_scene": "队伍抵达一座雨水浸透的边境村庄，那里每根烟囱都冷透了，唯有一处仍冒着烟。",
     },
     {
-        "title": "The Lantern Road Debt",
-        "summary": "A merchant house offers coin for escort duty, but the road is lined with missing caravans and unpaid ghosts.",
-        "tone": "dark fantasy",
-        "difficulty": "easy",
-        "opening_scene": "A tired factor spreads a blood-stained ledger across the tavern table and names a road nobody wants to travel."
+        "adventure_id": "adv-the-lantern-road-debt",
+        "title": "灯路旧债",
+        "summary": "一家商会出钱雇人护送货队，但那条道路两侧满是失踪商队与讨债亡魂的传闻。",
+        "tone": "黑暗奇幻",
+        "difficulty": "简单",
+        "opening_scene": "疲惫的商会代理人把一本染血账册摊在酒馆桌上，说出了那条没人愿意踏上的道路名字。",
     },
     {
-        "title": "The Broken Chapel Bell",
-        "summary": "A ruined hillside shrine rings on moonless nights, and each toll is followed by another villager vanishing.",
-        "tone": "horror",
-        "difficulty": "medium",
-        "opening_scene": "The bell sounds once across the valley while the priest insists the chapel has no rope and no living keeper."
+        "adventure_id": "adv-the-broken-chapel-bell",
+        "title": "破礼拜堂之钟",
+        "summary": "山坡废祠会在无月之夜自行鸣响，每一声钟响后都会有一名村民失踪。",
+        "tone": "恐怖",
+        "difficulty": "中等",
+        "opening_scene": "钟声越过山谷响了一下，而祭司坚持说那座礼拜堂既没有钟绳，也没有活着的看守。",
     },
     {
-        "title": "Knives at Lowwater Market",
-        "summary": "A riverside market town is rotting under extortion, sabotage, and a feud between hired blades and desperate guilders.",
-        "tone": "street-level",
-        "difficulty": "medium",
-        "opening_scene": "The fish market is still open when the first body drops onto the counting tables."
+        "adventure_id": "adv-knives-at-lowwater-market",
+        "title": "低水集市的刀影",
+        "summary": "一座河畔集镇正被勒索、破坏，以及雇佣刀手与绝望行会成员之间的仇怨拖入腐败。",
+        "tone": "街头冒险",
+        "difficulty": "中等",
+        "opening_scene": "鱼市尚未收摊，第一具尸体便砸落在计数桌上。",
     },
 ]
 

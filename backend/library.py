@@ -32,6 +32,82 @@ TERM_TRANSLATIONS = {
     "Concentration": "专注",
     "Advantage": "优势",
     "Disadvantage": "劣势",
+    "Human": "人类",
+    "Elf": "精灵",
+    "Dwarf": "矮人",
+    "Halfling": "半身人",
+    "Acolyte": "侍祭",
+    "Criminal": "罪犯",
+    "Entertainer": "艺人",
+    "Magic Initiate (Cleric)": "魔法学徒（牧师）",
+    "Alert": "警觉",
+    "Musician": "音乐家",
+    "Package A": "套装A",
+    "Package B": "套装B",
+    "Chain Shirt, Shield, Mace, a Holy Symbol, a Priest's Pack, and 7 gp.": "链甲衫、盾牌、硬头锤、一枚圣徽、祭司套组和7金币。",
+    "Start with 110 gp instead of the default package.": "不选择默认套装，改为带着110金币开始。",
+    "Chain Shirt": "链甲衫",
+    "Scale Mail": "鳞甲",
+    "Mace": "硬头锤",
+    "Shield": "盾牌",
+    "Priest's Pack": "祭司套组",
+    "Holy Symbol": "圣徽",
+    "Holy Symbol (Amulet)": "圣徽（护符）",
+    "Holy Symbol (Emblem)": "圣徽（徽记）",
+    "Holy Symbol (Reliquary)": "圣徽（圣匣）",
+    "Amulet": "护符",
+    "Emblem": "徽记",
+    "Reliquary": "圣匣",
+    "Default starter equipment": "默认起始装备",
+    "Choose the form of your holy symbol.": "选择圣徽的形态。",
+    "armor": "护甲",
+    "weapon": "武器",
+    "pack": "套组",
+    "focus": "法器",
+    "misc": "杂项",
+    "bludgeoning": "钝击",
+    "piercing": "穿刺",
+    "slashing": "挥砍",
+    "fire": "火焰",
+    "cold": "寒冷",
+    "lightning": "闪电",
+    "thunder": "雷鸣",
+    "acid": "强酸",
+    "poison": "毒素",
+    "necrotic": "黯蚀",
+    "radiant": "光耀",
+    "force": "力场",
+    "psychic": "心灵",
+    "strength": "力量",
+    "dexterity": "敏捷",
+    "constitution": "体质",
+    "intelligence": "智力",
+    "wisdom": "感知",
+    "charisma": "魅力",
+    "Strength": "力量",
+    "Dexterity": "敏捷",
+    "Constitution": "体质",
+    "Intelligence": "智力",
+    "Wisdom": "感知",
+    "Charisma": "魅力",
+    "Acrobatics": "体操",
+    "Animal Handling": "驯兽",
+    "Arcana": "奥秘",
+    "Athletics": "运动",
+    "Deception": "欺瞒",
+    "History": "历史",
+    "Insight": "洞悉",
+    "Intimidation": "威吓",
+    "Investigation": "调查",
+    "Medicine": "医药",
+    "Nature": "自然",
+    "Perception": "察觉",
+    "Performance": "表演",
+    "Persuasion": "说服",
+    "Religion": "宗教",
+    "Sleight of Hand": "巧手",
+    "Stealth": "隐匿",
+    "Survival": "求生",
 }
 
 class Library:
@@ -138,3 +214,14 @@ class Library:
         for english, chinese in sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True):
             localized = self._replace_alias(localized, english, chinese)
         return self._strip_duplicate_chinese_aliases(localized)
+
+    def localize_rag_snippet(self, snippet: Dict[str, Any]) -> Dict[str, Any]:
+        """Localize snippet display fields while preserving metadata used for citations."""
+        localized = dict(snippet or {})
+        for field in ("heading", "content"):
+            if field in localized:
+                localized[field] = self.localize_game_terms(str(localized.get(field) or ""))
+        return localized
+
+    def localize_rag_snippets(self, snippets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return [self.localize_rag_snippet(snippet) for snippet in snippets or []]

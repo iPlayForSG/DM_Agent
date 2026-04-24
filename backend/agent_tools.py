@@ -117,7 +117,9 @@ class AgentToolService:
                 },
             )
 
-        snippets = self.rag_engine.search(normalized_query, n_results=n_results)
+        snippets = self.library.localize_rag_snippets(
+            self.rag_engine.search(normalized_query, n_results=n_results)
+        )
         payload = {
             "query": normalized_query,
             "result_count": len(snippets),
@@ -125,7 +127,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="knowledge.lookup_rules",
-            summary=f"Rule lookup for '{normalized_query}' returned {len(snippets)} snippet(s)",
+            summary=f"规则检索“{self.library.localize_game_terms(normalized_query)}”返回 {len(snippets)} 条片段",
             payload=payload,
             event_type="rules_retrieved",
             content=normalized_query,
@@ -142,7 +144,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="dice.roll",
-            summary=f"Roll {expression}: {detail} = {total}" + (f" | {reason}" if reason else ""),
+            summary=f"掷骰 {expression}: {detail} = {total}" + (f" | {self.library.localize_game_terms(reason)}" if reason else ""),
             payload=payload,
             event_type="dice_result",
             content=reason,
@@ -167,7 +169,7 @@ class AgentToolService:
         return self._success(
             tool_name="target.adjust_hp",
             summary=f"{target.name} HP {amount:+d} -> {target.hp_current}/{target.hp_max}"
-            + (f" | {reason}" if reason else ""),
+            + (f" | {self.library.localize_game_terms(reason)}" if reason else ""),
             payload=payload,
             event_type="hp_changed",
             content=reason,
@@ -267,15 +269,17 @@ class AgentToolService:
             "character_id": result["character"].character_id,
             "character_name": result["character"].name,
             "item_name": item.name,
+            "item_name_display": self.library.localize_game_terms(item.name),
             "quantity": quantity,
             "item_type": item.type,
+            "item_type_display": self.library.localize_game_terms(item.type),
             "notes": item.notes,
             "source": item.source,
             "tags": list(item.tags),
         }
         return self._success(
             tool_name="character.add_inventory_item",
-            summary=f"{result['character'].name} gains {quantity} x {item.name}",
+            summary=f"{result['character'].name} 获得 {quantity} x {self.library.localize_game_terms(item.name)}",
             payload=payload,
             event_type="inventory_item_added",
             state_patch=result["patch"],
@@ -320,7 +324,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="story.record_evidence",
-            summary=f"Evidence recorded: {evidence.title}",
+            summary=f"证据已记录：{self.library.localize_game_terms(evidence.title)}",
             payload=payload,
             event_type="evidence_recorded",
             state_patch=result["patch"],
@@ -353,7 +357,7 @@ class AgentToolService:
         payload = record.model_dump(mode="json")
         return self._success(
             tool_name="story.record_search_outcome",
-            summary=f"Search recorded: {result['character'].name} searched {record.target_ref or 'target'}",
+            summary=f"搜索已记录：{result['character'].name} 搜索 {self.library.localize_game_terms(record.target_ref or '目标')}",
             payload=payload,
             event_type="search_recorded",
             state_patch=result["patch"],
@@ -372,7 +376,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="character.record_major_experience",
-            summary=f"Major experience recorded for {result['character'].name}",
+            summary=f"重大经历已记录：{result['character'].name}",
             payload=payload,
             event_type="major_experience_recorded",
             state_patch=result["patch"],
@@ -397,7 +401,7 @@ class AgentToolService:
         payload = chapter.model_dump(mode="json")
         return self._success(
             tool_name="campaign.record_chapter_progress",
-            summary=f"Chapter recorded: {chapter.chapter_number} - {chapter.title}",
+            summary=f"章节已记录：{chapter.chapter_number} - {chapter.title}",
             payload=payload,
             event_type="chapter_recorded",
             state_patch=result["patch"],
@@ -435,7 +439,7 @@ class AgentToolService:
         payload = {"scene": normalized}
         return self._success(
             tool_name="scene.set",
-            summary=f"Scene changed to: {normalized}",
+            summary=f"场景切换为：{self.library.localize_game_terms(normalized)}",
             payload=payload,
             event_type="scene_changed",
             state_patch={"scene": normalized},
@@ -453,7 +457,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="character.set_active",
-            summary=f"Active character: {character.name}",
+            summary=f"当前角色：{character.name}",
             payload=payload,
             event_type="active_character_changed",
             state_patch={"active_character_id": character.character_id},
@@ -484,7 +488,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="encounter.start",
-            summary=f"Encounter started with {len(enemy_names)} enemy group(s)",
+            summary=f"遭遇开始：{len(enemy_names)} 组敌人",
             payload=payload,
             event_type="encounter_started",
             state_patch={"scene": "combat", "encounter": encounter.model_dump(mode="json")},
@@ -522,7 +526,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="encounter.add_enemy",
-            summary=f"Enemy added: {combatant.name}",
+            summary=f"敌人已加入：{combatant.name}",
             payload=payload,
             event_type="combatant_added",
             state_patch={"scene": "combat", "encounter": state.encounter.model_dump(mode="json")},
@@ -645,6 +649,8 @@ class AgentToolService:
         if not result:
             return self._error(f"Attack target not found: {target_ref}")
 
+        damage_type_display = self.library.localize_game_terms(result["damage_type"])
+        target_defeat_state_display = self.library.localize_game_terms(result["target_defeat_state"].title())
         payload = {
             "attacker_name": result["attacker_name"],
             "target_name": result["target_name"],
@@ -658,24 +664,27 @@ class AgentToolService:
             "damage_expression": result["damage_expression"],
             "damage_roll": result["damage_roll"],
             "damage_type": result["damage_type"],
+            "damage_type_display": damage_type_display,
             "resolution_mode": result["resolution_mode"],
             "target_hp_current": result["target_hp_current"],
             "target_defeat_state": result["target_defeat_state"],
+            "target_defeat_state_display": target_defeat_state_display,
             "reason": reason,
         }
+        hit_display = "命中" if result["hit"] else "未命中"
         summary = (
-            f"{result['attacker_name']} attacks {result['target_name']}: "
+            f"{result['attacker_name']} 攻击 {result['target_name']}："
             f"{result['attack_total']} vs AC {result['target_ac']} -> "
-            f"{'hit' if result['hit'] else 'miss'}"
+            f"{hit_display}"
         )
         if result["hit"]:
-            summary += f", damage {result['damage_total']}"
+            summary += f"，伤害 {result['damage_total']}"
             if damage_type:
-                summary += f" {damage_type}"
+                summary += f" {damage_type_display}"
             if result["target_defeat_state"] != "active":
-                summary += f" | target {result['target_defeat_state']}"
+                summary += f" | 目标{target_defeat_state_display}"
         if reason:
-            summary += f" | {reason}"
+            summary += f" | {self.library.localize_game_terms(reason)}"
         return self._success(
             tool_name="combat.attack_target",
             summary=summary,
@@ -719,12 +728,13 @@ class AgentToolService:
             modifier=int(resolved_modifier or 0),
             dc=dc,
         )
-        payload = {**result, "reason": reason}
-        summary = f"{result['actor_name']} {skill_name} check {result['total']}"
+        skill_display = self.library.localize_game_terms(skill_name)
+        payload = {**result, "skill_name_display": skill_display, "reason": reason}
+        summary = f"{result['actor_name']} {skill_display}检定 {result['total']}"
         if dc > 0:
-            summary += f" vs DC {dc} -> {'success' if result['success'] else 'fail'}"
+            summary += f" vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         if reason:
-            summary += f" | {reason}"
+            summary += f" | {self.library.localize_game_terms(reason)}"
         return self._success(
             tool_name="check.skill",
             summary=summary,
@@ -759,10 +769,11 @@ class AgentToolService:
             modifier=int(resolved_modifier or 0),
             dc=dc,
         )
-        payload = {**result, "reason": reason}
-        summary = f"{result['target_name']} {save_name} save {result['total']} vs DC {dc} -> {'success' if result['success'] else 'fail'}"
+        save_display = self.library.localize_game_terms(save_name)
+        payload = {**result, "save_name_display": save_display, "reason": reason}
+        summary = f"{result['target_name']} {save_display}豁免 {result['total']} vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         if reason:
-            summary += f" | {reason}"
+            summary += f" | {self.library.localize_game_terms(reason)}"
         return self._success(
             tool_name="check.saving_throw",
             summary=summary,
@@ -843,7 +854,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="encounter.set_initiative",
-            summary=f"{combatant.name} initiative set to {combatant.initiative}",
+            summary=f"{combatant.name} 先攻设为 {combatant.initiative}",
             payload=payload,
             event_type="initiative_set",
             state_patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
@@ -865,7 +876,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="encounter.roll_initiative",
-            summary=f"{combatant.name} initiative {combatant.initiative} via {result['expression']}",
+            summary=f"{combatant.name} 先攻 {combatant.initiative}，掷骰 {result['expression']}",
             payload=payload,
             event_type="initiative_rolled",
             state_patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
@@ -884,7 +895,7 @@ class AgentToolService:
         }
         return self._success(
             tool_name="encounter.advance_turn",
-            summary=f"Turn advanced to {combatant.name}",
+            summary=f"回合推进至 {combatant.name}",
             payload=payload,
             event_type="turn_advanced",
             state_patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},

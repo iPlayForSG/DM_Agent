@@ -147,7 +147,7 @@ def spells_payload(class_name: str):
 
 
 def builder_payload():
-    return rule_catalog.get_builder_catalog()
+    return _add_display_fields(rule_catalog.get_builder_catalog())
 
 
 def characters_payload():
@@ -193,9 +193,11 @@ def _derive_character_attack_options(character: Character):
         attacks.append(
             {
                 "name": item.name,
+                "name_display": library.localize_game_terms(item.name),
                 "attack_bonus": attack_bonus,
                 "damage_expression": item.damage_expression,
                 "damage_type": item.damage_type,
+                "damage_type_display": library.localize_game_terms(item.damage_type),
                 "source": "inventory",
             }
         )
@@ -207,8 +209,48 @@ def _derive_monster_attack_options(monster):
     for action in monster.actions:
         parsed = _parse_monster_action(action.description)
         if parsed:
-            attacks.append({"name": action.name, **parsed})
+            attacks.append(
+                {
+                    "name": action.name,
+                    "name_display": library.localize_game_terms(action.name),
+                    **parsed,
+                    "damage_type_display": library.localize_game_terms(parsed.get("damage_type", "")),
+                }
+            )
     return attacks
+
+
+def _add_display_fields(value):
+    if isinstance(value, list):
+        return [_add_display_fields(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    localized = {key: _add_display_fields(item) for key, item in value.items()}
+    display_keys = {
+        "name",
+        "label",
+        "description",
+        "title",
+        "summary",
+        "tone",
+        "difficulty",
+        "opening_scene",
+        "type",
+        "damage_type",
+        "creature_type",
+        "alignment",
+        "source",
+        "recovery",
+    }
+    for key in display_keys:
+        raw = value.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        display = library.localize_game_terms(raw)
+        if display != raw:
+            localized[f"{key}_display"] = display
+    return localized
 
 
 def _build_spell_options(character: Character):
@@ -306,6 +348,7 @@ def action_options_payload(state: GameState):
                 "side": "party",
                 "is_current_actor": is_current_actor,
                 "defeat_state": character.defeat_state,
+                "defeat_state_display": library.localize_game_terms(character.defeat_state.title()),
                 "gold_gp": character.gold_gp,
                 "starter_option_id": character.starter_option_id,
                 "spells": {
@@ -320,8 +363,10 @@ def action_options_payload(state: GameState):
                 "items": [
                     {
                         "name": item.name,
+                        "name_display": library.localize_game_terms(item.name),
                         "quantity": item.quantity,
                         "type": item.type,
+                        "type_display": library.localize_game_terms(item.type),
                     }
                     for item in character.inventory
                 ],
@@ -355,6 +400,7 @@ def action_options_payload(state: GameState):
                     "side": combatant.side,
                     "is_current_actor": bool(current_combatant and current_combatant.combatant_id == combatant.combatant_id),
                     "defeat_state": combatant.defeat_state,
+                    "defeat_state_display": library.localize_game_terms(combatant.defeat_state.title()),
                     "initiative": combatant.initiative,
                     "monster_template_id": combatant.monster_template_id,
                     "skills": sorted(combatant.skills.keys()),
@@ -421,7 +467,7 @@ async def get_character_builder_rules():
 
 @app.post("/api/v1/rag/search")
 async def search_rules(req: RuleLookupRequest):
-    snippets = agent.rag_engine.search(req.query, n_results=req.n_results)
+    snippets = library.localize_rag_snippets(agent.rag_engine.search(req.query, n_results=req.n_results))
     return {
         "query": req.query,
         "rag_enabled": agent.rag_engine.is_ready(),

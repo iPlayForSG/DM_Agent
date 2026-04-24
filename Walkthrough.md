@@ -18,6 +18,8 @@
 
 当前本地模型配置已切换为 Z.AI GLM-5.1：`LLM_MODEL=glm-5.1`，base URL 使用 `https://open.bigmodel.cn/api/coding/paas/v4`。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
 
+记住：每次修改代码后，都要在本地 git commit，并编写一条英文 message。同时，如果有必要，同步更新 BACKEND_API_DESIGN.md、FRONTEND_API_DESIGN.md、Walkthrough.md，以保证项目结构清晰。
+
 ## 2. 项目最终目标
 
 DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。

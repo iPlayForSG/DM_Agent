@@ -3,6 +3,7 @@
 from typing import Any, Dict, Optional
 
 from game_logic import GameLogic
+from library import Library
 from models import ChatMessage, GameState, SessionEvent, ToolResult
 from rules_catalog import ABILITY_ALIAS, RuleCatalog, SKILL_TO_ABILITY
 
@@ -10,6 +11,7 @@ from rules_catalog import ABILITY_ALIAS, RuleCatalog, SKILL_TO_ABILITY
 class GameActionService:
     def __init__(self):
         self.rules = RuleCatalog()
+        self.library = Library()
 
     def _combatant_ability_modifier(self, combatant, ability_name: str) -> int:
         attr = ABILITY_ALIAS.get(ability_name, ability_name).lower()
@@ -50,7 +52,7 @@ class GameActionService:
         }
         return self._append_result(
             state,
-            summary=f"Turn advanced to {combatant.name}",
+            summary=f"回合推进至 {combatant.name}",
             event_type="turn_advanced",
             payload=payload,
             patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
@@ -80,6 +82,8 @@ class GameActionService:
         if not result:
             raise ValueError(f"Attack target not found: {target_ref}")
 
+        damage_type_display = self.library.localize_game_terms(result["damage_type"])
+        target_defeat_state_display = self.library.localize_game_terms(result["target_defeat_state"].title())
         payload = {
             "attacker_name": result["attacker_name"],
             "target_name": result["target_name"],
@@ -93,20 +97,23 @@ class GameActionService:
             "damage_expression": result["damage_expression"],
             "damage_roll": result["damage_roll"],
             "damage_type": result["damage_type"],
+            "damage_type_display": damage_type_display,
             "resolution_mode": result["resolution_mode"],
             "target_hp_current": result["target_hp_current"],
             "target_defeat_state": result["target_defeat_state"],
+            "target_defeat_state_display": target_defeat_state_display,
         }
+        hit_display = "命中" if result["hit"] else "未命中"
         summary = (
-            f"{result['attacker_name']} attacks {result['target_name']}: "
-            f"{result['attack_total']} vs AC {result['target_ac']} -> {'hit' if result['hit'] else 'miss'}"
+            f"{result['attacker_name']} 攻击 {result['target_name']}："
+            f"{result['attack_total']} vs AC {result['target_ac']} -> {hit_display}"
         )
         if result["hit"]:
-            summary += f", damage {result['damage_total']}"
+            summary += f"，伤害 {result['damage_total']}"
             if damage_type:
-                summary += f" {damage_type}"
+                summary += f" {damage_type_display}"
             if result["target_defeat_state"] != "active":
-                summary += f" | target {result['target_defeat_state']}"
+                summary += f" | 目标{target_defeat_state_display}"
         return self._append_result(
             state,
             summary=summary,
@@ -136,9 +143,10 @@ class GameActionService:
                 combatant.skills.get(skill_name, self._combatant_ability_modifier(combatant, SKILL_TO_ABILITY.get(skill_name, "wisdom")))
             ) if combatant else 0
         result = logic.roll_skill_check(actor_ref, skill_name, int(resolved_modifier), dc)
-        summary = f"{result['actor_name']} {skill_name} check {result['total']}"
+        skill_display = self.library.localize_game_terms(skill_name)
+        summary = f"{result['actor_name']} {skill_display}检定 {result['total']}"
         if dc > 0:
-            summary += f" vs DC {dc} -> {'success' if result['success'] else 'fail'}"
+            summary += f" vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         return self._append_result(
             state,
             summary=summary,
@@ -166,7 +174,8 @@ class GameActionService:
                 combatant.saving_throws.get(save_name, self._combatant_ability_modifier(combatant, save_name))
             ) if combatant else 0
         result = logic.roll_saving_throw(target_ref, save_name, int(resolved_modifier), dc)
-        summary = f"{result['target_name']} {save_name} save {result['total']} vs DC {dc} -> {'success' if result['success'] else 'fail'}"
+        save_display = self.library.localize_game_terms(save_name)
+        summary = f"{result['target_name']} {save_display}豁免 {result['total']} vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         return self._append_result(
             state,
             summary=summary,
@@ -233,10 +242,11 @@ class GameActionService:
             "user_id": user.character_id,
             "user_name": user.name,
             "item_name": item_name,
+            "item_name_display": self.library.localize_game_terms(item_name),
             "quantity_used": quantity,
             "quantity_remaining": item.quantity,
         }
-        summary = f"{user.name} uses {quantity} x {item_name}"
+        summary = f"{user.name} 使用 {quantity} x {self.library.localize_game_terms(item_name)}"
         return self._append_result(
             state,
             summary=summary,
@@ -273,14 +283,16 @@ class GameActionService:
         item = result["item"]
         return self._append_result(
             state,
-            summary=f"{result['character'].name} gains {item.quantity if quantity <= 0 else quantity} x {item.name}",
+            summary=f"{result['character'].name} 获得 {item.quantity if quantity <= 0 else quantity} x {self.library.localize_game_terms(item.name)}",
             event_type="inventory_item_added",
             payload={
                 "character_id": result["character"].character_id,
                 "character_name": result["character"].name,
                 "item_name": item.name,
+                "item_name_display": self.library.localize_game_terms(item.name),
                 "quantity": quantity,
                 "item_type": item.type,
+                "item_type_display": self.library.localize_game_terms(item.type),
                 "notes": item.notes,
                 "source": item.source,
                 "tags": list(item.tags),
@@ -314,7 +326,7 @@ class GameActionService:
         holder_name = holder.name if holder else ""
         return self._append_result(
             state,
-            summary=f"Evidence recorded: {evidence.title}",
+            summary=f"证据已记录：{self.library.localize_game_terms(evidence.title)}",
             event_type="evidence_recorded",
             payload={
                 "evidence_id": evidence.evidence_id,
@@ -351,7 +363,7 @@ class GameActionService:
         record = result["search_record"]
         return self._append_result(
             state,
-            summary=f"Search recorded: {result['character'].name} searched {record.target_ref or 'target'}",
+            summary=f"搜索已记录：{result['character'].name} 搜索 {self.library.localize_game_terms(record.target_ref or '目标')}",
             event_type="search_recorded",
             payload=record.model_dump(mode="json"),
             patch=result["patch"],
@@ -365,7 +377,7 @@ class GameActionService:
 
         return self._append_result(
             state,
-            summary=f"Major experience recorded for {result['character'].name}",
+            summary=f"重大经历已记录：{result['character'].name}",
             event_type="major_experience_recorded",
             payload={
                 "character_id": result["character"].character_id,
@@ -393,7 +405,7 @@ class GameActionService:
         chapter = result["chapter"]
         return self._append_result(
             state,
-            summary=f"Chapter recorded: {chapter.chapter_number} - {chapter.title}",
+            summary=f"章节已记录：{chapter.chapter_number} - {chapter.title}",
             event_type="chapter_recorded",
             payload=chapter.model_dump(mode="json"),
             patch=result["patch"],
