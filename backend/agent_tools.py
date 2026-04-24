@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from game_logic import DiceRoller, GameLogic
+from library import Library
 from models import GameState, MonsterTemplate, MonsterTextEntry, SessionEvent, ToolResult
 from rag import RAGEngine
 from rules_catalog import ABILITY_ALIAS, SKILL_TO_ABILITY, RuleCatalog
@@ -52,6 +53,7 @@ class AgentToolService:
         self.rag_engine = rag_engine
         self.monster_storage = monster_storage
         self.rules_catalog = rules_catalog
+        self.library = Library()
 
     def _build_event(
         self,
@@ -179,15 +181,20 @@ class AgentToolService:
             return self._error(f"Target not found: {target_ref}")
 
         target = result["target"]
+        display_status = self.library.localize_game_terms(status)
         payload = {
             "target_type": result["target_type"],
             "target_name": target.name,
             "status": status,
+            "status_display": display_status,
             "status_effects": list(target.status_effects),
+            "status_effects_display": [
+                self.library.localize_game_terms(item) for item in target.status_effects
+            ],
         }
         return self._success(
             tool_name="target.add_status",
-            summary=f"{target.name} gains status: {status}",
+            summary=f"{target.name} 获得状态：{display_status}",
             payload=payload,
             event_type="status_added",
             state_patch=result["patch"],
@@ -200,15 +207,20 @@ class AgentToolService:
             return self._error(f"Target not found: {target_ref}")
 
         target = result["target"]
+        display_status = self.library.localize_game_terms(status)
         payload = {
             "target_type": result["target_type"],
             "target_name": target.name,
             "status": status,
+            "status_display": display_status,
             "status_effects": list(target.status_effects),
+            "status_effects_display": [
+                self.library.localize_game_terms(item) for item in target.status_effects
+            ],
         }
         return self._success(
             tool_name="target.remove_status",
-            summary=f"{target.name} loses status: {status}",
+            summary=f"{target.name} 移除状态：{display_status}",
             payload=payload,
             event_type="status_removed",
             state_patch=result["patch"],
@@ -398,15 +410,20 @@ class AgentToolService:
             return self._error(f"Target not found: {target_ref}")
 
         target = result["target"]
+        defeat_state_display = self.library.localize_game_terms(target.defeat_state.title())
         payload = {
             "target_name": target.name,
             "target_ref": target_ref,
             "defeat_state": target.defeat_state,
+            "defeat_state_display": defeat_state_display,
             "status_effects": list(target.status_effects),
+            "status_effects_display": [
+                self.library.localize_game_terms(item) for item in target.status_effects
+            ],
         }
         return self._success(
             tool_name="combat.set_defeat_state",
-            summary=f"{target.name} marked as {target.defeat_state}",
+            summary=f"{target.name} 败北状态：{defeat_state_display}",
             payload=payload,
             event_type="defeat_state_set",
             state_patch=result["patch"],
@@ -781,11 +798,13 @@ class AgentToolService:
             return self._error(validation.get("error", "Spell validation failed"), validation)
 
         resolved_slot = int(validation["resolved_slot_level"])
+        canonical_spell_name = str(validation.get("spell_name") or validation["spell"].get("name") or spell_name)
         self.rules_catalog.consume_spell_slot(caster, resolved_slot)
         payload = {
             "caster_id": caster.character_id,
             "caster_name": caster.name,
-            "spell_name": spell_name,
+            "spell_name": canonical_spell_name,
+            "requested_spell_name": spell_name,
             "spell_level": int(validation["spell"].get("level", 0)),
             "resolved_slot_level": resolved_slot,
             "reason": reason,
@@ -797,9 +816,9 @@ class AgentToolService:
                 for level, slot in caster.spells.slots.items()
             },
         }
-        summary = f"{caster.name} casts {spell_name}"
+        summary = f"{caster.name} 施放 {canonical_spell_name}"
         if resolved_slot > 0:
-            summary += f" using a level {resolved_slot} slot"
+            summary += f"，消耗 {resolved_slot} 环法术位"
         if reason:
             summary += f" | {reason}"
         return self._success(

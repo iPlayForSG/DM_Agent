@@ -216,9 +216,11 @@ def _build_spell_options(character: Character):
 
     for spell_name in character.spells.cantrips:
         details = library.get_spell_details(spell_name) or {}
+        display_name = details.get("name") or spell_name
         options.append(
             {
-                "name": spell_name,
+                "name": display_name,
+                "nameEN": details.get("nameEN", ""),
                 "level": int(details.get("level", 0)),
                 "school": details.get("school", ""),
                 "requires_slot": False,
@@ -229,6 +231,7 @@ def _build_spell_options(character: Character):
 
     for spell_name in character.spells.prepared:
         details = library.get_spell_details(spell_name) or {}
+        display_name = details.get("name") or spell_name
         spell_level = int(details.get("level", 0))
         available_slot_levels = [
             int(level)
@@ -237,7 +240,8 @@ def _build_spell_options(character: Character):
         ]
         options.append(
             {
-                "name": spell_name,
+                "name": display_name,
+                "nameEN": details.get("nameEN", ""),
                 "level": spell_level,
                 "school": details.get("school", ""),
                 "requires_slot": spell_level > 0,
@@ -305,8 +309,8 @@ def action_options_payload(state: GameState):
                 "gold_gp": character.gold_gp,
                 "starter_option_id": character.starter_option_id,
                 "spells": {
-                    "cantrips": list(character.spells.cantrips),
-                    "prepared": list(character.spells.prepared),
+                    "cantrips": library.normalize_spell_names(character.spells.cantrips),
+                    "prepared": library.normalize_spell_names(character.spells.prepared),
                     "options": _build_spell_options(character),
                     "slots": {
                         level: {"total": slot.total, "used": slot.used}

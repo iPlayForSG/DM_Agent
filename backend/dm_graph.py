@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
 from game_logic import GameLogic
+from library import Library
 from models import ChatMessage, GameState, SessionEvent, ToolResult, TurnResult
 from prompts import build_dm_instruction
 
@@ -492,6 +493,8 @@ class DMGraphState(TypedDict, total=False):
     rag_queries: List[str]
     rag_intent: str
     rag_reason: str
+    rag_metadata: Dict[str, Any]
+    input_warnings: List[str]
     allowed_tools: List[str]
     tool_call_rounds: int
     final_response: str
@@ -524,6 +527,7 @@ class DMGraphRunner:
         self.base_url = base_url
         self.enable_model = enable_model
         self.max_tool_rounds = max_tool_rounds
+        self.library = Library()
         self._graph = None
         self._model = None
 
@@ -614,6 +618,26 @@ class DMGraphRunner:
         return any(term.casefold() in lowered for term in terms if term)
 
     @staticmethod
+    def _detect_input_warnings(text: str) -> List[str]:
+        warnings: List[str] = []
+        if not text:
+            return warnings
+
+        if "\ufffd" in text:
+            warnings.append(
+                "Input contains Unicode replacement characters; check client or shell text encoding."
+            )
+
+        # This catches the common Windows/stdin failure mode where CJK text arrives as question marks.
+        question_count = text.count("?")
+        if "???" in text or (question_count >= 6 and question_count / max(len(text), 1) > 0.2):
+            warnings.append(
+                "Input contains dense question-mark placeholders; non-ASCII text may have been corrupted before reaching the API."
+            )
+
+        return warnings
+
+    @staticmethod
     def _unique_texts(values: List[str], limit: int = 4) -> List[str]:
         unique: List[str] = []
         seen = set()
@@ -643,8 +667,22 @@ class DMGraphRunner:
         matched: List[str] = []
         for spell_name in [*active.spells.cantrips, *active.spells.prepared]:
             normalized = str(spell_name or "").strip()
-            if normalized and normalized.casefold() in lowered:
-                matched.append(normalized)
+            if not normalized:
+                continue
+            details = self.library.get_spell_details(normalized)
+            canonical = str(details.get("name") or normalized).strip()
+            aliases = self._unique_texts(
+                [
+                    normalized,
+                    str(details.get("name") or "").strip(),
+                    str(details.get("nameEN") or "").strip(),
+                ],
+                limit=3,
+            )
+            for alias in aliases:
+                if alias and alias.casefold() in lowered:
+                    matched.append(canonical)
+                    break
         return self._unique_texts(matched, limit=2)
 
     def _should_auto_retrieve_rules(self, state: GameState, user_input: str) -> tuple[bool, str]:
@@ -934,11 +972,15 @@ class DMGraphRunner:
     def _prepare_turn(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
+        input_warnings = self._detect_input_warnings(user_input)
+        payload = {"message": user_input}
+        if input_warnings:
+            payload["input_warnings"] = input_warnings
         player_event = self._build_event(
             event_type="player_action",
             summary="Player action",
             content=user_input,
-            payload={"message": user_input},
+            payload=payload,
         )
         state.timeline.append(player_event)
         return {
@@ -947,6 +989,7 @@ class DMGraphRunner:
             "tool_results": [],
             "state_delta": {},
             "timeline_append": [player_event.model_dump(mode="json")],
+            "input_warnings": input_warnings,
         }
 
     def _route_phase(self, graph_state: DMGraphState) -> DMGraphState:
@@ -1003,37 +1046,76 @@ class DMGraphRunner:
     def _retrieve_rules(self, graph_state: DMGraphState) -> DMGraphState:
         n_results = int(os.getenv("RAG_AUTO_CONTEXT_RESULTS", "3") or 0)
         if n_results <= 0 or not self.rag_engine.is_ready():
+            reason = "automatic retrieval disabled" if n_results <= 0 else "RAG engine is not ready"
             return {
                 "rag_snippets": [],
                 "rag_context": "",
                 "rag_queries": [],
                 "rag_intent": "none",
-                "rag_reason": "automatic retrieval disabled",
+                "rag_reason": reason,
+                "rag_metadata": {
+                    "enabled": n_results > 0,
+                    "ready": self.rag_engine.is_ready(),
+                    "auto_context_results": n_results,
+                    "intent": "none",
+                    "reason": reason,
+                    "queries": [],
+                    "snippet_count": 0,
+                    "sources": [],
+                },
             }
 
         state = GameState.model_validate(graph_state["game_state"])
         intent_payload = self._classify_rule_intent(state, graph_state.get("user_input", ""))
         if not intent_payload.get("should_retrieve"):
+            intent = str(intent_payload.get("intent", "none"))
+            reason = str(intent_payload.get("reason", "no automatic rules trigger matched"))
             return {
                 "rag_snippets": [],
                 "rag_context": "",
                 "rag_queries": [],
-                "rag_intent": str(intent_payload.get("intent", "none")),
-                "rag_reason": str(intent_payload.get("reason", "no automatic rules trigger matched")),
+                "rag_intent": intent,
+                "rag_reason": reason,
+                "rag_metadata": {
+                    "enabled": True,
+                    "ready": True,
+                    "auto_context_results": n_results,
+                    "intent": intent,
+                    "reason": reason,
+                    "queries": [],
+                    "snippet_count": 0,
+                    "sources": [],
+                },
             }
 
         queries = self._build_intent_rag_queries(state, graph_state.get("user_input", ""), intent_payload)
         snippets = self.rag_engine.search_many(queries, n_results=n_results)
+        intent = str(intent_payload.get("intent", "none"))
+        reason = str(intent_payload.get("reason", ""))
+        sources = self._unique_texts(
+            [str(snippet.get("source", "")) for snippet in snippets],
+            limit=8,
+        )
         return {
             "rag_snippets": snippets,
             "rag_context": self._format_rag_context(
                 snippets,
                 queries=queries,
-                intent=str(intent_payload.get("intent", "")),
+                intent=intent,
             ),
             "rag_queries": queries,
-            "rag_intent": str(intent_payload.get("intent", "none")),
-            "rag_reason": str(intent_payload.get("reason", "")),
+            "rag_intent": intent,
+            "rag_reason": reason,
+            "rag_metadata": {
+                "enabled": True,
+                "ready": True,
+                "auto_context_results": n_results,
+                "intent": intent,
+                "reason": reason,
+                "queries": queries,
+                "snippet_count": len(snippets),
+                "sources": sources,
+            },
         }
 
     def _draft_response_placeholder(self, graph_state: DMGraphState) -> DMGraphState:
@@ -1069,7 +1151,7 @@ class DMGraphRunner:
             ]
         model = self._create_tool_bound_model(graph_state.get("allowed_tools", []))
         response = model.invoke(messages)
-        final_response = self._extract_message_content(response)
+        final_response = self.library.localize_game_terms(self._extract_message_content(response))
         result: DMGraphState = {"messages": [*messages, response]}
         if final_response:
             result["final_response"] = final_response
@@ -1213,6 +1295,8 @@ class DMGraphRunner:
                     character = state.characters.get(combatant.linked_character_id)
                     if not character:
                         continue
+                    expected_skills = logic._character_skill_modifiers(character)
+                    expected_saves = logic._character_save_modifiers(character)
                     if (
                         combatant.hp_current != character.hp_current
                         or combatant.hp_max != character.hp_max
@@ -1220,10 +1304,14 @@ class DMGraphRunner:
                         or combatant.initiative_bonus != character.initiative_bonus
                         or combatant.status_effects != list(character.status_effects)
                         or combatant.defeat_state != character.defeat_state
+                        or combatant.stats != character.stats
+                        or combatant.skills != expected_skills
+                        or combatant.saving_throws != expected_saves
                     ):
                         logic._sync_combatant_from_character(character)
                         synced_party_combatants = True
                 if synced_party_combatants:
+                    patch["encounter"] = encounter.model_dump(mode="json")
                     validation_notes.append("Synced party combatants from character sheets before validating combat state.")
 
                 previous_order = list(encounter.initiative_order)
@@ -1322,7 +1410,9 @@ class DMGraphRunner:
     def _finalize_turn(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
-        final_response = graph_state.get("final_response") or "I could not complete this turn."
+        final_response = self.library.localize_game_terms(
+            graph_state.get("final_response") or "I could not complete this turn."
+        )
         tool_results = [
             item if isinstance(item, ToolResult) else ToolResult.model_validate(item)
             for item in graph_state.get("tool_results", [])
@@ -1353,6 +1443,8 @@ class DMGraphRunner:
             "history_append": [item.model_dump(mode="json") for item in history_append],
             "timeline_append": timeline_append,
             "final_response": final_response,
+            "rag_metadata": dict(graph_state.get("rag_metadata", {})),
+            "input_warnings": list(graph_state.get("input_warnings", [])),
         }
 
     def _build_graph(self):
@@ -1415,6 +1507,8 @@ class DMGraphRunner:
             timeline=updated_state.timeline,
             timeline_append=timeline_append,
             tool_results=tool_results,
+            rag_metadata=dict(result.get("rag_metadata", {})),
+            input_warnings=list(result.get("input_warnings", [])),
             state_delta=dict(result.get("state_delta", {})),
             game_state=updated_state,
         )

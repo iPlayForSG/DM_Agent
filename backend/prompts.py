@@ -9,6 +9,7 @@ Rules:
 - Use local tools for every uncertain roll and every state mutation.
 - Never fabricate dice results, HP changes, or status changes in plain text.
 - Respond in Simplified Chinese unless the player uses another language.
+- Translate game terms into Simplified Chinese in player-facing prose, including spell names, conditions, actions, item types, and class features. If a tool returns both English and Chinese names, use the Chinese name only.
 """
 
 

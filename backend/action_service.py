@@ -192,11 +192,13 @@ class GameActionService:
             raise ValueError(validation["error"])
 
         resolved_slot = int(validation["resolved_slot_level"])
+        canonical_spell_name = str(validation.get("spell_name") or validation["spell"].get("name") or spell_name)
         self.rules.consume_spell_slot(caster, resolved_slot)
         payload = {
             "caster_id": caster.character_id,
             "caster_name": caster.name,
-            "spell_name": spell_name,
+            "spell_name": canonical_spell_name,
+            "requested_spell_name": spell_name,
             "spell_level": int(validation["spell"].get("level", 0)),
             "resolved_slot_level": resolved_slot,
             "remaining_slots": {
@@ -204,9 +206,9 @@ class GameActionService:
                 for level, slot in caster.spells.slots.items()
             },
         }
-        summary = f"{caster.name} casts {spell_name}"
+        summary = f"{caster.name} 施放 {canonical_spell_name}"
         if resolved_slot > 0:
-            summary += f" using a level {resolved_slot} slot"
+            summary += f"，消耗 {resolved_slot} 环法术位"
         return self._append_result(
             state,
             summary=summary,

@@ -17,6 +17,8 @@ from models import (
     random_id,
     stable_id,
 )
+from library import Library
+from rules_catalog import ABILITY_ALIAS, SKILL_TO_ABILITY, proficiency_bonus_for_level
 
 
 class DiceRoller:
@@ -54,6 +56,8 @@ class DiceRoller:
 
 
 class GameLogic:
+    _library = Library()
+
     def __init__(self, state: GameState):
         self.state = state
 
@@ -107,6 +111,34 @@ class GameLogic:
         if combatant and combatant.linked_character_id:
             return "unconscious"
         return "dead"
+
+    @staticmethod
+    def _ability_modifier_from_stats(stats: Any, ability_name: str) -> int:
+        attr = ABILITY_ALIAS.get(ability_name, ability_name).lower()
+        return (getattr(stats, attr, 10) - 10) // 2
+
+    @classmethod
+    def _character_skill_modifiers(cls, character: Character) -> Dict[str, int]:
+        proficiency = proficiency_bonus_for_level(character.level)
+        modifiers: Dict[str, int] = {}
+        for skill_name, rank in character.skill_proficiencies.items():
+            rank_value = int(rank)
+            if rank_value <= 0:
+                continue
+            ability = SKILL_TO_ABILITY.get(skill_name, "wisdom")
+            modifiers[skill_name] = cls._ability_modifier_from_stats(character.stats, ability) + proficiency * rank_value
+        return modifiers
+
+    @classmethod
+    def _character_save_modifiers(cls, character: Character) -> Dict[str, int]:
+        proficiency = proficiency_bonus_for_level(character.level)
+        modifiers: Dict[str, int] = {}
+        for save_name, is_proficient in character.save_proficiencies.items():
+            if not is_proficient:
+                continue
+            ability = ABILITY_ALIAS.get(save_name, save_name).lower()
+            modifiers[ability] = cls._ability_modifier_from_stats(character.stats, ability) + proficiency
+        return modifiers
 
     def _resolve_evidence_ref(
         self,
@@ -256,6 +288,9 @@ class GameLogic:
                 initiative_bonus=character.initiative_bonus,
                 status_effects=list(character.status_effects),
                 defeat_state=character.defeat_state,
+                stats=character.stats.model_copy(deep=True),
+                skills=self._character_skill_modifiers(character),
+                saving_throws=self._character_save_modifiers(character),
             )
             encounter.combatants[combatant.combatant_id] = combatant
 
@@ -279,6 +314,9 @@ class GameLogic:
         combatant.initiative_bonus = character.initiative_bonus
         combatant.status_effects = list(character.status_effects)
         combatant.defeat_state = character.defeat_state
+        combatant.stats = character.stats.model_copy(deep=True)
+        combatant.skills = self._character_skill_modifiers(character)
+        combatant.saving_throws = self._character_save_modifiers(character)
         return combatant
 
     def _sync_character_from_combatant(self, combatant: Combatant) -> Optional[Character]:
@@ -1221,19 +1259,26 @@ class GameLogic:
             lines.append(f"Completed Chapters: {len(self.state.campaign.completed_chapters)}")
 
         if active:
-            lines.append(f"Active Character: {active.name} ({active.class_name} Lv.{active.level})")
+            active_class = self._library.localize_game_terms(active.class_name)
+            lines.append(f"Active Character: {active.name} ({active_class} Lv.{active.level})")
 
         if not self.state.characters:
             lines.append("Party: none")
         else:
             lines.append("Party:")
             for character in self.state.characters.values():
-                statuses = ", ".join(character.status_effects) if character.status_effects else "Normal"
-                prepared_spells = ", ".join(character.spells.prepared[:8]) if character.spells.prepared else "None"
+                statuses = (
+                    ", ".join(self._library.localize_game_terms(status) for status in character.status_effects)
+                    if character.status_effects
+                    else "正常"
+                )
+                class_name = self._library.localize_game_terms(character.class_name)
+                prepared_spell_names = self._library.normalize_spell_names(character.spells.prepared[:8])
+                prepared_spells = ", ".join(prepared_spell_names) if prepared_spell_names else "无"
                 lines.append(
                     (
                         f"- {character.name} [{character.character_id}] | "
-                        f"{character.class_name} Lv.{character.level} | "
+                        f"{class_name} Lv.{character.level} | "
                         f"HP {character.hp_current}/{character.hp_max} | AC {character.ac} | "
                         f"Init Bonus {character.initiative_bonus:+d} | "
                         f"Defeat State: {character.defeat_state} | "

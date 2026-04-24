@@ -328,6 +328,9 @@ class RuleCatalog:
             character.spells.ability = class_def["spellcasting_ability"]
             character.spells.casting_mode = class_def.get("spellcasting_mode", "prepared")
 
+        character.spells.cantrips = self.library.normalize_spell_names(character.spells.cantrips)
+        character.spells.prepared = self.library.normalize_spell_names(character.spells.prepared)
+
         if class_def and not character.resources:
             resources: Dict[str, ResourcePool] = {}
             for resource_name, resource_def in class_def.get("resources", {}).items():
@@ -372,28 +375,32 @@ class RuleCatalog:
         slot_level: Optional[int] = None,
     ) -> Dict[str, Any]:
         # Spell legality is resolved locally so the DM never fabricates slot usage.
+        character.spells.cantrips = self.library.normalize_spell_names(character.spells.cantrips)
+        character.spells.prepared = self.library.normalize_spell_names(character.spells.prepared)
+
         details = self.library.get_spell_details(spell_name)
         if not details:
             return {"ok": False, "error": f"Unknown spell: {spell_name}"}
 
+        canonical_name = str(details.get("name") or spell_name).strip()
         spell_level = int(details.get("level", 0))
         if spell_level == 0:
-            if spell_name not in character.spells.cantrips:
-                return {"ok": False, "error": f"Cantrip not known: {spell_name}"}
-            return {"ok": True, "spell": details, "resolved_slot_level": 0}
+            if canonical_name not in self.library.normalize_spell_names(character.spells.cantrips):
+                return {"ok": False, "error": f"Cantrip not known: {canonical_name}"}
+            return {"ok": True, "spell": details, "spell_name": canonical_name, "resolved_slot_level": 0}
 
-        if spell_name not in character.spells.prepared:
-            return {"ok": False, "error": f"Spell not prepared or known: {spell_name}"}
+        if canonical_name not in self.library.normalize_spell_names(character.spells.prepared):
+            return {"ok": False, "error": f"Spell not prepared or known: {canonical_name}"}
 
         resolved_slot = spell_level if slot_level is None else int(slot_level)
         if resolved_slot < spell_level:
-            return {"ok": False, "error": f"Slot level {resolved_slot} is too low for {spell_name}"}
+            return {"ok": False, "error": f"Slot level {resolved_slot} is too low for {canonical_name}"}
 
         slot_state = character.spells.slots.get(str(resolved_slot))
         if not slot_state or slot_state.total - slot_state.used <= 0:
             return {"ok": False, "error": f"No available spell slot at level {resolved_slot}"}
 
-        return {"ok": True, "spell": details, "resolved_slot_level": resolved_slot}
+        return {"ok": True, "spell": details, "spell_name": canonical_name, "resolved_slot_level": resolved_slot}
 
     def consume_spell_slot(self, character: Character, slot_level: int) -> None:
         if slot_level <= 0:

@@ -577,5 +577,7 @@ class TurnResult(BaseModel):
     timeline: List[SessionEvent] = Field(default_factory=list)
     timeline_append: List[SessionEvent] = Field(default_factory=list)
     tool_results: List[ToolResult] = Field(default_factory=list)
+    rag_metadata: Dict[str, Any] = Field(default_factory=dict)
+    input_warnings: List[str] = Field(default_factory=list)
     state_delta: Dict[str, Any] = Field(default_factory=dict)
     game_state: GameState
