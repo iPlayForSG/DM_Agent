@@ -64,7 +64,7 @@ DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。
 3. 本地 `.env` 当前指向 Z.AI GLM-5.1，公开的 `.env.example` 只保留无密钥配置。
 4. 游戏真相保存在本地 `GameState` JSON，而不是只存在模型上下文里。
 5. Agent 已接入本地规则检索工具 `lookup_rules`。
-6. RAG 已切换到 `Qwen/Qwen3-Embedding-4B-GGUF` + `llama.cpp` + Chroma 方案；LangGraph 每回合会先判断本轮是否属于规则敏感输入，再通过 `retrieve_rules` 节点规划多条 query 注入少量带来源规则片段。缺少目标向量库时会明确标记未就绪，不再回退到旧的 markdown 词法检索。
+6. RAG 已切换到 `Qwen/Qwen3-Embedding-4B-GGUF` + `llama.cpp` + Chroma 方案；LangGraph 每回合会先做规则意图分类，再通过 `retrieve_rules` 节点规划多条 query 注入少量带来源规则片段，当前已覆盖规则问答、施法裁定、战斗裁定、状态裁定、技能裁定和休息恢复。缺少目标向量库时会明确标记未就绪，不再回退到旧的 markdown 词法检索。
 7. Python 环境使用 conda 的 `DM_Agent` 虚拟环境。
 
 ### 3.2 角色与规则目录
@@ -487,7 +487,8 @@ LangGraph workflow 定义。当前已固定接管 `/api/v1/games/{game_id}/turns
 
 `retrieve_rules`
 
-- 每回合按用户输入查询本地 RAG，默认取 3 条片段
+- 每回合先做规则意图分类，再决定是否查询本地 RAG，默认取 3 条片段
+- query planning 会复用 `scene`、`phase`、主动角色、法术名和规则关键词，而不是只搜用户原句
 
 `call_dm_model`
 
@@ -502,6 +503,8 @@ LangGraph workflow 定义。当前已固定接管 `/api/v1/games/{game_id}/turns
 `validate_state`
 
 - 统一校验战斗、资源、法术位、物品、状态变化
+- 同步 party combatant 镜像，修复先攻顺序和当前行动者
+- 敌方全部失去行动能力时自动结束遭遇，并补写 `adventure_log` 与 timeline event
 
 `finalize_turn`
 
@@ -587,7 +590,7 @@ Phase 4: RAG 与 Rules Guard 强化
 - 控制规则片段长度、来源和注入位置。
 - 工具调用失败时让模型有机会修正。
 
-补充状态：Phase 4A 已完成。`backend/rag_ingest.py` 已切换为 Qwen3-Embedding-4B-GGUF ingestion，并提供 `--dry-run`、CPU 大批量保护、manifest 进度记录和续跑能力；本地全量 dry-run 已确认 2948 个源文件会生成 19694 个 chunk；官方 `Qwen3-Embedding-4B-Q6_K.gguf` 已下载，配合本地 `llama.cpp` CUDA 版 runtime 已在 RTX 3060 Laptop 6GB 上完成验证，并已成功构建默认 collection `dnd_rules_qwen3_embedding_4b_q6_k`；`backend/rag.py` runtime 检索使用同一 embedding 模型且不再保留 `rg` fallback，并已加入多 query 合并召回与轻量本地重排；`DMGraphRunner` 已加入 `retrieve_rules` 节点，并已实现规则敏感输入判定、多 query planning、回合内规则片段 prompt 注入和工具执行后的最小状态校验；最新一轮又补上了先攻顺序整理、自动启动回合序列和验证备注回灌消息流。
+补充状态：Phase 4A 已完成。`backend/rag_ingest.py` 已切换为 Qwen3-Embedding-4B-GGUF ingestion，并提供 `--dry-run`、CPU 大批量保护、manifest 进度记录和续跑能力；本地全量 dry-run 已确认 2948 个源文件会生成 19694 个 chunk；官方 `Qwen3-Embedding-4B-Q6_K.gguf` 已下载，配合本地 `llama.cpp` CUDA 版 runtime 已在 RTX 3060 Laptop 6GB 上完成验证，并已成功构建默认 collection `dnd_rules_qwen3_embedding_4b_q6_k`；`backend/rag.py` runtime 检索使用同一 embedding 模型且不再保留 `rg` fallback，并已加入多 query 合并召回与轻量本地重排；`DMGraphRunner` 已加入 `retrieve_rules` 节点，并已实现规则敏感输入判定、多 query planning、回合内规则片段 prompt 注入和工具执行后的最小状态校验；最新一轮又补上了先攻顺序整理、自动启动回合序列和验证备注回灌消息流。这一轮继续把自动检索改成显式规则意图分类，并让 `validate_state` 在敌方全部失去行动能力时自动结束遭遇、写回 `adventure_log` 并追加自动结束事件。
 
 Phase 5: 可恢复执行和观测
 

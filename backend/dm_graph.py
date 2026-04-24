@@ -490,6 +490,7 @@ class DMGraphState(TypedDict, total=False):
     rag_snippets: List[Dict[str, Any]]
     rag_context: str
     rag_queries: List[str]
+    rag_intent: str
     rag_reason: str
     allowed_tools: List[str]
     tool_call_rounds: int
@@ -647,18 +648,10 @@ class DMGraphRunner:
         return self._unique_texts(matched, limit=2)
 
     def _should_auto_retrieve_rules(self, state: GameState, user_input: str) -> tuple[bool, str]:
-        normalized_input = (user_input or "").strip()
-        if not normalized_input:
-            return False, "empty user input"
-        if self._contains_any(normalized_input, RULE_QUESTION_TERMS):
-            return True, "player asked an explicit rules question"
-        if self._matched_spell_names(state, normalized_input):
-            return True, "player referenced an active spell by name"
-        if self._contains_any(normalized_input, RULE_TRIGGER_TERMS):
-            return True, "player action mentioned a rules-relevant term"
-        if (state.scene or "").lower() == "combat" and self._contains_any(normalized_input, COMBAT_RULE_TERMS):
-            return True, "combat turn with rules-sensitive action"
-        return False, "no automatic rules trigger matched"
+        intent_payload = self._classify_rule_intent(state, user_input)
+        return bool(intent_payload.get("should_retrieve")), str(
+            intent_payload.get("reason", "no automatic rules trigger matched")
+        )
 
     def _build_rag_queries(self, state: GameState, user_input: str) -> List[str]:
         normalized_input = " ".join((user_input or "").split()).strip()
@@ -686,6 +679,255 @@ class DMGraphRunner:
             queries.append(f"D&D 2024 法术 规则 {spell_name}")
         if matched_terms:
             queries.append(f"D&D 2024 规则 {' '.join(matched_terms[:4])}")
+
+        return self._unique_texts(queries, limit=4)
+
+    @staticmethod
+    def _query_phrase(*parts: str) -> str:
+        return " ".join(part.strip() for part in parts if str(part or "").strip()).strip()
+
+    @classmethod
+    def _intent_term_matches(cls, text: str, terms: List[str], limit: int = 6) -> List[str]:
+        lowered = (text or "").casefold()
+        matches = [
+            str(term).strip()
+            for term in terms
+            if str(term or "").strip() and str(term).casefold() in lowered
+        ]
+        return cls._unique_texts(matches, limit=limit)
+
+    @staticmethod
+    def _rule_intent_terms() -> Dict[str, List[str]]:
+        return {
+            "general_rules": [
+                "rule",
+                "rules",
+                "ruling",
+                "\u89c4\u5219",
+                "\u89e3\u91ca",
+                "\u8bf4\u660e",
+                "\u5224\u5b9a",
+            ],
+            "combat_resolution": [
+                "attack",
+                "damage",
+                "initiative",
+                "turn",
+                "reaction",
+                "bonus action",
+                "opportunity attack",
+                "grapple",
+                "shove",
+                "advantage",
+                "disadvantage",
+                "save",
+                "check",
+                "\u653b\u51fb",
+                "\u4f24\u5bb3",
+                "\u5148\u653b",
+                "\u56de\u5408",
+                "\u53cd\u5e94",
+                "\u9644\u8d60\u52a8\u4f5c",
+                "\u501f\u673a\u653b\u51fb",
+                "\u64d2\u62b1",
+                "\u63a8\u649e",
+                "\u4f18\u52bf",
+                "\u52a3\u52bf",
+                "\u8c41\u514d",
+                "\u68c0\u5b9a",
+            ],
+            "spell_resolution": [
+                "spell",
+                "slot",
+                "concentration",
+                "ritual",
+                "counterspell",
+                "\u6cd5\u672f",
+                "\u6cd5\u672f\u4f4d",
+                "\u4e13\u6ce8",
+                "\u65bd\u6cd5",
+                "\u4eea\u5f0f",
+            ],
+            "condition_resolution": [
+                "condition",
+                "prone",
+                "poisoned",
+                "grappled",
+                "restrained",
+                "invisible",
+                "\u72b6\u6001",
+                "\u5012\u5730",
+                "\u4e2d\u6bd2",
+                "\u88ab\u64d2\u62b1",
+                "\u675f\u7f1a",
+                "\u9690\u5f62",
+            ],
+            "skill_resolution": [
+                "skill",
+                "ability check",
+                "perception",
+                "investigation",
+                "stealth",
+                "persuasion",
+                "proficiency",
+                "\u6280\u80fd",
+                "\u5c5e\u6027\u68c0\u5b9a",
+                "\u611f\u77e5",
+                "\u8c03\u67e5",
+                "\u6f5c\u884c",
+                "\u8bf4\u670d",
+                "\u719f\u7ec3",
+            ],
+            "rest_recovery": [
+                "short rest",
+                "long rest",
+                "recover",
+                "recovery",
+                "\u77ed\u4f11",
+                "\u957f\u4f11",
+                "\u6062\u590d",
+                "\u4f11\u606f",
+            ],
+        }
+
+    @staticmethod
+    def _rule_query_hints() -> Dict[str, str]:
+        return {
+            "rules_question": "\u89c4\u5219 \u89e3\u91ca",
+            "general_rules": "\u89c4\u5219 \u8bf4\u660e",
+            "combat_resolution": "\u6218\u6597 \u89c4\u5219",
+            "spell_resolution": "\u6cd5\u672f \u65bd\u6cd5 \u6cd5\u672f\u4f4d",
+            "condition_resolution": "\u72b6\u6001 \u6548\u679c \u89c4\u5219",
+            "skill_resolution": "\u68c0\u5b9a \u6280\u80fd \u89c4\u5219",
+            "rest_recovery": "\u4f11\u606f \u6062\u590d \u89c4\u5219",
+        }
+
+    @staticmethod
+    def _looks_like_rule_question(text: str) -> bool:
+        normalized = " ".join((text or "").split()).strip()
+        if not normalized:
+            return False
+        lowered = normalized.casefold()
+        if "?" in normalized or "\uff1f" in normalized:
+            return True
+        markers = [
+            "how",
+            "what",
+            "when",
+            "can i",
+            "can we",
+            "does",
+            "do i",
+            "do we",
+            "\u5982\u4f55",
+            "\u600e\u4e48",
+            "\u600e\u6837",
+            "\u662f\u5426",
+            "\u80fd\u4e0d\u80fd",
+            "\u53ef\u4ee5\u5417",
+            "\u89c4\u5219",
+            "\u5224\u5b9a",
+            "\u89e3\u91ca",
+            "\u8bf4\u660e",
+        ]
+        return any(marker in lowered for marker in markers)
+
+    def _classify_rule_intent(self, state: GameState, user_input: str) -> Dict[str, Any]:
+        normalized_input = " ".join((user_input or "").split()).strip()
+        if not normalized_input:
+            return {
+                "intent": "none",
+                "should_retrieve": False,
+                "reason": "empty user input",
+                "focus_terms": [],
+                "matched_spells": [],
+            }
+
+        question_shape = self._looks_like_rule_question(normalized_input)
+        matched_spells = self._matched_spell_names(state, normalized_input)
+        category_matches = {
+            name: self._intent_term_matches(normalized_input, terms)
+            for name, terms in self._rule_intent_terms().items()
+        }
+
+        intent = "none"
+        reason = "no automatic rules trigger matched"
+        if matched_spells:
+            intent = "spell_resolution"
+            reason = "player referenced a prepared or known spell"
+        elif category_matches["spell_resolution"] and (question_shape or state.scene == "combat"):
+            intent = "spell_resolution"
+            reason = "spell-related turn needs rules support"
+        elif category_matches["condition_resolution"] and (question_shape or state.scene == "combat"):
+            intent = "condition_resolution"
+            reason = "condition-heavy turn needs rules support"
+        elif category_matches["combat_resolution"] and (question_shape or state.scene == "combat"):
+            intent = "combat_resolution"
+            reason = "combat turn mentioned rules-sensitive actions"
+        elif category_matches["rest_recovery"]:
+            intent = "rest_recovery"
+            reason = "player asked about recovery timing or rest rules"
+        elif category_matches["skill_resolution"] and (question_shape or state.scene in {"exploration", "combat"}):
+            intent = "skill_resolution"
+            reason = "player asked for a skill or ability ruling"
+        elif question_shape:
+            intent = "rules_question"
+            reason = "player asked an explicit rules question"
+        elif category_matches["general_rules"]:
+            intent = "general_rules"
+            reason = "player referenced general rules language"
+
+        focus_terms = self._unique_texts(
+            [
+                *matched_spells,
+                *category_matches["combat_resolution"],
+                *category_matches["spell_resolution"],
+                *category_matches["condition_resolution"],
+                *category_matches["skill_resolution"],
+                *category_matches["rest_recovery"],
+                *category_matches["general_rules"],
+            ],
+            limit=6,
+        )
+        return {
+            "intent": intent,
+            "should_retrieve": intent != "none",
+            "reason": reason,
+            "focus_terms": focus_terms,
+            "matched_spells": matched_spells,
+        }
+
+    def _build_intent_rag_queries(
+        self,
+        state: GameState,
+        user_input: str,
+        intent_payload: Dict[str, Any],
+    ) -> List[str]:
+        normalized_input = " ".join((user_input or "").split()).strip()
+        if not normalized_input:
+            return []
+
+        active = state.get_active_char()
+        intent = str(intent_payload.get("intent") or "rules_question")
+        matched_spells = list(intent_payload.get("matched_spells", []))
+        matched_terms = list(intent_payload.get("focus_terms", []))
+
+        contextual_terms: List[str] = [self._scene_label(state.scene), self._scene_label(state.campaign.phase)]
+        if active:
+            contextual_terms.extend([active.class_name, active.species, active.background_name])
+        contextual_terms.extend(matched_terms[:4])
+        contextual_query = self._query_phrase("D&D 2024", *[term for term in contextual_terms if term])
+        intent_hint = self._rule_query_hints().get(intent, "\u89c4\u5219")
+
+        queries = [normalized_input]
+        if contextual_query:
+            queries.append(self._query_phrase(contextual_query, intent_hint))
+        for spell_name in matched_spells:
+            queries.append(self._query_phrase("D&D 2024", "\u6cd5\u672f", "\u89c4\u5219", spell_name))
+        if matched_terms:
+            queries.append(self._query_phrase("D&D 2024", intent_hint, *matched_terms[:4]))
+        if active and intent in {"spell_resolution", "rest_recovery"}:
+            queries.append(self._query_phrase("D&D 2024", active.class_name, intent_hint, *matched_terms[:3]))
 
         return self._unique_texts(queries, limit=4)
 
@@ -737,8 +979,14 @@ class DMGraphRunner:
         }
 
     @staticmethod
-    def _format_rag_context(snippets: List[Dict[str, str]], queries: Optional[List[str]] = None) -> str:
+    def _format_rag_context(
+        snippets: List[Dict[str, str]],
+        queries: Optional[List[str]] = None,
+        intent: str = "",
+    ) -> str:
         formatted: List[str] = []
+        if intent:
+            formatted.append(f"Retrieval intent: {intent}")
         if queries:
             formatted.append(f"Retrieval focus: {' | '.join(queries[:3])}")
         for snippet in snippets:
@@ -755,20 +1003,37 @@ class DMGraphRunner:
     def _retrieve_rules(self, graph_state: DMGraphState) -> DMGraphState:
         n_results = int(os.getenv("RAG_AUTO_CONTEXT_RESULTS", "3") or 0)
         if n_results <= 0 or not self.rag_engine.is_ready():
-            return {"rag_snippets": [], "rag_context": "", "rag_queries": [], "rag_reason": "automatic retrieval disabled"}
+            return {
+                "rag_snippets": [],
+                "rag_context": "",
+                "rag_queries": [],
+                "rag_intent": "none",
+                "rag_reason": "automatic retrieval disabled",
+            }
 
         state = GameState.model_validate(graph_state["game_state"])
-        should_retrieve, reason = self._should_auto_retrieve_rules(state, graph_state.get("user_input", ""))
-        if not should_retrieve:
-            return {"rag_snippets": [], "rag_context": "", "rag_queries": [], "rag_reason": reason}
+        intent_payload = self._classify_rule_intent(state, graph_state.get("user_input", ""))
+        if not intent_payload.get("should_retrieve"):
+            return {
+                "rag_snippets": [],
+                "rag_context": "",
+                "rag_queries": [],
+                "rag_intent": str(intent_payload.get("intent", "none")),
+                "rag_reason": str(intent_payload.get("reason", "no automatic rules trigger matched")),
+            }
 
-        queries = self._build_rag_queries(state, graph_state.get("user_input", ""))
+        queries = self._build_intent_rag_queries(state, graph_state.get("user_input", ""), intent_payload)
         snippets = self.rag_engine.search_many(queries, n_results=n_results)
         return {
             "rag_snippets": snippets,
-            "rag_context": self._format_rag_context(snippets, queries=queries),
+            "rag_context": self._format_rag_context(
+                snippets,
+                queries=queries,
+                intent=str(intent_payload.get("intent", "")),
+            ),
             "rag_queries": queries,
-            "rag_reason": reason,
+            "rag_intent": str(intent_payload.get("intent", "none")),
+            "rag_reason": str(intent_payload.get("reason", "")),
         }
 
     def _draft_response_placeholder(self, graph_state: DMGraphState) -> DMGraphState:
@@ -903,6 +1168,7 @@ class DMGraphRunner:
     def _validate_state(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         messages = list(graph_state.get("messages", []))
+        timeline_append = list(graph_state.get("timeline_append", []))
         state_delta = dict(graph_state.get("state_delta", {}))
         validation_notes: List[str] = []
         logic = GameLogic(state)
@@ -940,6 +1206,26 @@ class DMGraphRunner:
                 }
                 validation_notes.append("Closed an invalid encounter with no combatants.")
             else:
+                synced_party_combatants = False
+                for combatant in encounter.combatants.values():
+                    if not combatant.linked_character_id:
+                        continue
+                    character = state.characters.get(combatant.linked_character_id)
+                    if not character:
+                        continue
+                    if (
+                        combatant.hp_current != character.hp_current
+                        or combatant.hp_max != character.hp_max
+                        or combatant.ac != character.ac
+                        or combatant.initiative_bonus != character.initiative_bonus
+                        or combatant.status_effects != list(character.status_effects)
+                        or combatant.defeat_state != character.defeat_state
+                    ):
+                        logic._sync_combatant_from_character(character)
+                        synced_party_combatants = True
+                if synced_party_combatants:
+                    validation_notes.append("Synced party combatants from character sheets before validating combat state.")
+
                 previous_order = list(encounter.initiative_order)
                 previous_current = encounter.current_combatant_id
                 previous_started = encounter.turn_order_started
@@ -975,6 +1261,34 @@ class DMGraphRunner:
                         patch["active_character_id"] = current.linked_character_id
                         validation_notes.append("Synced active character to the acting party combatant.")
 
+                enemies = [combatant for combatant in encounter.combatants.values() if combatant.side == "enemy"]
+                active_enemies = [
+                    combatant
+                    for combatant in enemies
+                    if combatant.hp_current > 0 and combatant.defeat_state == "active"
+                ]
+                if enemies and not active_enemies:
+                    outcome = logic.finalize_encounter()
+                    if outcome:
+                        patch = merge_patch(
+                            patch,
+                            {
+                                "scene": state.scene,
+                                "campaign": {"phase": state.campaign.phase},
+                                "encounter": outcome["encounter"].model_dump(mode="json"),
+                                "adventure_log": list(state.adventure_log),
+                            },
+                        )
+                        timeline_append.append(
+                            self._build_event(
+                                event_type="encounter_ended",
+                                summary=outcome["summary"],
+                                content=outcome["summary"],
+                                payload={**outcome["summary_payload"], "automatic": True},
+                            ).model_dump(mode="json")
+                        )
+                        validation_notes.append("Automatically ended the encounter because no active enemies remained.")
+
                 if (
                     encounter.initiative_order != previous_order
                     or encounter.current_combatant_id != previous_current
@@ -999,6 +1313,7 @@ class DMGraphRunner:
         return {
             "game_state": state.model_dump(mode="json"),
             "messages": messages,
+            "timeline_append": timeline_append,
             "state_delta": state_delta,
             "allowed_tools": self._allowed_tool_names(state),
             "validation_notes": validation_notes,

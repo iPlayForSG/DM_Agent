@@ -64,6 +64,8 @@ python rag_ingest.py --max-chunks 2 --reset --db-path Knowledge/vector_db_smoke 
 
 当前默认切片为 512 字符、80 字符 overlap，本地全量 dry-run 统计为 2948 个源文件、19694 个 chunk，当前默认知识库也已经在本机构建完成。为保证中文规则文本的稳定嵌入，`RAG_LLAMA_SERVER_CTX` 建议保持 `4096`；无 CUDA 时，脚本会阻止大批量 CPU 构建。确实要强制执行可加 `--allow-slow-cpu`，但预计会非常慢。中断后的构建可以去掉 `--reset` 直接续跑，脚本会跳过 collection 中已有的 chunk id，也支持通过 `--start-chunk` 从指定偏移继续。
 
+LangGraph 当前会先做规则意图分类，再决定是否自动检索；命中时会把 `rag_intent` 和规划出的 query 一起注入回合上下文。工具执行后的 `validate_state` 还会同步 party combatant 镜像，并在敌方全部失去行动能力时自动结束遭遇。
+
 ## 前端运行
 
 ```powershell
