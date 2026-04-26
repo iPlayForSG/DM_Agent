@@ -152,6 +152,7 @@ def builder_payload():
 
 def characters_payload():
     summaries = [summary.model_dump(mode="json") for summary in char_storage.list_character_summaries()]
+    summaries = [_add_display_fields(summary) for summary in summaries]
     return {
         "characters": summaries,
         "names": [summary["name"] for summary in summaries],
@@ -160,6 +161,7 @@ def characters_payload():
 
 def monsters_payload():
     summaries = [summary.model_dump(mode="json") for summary in monster_storage.list_monster_summaries()]
+    summaries = [_add_display_fields(summary) for summary in summaries]
     return {
         "monsters": summaries,
         "names": [summary["name"] for summary in summaries],
@@ -242,6 +244,10 @@ def _add_display_fields(value):
         "alignment",
         "source",
         "recovery",
+        "origin_feat",
+        "class_name",
+        "background_name",
+        "species",
     }
     for key in display_keys:
         raw = value.get(key)

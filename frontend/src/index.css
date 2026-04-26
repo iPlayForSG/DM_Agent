@@ -46,7 +46,8 @@ body {
 .menu-active-info { font-size: 0.8rem; color: var(--accent); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
 
 /* --- Main Area --- */
-.main-content { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+/* Scroll belongs to the outermost area so the scrollbar sits flush with the browser right edge. */
+.main-content { flex: 1; position: relative; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; min-width: 0; }
 
 /* --- Home --- */
 .home-container {
@@ -58,7 +59,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    overflow-y: auto;
 }
 .title-hero { font-size: clamp(2.4rem, 5vw, 4rem); margin-bottom: 10px; background: linear-gradient(90deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .subtitle { color: var(--text-muted); margin-bottom: 40px; font-size: 1.05rem; line-height: 1.7; max-width: 760px; }
@@ -81,7 +81,7 @@ body {
 .list-item:hover { background: var(--border); }
 
 /* --- Creator Wizard --- */
-.creator-container { padding: 40px; max-width: 800px; margin: 0 auto; width: 100%; overflow-y: auto; }
+.creator-container { padding: 40px; max-width: 800px; margin: 0 auto; width: 100%; }
 .manager-layout {
     display: grid;
     grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);

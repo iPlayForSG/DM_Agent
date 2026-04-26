@@ -59,6 +59,39 @@ const SKILL_LABELS = {
   survival: "求生",
 };
 const SIDE_LABELS = { party: "队伍", enemy: "敌方", ally: "友方" };
+const CLASS_RESOURCE_NAME_LABELS = {
+  "Wild Shape": "野性变身",
+  "Second Wind": "二次呼吸",
+  "Lay on Hands": "圣疗之手",
+  "Channel Divinity": "引导神力",
+  "Rage": "狂暴",
+  "Sorcery Points": "法术点",
+  "Ki Points": "气力点",
+  "Bardic Inspiration": "吟游激励",
+};
+const CLASS_NAME_LABELS = {
+  Artificer: "奇械师",
+  Barbarian: "野蛮人",
+  Bard: "吟游诗人",
+  Cleric: "牧师",
+  Druid: "德鲁伊",
+  Fighter: "战士",
+  Monk: "武僧",
+  Paladin: "圣武士",
+  Ranger: "游侠",
+  Rogue: "游荡者",
+  Sorcerer: "术士",
+  Warlock: "邪术师",
+  Wizard: "法师",
+};
+const STAT_ABBREVIATION_TO_KEY = {
+  str: "strength",
+  dex: "dexterity",
+  con: "constitution",
+  int: "intelligence",
+  wis: "wisdom",
+  cha: "charisma",
+};
 const SCENE_LABELS = { setup: "准备", exploration: "探索", combat: "战斗", encounter: "遭遇" };
 const SIZE_LABELS = { tiny: "微型", small: "小型", medium: "中型", large: "大型", huge: "超大型", gargantuan: "巨型" };
 const CREATURE_TYPE_LABELS = {
@@ -104,8 +137,23 @@ const entriesToText = (entries = []) => entries.map((x) => x.description).join("
 const mapMessages = (history = []) => history.map((m) => ({ sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system", text: m.content }));
 const eventLabel = (t) => ({ player_action: "玩家", assistant_response: "主持", dice_result: "骰点", hp_changed: "生命", attack_resolved: "攻击", skill_check: "技能", saving_throw: "豁免", spell_cast: "施法", item_used: "物品", turn_advanced: "回合", encounter_started: "遭遇", monster_template_saved: "怪物模板", monster_spawned: "怪物生成" }[t] || t);
 const getSpellLevel = (spell) => Number(spell?.level ?? 0);
-const localizeStat = (stat) => STAT_LABELS[stat] || stat;
-const localizeSkill = (skill) => SKILL_LABELS[skill] || skill;
+const localizeStat = (stat) => {
+  if (!stat) return stat;
+  const lower = String(stat).trim().toLowerCase();
+  const key = STAT_ABBREVIATION_TO_KEY[lower] || lower;
+  return STAT_LABELS[key] || stat;
+};
+const localizeSkill = (skill) => {
+  if (!skill) return skill;
+  const key = String(skill).trim().toLowerCase().replace(/[\s-]+/g, "_").replace(/'/g, "");
+  return SKILL_LABELS[key] || skill;
+};
+const localizeClassResource = (name) => CLASS_RESOURCE_NAME_LABELS[name] || name;
+const localizeClassName = (value) => {
+  if (!value) return value;
+  const trimmed = String(value).trim();
+  return CLASS_NAME_LABELS[trimmed] || value;
+};
 const localizeSide = (side) => SIDE_LABELS[side] || side || "未知";
 const localizeScene = (scene) => SCENE_LABELS[scene] || scene || "准备";
 const normalizeLookupKey = (value) => String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -592,7 +640,7 @@ export default function App() {
               </div>
               <div className="form-group">
                 <label>起源专长</label>
-                <input value={charDraft.origin_feat} readOnly />
+                <input value={background?.origin_feat_display || charDraft.origin_feat} readOnly />
               </div>
               <div className="form-group">
                 <label>职业</label>
@@ -614,7 +662,7 @@ export default function App() {
               </div>
               {starterChoiceGroups.map((group) => (
                 <div key={group.id} className="form-group">
-                  <label>{group.label}</label>
+                  <label>{group.label_display || group.label}</label>
                   <p className="info-text">{group.description_display || group.description}</p>
                   <div className="class-grid" style={{ marginTop: 12 }}>
                     {(group.options || []).map((option) => <div key={option.id} className={`class-card ${charDraft.starter_choice_ids[group.id] === option.id ? "selected" : ""}`} onClick={() => chooseStarterChoice(group.id, option.id)}><strong>{option.label_display || option.label}</strong></div>)}
@@ -636,7 +684,7 @@ export default function App() {
                 </div>
                 <div className="builder-preview-card">
                   <h3>职业资源</h3>
-                  {!classDef ? <p className="info-text">选择职业后即可预览 1 级资源。</p> : starterResources.length === 0 ? <p className="info-text">当前职业没有可追踪的 1 级资源。</p> : <div className="timeline-list">{starterResources.map(([name, resource]) => <div key={name} className="timeline-item"><div className="timeline-summary">{name} · {resource.current_value}/{resource.max_value}</div><div className="timeline-content">{resource.description || "职业资源"} · 恢复方式：{formatResourceRecovery(resource)}</div></div>)}</div>}
+                  {!classDef ? <p className="info-text">选择职业后即可预览 1 级资源。</p> : starterResources.length === 0 ? <p className="info-text">当前职业没有可追踪的 1 级资源。</p> : <div className="timeline-list">{starterResources.map(([name, resource]) => <div key={name} className="timeline-item"><div className="timeline-summary">{localizeClassResource(name)} · {resource.current_value}/{resource.max_value}</div><div className="timeline-content">{resource.description_display || resource.description || "职业资源"} · 恢复方式：{formatResourceRecovery(resource)}</div></div>)}</div>}
                 </div>
                 <div className="builder-preview-card">
                   <h3>起始法术位</h3>
@@ -674,7 +722,7 @@ export default function App() {
 
         {view === "monsters" && <div className="creator-container anime-slide-up"><div className="manager-layout"><div className="panel-card"><div className="btn-row" style={{ marginTop: 0, marginBottom: 12 }}><h2 style={{ margin: 0 }}>怪物模板</h2><button className="btn-secondary" onClick={() => setMonsterDraft({ ...EMPTY_MON })}>新建</button></div><div className="timeline-list">{monsters.length === 0 && <p className="empty-text">还没有怪物模板。</p>}{monsters.map((monster) => <div key={monster.monster_id} className="timeline-item" onClick={() => openMonster(monster.monster_id)}><div className="timeline-summary">{monster.name}</div><div className="timeline-content">{formatMonsterSummary(monster)}</div></div>)}</div></div><div className="panel-card"><h2>{monsterDraft.monster_id ? "编辑怪物" : "新建怪物"}</h2><div className="form-group"><label>名称</label><input value={monsterDraft.name} onChange={(e) => setMonsterDraft((p) => ({ ...p, name: e.target.value }))} /></div><div className="dual-grid"><div className="form-group"><label>体型</label><input value={monsterDraft.size} onChange={(e) => setMonsterDraft((p) => ({ ...p, size: e.target.value }))} placeholder={localizeSize(monsterDraft.size)} /></div><div className="form-group"><label>类型</label><input value={monsterDraft.creature_type} onChange={(e) => setMonsterDraft((p) => ({ ...p, creature_type: e.target.value }))} placeholder={localizeCreatureType(monsterDraft.creature_type)} /></div><div className="form-group"><label>阵营</label><input value={monsterDraft.alignment} onChange={(e) => setMonsterDraft((p) => ({ ...p, alignment: e.target.value }))} placeholder={localizeAlignment(monsterDraft.alignment)} /></div><div className="form-group"><label>挑战等级</label><input value={monsterDraft.challenge_rating} onChange={(e) => setMonsterDraft((p) => ({ ...p, challenge_rating: e.target.value }))} /></div><div className="form-group"><label>护甲等级</label><input type="number" value={monsterDraft.ac} onChange={(e) => setMonsterDraft((p) => ({ ...p, ac: Number.parseInt(e.target.value || "0", 10) }))} /></div><div className="form-group"><label>生命值</label><input type="number" value={monsterDraft.hp_max} onChange={(e) => setMonsterDraft((p) => ({ ...p, hp_max: Number.parseInt(e.target.value || "0", 10) }))} /></div></div><div className="form-group"><label>特性</label><textarea className="text-block" value={monsterDraft.traitsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, traitsText: e.target.value }))} /></div><div className="form-group"><label>动作</label><textarea className="text-block" value={monsterDraft.actionsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, actionsText: e.target.value }))} /></div><div className="form-group"><label>备注</label><textarea className="text-block" value={monsterDraft.notes} onChange={(e) => setMonsterDraft((p) => ({ ...p, notes: e.target.value }))} /></div><div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>返回</button><button className="btn-success" onClick={saveMonster} disabled={!monsterDraft.name.trim()}>保存怪物</button></div></div></div></div>}
 
-        {view === "new_game" && <div className="modal-overlay"><div className="modal-content anime-pop"><h2>新建游戏</h2><p className="info-text">先输入游戏存档 ID，再从下方选择要带入本局的队伍角色。</p><input className="input-lg" placeholder="例如：第一章-测试局" value={newGameId} onChange={(e) => setNewGameId(e.target.value)} /><h3>队伍角色</h3><p className="info-text">已选择 {selectedGameChars.length} 名角色。这里不是摆设，选中的角色会直接写入新游戏。</p>{characters.length === 0 ? <div className="timeline-item"><div className="timeline-summary">还没有可用角色</div><div className="timeline-content">请先到“角色构筑”里保存至少一名角色，再回来建局。</div></div> : <div className="char-select-list">{characters.map((character) => <div key={character.character_id} className={`char-option ${selectedGameChars.includes(character.character_id) ? "selected" : ""}`} onClick={() => setSelectedGameChars((prev) => prev.includes(character.character_id) ? prev.filter((item) => item !== character.character_id) : [...prev, character.character_id])}><div className="avatar">角</div><span>{character.name} · {character.class_name_display || character.class_name}</span></div>)}</div>}<div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>取消</button><button className="btn-primary" onClick={makeGame}>创建并进入</button></div></div></div>}
+        {view === "new_game" && <div className="modal-overlay"><div className="modal-content anime-pop"><h2>新建游戏</h2><p className="info-text">先输入游戏存档 ID，再从下方选择要带入本局的队伍角色。</p><input className="input-lg" placeholder="例如：第一章-测试局" value={newGameId} onChange={(e) => setNewGameId(e.target.value)} /><h3>队伍角色</h3><p className="info-text">已选择 {selectedGameChars.length} 名角色。这里不是摆设，选中的角色会直接写入新游戏。</p>{characters.length === 0 ? <div className="timeline-item"><div className="timeline-summary">还没有可用角色</div><div className="timeline-content">请先到“角色构筑”里保存至少一名角色，再回来建局。</div></div> : <div className="char-select-list">{characters.map((character) => <div key={character.character_id} className={`char-option ${selectedGameChars.includes(character.character_id) ? "selected" : ""}`} onClick={() => setSelectedGameChars((prev) => prev.includes(character.character_id) ? prev.filter((item) => item !== character.character_id) : [...prev, character.character_id])}><div className="avatar">角</div><span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)}</span></div>)}</div>}<div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>取消</button><button className="btn-primary" onClick={makeGame}>创建并进入</button></div></div></div>}
 
         {view === "chat" && (
           <div className="chat-layout">
@@ -921,7 +969,7 @@ export default function App() {
         )}
 
 
-        {view === "status" && <div className="status-screen anime-fade-in"><h2>队伍状态</h2><div className="status-cards">{Object.values(gameState?.characters || {}).map((character) => <div key={character.character_id} className="char-stat-card"><div className="char-header"><div className="avatar-lg">角</div><div><h3>{character.name}</h3><span className="badge">{character.class_name_display || character.class_name} · {character.level}级</span></div></div><div className="hp-bar"><div className="fill" style={{ width: `${character.hp_max > 0 ? (character.hp_current / character.hp_max) * 100 : 0}%` }}></div><span className="text">{formatHpBarLabel(character.hp_current, character.hp_max)}</span></div><div className="timeline-content">财富：{formatGoldLine(character.gold_gp)}</div></div>)}</div><h2 style={{ marginTop: 32 }}>遭遇状态</h2><div className="status-cards">{combatants.length === 0 && <p className="empty-text">当前没有战斗单位。</p>}{combatants.map((combatant) => <div key={combatant.combatant_id} className="char-stat-card"><div className="char-header"><div className="avatar-lg">{combatant.side === "enemy" ? "敌" : "角"}</div><div><h3>{combatant.name}</h3><span className="badge">{localizeSide(combatant.side)} · 先攻 {combatant.initiative ?? "?"}</span></div></div><div className="hp-bar"><div className="fill" style={{ width: `${combatant.hp_max > 0 ? (combatant.hp_current / combatant.hp_max) * 100 : 0}%` }}></div><span className="text">{formatHpBarLabel(combatant.hp_current, combatant.hp_max)}</span></div></div>)}</div></div>}
+        {view === "status" && <div className="status-screen anime-fade-in"><h2>队伍状态</h2><div className="status-cards">{Object.values(gameState?.characters || {}).map((character) => <div key={character.character_id} className="char-stat-card"><div className="char-header"><div className="avatar-lg">角</div><div><h3>{character.name}</h3><span className="badge">{character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</span></div></div><div className="hp-bar"><div className="fill" style={{ width: `${character.hp_max > 0 ? (character.hp_current / character.hp_max) * 100 : 0}%` }}></div><span className="text">{formatHpBarLabel(character.hp_current, character.hp_max)}</span></div><div className="timeline-content">财富：{formatGoldLine(character.gold_gp)}</div></div>)}</div><h2 style={{ marginTop: 32 }}>遭遇状态</h2><div className="status-cards">{combatants.length === 0 && <p className="empty-text">当前没有战斗单位。</p>}{combatants.map((combatant) => <div key={combatant.combatant_id} className="char-stat-card"><div className="char-header"><div className="avatar-lg">{combatant.side === "enemy" ? "敌" : "角"}</div><div><h3>{combatant.name}</h3><span className="badge">{localizeSide(combatant.side)} · 先攻 {combatant.initiative ?? "?"}</span></div></div><div className="hp-bar"><div className="fill" style={{ width: `${combatant.hp_max > 0 ? (combatant.hp_current / combatant.hp_max) * 100 : 0}%` }}></div><span className="text">{formatHpBarLabel(combatant.hp_current, combatant.hp_max)}</span></div></div>)}</div></div>}
       </main>
     </div>
   );

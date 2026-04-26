@@ -14,9 +14,9 @@
 
 当前下一阶段重点：**继续强化 LangGraph 后端 Agent 编排，并逐步整理前端单文件界面结构**。
 
-最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D、Phase 2E、Phase 2F 和 Phase 2G。`backend/agent_tools.py` 已承载框架无关工具层；`backend/agent.py` 已变为 LangGraph-only facade；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单；Z.AI GLM-5.1 下的普通回合与 `roll_dice` 工具回合 smoke test 已通过。最近一轮前端也已补上中文界面、建局直用状态快照、动态后端地址直连回退以及一键启动脚本。
+最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D、Phase 2E、Phase 2F 和 Phase 2G。`backend/agent_tools.py` 已承载框架无关工具层；`backend/agent.py` 已变为 LangGraph-only facade；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单；OpenAI-compatible 后端下的普通回合与 `roll_dice` 工具回合 smoke test 已通过。最近一轮前端也已补上中文界面（角色构筑页背景、起源专长、起始装备包、职业资源等都改为中文显示）、滚动条位置修复（把滚动容器提到 `main-content`，让滑块贴紧浏览器最右侧）、建局直用状态快照、动态后端地址直连回退以及一键启动脚本。
 
-当前本地模型配置已切换为 Z.AI GLM-5.1：`LLM_MODEL=glm-5.1`，base URL 使用 `https://open.bigmodel.cn/api/coding/paas/v4`。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
+当前本地模型通过 OpenAI-compatible 接口接入，具体模型和 base URL 由 `backend/.env` 决定，可以随时切换。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
 
 记住：每次修改代码后，都要在本地 git commit，并编写一条英文 message。同时，如果有必要，同步更新 BACKEND_API_DESIGN.md、FRONTEND_API_DESIGN.md、Walkthrough.md，以保证项目结构清晰。
 
@@ -63,7 +63,7 @@ DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。
 
 1. 后端使用 FastAPI。
 2. 当前 DM 对话链路使用 LangGraph + LangChain 连接 OpenAI-compatible 模型。
-3. 本地 `.env` 当前指向 Z.AI GLM-5.1，公开的 `.env.example` 只保留无密钥配置。
+3. 本地 `.env` 通过 OpenAI-compatible 接口指向当前选用的模型，公开的 `.env.example` 只保留无密钥配置。
 4. 游戏真相保存在本地 `GameState` JSON，而不是只存在模型上下文里。
 5. Agent 已接入本地规则检索工具 `lookup_rules`。
 6. RAG 已切换到 `Qwen/Qwen3-Embedding-4B-GGUF` + `llama.cpp` + Chroma 方案；LangGraph 每回合会先做规则意图分类，再通过 `retrieve_rules` 节点规划多条 query 注入少量带来源规则片段，当前已覆盖规则问答、施法裁定、战斗裁定、状态裁定、技能裁定和休息恢复。缺少目标向量库时会明确标记未就绪，不再回退到旧的 markdown 词法检索。
@@ -172,6 +172,8 @@ DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。
 10. 优先消费后端返回的 `*_display` 字段，在职业、法术、物品、伤害类型、状态和怪物摘要上默认显示中文。
 11. 首页、新建游戏弹窗、遭遇侧栏与状态页已经做过一轮中文化与响应式布局调整。
 12. 前端 API 层优先使用 `VITE_BACKEND_URL/api/v1` 直连运行时后端地址，网络失败时返回中文错误提示。
+13. 角色构筑页全部背景（如 Farmer / Sage / Soldier / Wayfarer）、全部起源专长（包括三种 Magic Initiate 变体以及 Crafter / Lucky / Savage Attacker / Skilled / Tough）、所有职业起始装备包与二级选项、起始装备明细与职业资源、技能选择都会显示为中文；对于后端按键名索引的资源（如 `Wild Shape`、`Lay on Hands`），前端补了 `localizeClassResource` 映射。
+14. 页面主滚动条统一由 `main-content` 承担，`home-container` / `creator-container` 不再各自滚动，滑块始终贴紧浏览器最右侧。
 
 ## 4. 当前没有完成的内容
 
@@ -589,7 +591,7 @@ Phase 2: LangGraph 单回合等价链路
 
 补充状态：Phase 2E 已完成。非战斗阶段工具白名单保留检定、豁免、施法、HP 与状态变化等常见规则结算能力；战斗阶段再额外暴露攻击、先攻、推进回合和结束遭遇工具。
 
-补充状态：Phase 2F 已完成。真实 GLM-5.1 smoke test 已通过：普通探索回合可以返回模型文本，要求模型调用 `roll_dice` 的回合可以产生 `dice.roll` 工具结果并写入时间线。模型节点已经恢复为直接调用 `model.invoke(...)`，不再做 provider 异常兜底。
+补充状态：Phase 2F 已完成。在 OpenAI-compatible 后端上跑通过 smoke test：普通探索回合可以返回模型文本，要求模型调用 `roll_dice` 的回合可以产生 `dice.roll` 工具结果并写入时间线。模型节点已经恢复为直接调用 `model.invoke(...)`，不再做 provider 异常兜底；运行时具体使用的模型由 `.env` 中的 `LLM_MODEL` 决定，可以随时切换。
 
 补充状态：Phase 2G 已完成。`agent.py` 已删除 ADK orchestration 和 `_build_tools()`，`DMAgent` 固定委托到 LangGraph；`backend/requirements.txt` 已移除 `google-adk` 与 `litellm`。
 

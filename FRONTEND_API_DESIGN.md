@@ -179,6 +179,8 @@
 16. 在聊天侧栏预览模板怪 AC/HP/CR，并支持 side / custom name / HP override / end encounter
 17. 在遭遇面板直接移除非队友单位，并手动设置或重掷先攻
 18. 在攻击表单中显式切换 `normal / nonlethal / capture`，并在有攻击项可选时把攻击元数据稳定同步到动作草稿
+19. 在角色构筑页按后端 `*_display` 字段把背景、起源专长、职业、起始装备包与二级选项、起始装备明细、职业资源、施法属性等全部渲染为中文；对于后端不再直接提供 display 字段的职业资源名，前端补了一层 `localizeClassResource` 映射
+20. 页面主滚动条由 `main-content` 承担，内部 `home-container`、`creator-container` 不再各自滚动，滑块始终贴紧浏览器最右侧
 
 ## 当前仍保留的边界
 

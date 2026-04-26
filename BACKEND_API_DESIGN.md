@@ -30,13 +30,13 @@
 
 ## 2.1 当前模型配置
 
-当前本地 `.env` 使用 Z.AI 的 OpenAI-compatible 接口：
+后端统一通过 OpenAI-compatible 接口调用模型，具体模型和 base URL 可以随时切换。运行时从环境变量读取：
 
-- `LLM_MODEL=glm-5.1`
-- `OPENAI_API_BASE=https://open.bigmodel.cn/api/coding/paas/v4`
-- `OPENAI_BASE_URL=https://open.bigmodel.cn/api/coding/paas/v4`
+- `LLM_MODEL`
+- `OPENAI_API_BASE` / `OPENAI_BASE_URL`
+- `OPENAI_API_KEY`
 
-真实 `OPENAI_API_KEY` 只允许写入本地 `backend/.env`，该文件已经被 `.gitignore` 忽略，不能提交或推送。公开仓库只保留无密钥的 `backend/.env.example`。
+真实密钥和运行时选定的模型只写入本地 `backend/.env`，该文件已被 `.gitignore` 忽略，不能提交或推送；公开仓库只保留无密钥的 `backend/.env.example`。LangGraph 通过 `ChatOpenAI(base_url=..., model=...)` 直接调用，不依赖特定厂商。
 
 ## 3. 核心数据模型
 
@@ -120,7 +120,7 @@ LangGraph 重构后该响应结构保持兼容。
 
 - `GET /api/v1/rules/character-builder`
 
-该接口返回角色创建器所需规则目录，包括物种、背景、起源专长、职业、起始资源、起始装备、起始法术和职业法术位。
+该接口返回角色创建器所需规则目录，包括物种、背景、起源专长、职业、起始资源、起始装备、起始法术和职业法术位。返回体会经过 `_add_display_fields` 包一层：对已知 display 字段（`name`、`label`、`description`、`origin_feat`、`class_name`、`background_name`、`species`、`type`、`damage_type`、`creature_type`、`recovery` 等）生成对应的 `*_display` 兄弟字段，内部规则键保持原样。前端在角色构筑页直接消费 `*_display` 字段渲染中文，缺失时回退到 canonical 英文。`backend/library.py` 的 `TERM_TRANSLATIONS` 是这一层本地化的唯一真源，新增条目时应统一加在那里。
 
 ### 4.3 RAG / 知识检索
 
@@ -154,6 +154,8 @@ LangGraph 重构后该响应结构保持兼容。
 - `GET /api/v1/characters`
 - `POST /api/v1/characters`
 - `GET /api/v1/characters/{identifier}`
+
+角色列表 (`GET /api/v1/characters`) 和怪物列表 (`GET /api/v1/monsters`) 返回的每条 summary 也会经过 `_add_display_fields` 包一层，补齐 `name_display`、`class_name_display`、`creature_type_display` 等字段供前端直接渲染中文。
 
 角色保存时会自动补全或校验：
 
@@ -445,7 +447,7 @@ LangGraph 节点负责：
 - Phase 2C 已完成：LangGraph 工具调用循环和第一版阶段化工具过滤已接入。
 - Phase 2D 已完成：`route_phase` 已成为独立图节点。
 - Phase 2E 已完成：非战斗阶段工具白名单已补齐常见规则结算能力。
-- Phase 2F 已完成：Z.AI GLM-5.1 可用后，LangGraph 普通探索回合和要求模型调用 `roll_dice` 的工具回合 smoke test 均已通过；模型节点恢复为直接 `model.invoke(...)`，不做 provider 异常兜底。
+- Phase 2F 已完成：LangGraph 普通探索回合和要求模型调用 `roll_dice` 的工具回合 smoke test 均已在 OpenAI-compatible 后端上通过；模型节点恢复为直接 `model.invoke(...)`，不做 provider 异常兜底。运行时具体使用的模型由 `.env` 中的 `LLM_MODEL` 决定，可以随时切换。
 - Phase 2G 已完成：`agent.py` 已删除 ADK orchestration，后端依赖已移除 `google-adk` 与 `litellm`，`DMAgent` 固定委托到 LangGraph。
 - Phase 4A 已完成：Qwen3-Embedding-4B-GGUF + llama.cpp ingestion/runtime 检索方案已接入，`retrieve_rules` 成为 LangGraph 显式节点。
 - 尚未完成：更细的条件分支、更完整的节点级状态校验和后续 RAG 排序策略。
