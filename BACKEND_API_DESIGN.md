@@ -183,6 +183,15 @@ LangGraph 重构后该响应结构保持兼容。
 - `POST /api/v1/games/{game_id}/select-adventure`
 - `POST /api/v1/games/{game_id}/turns`
 
+`POST /api/v1/games` 当前除了创建存档，还会直接返回：
+
+- `status`
+- `game`
+- `game_state`
+- `action_options`
+
+这样前端在建局成功后可以直接进入 `adventure_selection`，不需要立刻追加一次 `GET /games/{game_id}` 和 `GET /games/{game_id}/action-options`。
+
 `POST /api/v1/games/{game_id}/turns` 是 Agent 回合入口。LangGraph 重构必须保持该接口的输入输出兼容。
 
 ### 4.8 遭遇接口

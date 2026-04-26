@@ -1,13 +1,19 @@
-const API_PREFIX = "/api/v1";
+const BACKEND_BASE = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
+const API_PREFIX = BACKEND_BASE ? `${BACKEND_BASE}/api/v1` : "/api/v1";
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_PREFIX}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_PREFIX}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch {
+    throw new Error("无法连接后端服务，请确认启动脚本仍在运行，然后刷新页面重试。");
+  }
 
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;

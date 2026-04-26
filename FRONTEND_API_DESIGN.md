@@ -69,6 +69,11 @@
 5. 进入正式冒险
 6. 必要时通过聊天侧栏公开入口开始遭遇、追加敌人或结束遭遇
 
+补充约定：
+
+1. `New Game` 里的队伍选择不是占位 UI；前端会把已选角色的 `character_id` 直接提交给 `POST /api/v1/games`
+2. `POST /api/v1/games` 成功后，前端直接消费返回的 `game_state` 与 `action_options`，避免刚建局就再触发一次 `loadGame + loadActionOptions`
+
 ## 聊天页
 
 聊天页当前显示：
@@ -143,6 +148,11 @@
 - `savingThrowAction`
 - `castSpellAction`
 - `useItemAction`
+
+当前 API 调用层补充约定：
+
+1. 优先使用 `VITE_BACKEND_URL/api/v1` 直连后端；未配置时再回退到 `/api/v1`
+2. 网络不可达时统一抛出中文错误，明确提示先检查启动脚本与后端状态
 
 ## 当前阶段成果
 

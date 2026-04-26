@@ -556,7 +556,12 @@ async def create_game(req: CreateGameRequest):
     new_state.campaign.available_adventures = generate_initial_adventures(characters)
     new_state.campaign.phase = "adventure_selection" if characters else "party_creation"
     game_storage.save_game(req.game_id, new_state)
-    return {"status": "created", "game": new_state.to_summary().model_dump(mode="json")}
+    return {
+        "status": "created",
+        "game": new_state.to_summary().model_dump(mode="json"),
+        "game_state": new_state,
+        "action_options": action_options_payload(new_state),
+    }
 
 
 @app.get("/api/v1/games/{game_id}")
