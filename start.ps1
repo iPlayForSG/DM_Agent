@@ -10,18 +10,23 @@ $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $BackendDir = Join-Path $RootDir "backend"
 $FrontendDir = Join-Path $RootDir "frontend"
 $LogDir = Join-Path $BackendDir "runtime-logs"
+$FrontendRuntimeEnvFile = Join-Path $FrontendDir ".env.development.local"
+$RuntimeStateFile = Join-Path $LogDir "runtime-state.json"
 $BackendOutLog = Join-Path $LogDir "backend.out.log"
 $BackendErrLog = Join-Path $LogDir "backend.err.log"
 $FrontendOutLog = Join-Path $LogDir "frontend.out.log"
 $FrontendErrLog = Join-Path $LogDir "frontend.err.log"
-$BackendUrl = "http://127.0.0.1:23333"
-$BackendHealthUrl = "$BackendUrl/api/v1/health"
-$FrontendUrl = "http://127.0.0.1:5173"
+$BackendHost = "127.0.0.1"
+$FrontendHost = "127.0.0.1"
+$DefaultBackendPort = 23333
+$DefaultFrontendPort = 5173
+$PortSearchSpan = 30
 
 $backendProcess = $null
 $frontendProcess = $null
 $startedBackend = $false
 $startedFrontend = $false
+$startupSucceeded = $false
 
 function Test-UrlReady {
     param(
@@ -36,6 +41,49 @@ function Test-UrlReady {
     catch {
         return $false
     }
+}
+
+function Test-PortAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BindHost,
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $listener = $null
+    try {
+        $address = [System.Net.IPAddress]::Parse($BindHost)
+        $listener = [System.Net.Sockets.TcpListener]::new($address, $Port)
+        $listener.Start()
+        return $true
+    }
+    catch {
+        return $false
+    }
+    finally {
+        if ($null -ne $listener) {
+            $listener.Stop()
+        }
+    }
+}
+
+function Get-AvailablePort {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BindHost,
+        [Parameter(Mandatory = $true)]
+        [int]$PreferredPort,
+        [int]$Span = 20
+    )
+
+    for ($port = $PreferredPort; $port -lt ($PreferredPort + $Span); $port++) {
+        if (Test-PortAvailable -BindHost $BindHost -Port $port) {
+            return $port
+        }
+    }
+
+    throw "No usable TCP port was found near $PreferredPort on $BindHost."
 }
 
 function Wait-UrlReady {
@@ -54,12 +102,12 @@ function Wait-UrlReady {
             return
         }
         if ($null -ne $Process -and -not (Test-ProcessAlive -Process $Process)) {
-            throw "$Name process exited before becoming ready: $Url"
+            throw "$Name process exited before becoming ready."
         }
         Start-Sleep -Seconds 1
     }
 
-    throw "$Name did not become ready: $Url"
+    throw "$Name did not become ready in time."
 }
 
 function Get-ExecutableCommand {
@@ -84,18 +132,18 @@ function Resolve-PythonRunner {
             throw "DM_AGENT_PYTHON points to a missing file: $($env:DM_AGENT_PYTHON)"
         }
         return [pscustomobject]@{
-            Command      = $env:DM_AGENT_PYTHON
+            Command       = $env:DM_AGENT_PYTHON
             BaseArguments = @()
-            Display      = $env:DM_AGENT_PYTHON
+            Display       = $env:DM_AGENT_PYTHON
         }
     }
 
     $preferredPython = "C:\Users\iPlayForSG\.conda\envs\DM_Agent\python.exe"
     if (Test-Path $preferredPython) {
         return [pscustomobject]@{
-            Command      = $preferredPython
+            Command       = $preferredPython
             BaseArguments = @()
-            Display      = $preferredPython
+            Display       = $preferredPython
         }
     }
 
@@ -103,36 +151,36 @@ function Resolve-PythonRunner {
         $condaPrefixPython = Join-Path $env:CONDA_PREFIX "python.exe"
         if (Test-Path $condaPrefixPython) {
             return [pscustomobject]@{
-                Command      = $condaPrefixPython
+                Command       = $condaPrefixPython
                 BaseArguments = @()
-                Display      = $condaPrefixPython
+                Display       = $condaPrefixPython
             }
         }
     }
 
     if ($env:CONDA_EXE -and (Test-Path $env:CONDA_EXE)) {
         return [pscustomobject]@{
-            Command      = $env:CONDA_EXE
+            Command       = $env:CONDA_EXE
             BaseArguments = @("run", "-n", "DM_Agent", "python")
-            Display      = "$($env:CONDA_EXE) run -n DM_Agent python"
+            Display       = "$($env:CONDA_EXE) run -n DM_Agent python"
         }
     }
 
     $condaExecutable = Get-ExecutableCommand -Names @("conda.exe", "conda.bat")
     if ($condaExecutable) {
         return [pscustomobject]@{
-            Command      = $condaExecutable
+            Command       = $condaExecutable
             BaseArguments = @("run", "-n", "DM_Agent", "python")
-            Display      = "$condaExecutable run -n DM_Agent python"
+            Display       = "$condaExecutable run -n DM_Agent python"
         }
     }
 
     $pythonExecutable = Get-ExecutableCommand -Names @("python.exe", "python")
     if ($pythonExecutable) {
         return [pscustomobject]@{
-            Command      = $pythonExecutable
+            Command       = $pythonExecutable
             BaseArguments = @()
-            Display      = $pythonExecutable
+            Display       = $pythonExecutable
         }
     }
 
@@ -189,6 +237,130 @@ function Stop-StartedProcess {
     Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
 }
 
+function Read-RuntimeState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path $Path)) {
+        return $null
+    }
+
+    try {
+        return Get-Content -Raw -Path $Path | ConvertFrom-Json
+    }
+    catch {
+        return $null
+    }
+}
+
+function Write-RuntimeState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Payload
+    )
+
+    $Payload | ConvertTo-Json | Set-Content -Path $Path -Encoding utf8
+}
+
+function Write-FrontendRuntimeEnv {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$BackendUrl,
+        [Parameter(Mandatory = $true)]
+        [string]$FrontendHostValue,
+        [Parameter(Mandatory = $true)]
+        [int]$FrontendPortValue
+    )
+
+    @(
+        "VITE_BACKEND_URL=$BackendUrl"
+        "VITE_DEV_HOST=$FrontendHostValue"
+        "VITE_DEV_PORT=$FrontendPortValue"
+    ) | Set-Content -Path $Path -Encoding ascii
+}
+
+function Set-BackendLogPaths {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $script:BackendOutLog = Join-Path $LogDir "backend-$Port.out.log"
+    $script:BackendErrLog = Join-Path $LogDir "backend-$Port.err.log"
+}
+
+function Set-FrontendLogPaths {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $script:FrontendOutLog = Join-Path $LogDir "frontend-$Port.out.log"
+    $script:FrontendErrLog = Join-Path $LogDir "frontend-$Port.err.log"
+}
+
+function Start-BackendProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Runner,
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    Set-Content -Path $BackendOutLog -Value ""
+    Set-Content -Path $BackendErrLog -Value ""
+
+    return Start-Process `
+        -FilePath $Runner.Command `
+        -ArgumentList @($Runner.BaseArguments + @("-m", "uvicorn", "main:app", "--host", $BackendHost, "--port", $Port.ToString())) `
+        -WorkingDirectory $BackendDir `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $BackendOutLog `
+        -RedirectStandardError $BackendErrLog `
+        -PassThru
+}
+
+function Start-FrontendProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$NpmCommand,
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    Set-Content -Path $FrontendOutLog -Value ""
+    Set-Content -Path $FrontendErrLog -Value ""
+
+    return Start-Process `
+        -FilePath $NpmCommand `
+        -ArgumentList @("run", "dev", "--", "--host", $FrontendHost, "--port", $Port.ToString()) `
+        -WorkingDirectory $FrontendDir `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $FrontendOutLog `
+        -RedirectStandardError $FrontendErrLog `
+        -PassThru
+}
+
+function Open-FrontendInBrowser {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Url
+    )
+
+    try {
+        Start-Process $Url | Out-Null
+    }
+    catch {
+        Write-Host "Browser was not opened automatically. Open this URL manually: $Url"
+    }
+}
+
 try {
     if (-not (Test-Path (Join-Path $BackendDir ".env"))) {
         throw "Missing backend/.env. Copy backend/.env.example to backend/.env and fill in your API settings first."
@@ -235,108 +407,136 @@ try {
         }
     }
 
-    if (Test-UrlReady -Url $BackendHealthUrl) {
-        Write-Host "Backend already running at $BackendUrl"
+    $runtimeState = Read-RuntimeState -Path $RuntimeStateFile
+
+    $backendPort = $null
+    $backendUrl = $null
+    $backendHealthUrl = $null
+
+    if ($null -ne $runtimeState -and $runtimeState.backendHealthUrl -and (Test-UrlReady -Url $runtimeState.backendHealthUrl)) {
+        $backendPort = [int]$runtimeState.backendPort
+        $backendUrl = [string]$runtimeState.backendUrl
+        $backendHealthUrl = [string]$runtimeState.backendHealthUrl
+        if ($runtimeState.backendOutLog -and $runtimeState.backendErrLog) {
+            $BackendOutLog = [string]$runtimeState.backendOutLog
+            $BackendErrLog = [string]$runtimeState.backendErrLog
+        }
+        else {
+            Set-BackendLogPaths -Port $backendPort
+        }
+        Write-Host "Backend already running at $backendUrl"
     }
     else {
-        Write-Host "Starting backend..."
-        Set-Content -Path $BackendOutLog -Value ""
-        Set-Content -Path $BackendErrLog -Value ""
-        $backendProcess = Start-Process `
-            -FilePath $pythonRunner.Command `
-            -ArgumentList @($pythonRunner.BaseArguments + @("main.py")) `
-            -WorkingDirectory $BackendDir `
-            -WindowStyle Hidden `
-            -RedirectStandardOutput $BackendOutLog `
-            -RedirectStandardError $BackendErrLog `
-            -PassThru
-        $startedBackend = $true
+        $defaultBackendUrl = "http://${BackendHost}:$DefaultBackendPort"
+        $defaultBackendHealthUrl = "$defaultBackendUrl/api/v1/health"
+        if (Test-UrlReady -Url $defaultBackendHealthUrl) {
+            $backendPort = $DefaultBackendPort
+            $backendUrl = $defaultBackendUrl
+            $backendHealthUrl = $defaultBackendHealthUrl
+            Set-BackendLogPaths -Port $backendPort
+            Write-Host "Backend already running at $backendUrl"
+        }
+        else {
+            $backendPort = Get-AvailablePort -BindHost $BackendHost -PreferredPort $DefaultBackendPort -Span $PortSearchSpan
+            $backendUrl = "http://${BackendHost}:$backendPort"
+            $backendHealthUrl = "$backendUrl/api/v1/health"
+            Set-BackendLogPaths -Port $backendPort
+            Write-Host "Starting backend at $backendUrl..."
+            $backendProcess = Start-BackendProcess -Runner $pythonRunner -Port $backendPort
+            $startedBackend = $true
+            Wait-UrlReady -Name "Backend" -Url $backendHealthUrl -Process $backendProcess -Attempts 120
+        }
     }
 
-    if (Test-UrlReady -Url $FrontendUrl) {
-        Write-Host "Frontend already running at $FrontendUrl"
+    $frontendPort = $null
+    $frontendUrl = $null
+    $reusedFrontend = $false
+
+    if (
+        $null -ne $runtimeState -and
+        $runtimeState.frontendUrl -and
+        $runtimeState.backendUrl -eq $backendUrl -and
+        (Test-UrlReady -Url $runtimeState.frontendUrl)
+    ) {
+        $frontendPort = [int]$runtimeState.frontendPort
+        $frontendUrl = [string]$runtimeState.frontendUrl
+        if ($runtimeState.frontendOutLog -and $runtimeState.frontendErrLog) {
+            $FrontendOutLog = [string]$runtimeState.frontendOutLog
+            $FrontendErrLog = [string]$runtimeState.frontendErrLog
+        }
+        else {
+            Set-FrontendLogPaths -Port $frontendPort
+        }
+        $reusedFrontend = $true
+        Write-Host "Frontend already running at $frontendUrl"
     }
     else {
-        Write-Host "Starting frontend..."
-        Set-Content -Path $FrontendOutLog -Value ""
-        Set-Content -Path $FrontendErrLog -Value ""
-        $frontendProcess = Start-Process `
-            -FilePath $npmCommand `
-            -ArgumentList @("run", "dev", "--", "--host", "127.0.0.1") `
-            -WorkingDirectory $FrontendDir `
-            -WindowStyle Hidden `
-            -RedirectStandardOutput $FrontendOutLog `
-            -RedirectStandardError $FrontendErrLog `
-            -PassThru
+        $frontendPort = Get-AvailablePort -BindHost $FrontendHost -PreferredPort $DefaultFrontendPort -Span $PortSearchSpan
+        $frontendUrl = "http://${FrontendHost}:$frontendPort"
+        Set-FrontendLogPaths -Port $frontendPort
+        Write-FrontendRuntimeEnv `
+            -Path $FrontendRuntimeEnvFile `
+            -BackendUrl $backendUrl `
+            -FrontendHostValue $FrontendHost `
+            -FrontendPortValue $frontendPort
+        Write-Host "Starting frontend at $frontendUrl..."
+        $frontendProcess = Start-FrontendProcess -NpmCommand $npmCommand -Port $frontendPort
         $startedFrontend = $true
+        Wait-UrlReady -Name "Frontend" -Url $frontendUrl -Process $frontendProcess -Attempts 120
     }
 
-    if ($startedBackend) {
-        try {
-            Wait-UrlReady -Name "Backend" -Url $BackendHealthUrl -Process $backendProcess -Attempts 120
-        }
-        catch {
-            Write-Host "Backend logs:"
-            Write-Host "  $BackendOutLog"
-            Write-Host "  $BackendErrLog"
-            throw
-        }
-    }
-
-    if ($startedFrontend) {
-        try {
-            Wait-UrlReady -Name "Frontend" -Url $FrontendUrl -Process $frontendProcess -Attempts 120
-        }
-        catch {
-            Write-Host "Frontend logs:"
-            Write-Host "  $FrontendOutLog"
-            Write-Host "  $FrontendErrLog"
-            throw
-        }
+    Write-RuntimeState -Path $RuntimeStateFile -Payload @{
+        backendHost      = $BackendHost
+        backendPort      = $backendPort
+        backendUrl       = $backendUrl
+        backendHealthUrl = $backendHealthUrl
+        backendOutLog    = $BackendOutLog
+        backendErrLog    = $BackendErrLog
+        frontendHost     = $FrontendHost
+        frontendPort     = $frontendPort
+        frontendUrl      = $frontendUrl
+        frontendOutLog   = $FrontendOutLog
+        frontendErrLog   = $FrontendErrLog
+        updatedAt        = (Get-Date).ToString("s")
     }
 
     Write-Host ""
     Write-Host "DM_Agent is ready."
-    Write-Host "Frontend: $FrontendUrl"
-    Write-Host "Backend:  $BackendUrl"
+    Write-Host "Frontend: $frontendUrl"
+    Write-Host "Backend:  $backendUrl"
     Write-Host "Logs:"
     Write-Host "  $BackendOutLog"
     Write-Host "  $BackendErrLog"
     Write-Host "  $FrontendOutLog"
     Write-Host "  $FrontendErrLog"
 
-    if ($ExitOnReady) {
-        return
-    }
+    $startupSucceeded = $true
 
-    if (-not $startedBackend -and -not $startedFrontend) {
-        return
-    }
-
-    Write-Host ""
-    Write-Host "Press Ctrl+C to stop the services started by this script."
-
-    while ($true) {
-        if ($startedBackend -and -not (Test-ProcessAlive -Process $backendProcess)) {
-            Write-Host "Backend process exited unexpectedly."
-            Write-Host "Backend logs:"
-            Write-Host "  $BackendOutLog"
-            Write-Host "  $BackendErrLog"
-            throw "Backend process exited unexpectedly."
+    if (-not $ExitOnReady) {
+        if ($reusedFrontend) {
+            Write-Host "Opening the existing frontend in your default browser..."
         }
-
-        if ($startedFrontend -and -not (Test-ProcessAlive -Process $frontendProcess)) {
-            Write-Host "Frontend process exited unexpectedly."
-            Write-Host "Frontend logs:"
-            Write-Host "  $FrontendOutLog"
-            Write-Host "  $FrontendErrLog"
-            throw "Frontend process exited unexpectedly."
+        else {
+            Write-Host "Opening DM_Agent in your default browser..."
         }
-
-        Start-Sleep -Seconds 2
+        Open-FrontendInBrowser -Url $frontendUrl
     }
 }
+catch {
+    Write-Host ""
+    Write-Host "DM_Agent failed to start."
+    Write-Host $_.Exception.Message
+    if (Test-Path $BackendErrLog) {
+        Write-Host "Backend log:  $BackendErrLog"
+    }
+    if (Test-Path $FrontendErrLog) {
+        Write-Host "Frontend log: $FrontendErrLog"
+    }
+    exit 1
+}
 finally {
-    Stop-StartedProcess -Process $frontendProcess -WasStartedByScript $startedFrontend
-    Stop-StartedProcess -Process $backendProcess -WasStartedByScript $startedBackend
+    if (-not $startupSucceeded) {
+        Stop-StartedProcess -Process $frontendProcess -WasStartedByScript $startedFrontend
+        Stop-StartedProcess -Process $backendProcess -WasStartedByScript $startedBackend
+    }
 }

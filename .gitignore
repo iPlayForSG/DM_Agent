@@ -18,12 +18,14 @@ venv/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/.env.development.local
 
 # Local runtime saves and generated content
 backend/Game/
 backend/Characters/
 backend/Monsters/
 LOCAL_FRAMEWORK_DECISION.md
+backend/runtime-logs/
 
 # Local D&D source material and generated RAG indexes
 backend/Documents/

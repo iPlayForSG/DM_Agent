@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 LOG_DIR="$BACKEND_DIR/runtime-logs"
+FRONTEND_RUNTIME_ENV="$FRONTEND_DIR/.env.development.local"
 BACKEND_LOG="$LOG_DIR/backend.log"
 FRONTEND_LOG="$LOG_DIR/frontend.log"
 BACKEND_URL="http://127.0.0.1:23333"
@@ -172,7 +173,7 @@ else
   : >"$BACKEND_LOG"
   (
     cd "$BACKEND_DIR"
-    PYTHONUNBUFFERED=1 "${python_runner[@]}" main.py
+    PYTHONUNBUFFERED=1 "${python_runner[@]}" -m uvicorn main:app --host 127.0.0.1 --port 23333
   ) >"$BACKEND_LOG" 2>&1 &
   BACKEND_PID=$!
   STARTED_BACKEND=1
@@ -182,10 +183,15 @@ if url_is_ready "$FRONTEND_URL"; then
   echo "Frontend already running at $FRONTEND_URL"
 else
   echo "Starting frontend..."
+  cat >"$FRONTEND_RUNTIME_ENV" <<EOF
+VITE_BACKEND_URL=$BACKEND_URL
+VITE_DEV_HOST=127.0.0.1
+VITE_DEV_PORT=5173
+EOF
   : >"$FRONTEND_LOG"
   (
     cd "$FRONTEND_DIR"
-    npm run dev -- --host 127.0.0.1
+    npm run dev -- --host 127.0.0.1 --port 5173
   ) >"$FRONTEND_LOG" 2>&1 &
   FRONTEND_PID=$!
   STARTED_FRONTEND=1
