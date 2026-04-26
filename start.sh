@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
-LOG_DIR="$ROOT_DIR/.dm-agent-logs"
+LOG_DIR="$BACKEND_DIR/runtime-logs"
 BACKEND_LOG="$LOG_DIR/backend.log"
 FRONTEND_LOG="$LOG_DIR/frontend.log"
 BACKEND_URL="http://127.0.0.1:23333"
@@ -57,11 +57,16 @@ url_is_ready() {
 wait_for_url() {
   local name="$1"
   local url="$2"
-  local attempts="${3:-60}"
+  local pid="${3:-}"
+  local attempts="${4:-60}"
 
   for ((attempt = 1; attempt <= attempts; attempt++)); do
     if url_is_ready "$url"; then
       return 0
+    fi
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" >/dev/null 2>&1; then
+      echo "$name process exited before becoming ready: $url"
+      return 1
     fi
     sleep 1
   done
@@ -78,6 +83,13 @@ resolve_python_runner() {
     return 0
   fi
 
+  local win_conda_python=""
+  win_conda_python="$(translate_windows_path 'C:\Users\iPlayForSG\.conda\envs\DM_Agent\python.exe' || true)"
+  if [[ -n "$win_conda_python" && -x "$win_conda_python" ]]; then
+    python_runner=("$win_conda_python")
+    return 0
+  fi
+
   if [[ -n "${CONDA_PREFIX:-}" ]]; then
     if [[ -x "$CONDA_PREFIX/python.exe" ]]; then
       python_runner=("$CONDA_PREFIX/python.exe")
@@ -87,13 +99,6 @@ resolve_python_runner() {
       python_runner=("$CONDA_PREFIX/bin/python")
       return 0
     fi
-  fi
-
-  local win_conda_python=""
-  win_conda_python="$(translate_windows_path 'C:\Users\iPlayForSG\.conda\envs\DM_Agent\python.exe' || true)"
-  if [[ -n "$win_conda_python" && -x "$win_conda_python" ]]; then
-    python_runner=("$win_conda_python")
-    return 0
   fi
 
   if command -v conda >/dev/null 2>&1; then
@@ -187,7 +192,7 @@ else
 fi
 
 if [[ "$STARTED_BACKEND" -eq 1 ]]; then
-  wait_for_url "Backend" "$BACKEND_HEALTH_URL" 90 || {
+  wait_for_url "Backend" "$BACKEND_HEALTH_URL" "$BACKEND_PID" 90 || {
     echo "Backend log: $BACKEND_LOG"
     tail -n 80 "$BACKEND_LOG" || true
     exit 1
@@ -195,7 +200,7 @@ if [[ "$STARTED_BACKEND" -eq 1 ]]; then
 fi
 
 if [[ "$STARTED_FRONTEND" -eq 1 ]]; then
-  wait_for_url "Frontend" "$FRONTEND_URL" 90 || {
+  wait_for_url "Frontend" "$FRONTEND_URL" "$FRONTEND_PID" 90 || {
     echo "Frontend log: $FRONTEND_LOG"
     tail -n 80 "$FRONTEND_LOG" || true
     exit 1

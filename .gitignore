@@ -36,3 +36,4 @@ backend/data/spells.json
 .DS_Store
 Thumbs.db
 *.log
+backend/runtime-logs/
