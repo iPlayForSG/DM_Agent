@@ -191,6 +191,7 @@ LangGraph 重构后该响应结构保持兼容。
 - `action_options`
 
 这样前端在建局成功后可以直接进入 `adventure_selection`，不需要立刻追加一次 `GET /games/{game_id}` 和 `GET /games/{game_id}/action-options`。
+返回的 `game_state` 与 `action_options` 也会携带一部分本地化后的 `*_display` 字段，供前端直接渲染中文职业、法术、物品类型、伤害类型和 defeat state，同时保留内部 canonical 规则字段不变。
 
 `POST /api/v1/games/{game_id}/turns` 是 Agent 回合入口。LangGraph 重构必须保持该接口的输入输出兼容。
 
