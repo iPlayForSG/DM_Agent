@@ -155,7 +155,7 @@
 
 1. 优先使用 `VITE_BACKEND_URL/api/v1` 直连后端；未配置时再回退到 `/api/v1`
 2. 网络不可达时统一抛出中文错误，明确提示先检查启动脚本与后端状态
-3. `start.ps1` 与 `start.sh` 会自动写入 `frontend/.env.development.local`，因此开发态不再依赖固定 `23333` 端口
+3. `start.ps1` 会自动写入 `frontend/.env.development.local`，因此开发态不再依赖固定 `23333` 端口；Windows 用户也可以直接双击 `start.cmd`
 
 ## 当前阶段成果
 

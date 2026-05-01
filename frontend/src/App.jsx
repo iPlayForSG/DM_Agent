@@ -84,6 +84,33 @@ const CLASS_NAME_LABELS = {
   Warlock: "邪术师",
   Wizard: "法师",
 };
+const SPECIES_NAME_LABELS = {
+  Human: "人类",
+  Elf: "精灵",
+  Dwarf: "矮人",
+  Halfling: "半身人",
+};
+const BACKGROUND_NAME_LABELS = {
+  Acolyte: "侍祭",
+  Criminal: "罪犯",
+  Entertainer: "艺人",
+  Farmer: "农夫",
+  Sage: "贤者",
+  Soldier: "士兵",
+  Wayfarer: "浪人",
+};
+const ORIGIN_FEAT_LABELS = {
+  Alert: "警觉",
+  Crafter: "工匠",
+  Lucky: "幸运",
+  Musician: "音乐家",
+  "Magic Initiate (Cleric)": "魔法学徒（牧师）",
+  "Magic Initiate (Druid)": "魔法学徒（德鲁伊）",
+  "Magic Initiate (Wizard)": "魔法学徒（法师）",
+  "Savage Attacker": "狂野攻击手",
+  Skilled: "技艺娴熟",
+  Tough: "坚韧",
+};
 const STAT_ABBREVIATION_TO_KEY = {
   str: "strength",
   dex: "dexterity",
@@ -154,6 +181,21 @@ const localizeClassName = (value) => {
   const trimmed = String(value).trim();
   return CLASS_NAME_LABELS[trimmed] || value;
 };
+const localizeSpeciesName = (value) => {
+  if (!value) return value;
+  const trimmed = String(value).trim();
+  return SPECIES_NAME_LABELS[trimmed] || value;
+};
+const localizeBackgroundName = (value) => {
+  if (!value) return value;
+  const trimmed = String(value).trim();
+  return BACKGROUND_NAME_LABELS[trimmed] || value;
+};
+const localizeOriginFeat = (value) => {
+  if (!value) return value;
+  const trimmed = String(value).trim();
+  return ORIGIN_FEAT_LABELS[trimmed] || value;
+};
 const localizeSide = (side) => SIDE_LABELS[side] || side || "未知";
 const localizeScene = (scene) => SCENE_LABELS[scene] || scene || "准备";
 const normalizeLookupKey = (value) => String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -204,6 +246,7 @@ export default function App() {
   const [activeGameId, setActiveGameId] = useState(null), [gameState, setGameState] = useState(null), [actionOptions, setActionOptions] = useState({ actors: [] });
   const [actionDraft, setActionDraft] = useState({ ...EMPTY_ACTIONS }), [messages, setMessages] = useState([]);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
+  const [isBuilderLoading, setIsBuilderLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => { refreshLobby(); }, []);
@@ -219,6 +262,7 @@ export default function App() {
   const classDef = builder.classes.find((c) => c.name === charDraft.class_name);
   const background = builder.backgrounds.find((b) => b.name === charDraft.background_name);
   const backgroundSkills = new Set(background?.skill_proficiencies || []);
+  const builderReady = builder.species.length > 0 && builder.backgrounds.length > 0 && builder.classes.length > 0;
   const starterOptions = classDef?.starter_equipment_options || [];
   const selectedStarterOption = starterOptions.find((option) => option.id === charDraft.starter_option_id) || starterOptions[0] || null;
   const starterChoiceGroups = selectedStarterOption?.choices || [];
@@ -295,15 +339,72 @@ export default function App() {
     };
   }, [encounterDraft.monster_id]);
 
-  async function refreshLobby() {
+  function applyBuilderCatalog(rules) {
+    setBuilder({ species: rules.species || [], backgrounds: rules.backgrounds || [], classes: rules.classes || [] });
+  }
+
+  async function loadBuilderCatalog(clearError = true) {
     try {
-      setError("");
-      const [lobby, rules] = await Promise.all([loadLobby(), loadCharacterBuilder()]);
-      setGames(lobby.games || []);
-      setCharacters(lobby.characters || []);
-      setMonsters(lobby.monsters || []);
-      setBuilder({ species: rules.species || [], backgrounds: rules.backgrounds || [], classes: rules.classes || [] });
-    } catch (err) { setError(err.message || "加载大厅失败。"); }
+      setIsBuilderLoading(true);
+      if (clearError) setError("");
+      const rules = await loadCharacterBuilder();
+      applyBuilderCatalog(rules);
+      return true;
+    } catch (err) {
+      setError(err.message || "加载角色构筑规则失败。");
+      return false;
+    } finally {
+      setIsBuilderLoading(false);
+    }
+  }
+
+  async function refreshLobby() {
+    setIsBuilderLoading(true);
+    setError("");
+    const [lobbyResult, rulesResult] = await Promise.allSettled([loadLobby(), loadCharacterBuilder()]);
+    let nextError = "";
+
+    if (lobbyResult.status === "fulfilled") {
+      setGames(lobbyResult.value.games || []);
+      setCharacters(lobbyResult.value.characters || []);
+      setMonsters(lobbyResult.value.monsters || []);
+    } else {
+      nextError = lobbyResult.reason?.message || "加载大厅失败。";
+    }
+
+    if (rulesResult.status === "fulfilled") {
+      applyBuilderCatalog(rulesResult.value);
+    } else if (!nextError) {
+      nextError = rulesResult.reason?.message || "加载角色构筑规则失败。";
+    }
+
+    setIsBuilderLoading(false);
+    if (nextError) setError(nextError);
+  }
+
+  async function openCreator() {
+    setCharDraft({ ...EMPTY_CHAR });
+    setSpellList([]);
+    setView("creator");
+    if (!builderReady && !isBuilderLoading) {
+      await loadBuilderCatalog(false);
+    }
+  }
+
+  function renderBuilderLoadState(title) {
+    if (isBuilderLoading) {
+      return <p className="info-text">角色构筑规则加载中...</p>;
+    }
+
+    return (
+      <div className="timeline-item">
+        <div className="timeline-summary">{title}暂未载入</div>
+        <div className="timeline-content">请点击下方按钮重新加载角色构筑规则。</div>
+        <div className="btn-row" style={{ marginTop: 12 }}>
+          <button className="btn-secondary" onClick={() => loadBuilderCatalog()}>重新加载规则目录</button>
+        </div>
+      </div>
+    );
   }
 
   function applyGameSnapshot(state, options = { actors: [] }) {
@@ -616,7 +717,7 @@ export default function App() {
       <main className="main-content">
         {error && <div className="list-item error-banner" style={{ margin: 16 }}>{error}</div>}
 
-        {view === "home" && <div className="home-container anime-fade-in"><h1 className="title-hero">D&D 2024 跑团主持台</h1><p className="subtitle">本地规则、状态追踪、战斗工具与 LangGraph DM 编排整合在同一个前端里。</p><div className="card-grid"><div className="bento-card glow-hover" onClick={() => setView("new_game")}><div className="card-icon">局</div><h3>新建游戏</h3><p>创建一局新冒险，并把已保存角色编入队伍。</p></div><div className="bento-card glow-hover" onClick={() => { setCharDraft({ ...EMPTY_CHAR }); setSpellList([]); setView("creator"); }}><div className="card-icon">角</div><h3>角色构筑</h3><p>创建并保存角色模板，供建局时直接选入队伍。</p></div><div className="bento-card glow-hover" onClick={() => { setMonsterDraft({ ...EMPTY_MON }); setView("monsters"); }}><div className="card-icon">怪</div><h3>怪物模板</h3><p>保存和复用自定义怪物，快速生成遭遇。</p></div></div><div className="section-divider"></div><h3>已保存游戏</h3><div className="scroll-list">{games.length === 0 && <p className="empty-text">还没有已保存的游戏。</p>}{games.map((game) => <div key={game.game_id} className="list-item" onClick={() => enterGame(game.game_id)}><span className="icon">卷</span><span>{game.title}（{localizeScene(game.scene)}）{game.encounter_active ? " · 战斗中" : ""}</span></div>)}</div><div className="section-divider"></div><h3>怪物模板</h3><div className="scroll-list">{monsters.length === 0 && <p className="empty-text">还没有怪物模板。</p>}{monsters.slice(0, 6).map((monster) => <div key={monster.monster_id} className="list-item" onClick={() => openMonster(monster.monster_id)}><span className="icon">兽</span><span>{monster.name} · {formatMonsterSummary(monster)}</span></div>)}</div></div>}
+        {view === "home" && <div className="home-container anime-fade-in"><h1 className="title-hero">D&D 2024 跑团主持台</h1><p className="subtitle">本地规则、状态追踪、战斗工具与 LangGraph DM 编排整合在同一个前端里。</p><div className="card-grid"><div className="bento-card glow-hover" onClick={() => setView("new_game")}><div className="card-icon">局</div><h3>新建游戏</h3><p>创建一局新冒险，并把已保存角色编入队伍。</p></div><div className="bento-card glow-hover" onClick={openCreator}><div className="card-icon">角</div><h3>角色构筑</h3><p>创建并保存角色模板，供建局时直接选入队伍。</p></div><div className="bento-card glow-hover" onClick={() => { setMonsterDraft({ ...EMPTY_MON }); setView("monsters"); }}><div className="card-icon">怪</div><h3>怪物模板</h3><p>保存和复用自定义怪物，快速生成遭遇。</p></div></div><div className="section-divider"></div><h3>已保存游戏</h3><div className="scroll-list">{games.length === 0 && <p className="empty-text">还没有已保存的游戏。</p>}{games.map((game) => <div key={game.game_id} className="list-item" onClick={() => enterGame(game.game_id)}><span className="icon">卷</span><span>{game.title}（{localizeScene(game.scene)}）{game.encounter_active ? " · 战斗中" : ""}</span></div>)}</div><div className="section-divider"></div><h3>怪物模板</h3><div className="scroll-list">{monsters.length === 0 && <p className="empty-text">还没有怪物模板。</p>}{monsters.slice(0, 6).map((monster) => <div key={monster.monster_id} className="list-item" onClick={() => openMonster(monster.monster_id)}><span className="icon">兽</span><span>{monster.name} · {formatMonsterSummary(monster)}</span></div>)}</div></div>}
 
         {view === "creator" && (
           <div className="creator-container anime-slide-up">
@@ -628,25 +729,25 @@ export default function App() {
               </div>
               <div className="form-group">
                 <label>种族</label>
-                <div className="class-grid">
-                  {builder.species.map((species) => <div key={species.id} className={`class-card ${charDraft.species === species.name ? "selected" : ""}`} onClick={() => setCharDraft((p) => ({ ...p, species: species.name }))}>{species.name_display || species.name}</div>)}
-                </div>
+                {builder.species.length === 0 ? renderBuilderLoadState("种族目录") : <div className="class-grid">
+                  {builder.species.map((species) => <div key={species.id} className={`class-card ${charDraft.species === species.name ? "selected" : ""}`} onClick={() => setCharDraft((p) => ({ ...p, species: species.name }))}>{species.name_display || localizeSpeciesName(species.name)}</div>)}
+                </div>}
               </div>
               <div className="form-group">
                 <label>背景</label>
-                <div className="class-grid">
-                  {builder.backgrounds.map((bg) => <div key={bg.id} className={`class-card ${charDraft.background_name === bg.name ? "selected" : ""}`} onClick={() => chooseBackground(bg.name)}>{bg.name_display || bg.name}</div>)}
-                </div>
+                {builder.backgrounds.length === 0 ? renderBuilderLoadState("背景目录") : <div className="class-grid">
+                  {builder.backgrounds.map((bg) => <div key={bg.id} className={`class-card ${charDraft.background_name === bg.name ? "selected" : ""}`} onClick={() => chooseBackground(bg.name)}>{bg.name_display || localizeBackgroundName(bg.name)}</div>)}
+                </div>}
               </div>
               <div className="form-group">
                 <label>起源专长</label>
-                <input value={background?.origin_feat_display || charDraft.origin_feat} readOnly />
+                <input value={background?.origin_feat_display || localizeOriginFeat(charDraft.origin_feat)} readOnly />
               </div>
               <div className="form-group">
                 <label>职业</label>
-                <div className="class-grid">
-                  {builder.classes.map((cls) => <div key={cls.id} className={`class-card ${charDraft.class_name === cls.name ? "selected" : ""}`} onClick={() => chooseClass(cls)}>{cls.name_display || cls.name}</div>)}
-                </div>
+                {builder.classes.length === 0 ? renderBuilderLoadState("职业目录") : <div className="class-grid">
+                  {builder.classes.map((cls) => <div key={cls.id} className={`class-card ${charDraft.class_name === cls.name ? "selected" : ""}`} onClick={() => chooseClass(cls)}>{cls.name_display || localizeClassName(cls.name)}</div>)}
+                </div>}
               </div>
               <div className="form-group">
                 <label>起始装备包</label>
