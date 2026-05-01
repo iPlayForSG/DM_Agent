@@ -120,7 +120,12 @@ LangGraph 重构后该响应结构保持兼容。
 
 - `GET /api/v1/rules/character-builder`
 
-该接口返回角色创建器所需规则目录，包括物种、背景、起源专长、职业、起始资源、起始装备、起始法术和职业法术位。返回体会经过 `_add_display_fields` 包一层：对已知 display 字段（`name`、`label`、`description`、`origin_feat`、`class_name`、`background_name`、`species`、`type`、`damage_type`、`creature_type`、`recovery` 等）生成对应的 `*_display` 兄弟字段，内部规则键保持原样。前端在角色构筑页直接消费 `*_display` 字段渲染中文，缺失时回退到 canonical 英文。`backend/library.py` 的 `TERM_TRANSLATIONS` 是这一层本地化的唯一真源，新增条目时应统一加在那里。
+该接口返回角色创建器所需规则目录，包括物种、背景、起源专长、职业、起始资源、起始装备、起始法术和职业法术位。最近一轮又补了两类 builder 专用字段：
+
+- 顶层 `equipment_shop_items`：角色创建器“自定义购买”模式的本地装备目录，包含 `id`、`cost_gp`、`bundle_size`、`type`、伤害/护甲元数据等
+- 每个职业上的 `custom_purchase_budget_gp` / `custom_purchase_option_id`：用于把“金币开局”分支显式暴露给前端分步向导
+
+返回体会经过 `_add_display_fields` 包一层：对已知 display 字段（`name`、`label`、`description`、`origin_feat`、`class_name`、`background_name`、`species`、`type`、`damage_type`、`creature_type`、`recovery` 等）生成对应的 `*_display` 兄弟字段，内部规则键保持原样。前端在角色构筑页直接消费 `*_display` 字段渲染中文，缺失时回退到 canonical 英文。`backend/library.py` 的 `TERM_TRANSLATIONS` 是这一层本地化的唯一真源，新增条目时应统一加在那里。
 
 ### 4.3 RAG / 知识检索
 
@@ -167,6 +172,20 @@ LangGraph 重构后该响应结构保持兼容。
 - `inventory`
 - `gold_gp`
 - 基础 `ac`
+
+`POST /api/v1/characters` 现在额外接受并消费 builder 字段：
+
+- `equipment_mode`
+- `custom_purchase_items`
+- `custom_pending_item`
+- `starter_option_id`
+- `starter_choice_ids`
+
+后端会基于这些字段做三类额外约束：
+
+1. 角色创建属性改为按 `ability_generation.point_buy` 校验，限制 8-15 与 27 点预算
+2. level 1 生命值改为按职业生命骰和体质修正自动推导并强校验，不再允许前端手填任意 `hp_max`
+3. 起始装备支持“标准套装 / 自定义购买 / 自定义待定装备”三段式物化：自定义购买会约束预算，自定义待定装备会占用预留金币并记录为 `dm_pending`
 
 ### 4.6 怪物模板接口
 

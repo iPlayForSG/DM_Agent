@@ -98,6 +98,18 @@ class InventoryItem(BaseModel):
     properties: List[str] = Field(default_factory=list)
 
 
+class StarterPurchaseSelection(BaseModel):
+    item_id: str
+    quantity: int = 1
+
+
+class PendingCustomEquipment(BaseModel):
+    name: str = ""
+    quantity: int = 1
+    reserved_cost_gp: int = 0
+    notes: str = ""
+
+
 class Stats(BaseModel):
     strength: int = 10
     dexterity: int = 10
@@ -130,6 +142,9 @@ class Character(BaseModel):
     inspiration: bool = False
     starter_option_id: str = ""
     starter_choice_ids: Dict[str, str] = Field(default_factory=dict)
+    equipment_mode: str = "starter_package"
+    custom_purchase_items: List[StarterPurchaseSelection] = Field(default_factory=list)
+    custom_pending_item: PendingCustomEquipment = Field(default_factory=PendingCustomEquipment)
     gold_gp: int = 0
 
     hp_current: int = 10
@@ -173,6 +188,11 @@ class Character(BaseModel):
             data["gold_gp"] = data["gp"]
         if "starter_choices" in data and "starter_choice_ids" not in data and isinstance(data["starter_choices"], dict):
             data["starter_choice_ids"] = data["starter_choices"]
+        if isinstance(data.get("custom_purchase_items"), dict):
+            data["custom_purchase_items"] = [
+                {"item_id": item_id, "quantity": quantity}
+                for item_id, quantity in data["custom_purchase_items"].items()
+            ]
         data["character_id"] = data.get("character_id") or stable_id("char", data.get("name", "character"))
         return data
 

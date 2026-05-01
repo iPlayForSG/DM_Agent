@@ -14,7 +14,7 @@
 
 当前下一阶段重点：**继续强化 LangGraph 后端 Agent 编排，并逐步整理前端单文件界面结构**。
 
-最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D、Phase 2E、Phase 2F 和 Phase 2G。`backend/agent_tools.py` 已承载框架无关工具层；`backend/agent.py` 已变为 LangGraph-only facade；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单；OpenAI-compatible 后端下的普通回合与 `roll_dice` 工具回合 smoke test 已通过。最近一轮前端也已补上中文界面（角色构筑页背景、起源专长、起始装备包、职业资源等都改为中文显示）、滚动条位置修复（把滚动容器提到 `main-content`，让滑块贴紧浏览器最右侧）、建局直用状态快照、动态后端地址直连回退以及一键启动脚本。
+最新进展：已经完成 Phase 1A、Phase 1B、Phase 2A、Phase 2B、Phase 2C、Phase 2D、Phase 2E、Phase 2F 和 Phase 2G。`backend/agent_tools.py` 已承载框架无关工具层；`backend/agent.py` 已变为 LangGraph-only facade；`backend/dm_graph.py` 已加入 LangGraph runner、OpenAI-compatible 模型节点、工具调用循环、独立 `route_phase` 节点和第一版阶段化工具白名单；OpenAI-compatible 后端下的普通回合与 `roll_dice` 工具回合 smoke test 已通过。最近一轮又把角色创建器改成了多步向导，并补了两端约束：起源专长明确固定到背景、自定义购买起始装备、自定义待定装备、27 点购点属性校验、level 1 生命值自动推导与强校验、起始装备预算占用与金币回写。
 
 当前本地模型通过 OpenAI-compatible 接口接入，具体模型和 base URL 由 `backend/.env` 决定，可以随时切换。真实 API key 只在 `backend/.env` 中保存，该文件被 `.gitignore` 忽略，不能提交或推送。
 
@@ -173,6 +173,9 @@ DM_Agent 是一个以 D&D 5e 2024 为规则基准的单人跑团 Agent。
 11. 首页、新建游戏弹窗、遭遇侧栏与状态页已经做过一轮中文化与响应式布局调整。
 12. 前端 API 层优先使用 `VITE_BACKEND_URL/api/v1` 直连运行时后端地址，网络失败时返回中文错误提示。
 13. 角色构筑页全部背景（如 Farmer / Sage / Soldier / Wayfarer）、全部起源专长（包括三种 Magic Initiate 变体以及 Crafter / Lucky / Savage Attacker / Skilled / Tough）、所有职业起始装备包与二级选项、起始装备明细与职业资源、技能选择都会显示为中文；对于后端按键名索引的资源（如 `Wild Shape`、`Lay on Hands`），前端补了 `localizeClassResource` 映射。
+14. 角色构筑页不再把全部字段堆在一个页面，而是拆成“基础 / 构筑 / 装备 / 法术 / 总览”五步。
+15. 起始装备新增 `equipment_mode` 分支：标准套装、自定义购买、自定义待定装备；后端会按预算物化最终 `inventory` 与 `gold_gp`。
+16. 属性和生命值约束前移：前端按 27 点购点限制 8-15，后端再做同样校验；level 1 `hp_max` 改为职业生命骰 + 体质修正自动推导。
 14. 页面主滚动条统一由 `main-content` 承担，`home-container` / `creator-container` 不再各自滚动，滑块始终贴紧浏览器最右侧。
 
 ## 4. 当前没有完成的内容

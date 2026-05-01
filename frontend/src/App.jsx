@@ -154,7 +154,45 @@ const ATTACK_RESOLUTION_OPTIONS = [
   { value: "nonlethal", label: "非致命" },
   { value: "capture", label: "俘获" },
 ];
-const EMPTY_CHAR = { name: "", species: "Human", background_name: "", origin_feat: "", class_name: "", starter_option_id: "", starter_choice_ids: {}, hp_max: 10, stats: Object.fromEntries(STATS.map((k) => [k, 10])), skill_proficiencies: {}, selectedCantrips: [], selectedSpells: [] };
+const POINT_BUY_COSTS = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
+const DEFAULT_STATS = { strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 };
+const CREATOR_STEPS = [
+  { id: "identity", label: "基础" },
+  { id: "build", label: "构筑" },
+  { id: "equipment", label: "装备" },
+  { id: "spells", label: "法术" },
+  { id: "review", label: "总览" },
+];
+const EQUIPMENT_TYPE_LABELS = {
+  armor: "防具",
+  ammo: "弹药",
+  book: "书籍",
+  clothing: "服饰",
+  focus: "法器",
+  gear: "装备",
+  misc: "杂项",
+  pack: "套组",
+  tool: "工具",
+  weapon: "武器",
+};
+const EMPTY_PENDING_ITEM = { name: "", quantity: 1, reserved_cost_gp: 0, notes: "" };
+const EMPTY_CHAR = {
+  name: "",
+  species: "Human",
+  background_name: "",
+  origin_feat: "",
+  class_name: "",
+  starter_option_id: "",
+  starter_choice_ids: {},
+  equipment_mode: "starter_package",
+  custom_purchase_items: {},
+  custom_pending_item: { ...EMPTY_PENDING_ITEM },
+  hp_max: 10,
+  stats: { ...DEFAULT_STATS },
+  skill_proficiencies: {},
+  selectedCantrips: [],
+  selectedSpells: [],
+};
 const EMPTY_MON = { monster_id: "", name: "", size: "中型", creature_type: "野兽", alignment: "无阵营", challenge_rating: "1", ac: 10, hp_max: 10, initiative_bonus: 0, speed: 30, notes: "", traitsText: "", actionsText: "", reactionsText: "", bonusActionsText: "" };
 const EMPTY_ACTIONS = { attack: { attacker_ref: "", attack_name: "", target_ref: "", attack_bonus: 0, damage_expression: "1d6", damage_type: "", resolution_mode: "normal" }, spell: { caster_ref: "", spell_name: "", slot_level: 1 }, skill: { actor_ref: "", skill_name: "", dc: 10, modifier: "" }, save: { target_ref: "", save_name: "", dc: 10, modifier: "" }, item: { user_ref: "", item_name: "", quantity: 1 } };
 const EMPTY_ENCOUNTER_DRAFT = { enemy_names: "", enemy_hp: 10, enemy_ac: 10, monster_id: "", quantity: 1, custom_name: "", template_side: "enemy", hp_override: "", quick_enemy_name: "", quick_enemy_hp: 10, quick_enemy_ac: 10, quick_enemy_initiative_bonus: 0, quick_enemy_side: "enemy" };
@@ -205,6 +243,7 @@ const localizeAlignment = (alignment) => ALIGNMENT_LABELS[normalizeLookupKey(ali
 const localizeName = (entry) => entry?.name_display || entry?.name || "";
 const localizeSpellcastingMode = (mode) => mode === "prepared" ? "预备施法" : mode === "known" ? "已知施法" : mode || "未说明";
 const formatActorLabel = (actor) => actor.side ? `${actor.name}（${localizeSide(actor.side)}）` : actor.name;
+const localizeEquipmentType = (type) => EQUIPMENT_TYPE_LABELS[type] || type || "物品";
 const formatEquipmentLine = (item) => {
   const details = [];
   if (item.quantity && item.quantity > 1) details.push(`x${item.quantity}`);
@@ -213,6 +252,14 @@ const formatEquipmentLine = (item) => {
   if (item.damage_type_display || item.damage_type) details.push(item.damage_type_display || item.damage_type);
   if (item.armor_class_bonus) details.push(`护甲 +${item.armor_class_bonus}`);
   if (item.is_equipped) details.push("已装备");
+  return details.join(" · ");
+};
+const formatShopItemMeta = (item) => {
+  const details = [`${Number(item.cost_gp || 0)} gp`];
+  if (Number(item.bundle_size || 1) > 1) details.push(`每份 ${item.bundle_size}`);
+  if (item.damage_die) details.push(item.damage_die);
+  if (item.armor_class_bonus) details.push(`护甲 +${item.armor_class_bonus}`);
+  details.push(item.type_display || localizeEquipmentType(item.type));
   return details.join(" · ");
 };
 const formatResourceRecovery = (resource) => resource.recovery === "short_rest" ? "短休" : resource.recovery === "long_rest" ? "长休" : resource.recovery;
@@ -237,7 +284,7 @@ const resolveStarterPreviewItems = (starterOption, starterChoiceIds = {}) => {
 export default function App() {
   const [view, setView] = useState("home");
   const [games, setGames] = useState([]), [characters, setCharacters] = useState([]), [monsters, setMonsters] = useState([]);
-  const [builder, setBuilder] = useState({ species: [], backgrounds: [], classes: [] }), [spellList, setSpellList] = useState([]);
+  const [builder, setBuilder] = useState({ ability_generation: {}, species: [], backgrounds: [], origin_feats: [], classes: [], equipment_shop_items: [] }), [spellList, setSpellList] = useState([]);
   const [charDraft, setCharDraft] = useState({ ...EMPTY_CHAR }), [monsterDraft, setMonsterDraft] = useState({ ...EMPTY_MON });
   const [encounterDraft, setEncounterDraft] = useState({ ...EMPTY_ENCOUNTER_DRAFT });
   const [encounterMonsterPreview, setEncounterMonsterPreview] = useState(null);
@@ -247,6 +294,7 @@ export default function App() {
   const [actionDraft, setActionDraft] = useState({ ...EMPTY_ACTIONS }), [messages, setMessages] = useState([]);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
   const [isBuilderLoading, setIsBuilderLoading] = useState(false);
+  const [creatorStep, setCreatorStep] = useState(0);
   const messagesEndRef = useRef(null);
 
   useEffect(() => { refreshLobby(); }, []);
@@ -263,13 +311,19 @@ export default function App() {
   const background = builder.backgrounds.find((b) => b.name === charDraft.background_name);
   const backgroundSkills = new Set(background?.skill_proficiencies || []);
   const builderReady = builder.species.length > 0 && builder.backgrounds.length > 0 && builder.classes.length > 0;
+  const pointBuyRules = builder.ability_generation?.point_buy || { budget: 27, minimum: 8, maximum: 15 };
   const starterOptions = classDef?.starter_equipment_options || [];
   const selectedStarterOption = starterOptions.find((option) => option.id === charDraft.starter_option_id) || starterOptions[0] || null;
   const starterChoiceGroups = selectedStarterOption?.choices || [];
   const starterChoicesComplete = starterChoiceGroups.every((group) => Boolean(charDraft.starter_choice_ids[group.id]));
-  // These previews mirror the builder defaults the backend will auto-fill on save.
   const starterEquipment = resolveStarterPreviewItems(selectedStarterOption, charDraft.starter_choice_ids);
   const starterGoldGp = Number(selectedStarterOption?.gold_gp || 0);
+  const equipmentShopItems = builder.equipment_shop_items || [];
+  const equipmentShopById = Object.fromEntries(equipmentShopItems.map((item) => [item.id, item]));
+  const shopTypeOrder = ["armor", "weapon", "focus", "tool", "pack", "book", "clothing", "gear", "ammo"];
+  const groupedShopItems = shopTypeOrder
+    .map((type) => ({ type, items: equipmentShopItems.filter((item) => item.type === type) }))
+    .filter((group) => group.items.length > 0);
   const starterResources = Object.entries(classDef?.resources || {});
   const startingSpellSlots = Object.entries(classDef?.starting_spell_slots || {});
   const cantripOptions = spellList.filter((spell) => getSpellLevel(spell) === 0);
@@ -280,7 +334,42 @@ export default function App() {
   const hasLevelOneSpellcasting = Boolean(classDef?.spellcasting_ability) && startingSpellSlots.some(([, total]) => Number(total) > 0);
   const cantripSelectionComplete = !hasCantripSelection || charDraft.selectedCantrips.length === startingCantripCount;
   const spellSelectionComplete = !hasLevelOneSpellcasting || startingPreparedSpellCount === 0 || charDraft.selectedSpells.length === startingPreparedSpellCount;
+  const classSkillTarget = Number(classDef?.skills_to_choose || 0);
+  const selectedClassSkillCount = Object.entries(charDraft.skill_proficiencies || {}).filter(([skill, rank]) => Number(rank) > 0 && !backgroundSkills.has(skill)).length;
+  const pointBuySpent = STATS.reduce((total, stat) => total + (POINT_BUY_COSTS[Number(charDraft.stats?.[stat] || 0)] ?? 0), 0);
+  const pointBuyRemaining = Number(pointBuyRules.budget || 27) - pointBuySpent;
+  const computedHpMax = classDef ? Math.max(1, Number(classDef.hit_die || 8) + Math.floor((Number(charDraft.stats?.constitution || 10) - 10) / 2)) : Number(charDraft.hp_max || 10);
+  const customPurchaseBudgetGp = Number(classDef?.custom_purchase_budget_gp || 0);
+  const customPurchaseEntries = Object.entries(charDraft.custom_purchase_items || {}).filter(([, quantity]) => Number(quantity) > 0);
+  const customPurchaseSpentGp = customPurchaseEntries.reduce((total, [itemId, quantity]) => total + Number(equipmentShopById[itemId]?.cost_gp || 0) * Number(quantity || 0), 0);
+  const hasPendingCustomItem = Boolean(charDraft.custom_pending_item?.name?.trim());
+  const pendingCustomCostGp = hasPendingCustomItem ? Number(charDraft.custom_pending_item?.reserved_cost_gp || 0) : 0;
+  const equipmentBudgetGp = charDraft.equipment_mode === "custom_purchase" ? customPurchaseBudgetGp : starterGoldGp;
+  const equipmentSpentGp = (charDraft.equipment_mode === "custom_purchase" ? customPurchaseSpentGp : 0) + pendingCustomCostGp;
+  const equipmentRemainingGp = equipmentBudgetGp - equipmentSpentGp;
+  const pendingCustomTouched = Boolean(charDraft.custom_pending_item?.notes?.trim())
+    || Number(charDraft.custom_pending_item?.reserved_cost_gp || 0) !== 0
+    || Number(charDraft.custom_pending_item?.quantity || 1) !== 1;
   const builderSelectionComplete = starterChoicesComplete && cantripSelectionComplete && spellSelectionComplete;
+  const customPurchasePreviewItems = customPurchaseEntries
+    .map(([itemId, quantity]) => ({ ...equipmentShopById[itemId], purchase_quantity: Number(quantity || 0) }))
+    .filter((item) => item?.id);
+  const pendingCustomPreviewItem = hasPendingCustomItem ? {
+    name: charDraft.custom_pending_item.name.trim(),
+    quantity: Number(charDraft.custom_pending_item.quantity || 1),
+    type: "gear",
+    notes: charDraft.custom_pending_item.notes?.trim() || "由 DM 在角色创建后补充具体属性",
+  } : null;
+  const finalEquipmentPreview = [
+    ...(charDraft.equipment_mode === "custom_purchase" ? customPurchasePreviewItems.map((item) => ({
+      name: item.name_display || item.name,
+      quantity: Number(item.bundle_size || 1) * Number(item.purchase_quantity || 1),
+      type: item.type_display || localizeEquipmentType(item.type),
+      damage_expression: item.damage_die || "",
+      armor_class_bonus: Number(item.armor_class_bonus || 0),
+    })) : starterEquipment),
+    ...(pendingCustomPreviewItem ? [pendingCustomPreviewItem] : []),
+  ];
   const actorList = (actionOptions.actors || []).map((a) => ({ value: a.ref, label: formatActorLabel(a) }));
   const charActors = (actionOptions.actors || []).filter((a) => a.type === "character");
   const encounterSummary = actionOptions.encounter || { active: false };
@@ -339,8 +428,28 @@ export default function App() {
     };
   }, [encounterDraft.monster_id]);
 
+  function freshCharacterDraft() {
+    return {
+      ...EMPTY_CHAR,
+      stats: { ...DEFAULT_STATS },
+      starter_choice_ids: {},
+      custom_purchase_items: {},
+      custom_pending_item: { ...EMPTY_PENDING_ITEM },
+      skill_proficiencies: {},
+      selectedCantrips: [],
+      selectedSpells: [],
+    };
+  }
+
   function applyBuilderCatalog(rules) {
-    setBuilder({ species: rules.species || [], backgrounds: rules.backgrounds || [], classes: rules.classes || [] });
+    setBuilder({
+      ability_generation: rules.ability_generation || {},
+      species: rules.species || [],
+      backgrounds: rules.backgrounds || [],
+      origin_feats: rules.origin_feats || [],
+      classes: rules.classes || [],
+      equipment_shop_items: rules.equipment_shop_items || [],
+    });
   }
 
   async function loadBuilderCatalog(clearError = true) {
@@ -383,7 +492,8 @@ export default function App() {
   }
 
   async function openCreator() {
-    setCharDraft({ ...EMPTY_CHAR });
+    setCharDraft(freshCharacterDraft());
+    setCreatorStep(0);
     setSpellList([]);
     setView("creator");
     if (!builderReady && !isBuilderLoading) {
@@ -510,9 +620,66 @@ export default function App() {
   }, [actionOptions]);
 
   async function enterGame(gameId) { setActiveGameId(gameId); setView("chat"); await syncGame(gameId, await loadGame(gameId)); }
+  function adjustStat(stat, delta) {
+    const currentValue = Number(charDraft.stats?.[stat] || 0);
+    const nextValue = currentValue + delta;
+    const minimum = Number(pointBuyRules.minimum || 8);
+    const maximum = Number(pointBuyRules.maximum || 15);
+    if (nextValue < minimum || nextValue > maximum) return;
+
+    const currentCost = POINT_BUY_COSTS[currentValue];
+    const nextCost = POINT_BUY_COSTS[nextValue];
+    if (Number.isFinite(currentCost) && Number.isFinite(nextCost) && delta > 0 && (nextCost - currentCost) > pointBuyRemaining) return;
+
+    setError("");
+    setCharDraft((prev) => ({ ...prev, stats: { ...prev.stats, [stat]: nextValue } }));
+  }
+
+  function setEquipmentMode(mode) {
+    setError("");
+    setCharDraft((prev) => ({
+      ...prev,
+      equipment_mode: mode,
+      custom_purchase_items: mode === "custom_purchase" ? prev.custom_purchase_items : {},
+    }));
+  }
+
+  function setCustomPurchaseQuantity(itemId, quantity) {
+    const nextQuantity = Math.max(0, Number(quantity || 0));
+    setError("");
+    setCharDraft((prev) => {
+      const nextItems = { ...(prev.custom_purchase_items || {}) };
+      if (nextQuantity <= 0) delete nextItems[itemId];
+      else nextItems[itemId] = nextQuantity;
+      return { ...prev, custom_purchase_items: nextItems };
+    });
+  }
+
+  function updatePendingCustomItem(field, value) {
+    setError("");
+    setCharDraft((prev) => ({
+      ...prev,
+      custom_pending_item: {
+        ...(prev.custom_pending_item || EMPTY_PENDING_ITEM),
+        [field]: value,
+      },
+    }));
+  }
   async function chooseClass(c) {
     setError("");
-    setCharDraft((p) => ({ ...p, class_name: c.name, starter_option_id: c.starter_equipment_options?.[0]?.id || "", starter_choice_ids: {}, selectedCantrips: [], selectedSpells: [] }));
+    const baseSkills = Object.fromEntries((background?.skill_proficiencies || []).map((skill) => [skill, 1]));
+    setCharDraft((p) => ({
+      ...p,
+      class_name: c.name,
+      starter_option_id: c.starter_equipment_options?.[0]?.id || "",
+      starter_choice_ids: {},
+      equipment_mode: "starter_package",
+      custom_purchase_items: {},
+      custom_pending_item: { ...EMPTY_PENDING_ITEM },
+      skill_proficiencies: baseSkills,
+      selectedCantrips: [],
+      selectedSpells: [],
+    }));
     const hasBuilderSpellOptions = Boolean(c.spellcasting_ability) && (
       Number(c.starting_cantrips || 0) > 0
       || Object.values(c.starting_spell_slots || {}).some((total) => Number(total) > 0)
@@ -523,19 +690,36 @@ export default function App() {
     }
     try { setSpellList(await loadSpells(c.name)); } catch { setSpellList([]); }
   }
-  function chooseBackground(name) { const bg = builder.backgrounds.find((x) => x.name === name); const prof = { ...charDraft.skill_proficiencies }; for (const s of bg?.skill_proficiencies || []) prof[s] = 1; setCharDraft((p) => ({ ...p, background_name: name, origin_feat: bg?.origin_feat || "", skill_proficiencies: prof })); }
-  function toggleSkill(skill) { if (backgroundSkills.has(skill)) return; const selected = Number(charDraft.skill_proficiencies[skill] || 0) > 0; const picked = Object.entries(charDraft.skill_proficiencies).filter(([n, v]) => !backgroundSkills.has(n) && Number(v) > 0 && n !== skill); if (!selected && picked.length >= Number(classDef?.skills_to_choose || 0)) return setError(`该职业最多只能额外选择 ${classDef?.skills_to_choose || 0} 个技能。`); setError(""); setCharDraft((p) => ({ ...p, skill_proficiencies: { ...p.skill_proficiencies, [skill]: selected ? 0 : 1 } })); }
-  function chooseStarterOption(optionId) { setCharDraft((p) => ({ ...p, starter_option_id: optionId, starter_choice_ids: {} })); }
-  function chooseStarterChoice(groupId, optionId) { setCharDraft((p) => ({ ...p, starter_choice_ids: { ...p.starter_choice_ids, [groupId]: optionId } })); }
+  function chooseBackground(name) {
+    const bg = builder.backgrounds.find((x) => x.name === name);
+    const nextSkills = Object.fromEntries(
+      (classDef?.skill_choices || [])
+        .filter((skill) => Number(charDraft.skill_proficiencies?.[skill] || 0) > 0)
+        .map((skill) => [skill, 1]),
+    );
+    for (const skill of bg?.skill_proficiencies || []) nextSkills[skill] = 1;
+    setError("");
+    setCharDraft((p) => ({ ...p, background_name: name, origin_feat: bg?.origin_feat || "", skill_proficiencies: nextSkills }));
+  }
+  function toggleSkill(skill) {
+    if (backgroundSkills.has(skill)) return;
+    const selected = Number(charDraft.skill_proficiencies?.[skill] || 0) > 0;
+    const picked = Object.entries(charDraft.skill_proficiencies || {}).filter(([name, rank]) => !backgroundSkills.has(name) && Number(rank) > 0 && name !== skill);
+    if (!selected && picked.length >= classSkillTarget) return setError(`该职业最多只能额外选择 ${classSkillTarget} 项技能。`);
+    setError("");
+    setCharDraft((p) => ({ ...p, skill_proficiencies: { ...p.skill_proficiencies, [skill]: selected ? 0 : 1 } }));
+  }
+  function chooseStarterOption(optionId) { setError(""); setCharDraft((p) => ({ ...p, starter_option_id: optionId, starter_choice_ids: {} })); }
+  function chooseStarterChoice(groupId, optionId) { setError(""); setCharDraft((p) => ({ ...p, starter_choice_ids: { ...p.starter_choice_ids, [groupId]: optionId } })); }
   function togglePreparedSpell(spellName) {
     if (!hasLevelOneSpellcasting) {
-      setError("当前职业在此构筑器中没有 1 环法术准备。");
+      setError("当前职业在 1 级时没有可准备的法术位。");
       return;
     }
 
     const selected = charDraft.selectedSpells.includes(spellName);
     if (!selected && startingPreparedSpellCount > 0 && charDraft.selectedSpells.length >= startingPreparedSpellCount) {
-      setError(`${classDef?.name} 需要准确选择 ${startingPreparedSpellCount} 个 1 环及以上法术。`);
+      setError(`${classDef?.name_display || localizeClassName(classDef?.name)} 需要准确选择 ${startingPreparedSpellCount} 个 1 环及以上法术。`);
       return;
     }
 
@@ -548,13 +732,13 @@ export default function App() {
 
   function toggleCantrip(spellName) {
     if (!hasCantripSelection) {
-      setError("当前职业在此构筑器中不获得戏法。");
+      setError("当前职业在此构筑中不获得戏法。");
       return;
     }
 
     const selected = charDraft.selectedCantrips.includes(spellName);
     if (!selected && charDraft.selectedCantrips.length >= startingCantripCount) {
-      setError(`${classDef?.name} 需要准确选择 ${startingCantripCount} 个戏法。`);
+      setError(`${classDef?.name_display || localizeClassName(classDef?.name)} 需要准确选择 ${startingCantripCount} 个戏法。`);
       return;
     }
 
@@ -565,11 +749,90 @@ export default function App() {
     }));
   }
 
+  function validateCreatorStep(stepIndex) {
+    if (!builderReady) return "角色构筑规则尚未加载完成。";
+
+    if (stepIndex === 0) {
+      if (!charDraft.name.trim()) return "请先填写角色名称。";
+      if (!charDraft.species) return "请先选择种族。";
+      if (!charDraft.background_name) return "请先选择背景。";
+    }
+
+    if (stepIndex === 1) {
+      if (!charDraft.class_name) return "请先选择职业。";
+      if (pointBuyRemaining < 0) return "属性购点超出预算，请调低属性。";
+      if (selectedClassSkillCount !== classSkillTarget) return `请准确选择 ${classSkillTarget} 项职业技能。`;
+    }
+
+    if (stepIndex === 2) {
+      if (!classDef) return "请先完成职业选择。";
+      if (charDraft.equipment_mode === "starter_package") {
+        if (starterOptions.length > 0 && !selectedStarterOption) return "请选择一个起始装备方案。";
+        if (!starterChoicesComplete) return "起始装备的子选项还没有选完。";
+      }
+      if (charDraft.equipment_mode === "custom_purchase" && customPurchaseBudgetGp <= 0) return "当前职业没有可用的自定义购买预算。";
+      if (!hasPendingCustomItem && pendingCustomTouched) return "自定义待定装备需要先填写名称。";
+      if (hasPendingCustomItem && Number(charDraft.custom_pending_item?.quantity || 0) <= 0) return "自定义待定装备的数量必须大于 0。";
+      if (equipmentRemainingGp < 0) return `装备花费超出预算 ${Math.abs(equipmentRemainingGp)} gp，请减少购买或降低预留预算。`;
+    }
+
+    if (stepIndex === 3) {
+      if (hasCantripSelection && cantripOptions.length === 0) return "戏法目录还没加载出来，请重新选择职业后再试。";
+      if (hasLevelOneSpellcasting && startingPreparedSpellCount > 0 && levelOnePreparedSpells.length === 0) return "已准备法术目录还没加载出来，请重新选择职业后再试。";
+      if (!cantripSelectionComplete) return `请准确选择 ${startingCantripCount} 个戏法。`;
+      if (!spellSelectionComplete) return `请准确选择 ${startingPreparedSpellCount} 个已准备法术。`;
+    }
+
+    return "";
+  }
+
+  function goToCreatorStep(nextStep) {
+    const clampedStep = Math.max(0, Math.min(CREATOR_STEPS.length - 1, nextStep));
+    if (clampedStep > creatorStep) {
+      const stepError = validateCreatorStep(creatorStep);
+      if (stepError) {
+        setError(stepError);
+        return;
+      }
+    }
+    setError("");
+    setCreatorStep(clampedStep);
+  }
+
   async function saveChar() {
     try {
+      for (let stepIndex = 0; stepIndex < CREATOR_STEPS.length - 1; stepIndex += 1) {
+        const stepError = validateCreatorStep(stepIndex);
+        if (stepError) {
+          setError(stepError);
+          setCreatorStep(stepIndex);
+          return;
+        }
+      }
       setError("");
-      await saveCharacter({ name: charDraft.name, species: charDraft.species, background_name: charDraft.background_name, origin_feat: charDraft.origin_feat, class_name: charDraft.class_name, starter_option_id: charDraft.starter_option_id, starter_choice_ids: charDraft.starter_choice_ids, hp_current: charDraft.hp_max, hp_max: charDraft.hp_max, stats: charDraft.stats, skill_proficiencies: charDraft.skill_proficiencies, spells: { cantrips: charDraft.selectedCantrips, prepared: charDraft.selectedSpells }, inventory: [] });
-      setCharDraft({ ...EMPTY_CHAR }); setSpellList([]); setView("home"); await refreshLobby();
+      await saveCharacter({
+        name: charDraft.name.trim(),
+        species: charDraft.species,
+        background_name: charDraft.background_name,
+        origin_feat: charDraft.origin_feat,
+        class_name: charDraft.class_name,
+        starter_option_id: charDraft.starter_option_id,
+        starter_choice_ids: charDraft.starter_choice_ids,
+        equipment_mode: charDraft.equipment_mode,
+        custom_purchase_items: charDraft.custom_purchase_items,
+        custom_pending_item: charDraft.custom_pending_item,
+        hp_current: computedHpMax,
+        hp_max: computedHpMax,
+        stats: charDraft.stats,
+        skill_proficiencies: charDraft.skill_proficiencies,
+        spells: { cantrips: charDraft.selectedCantrips, prepared: charDraft.selectedSpells },
+        inventory: [],
+      });
+      setCharDraft(freshCharacterDraft());
+      setCreatorStep(0);
+      setSpellList([]);
+      setView("home");
+      await refreshLobby();
     } catch (err) { setError(err.message || "保存角色失败。"); }
   }
 
@@ -722,100 +985,229 @@ export default function App() {
         {view === "creator" && (
           <div className="creator-container anime-slide-up">
             <div className="panel-card">
-              <h2>角色构筑</h2>
-              <div className="form-group">
-                <label>角色名</label>
-                <input value={charDraft.name} onChange={(e) => setCharDraft((p) => ({ ...p, name: e.target.value }))} />
+              <div className="step-indicator">
+                {CREATOR_STEPS.map((step, index) => (
+                  <React.Fragment key={step.id}>
+                    <button type="button" className={`step ${creatorStep === index ? "active" : ""} ${creatorStep > index ? "done" : ""}`} onClick={() => goToCreatorStep(index)}>{index + 1}</button>
+                    {index < CREATOR_STEPS.length - 1 && <div className="line" />}
+                  </React.Fragment>
+                ))}
               </div>
-              <div className="form-group">
-                <label>种族</label>
-                {builder.species.length === 0 ? renderBuilderLoadState("种族目录") : <div className="class-grid">
-                  {builder.species.map((species) => <div key={species.id} className={`class-card ${charDraft.species === species.name ? "selected" : ""}`} onClick={() => setCharDraft((p) => ({ ...p, species: species.name }))}>{species.name_display || localizeSpeciesName(species.name)}</div>)}
-                </div>}
+              <div className="creator-header">
+                <div>
+                  <h2 style={{ marginBottom: 8 }}>角色构筑</h2>
+                  <p className="info-text">当前步骤：{CREATOR_STEPS[creatorStep].label}</p>
+                </div>
+                <p className="info-text">按“基础 → 构筑 → 装备 → 法术 → 总览”的顺序完成创建。</p>
               </div>
-              <div className="form-group">
-                <label>背景</label>
-                {builder.backgrounds.length === 0 ? renderBuilderLoadState("背景目录") : <div className="class-grid">
-                  {builder.backgrounds.map((bg) => <div key={bg.id} className={`class-card ${charDraft.background_name === bg.name ? "selected" : ""}`} onClick={() => chooseBackground(bg.name)}>{bg.name_display || localizeBackgroundName(bg.name)}</div>)}
-                </div>}
-              </div>
-              <div className="form-group">
-                <label>起源专长</label>
-                <input value={background?.origin_feat_display || localizeOriginFeat(charDraft.origin_feat)} readOnly />
-              </div>
-              <div className="form-group">
-                <label>职业</label>
-                {builder.classes.length === 0 ? renderBuilderLoadState("职业目录") : <div className="class-grid">
-                  {builder.classes.map((cls) => <div key={cls.id} className={`class-card ${charDraft.class_name === cls.name ? "selected" : ""}`} onClick={() => chooseClass(cls)}>{cls.name_display || localizeClassName(cls.name)}</div>)}
-                </div>}
-              </div>
-              <div className="form-group">
-                <label>起始装备包</label>
-                {!classDef ? (
-                  <p className="info-text">先选择职业，才能查看可用的起始装备包。</p>
-                ) : starterOptions.length === 0 ? (
-                  <p className="info-text">当前职业还没有起始装备包元数据。</p>
-                ) : (
-                  <div className="class-grid">
-                    {starterOptions.map((option) => <div key={option.id} className={`class-card ${selectedStarterOption?.id === option.id ? "selected" : ""}`} onClick={() => chooseStarterOption(option.id)}><strong>{option.label_display || option.label}</strong><p className="spell-meta">{formatGoldLine(option.gold_gp)}</p></div>)}
+
+              {creatorStep === 0 && (
+                <>
+                  <div className="form-group">
+                    <label>角色名</label>
+                    <input value={charDraft.name} onChange={(e) => setCharDraft((p) => ({ ...p, name: e.target.value }))} />
                   </div>
-                )}
-              </div>
-              {starterChoiceGroups.map((group) => (
-                <div key={group.id} className="form-group">
-                  <label>{group.label_display || group.label}</label>
-                  <p className="info-text">{group.description_display || group.description}</p>
-                  <div className="class-grid" style={{ marginTop: 12 }}>
-                    {(group.options || []).map((option) => <div key={option.id} className={`class-card ${charDraft.starter_choice_ids[group.id] === option.id ? "selected" : ""}`} onClick={() => chooseStarterChoice(group.id, option.id)}><strong>{option.label_display || option.label}</strong></div>)}
+                  <div className="form-group">
+                    <label>种族</label>
+                    {builder.species.length === 0 ? renderBuilderLoadState("种族目录") : <div className="class-grid">
+                      {builder.species.map((species) => <div key={species.id} className={`class-card ${charDraft.species === species.name ? "selected" : ""}`} onClick={() => setCharDraft((p) => ({ ...p, species: species.name }))}>{species.name_display || localizeSpeciesName(species.name)}</div>)}
+                    </div>}
+                  </div>
+                  <div className="form-group">
+                    <label>背景</label>
+                    {builder.backgrounds.length === 0 ? renderBuilderLoadState("背景目录") : <div className="class-grid">
+                      {builder.backgrounds.map((bg) => <div key={bg.id} className={`class-card ${charDraft.background_name === bg.name ? "selected" : ""}`} onClick={() => chooseBackground(bg.name)}>{bg.name_display || localizeBackgroundName(bg.name)}</div>)}
+                    </div>}
+                  </div>
+                  <div className="form-group">
+                    <label>起源专长</label>
+                    <input value={background?.origin_feat_display || localizeOriginFeat(charDraft.origin_feat)} readOnly />
+                    <p className="info-text" style={{ marginTop: 8 }}>当前规则目录里，起源专长由所选背景固定决定，不提供自由下拉选择。</p>
+                  </div>
+                </>
+              )}
+
+              {creatorStep === 1 && (
+                <>
+                  <div className="form-group">
+                    <label>职业</label>
+                    {builder.classes.length === 0 ? renderBuilderLoadState("职业目录") : <div className="class-grid">
+                      {builder.classes.map((cls) => <div key={cls.id} className={`class-card ${charDraft.class_name === cls.name ? "selected" : ""}`} onClick={() => chooseClass(cls)}>{cls.name_display || localizeClassName(cls.name)}</div>)}
+                    </div>}
+                  </div>
+                  <div className="builder-preview-grid">
+                    <div className="builder-preview-card">
+                      <h3>生命上限</h3>
+                      <div className="timeline-summary">{computedHpMax}</div>
+                      <div className="timeline-content">按职业生命骰和体质调整值自动计算，创建阶段不再手填。</div>
+                    </div>
+                    <div className="builder-preview-card">
+                      <h3>属性购点</h3>
+                      <div className="timeline-summary">{pointBuySpent}/{pointBuyRules.budget}</div>
+                      <div className="timeline-content">范围 {pointBuyRules.minimum}-{pointBuyRules.maximum}，剩余 {pointBuyRemaining} 点。</div>
+                    </div>
+                  </div>
+                  <div className="stats-editor">
+                    {STATS.map((stat) => <div key={stat} className="stat-row"><span className="stat-name">{localizeStat(stat)}</span><button onClick={() => adjustStat(stat, -1)}>-</button><span className="stat-val">{charDraft.stats[stat]}</span><button onClick={() => adjustStat(stat, 1)}>+</button></div>)}
+                  </div>
+                  <div className="form-group" style={{ marginTop: 24 }}>
+                    <label>职业技能</label>
+                    {!classDef ? <p className="info-text">先选择职业，才能分配职业技能。</p> : <><p className="spell-meta">需要选择 {classSkillTarget} 项职业技能，当前 {selectedClassSkillCount}/{classSkillTarget}。</p><div className="class-grid">
+                      {(classDef?.skill_choices || []).map((skill) => <div key={skill} className={`class-card ${Number(charDraft.skill_proficiencies[skill] || 0) > 0 ? "selected" : ""}`} onClick={() => toggleSkill(skill)}>{localizeSkill(skill)}</div>)}
+                    </div></>}
+                  </div>
+                </>
+              )}
+
+              {creatorStep === 2 && (
+                <>
+                  <div className="form-group">
+                    <label>装备方案</label>
+                    {!classDef ? <p className="info-text">先选择职业，才能设置起始装备。</p> : <div className="class-grid">
+                      <div className={`class-card ${charDraft.equipment_mode === "starter_package" ? "selected" : ""}`} onClick={() => setEquipmentMode("starter_package")}><strong>标准套装</strong><p className="spell-meta">按职业起始方案直接发放</p></div>
+                      <div className={`class-card ${charDraft.equipment_mode === "custom_purchase" ? "selected" : ""}`} onClick={() => setEquipmentMode("custom_purchase")}><strong>自定义购买</strong><p className="spell-meta">预算 {formatGoldLine(customPurchaseBudgetGp)}</p></div>
+                    </div>}
+                  </div>
+
+                  {classDef && charDraft.equipment_mode === "starter_package" && (
+                    <>
+                      <div className="form-group">
+                        <label>起始装备包</label>
+                        {starterOptions.length === 0 ? <p className="info-text">当前职业还没有起始装备包元数据。</p> : <div className="class-grid">
+                          {starterOptions.map((option) => <div key={option.id} className={`class-card ${selectedStarterOption?.id === option.id ? "selected" : ""}`} onClick={() => chooseStarterOption(option.id)}><strong>{option.label_display || option.label}</strong><p className="spell-meta">{formatGoldLine(option.gold_gp)}</p></div>)}
+                        </div>}
+                      </div>
+                      {starterChoiceGroups.map((group) => (
+                        <div key={group.id} className="form-group">
+                          <label>{group.label_display || group.label}</label>
+                          <p className="info-text">{group.description_display || group.description}</p>
+                          <div className="class-grid" style={{ marginTop: 12 }}>
+                            {(group.options || []).map((option) => <div key={option.id} className={`class-card ${charDraft.starter_choice_ids[group.id] === option.id ? "selected" : ""}`} onClick={() => chooseStarterChoice(group.id, option.id)}><strong>{option.label_display || option.label}</strong></div>)}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {classDef && charDraft.equipment_mode === "custom_purchase" && (
+                    <div className="builder-preview-grid">
+                      {groupedShopItems.map((group) => (
+                        <div key={group.type} className="builder-preview-card shop-section">
+                          <h3>{group.items[0]?.type_display || localizeEquipmentType(group.type)}</h3>
+                          <div className="timeline-list">
+                            {group.items.map((item) => (
+                              <div key={item.id} className={`shop-card ${Number(charDraft.custom_purchase_items?.[item.id] || 0) > 0 ? "selected" : ""}`}>
+                                <div>
+                                  <div className="timeline-summary">{item.name_display || item.name}</div>
+                                  <div className="timeline-content">{formatShopItemMeta(item)}</div>
+                                </div>
+                                <div className="quantity-stepper">
+                                  <button type="button" onClick={() => setCustomPurchaseQuantity(item.id, Number(charDraft.custom_purchase_items?.[item.id] || 0) - 1)}>-</button>
+                                  <span>{Number(charDraft.custom_purchase_items?.[item.id] || 0)}</span>
+                                  <button type="button" onClick={() => setCustomPurchaseQuantity(item.id, Number(charDraft.custom_purchase_items?.[item.id] || 0) + 1)}>+</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label>自定义待定装备</label>
+                    <div className="dual-grid">
+                      <div className="form-group">
+                        <label>名称</label>
+                        <input value={charDraft.custom_pending_item?.name || ""} onChange={(e) => updatePendingCustomItem("name", e.target.value)} placeholder="例如：家传短刃" />
+                      </div>
+                      <div className="form-group">
+                        <label>数量</label>
+                        <input type="number" min="1" value={charDraft.custom_pending_item?.quantity || 1} onChange={(e) => updatePendingCustomItem("quantity", Number.parseInt(e.target.value || "1", 10))} />
+                      </div>
+                      <div className="form-group">
+                        <label>预留预算（gp）</label>
+                        <input type="number" min="0" value={charDraft.custom_pending_item?.reserved_cost_gp || 0} onChange={(e) => updatePendingCustomItem("reserved_cost_gp", Number.parseInt(e.target.value || "0", 10))} />
+                      </div>
+                      <div className="form-group">
+                        <label>说明</label>
+                        <input value={charDraft.custom_pending_item?.notes || ""} onChange={(e) => updatePendingCustomItem("notes", e.target.value)} placeholder="由 DM 决定材质、伤害、特效等" />
+                      </div>
+                    </div>
+                    <p className="info-text">这件装备只记录名称、数量和预算占用，具体属性在角色创建后由 DM 决定。</p>
+                  </div>
+
+                  <div className="builder-preview-grid">
+                    <div className="builder-preview-card">
+                      <h3>预算</h3>
+                      <div className="timeline-summary">{formatGoldLine(equipmentBudgetGp)}</div>
+                      <div className="timeline-content">已花费 {formatGoldLine(equipmentSpentGp)}，剩余 {formatGoldLine(equipmentRemainingGp)}</div>
+                    </div>
+                    <div className="builder-preview-card">
+                      <h3>当前装备预览</h3>
+                      {finalEquipmentPreview.length === 0 ? <p className="info-text">还没有选入任何起始装备。</p> : <div className="timeline-list">
+                        {finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || item.type || "装备"}</div>{item.notes && <div className="timeline-content">{item.notes}</div>}</div>)}
+                      </div>}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {creatorStep === 3 && (
+                <>
+                  <div className="builder-preview-grid">
+                    <div className="builder-preview-card">
+                      <h3>职业资源</h3>
+                      {!classDef ? <p className="info-text">选择职业后即可预览 1 级资源。</p> : starterResources.length === 0 ? <p className="info-text">当前职业没有可追踪的 1 级资源。</p> : <div className="timeline-list">{starterResources.map(([name, resource]) => <div key={name} className="timeline-item"><div className="timeline-summary">{localizeClassResource(name)} · {resource.current_value}/{resource.max_value}</div><div className="timeline-content">{resource.description_display || resource.description || "职业资源"} · 恢复方式：{formatResourceRecovery(resource)}</div></div>)}</div>}
+                    </div>
+                    <div className="builder-preview-card">
+                      <h3>起始法术位</h3>
+                      {!classDef ? <p className="info-text">选择职业后即可预览 1 级法术位。</p> : !classDef.spellcasting_ability ? <p className="info-text">当前职业起始时不具备施法能力。</p> : startingSpellSlots.length === 0 ? <div><p className="info-text">该职业有施法元数据，但当前构筑目录里没有 1 级法术位。</p><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p></div> : <div><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p><div className="timeline-list">{startingSpellSlots.map((slot) => <div key={slot[0]} className="timeline-item"><div className="timeline-summary">{formatSpellSlotLine(slot)}</div><div className="timeline-content">角色保存时会由后端自动填充。</div></div>)}</div></div>}
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>戏法</label>
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在 1 级时不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <div key={spell.id || spell.name} className={`spell-card ${charDraft.selectedCantrips.includes(spell.name) ? "selected" : ""}`} onClick={() => toggleCantrip(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></div>)}</div>}</div>}
+                  </div>
+                  <div className="form-group">
+                    <label>已准备法术</label>
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在 1 级时没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <div key={spell.id || spell.name} className={`spell-card ${charDraft.selectedSpells.includes(spell.name) ? "selected" : ""}`} onClick={() => togglePreparedSpell(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></div>)}</div>}</div>}
+                  </div>
+                </>
+              )}
+
+              {creatorStep === 4 && (
+                <div className="builder-preview-grid review-grid">
+                  <div className="builder-preview-card">
+                    <h3>基础信息</h3>
+                    <div className="timeline-summary">{charDraft.name || "未命名角色"}</div>
+                    <div className="timeline-content">{localizeSpeciesName(charDraft.species)} · {background?.name_display || localizeBackgroundName(charDraft.background_name)}</div>
+                    <div className="timeline-content">起源专长：{background?.origin_feat_display || localizeOriginFeat(charDraft.origin_feat)}</div>
+                  </div>
+                  <div className="builder-preview-card">
+                    <h3>职业构筑</h3>
+                    <div className="timeline-summary">{classDef?.name_display || localizeClassName(charDraft.class_name)}</div>
+                    <div className="timeline-content">生命上限 {computedHpMax} · 职业技能 {selectedClassSkillCount}/{classSkillTarget}</div>
+                    <div className="timeline-content">{STATS.map((stat) => `${localizeStat(stat)} ${charDraft.stats[stat]}`).join(" · ")}</div>
+                  </div>
+                  <div className="builder-preview-card">
+                    <h3>装备</h3>
+                    <div className="timeline-summary">{charDraft.equipment_mode === "custom_purchase" ? "自定义购买" : selectedStarterOption?.label_display || selectedStarterOption?.label || "标准套装"}</div>
+                    <div className="timeline-content">预算 {formatGoldLine(equipmentBudgetGp)} · 剩余 {formatGoldLine(equipmentRemainingGp)}</div>
+                    {finalEquipmentPreview.length === 0 ? <p className="info-text">暂无装备。</p> : <div className="timeline-list">{finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || item.type || "装备"}</div>{item.notes && <div className="timeline-content">{item.notes}</div>}</div>)}</div>}
+                  </div>
+                  <div className="builder-preview-card">
+                    <h3>法术</h3>
+                    {!classDef?.spellcasting_ability ? <p className="info-text">该职业起始时没有施法能力。</p> : <><div className="timeline-content">戏法：{charDraft.selectedCantrips.length ? charDraft.selectedCantrips.join("、") : "无"}</div><div className="timeline-content">已准备：{charDraft.selectedSpells.length ? charDraft.selectedSpells.join("、") : "无"}</div><div className="timeline-content">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</div></>}
                   </div>
                 </div>
-              ))}
-              <div className="builder-preview-grid">
-                <div className="builder-preview-card">
-                  <h3>起始装备包</h3>
-                  {!selectedStarterOption ? <p className="info-text">选择职业后即可预览起始装备包。</p> : <div><div className="timeline-summary">{selectedStarterOption.label_display || selectedStarterOption.label}</div><div className="timeline-content">{selectedStarterOption.description_display || selectedStarterOption.description}</div>{starterChoiceGroups.length > 0 && !starterChoicesComplete && <div className="timeline-content">该装备包仍有未完成的子选项，保存前需要补齐。</div>}</div>}
-                </div>
-                <div className="builder-preview-card">
-                  <h3>起始装备</h3>
-                  {!classDef ? <p className="info-text">选择职业后即可预览保存时由后端补齐的装备。</p> : starterEquipment.length === 0 ? <p className="info-text">当前方案不直接附带物品，只提供金币。</p> : <div className="timeline-list">{starterEquipment.map((item) => <div key={`${item.name}-${item.type}-${item.quantity || 1}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || "起始物品"}</div></div>)}</div>}
-                </div>
-                <div className="builder-preview-card">
-                  <h3>起始金币</h3>
-                  {!classDef ? <p className="info-text">选择职业后即可预览起始金币。</p> : <div><div className="timeline-summary">{formatGoldLine(starterGoldGp)}</div><div className="timeline-content">角色保存时会由后端自动写入。</div></div>}
-                </div>
-                <div className="builder-preview-card">
-                  <h3>职业资源</h3>
-                  {!classDef ? <p className="info-text">选择职业后即可预览 1 级资源。</p> : starterResources.length === 0 ? <p className="info-text">当前职业没有可追踪的 1 级资源。</p> : <div className="timeline-list">{starterResources.map(([name, resource]) => <div key={name} className="timeline-item"><div className="timeline-summary">{localizeClassResource(name)} · {resource.current_value}/{resource.max_value}</div><div className="timeline-content">{resource.description_display || resource.description || "职业资源"} · 恢复方式：{formatResourceRecovery(resource)}</div></div>)}</div>}
-                </div>
-                <div className="builder-preview-card">
-                  <h3>起始法术位</h3>
-                  {!classDef ? <p className="info-text">选择职业后即可预览 1 级法术位。</p> : !classDef.spellcasting_ability ? <p className="info-text">当前职业起始时不具备施法能力。</p> : startingSpellSlots.length === 0 ? <div><p className="info-text">该职业有施法元数据，但当前构筑目录里没有 1 级法术位。</p><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p></div> : <div><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p><div className="timeline-list">{startingSpellSlots.map((slot) => <div key={slot[0]} className="timeline-item"><div className="timeline-summary">{formatSpellSlotLine(slot)}</div><div className="timeline-content">角色保存时会由后端自动填充。</div></div>)}</div></div>}
-                </div>
-              </div>
-              <div className="form-group">
-                <label>生命上限</label>
-                <input type="number" value={charDraft.hp_max} onChange={(e) => setCharDraft((p) => ({ ...p, hp_max: Number.parseInt(e.target.value || "0", 10) }))} />
-              </div>
-              <div className="stats-editor">
-                {STATS.map((stat) => <div key={stat} className="stat-row"><span className="stat-name">{localizeStat(stat)}</span><button onClick={() => setCharDraft((p) => ({ ...p, stats: { ...p.stats, [stat]: p.stats[stat] - 1 } }))}>-</button><span className="stat-val">{charDraft.stats[stat]}</span><button onClick={() => setCharDraft((p) => ({ ...p, stats: { ...p.stats, [stat]: p.stats[stat] + 1 } }))}>+</button></div>)}
-              </div>
-              <div className="form-group">
-                <label>职业技能</label>
-                <div className="class-grid">
-                  {(classDef?.skill_choices || []).map((skill) => <div key={skill} className={`class-card ${Number(charDraft.skill_proficiencies[skill] || 0) > 0 ? "selected" : ""}`} onClick={() => toggleSkill(skill)}>{localizeSkill(skill)}</div>)}
-                </div>
-              </div>
-              <div className="form-group">
-                <label>戏法</label>
-                {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在 1 级时不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <div key={spell.id || spell.name} className={`spell-card ${charDraft.selectedCantrips.includes(spell.name) ? "selected" : ""}`} onClick={() => toggleCantrip(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></div>)}</div>}</div>}
-              </div>
-              <div className="form-group">
-                <label>已准备法术</label>
-                {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在 1 级时没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <div key={spell.id || spell.name} className={`spell-card ${charDraft.selectedSpells.includes(spell.name) ? "selected" : ""}`} onClick={() => togglePreparedSpell(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></div>)}</div>}</div>}
-              </div>
-              <div className="btn-row">
-                <button className="btn-text" onClick={() => setView("home")}>返回</button>
-                <button className="btn-success" onClick={saveChar} disabled={!charDraft.name || !charDraft.class_name || !charDraft.background_name || (starterOptions.length > 0 && !selectedStarterOption) || !builderSelectionComplete}>保存角色</button>
+              )}
+
+              <div className="btn-row creator-nav">
+                <button className="btn-text" onClick={() => creatorStep === 0 ? setView("home") : goToCreatorStep(creatorStep - 1)}>{creatorStep === 0 ? "返回" : "上一步"}</button>
+                {creatorStep < CREATOR_STEPS.length - 1
+                  ? <button className="btn-primary" onClick={() => goToCreatorStep(creatorStep + 1)}>下一步</button>
+                  : <button className="btn-success" onClick={saveChar}>保存角色</button>}
               </div>
             </div>
           </div>
