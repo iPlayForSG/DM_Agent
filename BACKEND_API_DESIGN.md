@@ -564,3 +564,15 @@ LangGraph 节点负责：
 3. 不要为了迁移 LangGraph 改动前端 API 契约。
 4. 不要在第一阶段引入新的持久化基础设施。
 5. 不要把本地 D&D 资料和测试存档纳入 Git。
+
+## 11. 2026-05-07 Workflow Update
+
+- `route_phase` 不再只把 `campaign.phase`/`scene` 原样抄进图状态；它现在会先按 `encounter.active`、`setup_complete`、`selected_adventure_id`、`scene` 推导规范 phase，并同步修正 `scene`。
+- phase policy 现已显式化：`party_creation`、`character_creation`、`adventure_selection`、`exploration`、`combat`、`downtime`、`level_up` 都有独立的工具白名单、阶段目标和约束。
+- `prepare_context` 现在会把 phase 名称、目标、约束和 blockers 一并注入 DM prompt，模型不再只依赖 `state_summary` 自己猜当前流程。
+- `validate_state` 在原有战斗修复之外，现会复用同一套 phase normalization，把工具执行后的场景/阶段重新拉回规范路径。
+- 新增 `tests/test_dm_graph_workflow.py`，当前覆盖：
+  - 冒险未选定时自动回落到 `adventure_selection`
+  - phase 指南成功注入 prompt
+  - 活跃遭遇会强制恢复 `combat`
+  - `level_up` 阶段不会暴露遭遇/攻击工具

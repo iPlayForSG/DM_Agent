@@ -478,12 +478,133 @@ SCENE_LABELS = {
     "level_up": "升级",
 }
 
+BASE_TOOL_NAMES = [
+    "lookup_rules",
+    "roll_dice",
+    "adjust_hp",
+    "add_status",
+    "remove_status",
+    "append_adventure_log",
+    "add_inventory_item",
+    "record_evidence",
+    "record_search_outcome",
+    "record_major_experience",
+    "record_chapter_progress",
+    "set_scene",
+    "set_active_character",
+    "roll_skill_check",
+    "roll_saving_throw",
+    "cast_spell",
+    "save_monster_template",
+]
+
+COMBAT_TOOL_NAMES = [
+    "set_defeat_state",
+    "start_encounter",
+    "add_enemy",
+    "spawn_monster_from_template",
+    "attack_target",
+    "set_initiative",
+    "roll_initiative",
+    "advance_turn",
+    "end_encounter",
+]
+
+PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
+    "party_creation": {
+        "scene": "setup",
+        "tools": ["lookup_rules"],
+        "objective": "Help the player finish assembling the party before active play begins.",
+        "constraints": [
+            "Do not narrate live exploration or combat before at least one playable character exists.",
+            "Keep the reply focused on missing party setup decisions.",
+        ],
+        "blockers": [
+            "No party members are currently loaded into the game state.",
+        ],
+    },
+    "character_creation": {
+        "scene": "setup",
+        "tools": ["lookup_rules"],
+        "objective": "Help resolve remaining character build choices before starting the campaign.",
+        "constraints": [
+            "Do not start scenes, encounters, or chapter progression while build choices remain unresolved.",
+            "Answer build questions with rules support instead of improvising sheet changes in prose.",
+        ],
+        "blockers": [
+            "The active workflow is still in character setup.",
+        ],
+    },
+    "adventure_selection": {
+        "scene": "setup",
+        "tools": ["lookup_rules", "append_adventure_log"],
+        "objective": "Help the player compare the offered adventures and choose one hook.",
+        "constraints": [
+            "Do not begin active exploration or combat until an adventure hook is selected.",
+            "Keep the turn centered on clarifying the available hooks, stakes, and tone.",
+        ],
+        "blockers": [
+            "No selected adventure is locked in yet.",
+        ],
+    },
+    "exploration": {
+        "scene": "exploration",
+        "tools": [*BASE_TOOL_NAMES, "start_encounter"],
+        "objective": "Resolve exploration, conversation, investigation, travel, and scene transitions.",
+        "constraints": [
+            "If combat begins, call start_encounter before narrating initiative-based actions.",
+            "Persist important discoveries, clues, and chapter progress with tools instead of leaving them only in prose.",
+        ],
+        "blockers": [],
+    },
+    "combat": {
+        "scene": "combat",
+        "tools": [*BASE_TOOL_NAMES, *COMBAT_TOOL_NAMES],
+        "objective": "Resolve the current encounter one combatant turn at a time with authoritative tool calls.",
+        "constraints": [
+            "Only the current combatant may take an action until advance_turn changes the acting creature.",
+            "Do not leave combat state through prose alone; use encounter tools to mutate it.",
+        ],
+        "blockers": [],
+    },
+    "downtime": {
+        "scene": "downtime",
+        "tools": [*BASE_TOOL_NAMES, "start_encounter"],
+        "objective": "Handle recovery, shopping, planning, travel prep, and between-chapter scenes.",
+        "constraints": [
+            "Keep the pace lower-stakes unless the fiction explicitly escalates into a new encounter.",
+            "Record durable rewards, milestones, and chapter updates with tools.",
+        ],
+        "blockers": [],
+    },
+    "level_up": {
+        "scene": "level_up",
+        "tools": [
+            "lookup_rules",
+            "append_adventure_log",
+            "record_major_experience",
+            "record_chapter_progress",
+            "set_scene",
+            "set_active_character",
+        ],
+        "objective": "Resolve level-up decisions and milestone bookkeeping before returning to play.",
+        "constraints": [
+            "Do not start encounters while the workflow is explicitly in level-up handling.",
+            "Keep the turn focused on progression choices and persistent rewards.",
+        ],
+        "blockers": [],
+    },
+}
+
 
 class DMGraphState(TypedDict, total=False):
     game_state: Dict[str, Any]
     user_input: str
     phase: str
     scene: str
+    phase_objective: str
+    phase_constraints: List[str]
+    phase_blockers: List[str]
     messages: List[Any]
     state_summary: str
     recent_history: str
@@ -568,40 +689,81 @@ class DMGraphRunner:
         return model.bind_tools(tool_schemas)
 
     @staticmethod
-    def _allowed_tool_names(state: GameState) -> List[str]:
-        always = [
-            "lookup_rules",
-            "roll_dice",
-            "adjust_hp",
-            "add_status",
-            "remove_status",
-            "append_adventure_log",
-            "add_inventory_item",
-            "record_evidence",
-            "record_search_outcome",
-            "record_major_experience",
-            "record_chapter_progress",
-            "set_scene",
-            "set_active_character",
-            "roll_skill_check",
-            "roll_saving_throw",
-            "cast_spell",
-            "save_monster_template",
-        ]
-        encounter_tools = [
-            "set_defeat_state",
-            "start_encounter",
-            "add_enemy",
-            "spawn_monster_from_template",
-            "attack_target",
-            "set_initiative",
-            "roll_initiative",
-            "advance_turn",
-            "end_encounter",
-        ]
-        if state.scene == "combat" or (state.encounter and state.encounter.active):
-            return [*always, *encounter_tools]
-        return [*always, "start_encounter"]
+    def _phase_policy(phase: str) -> Dict[str, Any]:
+        normalized = str(phase or "").strip().lower()
+        return dict(PHASE_POLICIES.get(normalized, PHASE_POLICIES["exploration"]))
+
+    @classmethod
+    def _derive_phase(cls, state: GameState) -> str:
+        current_phase = str(state.campaign.phase or "").strip().lower()
+        current_scene = str(state.scene or "").strip().lower()
+        selected_adventure = state.campaign.selected_adventure()
+
+        if state.encounter and state.encounter.active:
+            return "combat"
+        if not state.characters:
+            return "party_creation"
+        if current_phase == "character_creation":
+            return "character_creation"
+        if current_phase in {"level_up", "downtime"}:
+            return current_phase
+        if current_scene in {"level_up", "downtime"}:
+            return current_scene
+        if (
+            not state.campaign.setup_complete
+            or not state.campaign.selected_adventure_id
+            or selected_adventure is None
+        ):
+            return "adventure_selection"
+        return "exploration"
+
+    @staticmethod
+    def _expected_scene_for_phase(phase: str, fallback_scene: str) -> str:
+        policy = PHASE_POLICIES.get(phase, {})
+        expected = str(policy.get("scene") or "").strip().lower()
+        return expected or str(fallback_scene or "setup").strip().lower() or "setup"
+
+    @classmethod
+    def _phase_blockers(cls, state: GameState, phase: str) -> List[str]:
+        blockers = list(cls._phase_policy(phase).get("blockers", []))
+        if phase == "adventure_selection" and not state.campaign.available_adventures:
+            blockers.append("No adventure hooks are currently loaded.")
+        if phase == "combat":
+            encounter = state.encounter
+            if not encounter or not encounter.active:
+                blockers.append("No active encounter is available.")
+            elif encounter.turn_order_started and not encounter.current_combatant_id:
+                blockers.append("Initiative exists but there is no current combatant.")
+            elif not encounter.turn_order_started:
+                blockers.append("Initiative order is not fully ready yet.")
+        return cls._unique_texts(blockers, limit=6)
+
+    @classmethod
+    def _normalize_phase_state(
+        cls, state: GameState
+    ) -> tuple[str, str, List[str], Dict[str, Any], Dict[str, Any]]:
+        phase = cls._derive_phase(state)
+        expected_scene = cls._expected_scene_for_phase(phase, state.scene)
+        notes: List[str] = []
+        patch: Dict[str, Any] = {}
+
+        if state.campaign.phase != phase:
+            state.campaign.phase = phase
+            patch.setdefault("campaign", {})["phase"] = phase
+            notes.append(f"Normalized campaign phase to {phase}.")
+        if state.scene != expected_scene:
+            state.scene = expected_scene
+            patch["scene"] = expected_scene
+            notes.append(f"Normalized scene to {expected_scene} for phase {phase}.")
+
+        policy = cls._phase_policy(phase)
+        return phase, expected_scene, notes, patch, policy
+
+    @classmethod
+    def _allowed_tool_names(cls, state: GameState, phase: str = "") -> List[str]:
+        resolved_phase = str(phase or "").strip().lower() or cls._derive_phase(state)
+        policy = cls._phase_policy(resolved_phase)
+        return list(policy.get("tools", []))
 
     @staticmethod
     def _build_event(
@@ -994,10 +1156,20 @@ class DMGraphRunner:
 
     def _route_phase(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
+        state_delta = dict(graph_state.get("state_delta", {}))
+        phase, scene, notes, patch, policy = self._normalize_phase_state(state)
+        if patch:
+            state_delta = merge_patch(state_delta, patch)
         return {
-            "phase": state.campaign.phase,
-            "scene": state.scene,
-            "allowed_tools": self._allowed_tool_names(state),
+            "game_state": state.model_dump(mode="json"),
+            "phase": phase,
+            "scene": scene,
+            "phase_objective": str(policy.get("objective", "")),
+            "phase_constraints": list(policy.get("constraints", [])),
+            "phase_blockers": self._phase_blockers(state, phase),
+            "allowed_tools": self._allowed_tool_names(state, phase=phase),
+            "state_delta": state_delta,
+            "validation_notes": notes,
         }
 
     def _prepare_context(self, graph_state: DMGraphState) -> DMGraphState:
@@ -1010,14 +1182,18 @@ class DMGraphRunner:
             recent_history=recent_history,
             rag_enabled=self.rag_engine.is_ready(),
             retrieved_context=graph_state.get("rag_context", ""),
+            phase_name=graph_state.get("phase", ""),
+            phase_objective=graph_state.get("phase_objective", ""),
+            phase_constraints=list(graph_state.get("phase_constraints", [])),
+            phase_blockers=list(graph_state.get("phase_blockers", [])),
         )
         return {
             "state_summary": state_summary,
             "recent_history": recent_history,
             "instruction": instruction,
             "messages": [
-                SystemMessage(content=instruction),
-                HumanMessage(content=graph_state.get("user_input", "")),
+                self._system_prompt_message(instruction),
+                self._human_prompt_message(graph_state.get("user_input", "")),
             ],
         }
 
@@ -1144,12 +1320,24 @@ class DMGraphRunner:
             return "\n".join(parts).strip()
         return str(content).strip() if content else ""
 
+    @staticmethod
+    def _system_prompt_message(content: str) -> Any:
+        if SystemMessage is not None:
+            return SystemMessage(content=content)
+        return {"role": "system", "content": content}
+
+    @staticmethod
+    def _human_prompt_message(content: str) -> Any:
+        if HumanMessage is not None:
+            return HumanMessage(content=content)
+        return {"role": "user", "content": content}
+
     def _call_model(self, graph_state: DMGraphState) -> DMGraphState:
         messages = list(graph_state.get("messages", []))
         if not messages:
             messages = [
-                SystemMessage(content=graph_state.get("instruction", "")),
-                HumanMessage(content=graph_state.get("user_input", "")),
+                self._system_prompt_message(graph_state.get("instruction", "")),
+                self._human_prompt_message(graph_state.get("user_input", "")),
             ]
         model = self._create_tool_bound_model(graph_state.get("allowed_tools", []))
         response = model.invoke(messages)
@@ -1239,7 +1427,7 @@ class DMGraphRunner:
             "timeline_append": timeline_append,
             "state_delta": state_delta,
             "tool_call_rounds": graph_state.get("tool_call_rounds", 0) + 1,
-            "allowed_tools": self._allowed_tool_names(state),
+            "allowed_tools": self._allowed_tool_names(state, phase=self._derive_phase(state)),
         }
 
     @staticmethod
@@ -1254,7 +1442,7 @@ class DMGraphRunner:
         messages = list(graph_state.get("messages", []))
         timeline_append = list(graph_state.get("timeline_append", []))
         state_delta = dict(graph_state.get("state_delta", {}))
-        validation_notes: List[str] = []
+        validation_notes: List[str] = list(graph_state.get("validation_notes", []))
         logic = GameLogic(state)
 
         if state.characters and (
@@ -1396,6 +1584,11 @@ class DMGraphRunner:
             state_delta = merge_patch(state_delta, patch)
             validation_notes.append("Recovered from dangling combat scene without an active encounter.")
 
+        phase, scene, phase_notes, phase_patch, policy = self._normalize_phase_state(state)
+        if phase_patch:
+            state_delta = merge_patch(state_delta, phase_patch)
+            validation_notes.extend(phase_notes)
+
         validation_message = self._build_validation_message(validation_notes)
         if validation_message is not None:
             messages.append(validation_message)
@@ -1405,7 +1598,12 @@ class DMGraphRunner:
             "messages": messages,
             "timeline_append": timeline_append,
             "state_delta": state_delta,
-            "allowed_tools": self._allowed_tool_names(state),
+            "phase": phase,
+            "scene": scene,
+            "phase_objective": str(policy.get("objective", "")),
+            "phase_constraints": list(policy.get("constraints", [])),
+            "phase_blockers": self._phase_blockers(state, phase),
+            "allowed_tools": self._allowed_tool_names(state, phase=phase),
             "validation_notes": validation_notes,
         }
 

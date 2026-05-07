@@ -89,3 +89,10 @@ Vite 开发服务器会把 `/api` 代理到 `http://127.0.0.1:23333`。
 - 将战斗结果、时间线和重要剧情进展写回本地 `GameState`
 
 RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库不会随公开仓库发布。
+
+## 最近工作流更新
+
+- `backend/dm_graph.py` 现在会先规范化 `campaign.phase` 和 `scene`，再决定当前回合开放哪些工具。
+- 当前已显式区分 `party_creation`、`adventure_selection`、`exploration`、`combat`、`downtime`、`level_up` 等 phase，并把 phase 目标/约束注入 DM prompt。
+- `validate_state` 会在工具执行后再次校正 phase 与 scene，减少状态漂移。
+- 新增 `tests/test_dm_graph_workflow.py`，用于回归这些工作流约束。

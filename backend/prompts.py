@@ -68,6 +68,10 @@ def build_dm_instruction(
     recent_history: str,
     rag_enabled: bool = False,
     retrieved_context: str = "",
+    phase_name: str = "",
+    phase_objective: str = "",
+    phase_constraints: list[str] | None = None,
+    phase_blockers: list[str] | None = None,
 ) -> str:
     rag_status = (
         "Rules retrieval is available. Use `lookup_rules` before citing detailed rules or niche monster lore."
@@ -84,6 +88,15 @@ Use these snippets directly when they already answer the player's question. Only
         if retrieved_context
         else "Retrieved rule snippets for this turn: none."
     )
+    phase_constraints = [item.strip() for item in (phase_constraints or []) if str(item or "").strip()]
+    phase_blockers = [item.strip() for item in (phase_blockers or []) if str(item or "").strip()]
+    phase_block = f"""
+Current workflow phase:
+- Phase: {phase_name or "unspecified"}
+- Objective: {phase_objective or "Respond to the player's latest action while respecting the tracked game state."}
+- Constraints: {' | '.join(phase_constraints) if phase_constraints else 'None beyond the core rules and tool protocol.'}
+- Open blockers: {' | '.join(phase_blockers) if phase_blockers else 'None.'}
+""".strip()
     return f"""
 {CORE_DM_MANDATE}
 
@@ -95,6 +108,8 @@ Knowledge base status:
 - {rag_status}
 
 {retrieved_block}
+
+{phase_block}
 
 Current game state:
 {state_summary}
