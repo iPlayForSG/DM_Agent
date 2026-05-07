@@ -39,3 +39,6 @@ backend/data/spells.json
 Thumbs.db
 *.log
 backend/runtime-logs/
+
+# Claude local data and cache
+.claude/
