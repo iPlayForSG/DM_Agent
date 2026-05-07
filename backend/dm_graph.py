@@ -596,6 +596,80 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
     },
 }
 
+ACTION_RESOLUTION_TERMS = [
+    "search",
+    "investigate",
+    "inspect",
+    "check",
+    "roll",
+    "persuade",
+    "deceive",
+    "intimidate",
+    "stealth",
+    "perception",
+    "insight",
+    "heal",
+    "drink",
+    "cast",
+    "attack",
+    "rest",
+    "\u68c0\u67e5",
+    "\u8c03\u67e5",
+    "\u611f\u77e5",
+    "\u6f5c\u884c",
+    "\u8bf4\u670d",
+    "\u6b3a\u7792",
+    "\u5a01\u5413",
+    "\u6d1e\u6089",
+    "\u641c\u7d22",
+    "\u7ffb\u627e",
+    "\u6295\u9ab0",
+    "\u68c0\u5b9a",
+    "\u8c41\u514d",
+    "\u65bd\u6cd5",
+    "\u653b\u51fb",
+    "\u4f11\u606f",
+    "\u6cbb\u7597",
+    "\u559d\u836f",
+]
+
+TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
+    "setup_guidance": {
+        "tool_round_limit": 1,
+        "tool_subset": [],
+        "guidance": "Keep the turn short and decision-oriented. Do not over-narrate; help the player finish setup cleanly.",
+    },
+    "conversation": {
+        "tool_round_limit": 1,
+        "tool_subset": [
+            "lookup_rules",
+            "append_adventure_log",
+            "add_inventory_item",
+            "record_evidence",
+            "record_search_outcome",
+            "record_chapter_progress",
+            "set_scene",
+            "set_active_character",
+        ],
+        "guidance": "Prefer a direct in-world reply. Only call tools if the player clearly creates a durable clue, loot, chapter update, or scene transition.",
+    },
+    "rules_reference": {
+        "tool_round_limit": 1,
+        "tool_subset": ["lookup_rules"],
+        "guidance": "Answer the rules question clearly and avoid unrelated state mutations or extra tool chatter.",
+    },
+    "action_resolution": {
+        "tool_round_limit": 2,
+        "tool_subset": [],
+        "guidance": "Resolve the attempted action with the minimum tool sequence needed for correctness, then narrate the outcome cleanly.",
+    },
+    "combat_resolution": {
+        "tool_round_limit": 3,
+        "tool_subset": [],
+        "guidance": "Keep combat crisp. Resolve only the current acting creature's turn and avoid side detours or extra tool loops.",
+    },
+}
+
 
 class DMGraphState(TypedDict, total=False):
     game_state: Dict[str, Any]
@@ -616,7 +690,11 @@ class DMGraphState(TypedDict, total=False):
     rag_reason: str
     rag_metadata: Dict[str, Any]
     input_warnings: List[str]
+    turn_profile: str
+    turn_profile_reason: str
+    turn_guidance: str
     allowed_tools: List[str]
+    tool_round_limit: int
     tool_call_rounds: int
     final_response: str
     tool_results: List[Dict[str, Any]]
@@ -764,6 +842,49 @@ class DMGraphRunner:
         resolved_phase = str(phase or "").strip().lower() or cls._derive_phase(state)
         policy = cls._phase_policy(resolved_phase)
         return list(policy.get("tools", []))
+
+    @staticmethod
+    def _turn_profile_policy(profile: str) -> Dict[str, Any]:
+        normalized = str(profile or "").strip().lower()
+        return dict(TURN_PROFILE_POLICIES.get(normalized, TURN_PROFILE_POLICIES["action_resolution"]))
+
+    @classmethod
+    def _profile_allowed_tools(cls, base_tools: List[str], turn_profile: str) -> List[str]:
+        policy = cls._turn_profile_policy(turn_profile)
+        subset = list(policy.get("tool_subset", []))
+        if not subset:
+            return list(base_tools)
+        base_lookup = set(base_tools)
+        return [tool_name for tool_name in subset if tool_name in base_lookup]
+
+    @staticmethod
+    def _looks_like_question(text: str) -> bool:
+        normalized = " ".join((text or "").split()).strip()
+        if not normalized:
+            return False
+        lowered = normalized.casefold()
+        question_markers = [
+            "?",
+            "\uff1f",
+            "how",
+            "what",
+            "when",
+            "why",
+            "can i",
+            "can we",
+            "do i",
+            "do we",
+            "does",
+            "\u5982\u4f55",
+            "\u600e\u4e48",
+            "\u600e\u6837",
+            "\u662f\u5426",
+            "\u80fd\u4e0d\u80fd",
+            "\u53ef\u4ee5\u5417",
+            "\u4e3a\u4ec0\u4e48",
+            "\u662f\u4ec0\u4e48",
+        ]
+        return any(marker in lowered for marker in question_markers)
 
     @staticmethod
     def _build_event(
@@ -1008,29 +1129,36 @@ class DMGraphRunner:
         if not normalized:
             return False
         lowered = normalized.casefold()
-        if "?" in normalized or "\uff1f" in normalized:
-            return True
         markers = [
-            "how",
-            "what",
-            "when",
-            "can i",
-            "can we",
-            "does",
-            "do i",
-            "do we",
-            "\u5982\u4f55",
-            "\u600e\u4e48",
-            "\u600e\u6837",
-            "\u662f\u5426",
-            "\u80fd\u4e0d\u80fd",
-            "\u53ef\u4ee5\u5417",
             "\u89c4\u5219",
             "\u5224\u5b9a",
             "\u89e3\u91ca",
             "\u8bf4\u660e",
+            "rule",
+            "rules",
+            "ruling",
         ]
-        return any(marker in lowered for marker in markers)
+        if any(marker in lowered for marker in markers):
+            return True
+
+        has_question_shape = "?" in normalized or "\uff1f" in normalized
+        if not has_question_shape:
+            return False
+
+        rule_markers = [
+            *RULE_TRIGGER_TERMS,
+            "rule",
+            "rules",
+            "ruling",
+            "\u89c4\u5219",
+            "\u89e3\u91ca",
+            "\u5224\u5b9a",
+            "\u6cd5\u672f",
+            "\u4e13\u6ce8",
+            "\u8c41\u514d",
+            "\u68c0\u5b9a",
+        ]
+        return any(str(marker or "").casefold() in lowered for marker in rule_markers if str(marker or "").strip())
 
     def _classify_rule_intent(self, state: GameState, user_input: str) -> Dict[str, Any]:
         normalized_input = " ".join((user_input or "").split()).strip()
@@ -1097,6 +1225,64 @@ class DMGraphRunner:
             "matched_spells": matched_spells,
         }
 
+    def _classify_turn_profile(self, state: GameState, user_input: str, phase: str) -> Dict[str, Any]:
+        normalized_input = " ".join((user_input or "").split()).strip()
+        phase_name = str(phase or "").strip().lower() or self._derive_phase(state)
+        base_tools = self._allowed_tool_names(state, phase=phase_name)
+        default_guidance = self._turn_profile_policy("action_resolution").get("guidance", "")
+
+        if phase_name in {"party_creation", "character_creation", "adventure_selection", "level_up"}:
+            profile_name = "setup_guidance"
+            reason = f"phase {phase_name} is setup-heavy and benefits from short decision-oriented replies"
+        elif not normalized_input and phase_name == "combat":
+            profile_name = "combat_resolution"
+            reason = "empty input during an active encounter should still preserve combat-focused tool access"
+        elif not normalized_input:
+            profile_name = "conversation"
+            reason = "empty or whitespace-only player input"
+        else:
+            rule_intent = self._classify_rule_intent(state, normalized_input)
+            lowered = normalized_input.casefold()
+            question_shape = self._looks_like_question(normalized_input)
+            action_markers = [
+                marker
+                for marker in ACTION_RESOLUTION_TERMS
+                if str(marker or "").strip() and str(marker).casefold() in lowered
+            ]
+            if phase_name == "combat" and action_markers and not question_shape:
+                profile_name = "combat_resolution"
+                reason = "active encounter action should resolve directly instead of detouring into a rules-only turn"
+            elif rule_intent.get("should_retrieve") and action_markers and not question_shape:
+                profile_name = "action_resolution"
+                reason = "the turn references rules-sensitive mechanics, but the player is attempting a concrete action"
+            elif phase_name == "combat" and not rule_intent.get("should_retrieve"):
+                profile_name = "combat_resolution"
+                reason = "active encounter turn should stay focused on concrete combat resolution"
+            elif rule_intent.get("should_retrieve"):
+                profile_name = "rules_reference"
+                reason = str(rule_intent.get("reason", "rules-sensitive question or resolution"))
+            elif phase_name == "combat":
+                profile_name = "combat_resolution"
+                reason = "active encounter turn should stay focused on concrete combat resolution"
+            elif action_markers:
+                profile_name = "action_resolution"
+                reason = "player attempted an action that likely needs adjudication or tracked consequences"
+            elif question_shape:
+                profile_name = "conversation"
+                reason = "player asked an in-world or social question without obvious rules load"
+            else:
+                profile_name = "conversation"
+                reason = "player input reads like low-friction narrative conversation"
+
+        policy = self._turn_profile_policy(profile_name)
+        return {
+            "turn_profile": profile_name,
+            "turn_profile_reason": reason,
+            "turn_guidance": str(policy.get("guidance") or default_guidance),
+            "tool_round_limit": int(policy.get("tool_round_limit") or self.max_tool_rounds),
+            "allowed_tools": self._profile_allowed_tools(base_tools, profile_name),
+        }
+
     def _build_intent_rag_queries(
         self,
         state: GameState,
@@ -1156,8 +1342,10 @@ class DMGraphRunner:
 
     def _route_phase(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
+        user_input = str(graph_state.get("user_input", ""))
         state_delta = dict(graph_state.get("state_delta", {}))
         phase, scene, notes, patch, policy = self._normalize_phase_state(state)
+        turn_profile = self._classify_turn_profile(state, user_input, phase)
         if patch:
             state_delta = merge_patch(state_delta, patch)
         return {
@@ -1167,7 +1355,11 @@ class DMGraphRunner:
             "phase_objective": str(policy.get("objective", "")),
             "phase_constraints": list(policy.get("constraints", [])),
             "phase_blockers": self._phase_blockers(state, phase),
-            "allowed_tools": self._allowed_tool_names(state, phase=phase),
+            "turn_profile": turn_profile["turn_profile"],
+            "turn_profile_reason": turn_profile["turn_profile_reason"],
+            "turn_guidance": turn_profile["turn_guidance"],
+            "tool_round_limit": turn_profile["tool_round_limit"],
+            "allowed_tools": list(turn_profile["allowed_tools"]),
             "state_delta": state_delta,
             "validation_notes": notes,
         }
@@ -1186,6 +1378,10 @@ class DMGraphRunner:
             phase_objective=graph_state.get("phase_objective", ""),
             phase_constraints=list(graph_state.get("phase_constraints", [])),
             phase_blockers=list(graph_state.get("phase_blockers", [])),
+            turn_profile=graph_state.get("turn_profile", ""),
+            turn_profile_reason=graph_state.get("turn_profile_reason", ""),
+            turn_guidance=graph_state.get("turn_guidance", ""),
+            tool_round_limit=int(graph_state.get("tool_round_limit", 0) or 0),
         )
         return {
             "state_summary": state_summary,
@@ -1355,7 +1551,8 @@ class DMGraphRunner:
 
     def _should_continue_after_model(self, graph_state: DMGraphState) -> str:
         tool_calls = self._last_message_tool_calls(list(graph_state.get("messages", [])))
-        if tool_calls and graph_state.get("tool_call_rounds", 0) < self.max_tool_rounds:
+        tool_round_limit = int(graph_state.get("tool_round_limit", 0) or self.max_tool_rounds)
+        if tool_calls and graph_state.get("tool_call_rounds", 0) < tool_round_limit:
             return "execute_tools"
         return "finalize_turn"
 
@@ -1588,6 +1785,7 @@ class DMGraphRunner:
         if phase_patch:
             state_delta = merge_patch(state_delta, phase_patch)
             validation_notes.extend(phase_notes)
+        turn_profile = self._classify_turn_profile(state, graph_state.get("user_input", ""), phase)
 
         validation_message = self._build_validation_message(validation_notes)
         if validation_message is not None:
@@ -1603,7 +1801,11 @@ class DMGraphRunner:
             "phase_objective": str(policy.get("objective", "")),
             "phase_constraints": list(policy.get("constraints", [])),
             "phase_blockers": self._phase_blockers(state, phase),
-            "allowed_tools": self._allowed_tool_names(state, phase=phase),
+            "turn_profile": turn_profile["turn_profile"],
+            "turn_profile_reason": turn_profile["turn_profile_reason"],
+            "turn_guidance": turn_profile["turn_guidance"],
+            "tool_round_limit": turn_profile["tool_round_limit"],
+            "allowed_tools": list(turn_profile["allowed_tools"]),
             "validation_notes": validation_notes,
         }
 

@@ -72,6 +72,10 @@ def build_dm_instruction(
     phase_objective: str = "",
     phase_constraints: list[str] | None = None,
     phase_blockers: list[str] | None = None,
+    turn_profile: str = "",
+    turn_profile_reason: str = "",
+    turn_guidance: str = "",
+    tool_round_limit: int = 0,
 ) -> str:
     rag_status = (
         "Rules retrieval is available. Use `lookup_rules` before citing detailed rules or niche monster lore."
@@ -97,6 +101,13 @@ Current workflow phase:
 - Constraints: {' | '.join(phase_constraints) if phase_constraints else 'None beyond the core rules and tool protocol.'}
 - Open blockers: {' | '.join(phase_blockers) if phase_blockers else 'None.'}
 """.strip()
+    turn_block = f"""
+Current turn profile:
+- Profile: {turn_profile or "default"}
+- Why: {turn_profile_reason or "No special turn-shaping heuristic matched."}
+- Guidance: {turn_guidance or "Keep the turn natural and only use tools when they materially improve correctness."}
+- Tool round budget: {tool_round_limit if tool_round_limit > 0 else "default"}
+""".strip()
     return f"""
 {CORE_DM_MANDATE}
 
@@ -110,6 +121,8 @@ Knowledge base status:
 {retrieved_block}
 
 {phase_block}
+
+{turn_block}
 
 Current game state:
 {state_summary}

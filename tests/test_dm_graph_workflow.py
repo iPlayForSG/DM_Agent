@@ -137,6 +137,57 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertNotIn("start_encounter", routed["allowed_tools"])
         self.assertNotIn("attack_target", routed["allowed_tools"])
 
+    def test_social_question_stays_conversational(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        routed = self.runner._route_phase(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "user_input": "What does the innkeeper know about the mine?",
+                "state_delta": {},
+            }
+        )
+
+        self.assertEqual(routed["turn_profile"], "conversation")
+        self.assertEqual(routed["tool_round_limit"], 1)
+        self.assertNotIn("roll_skill_check", routed["allowed_tools"])
+        self.assertNotIn("cast_spell", routed["allowed_tools"])
+        self.assertEqual(
+            self.runner._classify_rule_intent(state, "What does the innkeeper know about the mine?")["intent"],
+            "none",
+        )
+
+    def test_rules_question_uses_lookup_only_profile(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        routed = self.runner._route_phase(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "user_input": "How does concentration work?",
+                "state_delta": {},
+            }
+        )
+
+        self.assertEqual(routed["turn_profile"], "rules_reference")
+        self.assertEqual(routed["allowed_tools"], ["lookup_rules"])
+        self.assertEqual(routed["tool_round_limit"], 1)
+
+    def test_combat_action_uses_combat_resolution_profile(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+
+        routed = self.runner._route_phase(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "user_input": "I attack the goblin with my sword.",
+                "state_delta": {},
+            }
+        )
+
+        self.assertEqual(routed["phase"], "combat")
+        self.assertEqual(routed["turn_profile"], "combat_resolution")
+        self.assertIn("attack_target", routed["allowed_tools"])
+        self.assertEqual(routed["tool_round_limit"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()
