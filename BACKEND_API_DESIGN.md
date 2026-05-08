@@ -599,3 +599,26 @@ LangGraph 节点负责：
 - 当前限制：
   - 现在的 checkpointer 仍然是进程内内存实现，只保证同一次后端进程生命周期内可恢复。
   - 如果服务重启，后端会清掉失效的 `pending_turn`，并退回普通新回合执行，而不是跨重启恢复到原 checkpoint。
+
+## 2026-05-08 Durable Checkpoint Update
+
+- 默认 checkpoint 后端已经从纯 `InMemorySaver` 提升为本地 SQLite。
+  - 依赖：`langgraph-checkpoint-sqlite`
+  - 默认路径：`backend/Game/langgraph_checkpoints.sqlite`
+  - 可通过 `LANGGRAPH_CHECKPOINT_MODE` 与 `LANGGRAPH_CHECKPOINT_DB_PATH` 配置
+- `LANGGRAPH_CHECKPOINT_MODE` 当前支持：
+  - `sqlite`：默认值，优先使用 SQLite 持久化 checkpoint
+  - `memory`：只用于测试或临时调试
+  - `none`：禁用 checkpoint
+- 如果本机缺少 SQLite checkpointer 依赖，或 SQLite 初始化失败：
+  - 运行时会自动降级到 `memory`
+  - 同时在健康检查与配置接口中暴露 `checkpoint_warning`
+- `GET /api/v1/health` 和 `GET /api/v1/config` 现在都会返回：
+  - `checkpoint_backend`
+  - `checkpoint_db_path`
+  - `checkpoint_warning`
+- `/turns` 的 pause/resume 语义保持不变，但现在在同一 checkpoint 库存在时，已经支持跨 `DMGraphRunner` 实例恢复，不再局限于同一 Python 进程内存对象。
+- 当前仍未完成的部分：
+  - 还没有做 SSE turn lifecycle
+  - 还没有做 trace logging / replay eval
+  - 还没有升级到 Postgres 级别的生产持久化

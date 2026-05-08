@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import sqlite3
 from uuid import uuid4
 from typing import Any, Dict, List, Optional, TypedDict
 
@@ -24,11 +25,17 @@ except ImportError:
     END = None
     HumanMessage = None
     InMemorySaver = None
+    SqliteSaver = None
     START = None
     StateGraph = None
     SystemMessage = None
     ToolMessage = None
     interrupt = None
+
+try:
+    from langgraph.checkpoint.sqlite import SqliteSaver
+except ImportError:
+    SqliteSaver = None
 
 
 LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
@@ -730,6 +737,8 @@ class DMGraphRunner:
         base_url: str = "",
         enable_model: bool = False,
         max_tool_rounds: int = 6,
+        checkpoint_mode: str = "",
+        checkpoint_db_path: str = "",
     ):
         self.rag_engine = rag_engine
         self.tool_service = tool_service
@@ -741,7 +750,13 @@ class DMGraphRunner:
         self.library = Library()
         self._graph = None
         self._model = None
-        self._checkpointer = InMemorySaver() if InMemorySaver is not None else None
+        self._checkpoint_conn: Optional[sqlite3.Connection] = None
+        self._checkpoint_mode = checkpoint_mode
+        self._checkpoint_db_path_override = checkpoint_db_path
+        self.checkpoint_backend = "none"
+        self.checkpoint_db_path = ""
+        self.checkpoint_warning = ""
+        self._checkpointer = self._create_checkpointer()
 
     @property
     def is_available(self) -> bool:
@@ -752,6 +767,81 @@ class DMGraphRunner:
             raise LangGraphUnavailableError(
                 "LangGraph is not installed. Install backend requirements before enabling the LangGraph runner."
             )
+
+    @staticmethod
+    def _default_checkpoint_db_path() -> str:
+        return os.path.join(os.path.dirname(__file__), "Game", "langgraph_checkpoints.sqlite")
+
+    def _resolved_checkpoint_mode(self) -> str:
+        mode = self._checkpoint_mode or os.getenv("LANGGRAPH_CHECKPOINT_MODE", "sqlite")
+        normalized = str(mode or "").strip().lower()
+        if normalized in {"", "default"}:
+            return "sqlite"
+        if normalized in {"off", "none", "disabled"}:
+            return "none"
+        if normalized in {"memory", "sqlite"}:
+            return normalized
+        return "sqlite"
+
+    def _resolved_checkpoint_db_path(self) -> str:
+        configured = self._checkpoint_db_path_override or os.getenv("LANGGRAPH_CHECKPOINT_DB_PATH", "")
+        path = str(configured or "").strip()
+        if not path:
+            path = self._default_checkpoint_db_path()
+        if not os.path.isabs(path):
+            path = os.path.join(os.path.dirname(__file__), path)
+        return os.path.normpath(path)
+
+    def _fallback_memory_checkpointer(self, warning: str = ""):
+        self.checkpoint_warning = warning
+        if InMemorySaver is None:
+            self.checkpoint_backend = "none"
+            return None
+        self.checkpoint_backend = "memory"
+        self.checkpoint_db_path = ""
+        return InMemorySaver()
+
+    def _create_checkpointer(self):
+        mode = self._resolved_checkpoint_mode()
+        if mode == "none":
+            self.checkpoint_backend = "none"
+            self.checkpoint_db_path = ""
+            return None
+        if mode == "memory":
+            return self._fallback_memory_checkpointer()
+
+        if SqliteSaver is None:
+            return self._fallback_memory_checkpointer(
+                "langgraph-checkpoint-sqlite is not installed; falling back to in-memory checkpoints."
+            )
+
+        db_path = self._resolved_checkpoint_db_path()
+        try:
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            self._checkpoint_conn = sqlite3.connect(db_path, check_same_thread=False)
+            saver = SqliteSaver(self._checkpoint_conn)
+            saver.setup()
+            self.checkpoint_backend = "sqlite"
+            self.checkpoint_db_path = db_path
+            self.checkpoint_warning = ""
+            return saver
+        except Exception as exc:
+            if self._checkpoint_conn is not None:
+                try:
+                    self._checkpoint_conn.close()
+                except Exception:
+                    pass
+                self._checkpoint_conn = None
+            return self._fallback_memory_checkpointer(
+                f"SQLite checkpointer initialization failed ({exc}); falling back to in-memory checkpoints."
+            )
+
+    def close(self) -> None:
+        if self._checkpoint_conn is not None:
+            try:
+                self._checkpoint_conn.close()
+            finally:
+                self._checkpoint_conn = None
 
     def _create_model(self):
         if self._model is not None:

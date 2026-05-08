@@ -98,3 +98,13 @@ RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库
 - 在此基础上，运行时还会生成极短的 `turn_advice`，给模型一个本回合的建议工具顺序和执行预期。
 - `validate_state` 会在工具执行后再次校正 phase 与 scene，减少状态漂移。
 - 新增 `tests/test_dm_graph_workflow.py`，用于回归这些工作流约束。
+
+### 2026-05-08 持久化补充
+
+- LangGraph checkpoint 默认已切到本地 SQLite，而不是只放在内存里。
+- 默认文件位置是 `backend/Game/langgraph_checkpoints.sqlite`，可通过 `.env` 里的：
+  - `LANGGRAPH_CHECKPOINT_MODE`
+  - `LANGGRAPH_CHECKPOINT_DB_PATH`
+  调整。
+- `/api/v1/health` 和 `/api/v1/config` 现在会返回当前 checkpoint backend、db 路径和 warning。
+- 当某个回合进入 `input_required` 暂停后，只要同一个 SQLite checkpoint 文件还在，就可以由新的 runner 实例继续恢复执行。

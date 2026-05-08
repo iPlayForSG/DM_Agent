@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -7,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
 os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
+os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
@@ -219,6 +221,44 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIsNone(resumed.game_state.pending_turn)
         self.assertEqual(resumed.game_state.turn_number, 1)
         self.assertIn("LangGraph turn workflow is prepared", resumed.response)
+
+    def test_sqlite_checkpoint_survives_new_runner_instance(self) -> None:
+        if not self.runner.is_available:
+            self.skipTest("LangGraph is unavailable in this runtime.")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_path = os.path.join(tmpdir, "checkpoints.sqlite")
+            runner_a = DMGraphRunner(
+                rag_engine=DummyRAGEngine(),
+                tool_service=object(),
+                enable_model=False,
+                checkpoint_mode="sqlite",
+                checkpoint_db_path=checkpoint_path,
+            )
+            try:
+                state = self._build_state(with_selected_adventure=True)
+                paused = runner_a.run_turn(state, "")
+            finally:
+                runner_a.close()
+
+            self.assertEqual(paused.turn_status, "input_required")
+            self.assertTrue(os.path.exists(checkpoint_path))
+
+            runner_b = DMGraphRunner(
+                rag_engine=DummyRAGEngine(),
+                tool_service=object(),
+                enable_model=False,
+                checkpoint_mode="sqlite",
+                checkpoint_db_path=checkpoint_path,
+            )
+            try:
+                resumed = runner_b.resume_turn(paused.game_state, "I search the altar for clues.")
+            finally:
+                runner_b.close()
+
+            self.assertEqual(resumed.turn_status, "completed")
+            self.assertIsNone(resumed.game_state.pending_turn)
+            self.assertEqual(resumed.game_state.turn_number, 1)
+            self.assertEqual(runner_b.checkpoint_backend, "sqlite")
 
 
 if __name__ == "__main__":

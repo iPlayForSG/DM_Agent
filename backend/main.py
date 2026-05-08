@@ -35,6 +35,11 @@ rule_catalog = RuleCatalog()
 action_service = GameActionService()
 
 
+@app.on_event("shutdown")
+def shutdown_event():
+    agent.close()
+
+
 # Request payloads stay intentionally thin and map 1:1 to frontend form state.
 class ChatRequest(BaseModel):
     message: str
@@ -135,6 +140,10 @@ def health_payload():
         "status": "ok",
         "rag_enabled": agent.rag_engine.is_ready(),
         "rag_status": agent.rag_engine.status_payload(),
+        "chat_backend": agent.backend_name,
+        "checkpoint_backend": agent.checkpoint_backend,
+        "checkpoint_db_path": agent.checkpoint_db_path,
+        "checkpoint_warning": agent.checkpoint_warning,
     }
 
 
@@ -452,6 +461,9 @@ async def get_config():
         "rag_enabled": agent.rag_engine.is_ready(),
         "rag_status": agent.rag_engine.status_payload(),
         "chat_backend": agent.backend_name,
+        "checkpoint_backend": agent.checkpoint_backend,
+        "checkpoint_db_path": agent.checkpoint_db_path,
+        "checkpoint_warning": agent.checkpoint_warning,
         "model_provider": "openai-compatible",
     }
 

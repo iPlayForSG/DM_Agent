@@ -52,6 +52,21 @@ class DMAgent:
     def backend_name(self) -> str:
         return "langgraph" if self.dm_graph_runner.is_available else "langgraph-unavailable"
 
+    @property
+    def checkpoint_backend(self) -> str:
+        return self.dm_graph_runner.checkpoint_backend
+
+    @property
+    def checkpoint_db_path(self) -> str:
+        return self.dm_graph_runner.checkpoint_db_path
+
+    @property
+    def checkpoint_warning(self) -> str:
+        return self.dm_graph_runner.checkpoint_warning
+
+    def close(self) -> None:
+        self.dm_graph_runner.close()
+
     def create_new_game(
         self, characters: List[Character], game_id: str = "", title: str = ""
     ) -> GameState:

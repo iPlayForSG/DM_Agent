@@ -3,6 +3,7 @@ uvicorn
 langchain
 langchain-openai
 langgraph
+langgraph-checkpoint-sqlite
 python-dotenv
 pydantic
 chromadb
