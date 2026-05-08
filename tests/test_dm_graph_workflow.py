@@ -208,6 +208,9 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIsNotNone(result.game_state.pending_turn)
         self.assertEqual(result.game_state.pending_turn.details.get("reason"), "empty_input")
         self.assertEqual(len(result.timeline_append), 1)
+        self.assertIsNotNone(result.turn_trace)
+        self.assertEqual(result.turn_trace.turn_status, "input_required")
+        self.assertEqual(len(result.game_state.turn_traces), 1)
 
     def test_resume_turn_completes_after_pending_input(self) -> None:
         if not self.runner.is_available:
@@ -221,6 +224,9 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIsNone(resumed.game_state.pending_turn)
         self.assertEqual(resumed.game_state.turn_number, 1)
         self.assertIn("LangGraph turn workflow is prepared", resumed.response)
+        self.assertIsNotNone(resumed.turn_trace)
+        self.assertEqual(resumed.turn_trace.mode, "resume")
+        self.assertEqual(len(resumed.game_state.turn_traces), 2)
 
     def test_sqlite_checkpoint_survives_new_runner_instance(self) -> None:
         if not self.runner.is_available:
@@ -259,6 +265,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
             self.assertIsNone(resumed.game_state.pending_turn)
             self.assertEqual(resumed.game_state.turn_number, 1)
             self.assertEqual(runner_b.checkpoint_backend, "sqlite")
+            self.assertEqual(len(resumed.game_state.turn_traces), 2)
 
 
 if __name__ == "__main__":

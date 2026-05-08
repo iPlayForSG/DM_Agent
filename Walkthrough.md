@@ -837,3 +837,32 @@ SQLite checkpoint 打通后，下一步已经继续推进到了最小 SSE 生命
 1. trace logging
 2. chapter replay eval
 3. 极小 typed intent
+
+## 15. 2026-05-08 Turn Trace Logging Step
+
+SSE 生命周期补完后，下一步已经开始把回合轨迹落盘为轻量 trace：
+
+- `backend/models.py`
+  - `GameState` 新增 `turn_traces`
+  - `TurnResult` 新增 `turn_trace`
+- `backend/dm_graph.py`
+  - 不论本回合最终是 `completed` 还是 `input_required`，都会在 `result_to_turn_result` 阶段生成一条摘要 trace
+  - trace 当前会记录：phase、scene、turn_profile、suggested/allowed tools、tool_results、rag_metadata、validation_notes、state_delta、response 等关键字段
+  - 当前只保留最近 50 条，避免把存档无限撑大
+- `backend/main.py`
+  - 新增 `GET /api/v1/games/{game_id}/traces`
+  - 便于后续 replay eval 与人工审计，不需要直接翻 `Game/*.json`
+- 测试层
+  - 已补 trace 追加与查询接口回归
+
+这一步的定位仍然很克制：
+
+- 不是 LangSmith 级别全链路 tracing
+- 不是每个节点一步一条原始 span
+- 只是把“足以回放和查错的关键信息”固定下来
+
+下一步优先级继续收敛为：
+
+1. chapter replay eval
+2. 极小 typed intent
+3. 如果 trace 量级可接受，再考虑工具级细粒度事件

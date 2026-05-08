@@ -508,10 +508,43 @@ class PendingTurnState(BaseModel):
         }
 
 
+class TurnTrace(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    trace_id: str = ""
+    turn_number: int = 0
+    turn_status: str = "completed"
+    mode: str = "start"
+    thread_id: str = ""
+    phase: str = ""
+    scene: str = ""
+    turn_profile: str = ""
+    tool_round_limit: int = 0
+    user_input: str = ""
+    response: str = ""
+    input_warnings: List[str] = Field(default_factory=list)
+    pending_input: Dict[str, Any] = Field(default_factory=dict)
+    suggested_tools: List[str] = Field(default_factory=list)
+    allowed_tools: List[str] = Field(default_factory=list)
+    validation_notes: List[str] = Field(default_factory=list)
+    tool_results: List[ToolResult] = Field(default_factory=list)
+    rag_metadata: Dict[str, Any] = Field(default_factory=dict)
+    state_delta: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        data["trace_id"] = data.get("trace_id") or random_id("trace")
+        return data
+
+
 class GameState(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    schema_version: int = 3
+    schema_version: int = 4
     game_id: str = ""
     title: str = ""
     created_at: Optional[str] = None
@@ -528,6 +561,7 @@ class GameState(BaseModel):
     chat_history: List[ChatMessage] = Field(default_factory=list)
     timeline: List[SessionEvent] = Field(default_factory=list)
     latest_tool_results: List[ToolResult] = Field(default_factory=list)
+    turn_traces: List[TurnTrace] = Field(default_factory=list)
     encounter: Optional[EncounterState] = None
     campaign: CampaignFlowState = Field(default_factory=CampaignFlowState)
     pending_turn: Optional[PendingTurnState] = None
@@ -580,9 +614,14 @@ class GameState(BaseModel):
         data.setdefault("chat_history", [])
         data.setdefault("timeline", [])
         data.setdefault("latest_tool_results", [])
+        data.setdefault("turn_traces", [])
         data["pending_turn"] = (
             PendingTurnState.model_validate(data["pending_turn"]) if data.get("pending_turn") else None
         )
+        data["turn_traces"] = [
+            item if isinstance(item, TurnTrace) else TurnTrace.model_validate(item)
+            for item in data.get("turn_traces", [])
+        ]
         data["evidence_records"] = [
             item if isinstance(item, EvidenceRecord) else EvidenceRecord.model_validate(item)
             for item in data.get("evidence_records", [])
@@ -593,7 +632,7 @@ class GameState(BaseModel):
         ]
         data["encounter"] = EncounterState.model_validate(data["encounter"]) if data.get("encounter") else None
         data["campaign"] = CampaignFlowState.model_validate(data["campaign"]) if data.get("campaign") else CampaignFlowState()
-        data.setdefault("schema_version", 3)
+        data.setdefault("schema_version", 4)
         return data
 
     def get_active_char(self) -> Optional[Character]:
@@ -618,6 +657,7 @@ class TurnResult(BaseModel):
     response: str
     turn_status: str = "completed"
     pending_input: Dict[str, Any] = Field(default_factory=dict)
+    turn_trace: Optional[TurnTrace] = None
     history: List[ChatMessage] = Field(default_factory=list)
     history_append: List[ChatMessage] = Field(default_factory=list)
     timeline: List[SessionEvent] = Field(default_factory=list)

@@ -118,3 +118,9 @@ RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库
   - `turn.saved`
   - `turn.finished`
 - 现有 `POST /api/v1/games/{game_id}/turns` 不受影响，仍然返回完整 `TurnResult`
+
+### 2026-05-08 回合 Trace
+
+- 后端现在会把每次 `completed` 或 `input_required` 回合写成一条轻量 trace
+- `TurnResult` 会直接附带本回合 `turn_trace`
+- 也可以通过 `GET /api/v1/games/{game_id}/traces?limit=20` 查询最近回合轨迹

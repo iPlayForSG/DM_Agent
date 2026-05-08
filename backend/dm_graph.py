@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
 from game_logic import GameLogic
 from library import Library
-from models import ChatMessage, GameState, PendingTurnState, SessionEvent, ToolResult, TurnResult
+from models import ChatMessage, GameState, PendingTurnState, SessionEvent, ToolResult, TurnResult, TurnTrace
 from prompts import build_dm_instruction
 
 try:
@@ -2305,6 +2305,63 @@ class DMGraphRunner:
             original_input=original_input,
         )
 
+    @staticmethod
+    def _trace_turn_number(updated_state: GameState, turn_status: str) -> int:
+        base = int(updated_state.turn_number or 0)
+        if turn_status == "input_required":
+            return base + 1
+        return base
+
+    def _build_turn_trace(
+        self,
+        result_payload: Dict[str, Any],
+        updated_state: GameState,
+        fallback_state: GameState,
+        user_input: str,
+        thread_id: str,
+        turn_status: str,
+        response: str,
+        pending_input: Dict[str, Any],
+        tool_results: List[ToolResult],
+    ) -> TurnTrace:
+        mode = "resume" if fallback_state.pending_turn else "start"
+        return TurnTrace(
+            turn_number=self._trace_turn_number(updated_state, turn_status),
+            turn_status=turn_status,
+            mode=mode,
+            thread_id=thread_id,
+            phase=str(result_payload.get("phase") or updated_state.campaign.phase or ""),
+            scene=str(result_payload.get("scene") or updated_state.scene or ""),
+            turn_profile=str(result_payload.get("turn_profile") or ""),
+            tool_round_limit=int(result_payload.get("tool_round_limit", 0) or 0),
+            user_input=str(user_input or ""),
+            response=str(response or ""),
+            input_warnings=list(result_payload.get("input_warnings", [])),
+            pending_input=dict(pending_input or {}),
+            suggested_tools=list(result_payload.get("suggested_tools", [])),
+            allowed_tools=list(result_payload.get("allowed_tools", [])),
+            validation_notes=list(result_payload.get("validation_notes", [])),
+            tool_results=tool_results,
+            rag_metadata=dict(result_payload.get("rag_metadata", {})),
+            state_delta=dict(result_payload.get("state_delta", {})),
+        )
+
+    @staticmethod
+    def _append_turn_trace(state: GameState, trace: TurnTrace) -> None:
+        state.turn_traces.append(trace)
+        state.turn_traces = state.turn_traces[-50:]
+
+    @staticmethod
+    def _merge_trace_history(updated_state: GameState, fallback_state: GameState) -> None:
+        if not fallback_state.turn_traces:
+            return
+        existing_ids = {trace.trace_id for trace in updated_state.turn_traces}
+        merged = list(updated_state.turn_traces)
+        for trace in fallback_state.turn_traces:
+            if trace.trace_id not in existing_ids:
+                merged.append(trace)
+        updated_state.turn_traces = merged[-50:]
+
     def _result_to_turn_result(self, result: Any, fallback_state: GameState, user_input: str, thread_id: str) -> TurnResult:
         result_payload = result if isinstance(result, dict) else getattr(result, "value", {})
         if not isinstance(result_payload, dict):
@@ -2312,6 +2369,7 @@ class DMGraphRunner:
 
         interrupt_values = self._interrupt_values(result)
         updated_state = GameState.model_validate(result_payload.get("game_state", fallback_state.model_dump(mode="json")))
+        self._merge_trace_history(updated_state, fallback_state)
         history_append = [
             item if isinstance(item, ChatMessage) else ChatMessage.model_validate(item)
             for item in result_payload.get("history_append", [])
@@ -2329,10 +2387,23 @@ class DMGraphRunner:
             pending_turn = self._pending_turn_from_interrupt(thread_id, interrupt_values[0], user_input)
             updated_state.pending_turn = pending_turn
             prompt = pending_turn.prompt or "需要更多输入后才能继续当前回合。"
+            trace = self._build_turn_trace(
+                result_payload=result_payload,
+                updated_state=updated_state,
+                fallback_state=fallback_state,
+                user_input=user_input,
+                thread_id=thread_id,
+                turn_status="input_required",
+                response=prompt,
+                pending_input=pending_turn.to_client_payload(),
+                tool_results=tool_results,
+            )
+            self._append_turn_trace(updated_state, trace)
             return TurnResult(
                 response=prompt,
                 turn_status="input_required",
                 pending_input=pending_turn.to_client_payload(),
+                turn_trace=trace,
                 history=updated_state.chat_history,
                 history_append=[],
                 timeline=updated_state.timeline,
@@ -2345,10 +2416,23 @@ class DMGraphRunner:
             )
 
         updated_state.pending_turn = None
+        trace = self._build_turn_trace(
+            result_payload=result_payload,
+            updated_state=updated_state,
+            fallback_state=fallback_state,
+            user_input=user_input,
+            thread_id=thread_id,
+            turn_status=str(result_payload.get("turn_status") or "completed"),
+            response=str(result_payload.get("final_response", "")),
+            pending_input=dict(result_payload.get("pending_input", {})),
+            tool_results=tool_results,
+        )
+        self._append_turn_trace(updated_state, trace)
         return TurnResult(
             response=result_payload.get("final_response", ""),
             turn_status=str(result_payload.get("turn_status") or "completed"),
             pending_input=dict(result_payload.get("pending_input", {})),
+            turn_trace=trace,
             history=updated_state.chat_history,
             history_append=history_append,
             timeline=updated_state.timeline,

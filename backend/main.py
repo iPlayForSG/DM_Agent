@@ -860,6 +860,19 @@ def _load_game_or_404(game_id: str) -> GameState:
     return state
 
 
+@app.get("/api/v1/games/{game_id}/traces")
+async def get_game_turn_traces(game_id: str, limit: int = 20):
+    state = _load_game_or_404(game_id)
+    normalized_limit = max(1, min(int(limit or 20), 100))
+    traces = [trace.model_dump(mode="json") for trace in state.turn_traces[-normalized_limit:]]
+    return {
+        "game_id": game_id,
+        "trace_count": len(state.turn_traces),
+        "limit": normalized_limit,
+        "traces": traces,
+    }
+
+
 # Deterministic local action routes complement the freer LangGraph text turns.
 @app.post("/api/v1/games/{game_id}/actions/advance-turn")
 async def advance_turn_action(game_id: str):

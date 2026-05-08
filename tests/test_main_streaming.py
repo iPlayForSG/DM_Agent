@@ -14,7 +14,7 @@ os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
 
 import main as api_main
-from models import GameState, PendingTurnState, TurnResult
+from models import GameState, PendingTurnState, TurnResult, TurnTrace
 
 
 class FakeStorage:
@@ -138,6 +138,29 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(fake_agent.run_calls, 0)
         self.assertEqual(fake_agent.resume_calls, 1)
         self.assertEqual(fake_storage.saved_game_id, "resume-test")
+
+    def test_trace_endpoint_returns_recent_traces(self) -> None:
+        state = GameState(game_id="trace-test", title="Trace Test")
+        state.turn_traces = [
+            TurnTrace(turn_number=1, turn_status="completed", phase="exploration", response="First"),
+            TurnTrace(turn_number=2, turn_status="input_required", phase="combat", response="Need target"),
+            TurnTrace(turn_number=3, turn_status="completed", phase="combat", response="Resolved"),
+        ]
+        fake_storage = FakeStorage(state)
+        fake_agent = FakeAgent(TurnResult(response="unused", game_state=state.model_copy(deep=True)))
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.get("/api/v1/games/trace-test/traces?limit=2")
+
+        self.assertEqual(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEqual(payload["game_id"], "trace-test")
+        self.assertEqual(payload["trace_count"], 3)
+        self.assertEqual(payload["limit"], 2)
+        self.assertEqual(len(payload["traces"]), 2)
+        self.assertEqual(payload["traces"][0]["turn_number"], 2)
+        self.assertEqual(payload["traces"][1]["turn_number"], 3)
 
 
 if __name__ == "__main__":

@@ -650,3 +650,39 @@ LangGraph 节点负责：
   - 还没有把工具调用中间态逐条流出
   - 还没有把 RAG 召回中间态逐条流出
   - 还没有做 server-side heartbeat / keepalive
+
+## 2026-05-08 Turn Trace Update
+
+- `GameState` 新增 `turn_traces`
+  - 这是轻量回合审计列表
+  - 当前只保留最近 50 条
+- `TurnResult` 新增 `turn_trace`
+  - 每次 `completed` 或 `input_required` 返回时，都会附带本次回合的单条 trace
+- 新增 `GET /api/v1/games/{game_id}/traces`
+  - 查询参数：`limit`，默认 20，最大 100
+  - 返回：
+    - `game_id`
+    - `trace_count`
+    - `limit`
+    - `traces`
+- 当前 trace 记录内容：
+  - `turn_number`
+  - `turn_status`
+  - `mode`（`start` / `resume`）
+  - `thread_id`
+  - `phase` / `scene`
+  - `turn_profile`
+  - `tool_round_limit`
+  - `user_input`
+  - `response`
+  - `input_warnings`
+  - `pending_input`
+  - `suggested_tools`
+  - `allowed_tools`
+  - `validation_notes`
+  - `tool_results`
+  - `rag_metadata`
+  - `state_delta`
+- 现阶段仍然是“每回合一条摘要 trace”
+  - 不是每个 tool round 一条
+  - 不是每个 token / 每个 prompt block 一条

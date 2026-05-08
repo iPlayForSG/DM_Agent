@@ -226,3 +226,18 @@
   - 工具调用会逐条流出
   - RAG 片段会逐条流出
   - 长连接会自动心跳保活
+
+## 2026-05-08 Trace Contract
+
+- 后端现在会在 `TurnResult` 中附带 `turn_trace`
+- 同时新增调试接口：`GET /api/v1/games/{game_id}/traces?limit=20`
+- 前端接入建议：
+  - 第一阶段不要把 `turn_traces` 直接塞进常规状态面板
+  - 先只在开发模式或调试抽屉中展示
+  - 优先显示：
+    - `turn_status`
+    - `phase`
+    - `turn_profile`
+    - `tool_results`
+    - `rag_metadata`
+    - `state_delta`
