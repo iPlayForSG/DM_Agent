@@ -70,3 +70,6 @@ class DMAgent:
 
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
         return self.dm_graph_runner.run_turn(state, user_input)
+
+    async def resume_turn(self, state: GameState, user_input: str) -> TurnResult:
+        return self.dm_graph_runner.resume_turn(state, user_input)

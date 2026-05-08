@@ -194,6 +194,32 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("attack_target", routed["allowed_tools"])
         self.assertEqual(routed["tool_round_limit"], 3)
 
+    def test_empty_turn_requests_more_input_without_advancing_turn(self) -> None:
+        if not self.runner.is_available:
+            self.skipTest("LangGraph is unavailable in this runtime.")
+        state = self._build_state(with_selected_adventure=True)
+
+        result = self.runner.run_turn(state, "")
+
+        self.assertEqual(result.turn_status, "input_required")
+        self.assertEqual(result.game_state.turn_number, 0)
+        self.assertIsNotNone(result.game_state.pending_turn)
+        self.assertEqual(result.game_state.pending_turn.details.get("reason"), "empty_input")
+        self.assertEqual(len(result.timeline_append), 1)
+
+    def test_resume_turn_completes_after_pending_input(self) -> None:
+        if not self.runner.is_available:
+            self.skipTest("LangGraph is unavailable in this runtime.")
+        state = self._build_state(with_selected_adventure=True)
+        paused = self.runner.run_turn(state, "")
+
+        resumed = self.runner.resume_turn(paused.game_state, "I check the room carefully.")
+
+        self.assertEqual(resumed.turn_status, "completed")
+        self.assertIsNone(resumed.game_state.pending_turn)
+        self.assertEqual(resumed.game_state.turn_number, 1)
+        self.assertIn("LangGraph turn workflow is prepared", resumed.response)
+
 
 if __name__ == "__main__":
     unittest.main()

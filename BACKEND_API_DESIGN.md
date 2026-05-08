@@ -582,3 +582,20 @@ LangGraph 节点负责：
   - 社交问句保持 `conversation` profile
   - 纯规则问句限制为 `lookup_rules`
   - 战斗动作保持 `combat_resolution`
+## 2026-05-08 Workflow Persistence Update
+
+- `POST /api/v1/games/{game_id}/turns` 不再只是“始终开启一个全新回合”。
+  - 如果 `game_state.pending_turn` 为空，后端会按正常流程启动一个新回合。
+  - 如果 `game_state.pending_turn` 已存在，后端会自动把这次输入当作对上一次暂停回合的补充说明，并直接恢复执行。
+- `TurnResult` 新增两个运行时字段：
+  - `turn_status`：当前取值至少包括 `completed` 和 `input_required`。
+  - `pending_input`：当 `turn_status=input_required` 时返回，包含 `kind`、`phase`、`prompt` 和 `details`，供前端直接展示补充输入提示。
+- `GameState` 新增 `pending_turn`：
+  - 用来保存当前等待补充输入的 thread 信息和提示内容。
+  - 这让前端和存档层能知道“当前不是普通对话结束，而是工作流暂停中”。
+- `backend/dm_graph.py` 现已在可用时用 `InMemorySaver` 编译 LangGraph，并在 `prepare_turn` 之后插入最小 `input_gate`。
+  - 空输入会直接触发 `input_required`。
+  - 在 `adventure_selection` 和 `combat` 阶段，过于泛化的“继续/开始/就这样”这类输入也可能触发澄清暂停。
+- 当前限制：
+  - 现在的 checkpointer 仍然是进程内内存实现，只保证同一次后端进程生命周期内可恢复。
+  - 如果服务重启，后端会清掉失效的 `pending_turn`，并退回普通新回合执行，而不是跨重启恢复到原 checkpoint。

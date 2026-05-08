@@ -748,7 +748,10 @@ async def run_turn(game_id: str, req: ChatRequest):
         raise HTTPException(status_code=404, detail="Game not found")
 
     try:
-        result = await agent.run_turn(state, req.message)
+        if state.pending_turn:
+            result = await agent.resume_turn(state, req.message)
+        else:
+            result = await agent.run_turn(state, req.message)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
 

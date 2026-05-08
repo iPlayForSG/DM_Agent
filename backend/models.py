@@ -488,6 +488,26 @@ class GameSummary(BaseModel):
     updated_at: Optional[str] = None
 
 
+class PendingTurnState(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    thread_id: str
+    kind: str = "clarification"
+    phase: str = ""
+    prompt: str = ""
+    original_input: str = ""
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+    def to_client_payload(self) -> Dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "phase": self.phase,
+            "prompt": self.prompt,
+            "original_input": self.original_input,
+            "details": dict(self.details),
+        }
+
+
 class GameState(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -510,6 +530,7 @@ class GameState(BaseModel):
     latest_tool_results: List[ToolResult] = Field(default_factory=list)
     encounter: Optional[EncounterState] = None
     campaign: CampaignFlowState = Field(default_factory=CampaignFlowState)
+    pending_turn: Optional[PendingTurnState] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -559,6 +580,9 @@ class GameState(BaseModel):
         data.setdefault("chat_history", [])
         data.setdefault("timeline", [])
         data.setdefault("latest_tool_results", [])
+        data["pending_turn"] = (
+            PendingTurnState.model_validate(data["pending_turn"]) if data.get("pending_turn") else None
+        )
         data["evidence_records"] = [
             item if isinstance(item, EvidenceRecord) else EvidenceRecord.model_validate(item)
             for item in data.get("evidence_records", [])
@@ -592,6 +616,8 @@ class GameState(BaseModel):
 class TurnResult(BaseModel):
     # This mirrors the full post-turn payload returned to the frontend.
     response: str
+    turn_status: str = "completed"
+    pending_input: Dict[str, Any] = Field(default_factory=dict)
     history: List[ChatMessage] = Field(default_factory=list)
     history_append: List[ChatMessage] = Field(default_factory=list)
     timeline: List[SessionEvent] = Field(default_factory=list)

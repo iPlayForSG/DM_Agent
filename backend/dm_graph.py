@@ -3,26 +3,32 @@
 import json
 import os
 import re
+from uuid import uuid4
 from typing import Any, Dict, List, Optional, TypedDict
 
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
 from game_logic import GameLogic
 from library import Library
-from models import ChatMessage, GameState, SessionEvent, ToolResult, TurnResult
+from models import ChatMessage, GameState, PendingTurnState, SessionEvent, ToolResult, TurnResult
 from prompts import build_dm_instruction
 
 try:
     from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
     from langchain_openai import ChatOpenAI
+    from langgraph.checkpoint.memory import InMemorySaver
     from langgraph.graph import END, START, StateGraph
+    from langgraph.types import Command, interrupt
 except ImportError:
     ChatOpenAI = None
+    Command = None
     END = None
     HumanMessage = None
+    InMemorySaver = None
     START = None
     StateGraph = None
     SystemMessage = None
     ToolMessage = None
+    interrupt = None
 
 
 LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
@@ -674,6 +680,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
 class DMGraphState(TypedDict, total=False):
     game_state: Dict[str, Any]
     user_input: str
+    thread_id: str
     phase: str
     scene: str
     phase_objective: str
@@ -699,6 +706,8 @@ class DMGraphState(TypedDict, total=False):
     allowed_tools: List[str]
     tool_round_limit: int
     tool_call_rounds: int
+    turn_status: str
+    pending_input: Dict[str, Any]
     final_response: str
     tool_results: List[Dict[str, Any]]
     state_delta: Dict[str, Any]
@@ -732,6 +741,7 @@ class DMGraphRunner:
         self.library = Library()
         self._graph = None
         self._model = None
+        self._checkpointer = InMemorySaver() if InMemorySaver is not None else None
 
     @property
     def is_available(self) -> bool:
@@ -845,6 +855,90 @@ class DMGraphRunner:
         resolved_phase = str(phase or "").strip().lower() or cls._derive_phase(state)
         policy = cls._phase_policy(resolved_phase)
         return list(policy.get("tools", []))
+
+    @staticmethod
+    def _new_thread_id(state: GameState) -> str:
+        game_id = state.game_id or "game"
+        next_turn = int(state.turn_number or 0) + 1
+        return f"{game_id}:turn:{next_turn}:{uuid4().hex}"
+
+    @staticmethod
+    def _graph_config(thread_id: str) -> Dict[str, Any]:
+        return {"configurable": {"thread_id": thread_id}}
+
+    @staticmethod
+    def _is_generic_followup(text: str) -> bool:
+        normalized = " ".join((text or "").split()).strip().lower()
+        if not normalized:
+            return True
+        generic_inputs = {
+            "continue",
+            "go on",
+            "next",
+            "ok",
+            "okay",
+            "sure",
+            "start",
+            "begin",
+            "do it",
+            "continue on",
+            "继续",
+            "继续吧",
+            "开始",
+            "下一步",
+            "下一个",
+            "就这样",
+            "那就这样",
+            "好的",
+            "好",
+            "行",
+            "嗯",
+        }
+        return normalized in generic_inputs
+
+    @classmethod
+    def _build_required_input_request(cls, state: GameState, user_input: str, phase: str) -> Optional[Dict[str, Any]]:
+        normalized_input = " ".join((user_input or "").split()).strip()
+        if not normalized_input:
+            return {
+                "kind": "clarification",
+                "phase": phase,
+                "prompt": "请明确说明你希望 DM 现在处理什么，或直接描述角色动作。",
+                "details": {"reason": "empty_input"},
+            }
+
+        if phase == "adventure_selection" and cls._is_generic_followup(normalized_input):
+            options = [
+                {"adventure_id": hook.adventure_id, "title": hook.title}
+                for hook in (state.campaign.available_adventures or [])[:4]
+            ]
+            return {
+                "kind": "choice",
+                "phase": phase,
+                "prompt": "请先明确选择本章要跑的冒险。你可以回复冒险标题，或直接说“选第 2 个”。",
+                "details": {"reason": "adventure_choice_required", "options": options},
+            }
+
+        if phase == "combat" and cls._is_generic_followup(normalized_input):
+            current = state.encounter.get_current_combatant() if state.encounter else None
+            return {
+                "kind": "clarification",
+                "phase": phase,
+                "prompt": "请明确说明这回合要执行的动作，例如攻击哪个目标、施放什么法术，或声明闪避/脱离/准备动作。",
+                "details": {
+                    "reason": "combat_action_required",
+                    "current_combatant": current.name if current else "",
+                },
+            }
+
+        return None
+
+    @staticmethod
+    def _coerce_resume_input(value: Any) -> str:
+        if isinstance(value, dict):
+            text = value.get("message") or value.get("input") or value.get("content")
+            return str(text).strip() if text else ""
+        return str(value or "").strip()
 
     @staticmethod
     def _turn_profile_policy(profile: str) -> Dict[str, Any]:
@@ -1490,6 +1584,35 @@ class DMGraphRunner:
             "input_warnings": input_warnings,
         }
 
+    def _input_gate(self, graph_state: DMGraphState) -> DMGraphState:
+        state = GameState.model_validate(graph_state["game_state"])
+        user_input = str(graph_state.get("user_input", ""))
+        state_delta = dict(graph_state.get("state_delta", {}))
+        phase, _, _, patch, _ = self._normalize_phase_state(state)
+        if patch:
+            state_delta = merge_patch(state_delta, patch)
+
+        request = self._build_required_input_request(state, user_input, phase)
+        if not request or interrupt is None:
+            return {
+                "game_state": state.model_dump(mode="json"),
+                "state_delta": state_delta,
+                "turn_status": "running",
+                "pending_input": {},
+            }
+
+        resumed_input = self._coerce_resume_input(interrupt(request))
+        if not resumed_input:
+            resumed_input = user_input
+        return {
+            "game_state": state.model_dump(mode="json"),
+            "user_input": resumed_input,
+            "state_delta": state_delta,
+            "input_warnings": self._detect_input_warnings(resumed_input),
+            "turn_status": "running",
+            "pending_input": {},
+        }
+
     def _route_phase(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = str(graph_state.get("user_input", ""))
@@ -1520,6 +1643,8 @@ class DMGraphRunner:
             "turn_checklist": list(turn_advice["turn_checklist"]),
             "tool_round_limit": turn_profile["tool_round_limit"],
             "allowed_tools": list(turn_advice["allowed_tools"]),
+            "turn_status": str(graph_state.get("turn_status") or "running"),
+            "pending_input": dict(graph_state.get("pending_input", {})),
             "state_delta": state_delta,
             "validation_notes": notes,
         }
@@ -1993,6 +2118,7 @@ class DMGraphRunner:
             for item in graph_state.get("tool_results", [])
         ]
 
+        state.pending_turn = None
         state.turn_number += 1
         state.latest_tool_results = tool_results
 
@@ -2018,6 +2144,8 @@ class DMGraphRunner:
             "history_append": [item.model_dump(mode="json") for item in history_append],
             "timeline_append": timeline_append,
             "final_response": final_response,
+            "turn_status": "completed",
+            "pending_input": {},
             "rag_metadata": dict(graph_state.get("rag_metadata", {})),
             "input_warnings": list(graph_state.get("input_warnings", [])),
         }
@@ -2026,6 +2154,7 @@ class DMGraphRunner:
         self._require_langgraph()
         builder = StateGraph(DMGraphState)
         builder.add_node("prepare_turn", self._prepare_turn)
+        builder.add_node("input_gate", self._input_gate)
         builder.add_node("route_phase", self._route_phase)
         builder.add_node("retrieve_rules", self._retrieve_rules)
         builder.add_node("prepare_context", self._prepare_context)
@@ -2035,7 +2164,8 @@ class DMGraphRunner:
         builder.add_node("validate_state", self._validate_state)
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
-        builder.add_edge("prepare_turn", "route_phase")
+        builder.add_edge("prepare_turn", "input_gate")
+        builder.add_edge("input_gate", "route_phase")
         builder.add_edge("route_phase", "retrieve_rules")
         builder.add_edge("retrieve_rules", "prepare_context")
         builder.add_edge("prepare_context", "draft_response")
@@ -2050,40 +2180,131 @@ class DMGraphRunner:
         builder.add_edge("execute_tools", "validate_state")
         builder.add_edge("validate_state", "draft_response")
         builder.add_edge("finalize_turn", END)
+        if self._checkpointer is not None:
+            return builder.compile(checkpointer=self._checkpointer)
         return builder.compile()
 
-    def run_turn(self, state: GameState, user_input: str) -> TurnResult:
-        if self._graph is None:
-            self._graph = self._build_graph()
+    @staticmethod
+    def _interrupt_values(result: Any) -> List[Any]:
+        raw_interrupts = []
+        if isinstance(result, dict):
+            raw_interrupts = list(result.get("__interrupt__", []))
+        else:
+            raw_interrupts = list(getattr(result, "interrupts", []) or [])
+        values: List[Any] = []
+        for item in raw_interrupts:
+            values.append(getattr(item, "value", item))
+        return values
 
-        result = self._graph.invoke(
-            {
-                "game_state": state.model_dump(mode="json"),
-                "user_input": user_input,
-            }
+    @staticmethod
+    def _pending_turn_from_interrupt(thread_id: str, payload: Any, original_input: str) -> PendingTurnState:
+        if isinstance(payload, dict):
+            details = payload.get("details")
+            normalized_details = dict(details) if isinstance(details, dict) else {}
+            return PendingTurnState(
+                thread_id=thread_id,
+                kind=str(payload.get("kind") or "clarification"),
+                phase=str(payload.get("phase") or ""),
+                prompt=str(payload.get("prompt") or payload.get("question") or "需要更多输入后才能继续当前回合。"),
+                original_input=original_input,
+                details=normalized_details,
+            )
+        return PendingTurnState(
+            thread_id=thread_id,
+            prompt=str(payload or "需要更多输入后才能继续当前回合。"),
+            original_input=original_input,
         )
-        updated_state = GameState.model_validate(result["game_state"])
+
+    def _result_to_turn_result(self, result: Any, fallback_state: GameState, user_input: str, thread_id: str) -> TurnResult:
+        result_payload = result if isinstance(result, dict) else getattr(result, "value", {})
+        if not isinstance(result_payload, dict):
+            result_payload = {}
+
+        interrupt_values = self._interrupt_values(result)
+        updated_state = GameState.model_validate(result_payload.get("game_state", fallback_state.model_dump(mode="json")))
         history_append = [
             item if isinstance(item, ChatMessage) else ChatMessage.model_validate(item)
-            for item in result.get("history_append", [])
+            for item in result_payload.get("history_append", [])
         ]
         timeline_append = [
             item if isinstance(item, SessionEvent) else SessionEvent.model_validate(item)
-            for item in result.get("timeline_append", [])
+            for item in result_payload.get("timeline_append", [])
         ]
         tool_results = [
             item if isinstance(item, ToolResult) else ToolResult.model_validate(item)
-            for item in result.get("tool_results", [])
+            for item in result_payload.get("tool_results", [])
         ]
+
+        if interrupt_values:
+            pending_turn = self._pending_turn_from_interrupt(thread_id, interrupt_values[0], user_input)
+            updated_state.pending_turn = pending_turn
+            prompt = pending_turn.prompt or "需要更多输入后才能继续当前回合。"
+            return TurnResult(
+                response=prompt,
+                turn_status="input_required",
+                pending_input=pending_turn.to_client_payload(),
+                history=updated_state.chat_history,
+                history_append=[],
+                timeline=updated_state.timeline,
+                timeline_append=timeline_append,
+                tool_results=tool_results,
+                rag_metadata=dict(result_payload.get("rag_metadata", {})),
+                input_warnings=list(result_payload.get("input_warnings", [])),
+                state_delta=dict(result_payload.get("state_delta", {})),
+                game_state=updated_state,
+            )
+
+        updated_state.pending_turn = None
         return TurnResult(
-            response=result.get("final_response", ""),
+            response=result_payload.get("final_response", ""),
+            turn_status=str(result_payload.get("turn_status") or "completed"),
+            pending_input=dict(result_payload.get("pending_input", {})),
             history=updated_state.chat_history,
             history_append=history_append,
             timeline=updated_state.timeline,
             timeline_append=timeline_append,
             tool_results=tool_results,
-            rag_metadata=dict(result.get("rag_metadata", {})),
-            input_warnings=list(result.get("input_warnings", [])),
-            state_delta=dict(result.get("state_delta", {})),
+            rag_metadata=dict(result_payload.get("rag_metadata", {})),
+            input_warnings=list(result_payload.get("input_warnings", [])),
+            state_delta=dict(result_payload.get("state_delta", {})),
             game_state=updated_state,
         )
+
+    def run_turn(self, state: GameState, user_input: str) -> TurnResult:
+        if self._graph is None:
+            self._graph = self._build_graph()
+        if state.pending_turn:
+            raise RuntimeError("This game already has a pending turn waiting for more input.")
+
+        thread_id = self._new_thread_id(state)
+        result = self._graph.invoke(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "user_input": user_input,
+            },
+            config=self._graph_config(thread_id),
+        )
+        return self._result_to_turn_result(result, state, user_input, thread_id)
+
+    def resume_turn(self, state: GameState, user_input: str) -> TurnResult:
+        if self._graph is None:
+            self._graph = self._build_graph()
+        if not state.pending_turn:
+            raise RuntimeError("This game does not have a pending turn to resume.")
+        if Command is None:
+            raise RuntimeError("LangGraph resume support is unavailable in this runtime.")
+
+        thread_id = state.pending_turn.thread_id
+        try:
+            result = self._graph.invoke(
+                Command(resume={"message": user_input}),
+                config=self._graph_config(thread_id),
+            )
+        except Exception as exc:
+            error_text = str(exc).lower()
+            if not any(token in error_text for token in ("checkpoint", "thread", "resume", "interrupt")):
+                raise
+            fallback_state = state.model_copy(deep=True)
+            fallback_state.pending_turn = None
+            return self.run_turn(fallback_state, user_input)
+        return self._result_to_turn_result(result, state, user_input, thread_id)
