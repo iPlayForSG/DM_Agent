@@ -202,3 +202,27 @@
 3. 升级模板对话框
 4. 更细的战斗控制面板
 5. 更细的当前行动者约束、资源耗尽反馈和动作禁用态
+
+## 2026-05-08 Turn Streaming Contract
+
+- 后端新增 `POST /api/v1/games/{game_id}/turns/stream`
+  - 请求体与现有 `sendChatTurn` 相同：`{ message }`
+  - 响应类型：`text/event-stream`
+- 当前 SSE 事件顺序：
+  - `turn.started`
+  - `turn.completed` 或 `turn.input_required`
+  - `turn.saved`
+  - `turn.finished`
+  - 失败时则为 `turn.error` + `turn.finished`
+- 前端接入建议：
+  - 第一阶段不要替换现有 `POST /turns`
+  - 先把 `turns/stream` 作为可选增强链路，只用于聊天页提升体感
+  - UI 最少可以先消费：
+    - `turn.started`：显示“DM 思考中”
+    - `turn.input_required`：立即把澄清提示作为系统消息显示
+    - `turn.completed`：落正式回复与状态更新
+    - `turn.error`：显示中文错误
+- 现阶段不要假设：
+  - 工具调用会逐条流出
+  - RAG 片段会逐条流出
+  - 长连接会自动心跳保活

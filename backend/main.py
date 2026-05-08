@@ -1,10 +1,12 @@
 """FastAPI entrypoint exposing builder, campaign, encounter, and local action routes."""
 
+import json
 import re
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from agent import DMAgent
@@ -12,7 +14,7 @@ from action_service import GameActionService
 from adventure_service import generate_initial_adventures
 from game_logic import GameLogic
 from library import Library
-from models import Character, GameState, MonsterTemplate
+from models import Character, GameState, MonsterTemplate, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from storage import CharacterStorage, GameStorage, MonsterStorage
 
@@ -145,6 +147,24 @@ def health_payload():
         "checkpoint_db_path": agent.checkpoint_db_path,
         "checkpoint_warning": agent.checkpoint_warning,
     }
+
+
+def _turn_result_payload(result: TurnResult) -> Dict[str, Any]:
+    return result.model_dump(mode="json")
+
+
+def _sse_event(event: str, data: Dict[str, Any]) -> str:
+    payload = json.dumps(data, ensure_ascii=False, default=str)
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+async def _execute_turn_request(state: GameState, message: str) -> tuple[TurnResult, str]:
+    mode = "resume" if state.pending_turn else "start"
+    if state.pending_turn:
+        result = await agent.resume_turn(state, message)
+    else:
+        result = await agent.run_turn(state, message)
+    return result, mode
 
 
 def classes_payload():
@@ -760,15 +780,77 @@ async def run_turn(game_id: str, req: ChatRequest):
         raise HTTPException(status_code=404, detail="Game not found")
 
     try:
-        if state.pending_turn:
-            result = await agent.resume_turn(state, req.message)
-        else:
-            result = await agent.run_turn(state, req.message)
+        result, _ = await _execute_turn_request(state, req.message)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
 
     game_storage.save_game(game_id, result.game_state)
     return result
+
+
+@app.post("/api/v1/games/{game_id}/turns/stream")
+async def run_turn_stream(game_id: str, req: ChatRequest):
+    state = game_storage.load_game(game_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    async def event_stream():
+        initial_mode = "resume" if state.pending_turn else "start"
+        yield _sse_event(
+            "turn.started",
+            {
+                "game_id": game_id,
+                "mode": initial_mode,
+                "checkpoint_backend": agent.checkpoint_backend,
+                "checkpoint_db_path": agent.checkpoint_db_path,
+                "has_pending_turn": bool(state.pending_turn),
+            },
+        )
+        try:
+            result, mode = await _execute_turn_request(state, req.message)
+            game_storage.save_game(game_id, result.game_state)
+        except Exception as exc:
+            yield _sse_event(
+                "turn.error",
+                {
+                    "game_id": game_id,
+                    "mode": initial_mode,
+                    "detail": f"DM agent request failed: {exc}",
+                },
+            )
+            yield _sse_event("turn.finished", {"status": "error", "game_id": game_id})
+            return
+
+        payload = _turn_result_payload(result)
+        payload["game_id"] = game_id
+        payload["mode"] = mode
+        result_event = "turn.input_required" if result.turn_status == "input_required" else "turn.completed"
+        yield _sse_event(result_event, payload)
+        yield _sse_event(
+            "turn.saved",
+            {
+                "game_id": game_id,
+                "turn_status": result.turn_status,
+                "updated_at": result.game_state.updated_at,
+            },
+        )
+        yield _sse_event(
+            "turn.finished",
+            {
+                "status": result.turn_status,
+                "game_id": game_id,
+            },
+        )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 def _load_game_or_404(game_id: str) -> GameState:

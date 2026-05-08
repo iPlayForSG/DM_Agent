@@ -108,3 +108,13 @@ RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库
   调整。
 - `/api/v1/health` 和 `/api/v1/config` 现在会返回当前 checkpoint backend、db 路径和 warning。
 - 当某个回合进入 `input_required` 暂停后，只要同一个 SQLite checkpoint 文件还在，就可以由新的 runner 实例继续恢复执行。
+
+### 2026-05-08 SSE 回合生命周期
+
+- 后端新增 `POST /api/v1/games/{game_id}/turns/stream`
+- 它会把同一个回合拆成最小 SSE 事件流：
+  - `turn.started`
+  - `turn.completed` 或 `turn.input_required`
+  - `turn.saved`
+  - `turn.finished`
+- 现有 `POST /api/v1/games/{game_id}/turns` 不受影响，仍然返回完整 `TurnResult`

@@ -622,3 +622,31 @@ LangGraph 节点负责：
   - 还没有做 SSE turn lifecycle
   - 还没有做 trace logging / replay eval
   - 还没有升级到 Postgres 级别的生产持久化
+
+## 2026-05-08 Streaming Turn Lifecycle Update
+
+- 新增 `POST /api/v1/games/{game_id}/turns/stream`
+  - `Content-Type: text/event-stream`
+  - 请求体与 `POST /api/v1/games/{game_id}/turns` 相同，仍然是：
+    - `{"message": "..."}`
+- 当前会按顺序发送最小生命周期事件：
+  - `turn.started`
+  - `turn.completed` 或 `turn.input_required`
+  - `turn.saved`
+  - `turn.finished`
+  - 失败时改为：
+    - `turn.started`
+    - `turn.error`
+    - `turn.finished`
+- 事件 payload 设计：
+  - `turn.started`：`game_id`、`mode`、`checkpoint_backend`、`checkpoint_db_path`、`has_pending_turn`
+  - `turn.completed` / `turn.input_required`：完整 `TurnResult` JSON，再补 `game_id` 与 `mode`
+  - `turn.saved`：`game_id`、`turn_status`、`updated_at`
+  - `turn.finished`：最终 `status`
+- 兼容性说明：
+  - 原 `POST /api/v1/games/{game_id}/turns` 保持不变，仍返回完整 `TurnResult`
+  - 新的 stream 接口只是把同一回合执行过程拆成前端可消费的 SSE 生命周期事件
+- 现阶段边界：
+  - 还没有把工具调用中间态逐条流出
+  - 还没有把 RAG 召回中间态逐条流出
+  - 还没有做 server-side heartbeat / keepalive
