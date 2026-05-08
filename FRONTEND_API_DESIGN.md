@@ -241,3 +241,20 @@
     - `tool_results`
     - `rag_metadata`
     - `state_delta`
+
+## 2026-05-08 LLM Health Integration
+
+- 前端如果需要提示模型服务状态，现在可以先读取 `GET /api/v1/health` 或 `GET /api/v1/config` 里的 `llm` 字段。
+- `llm` 摘要当前包含：
+  - `model_name`
+  - `base_url`
+  - `raw_base_url`
+  - `base_url_normalized`
+  - `configured`
+- 后端新增 `GET /api/v1/health/llm`，适合放在开发态“诊断连接”按钮后触发；它会真实探测远端模型服务并返回：
+  - `ready`
+  - `status_code`
+  - `reason`
+  - `detail`
+  - `probe_url`
+- 当聊天接口返回 `turn_status=failed` 且 `rag_metadata.model_error` 存在时，前端应把它当作模型服务错误展示，而不是普通剧情文本。

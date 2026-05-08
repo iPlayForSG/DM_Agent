@@ -866,3 +866,38 @@ SSE 生命周期补完后，下一步已经开始把回合轨迹落盘为轻量 
 1. chapter replay eval
 2. 极小 typed intent
 3. 如果 trace 量级可接受，再考虑工具级细粒度事件
+
+## 16. 2026-05-08 LLM Preflight And Replay Eval Step
+
+这一步没有继续把 workflow 变重，而是先把“模型服务是否真的可用”显式拉进运行时：
+
+- `backend/agent.py`
+  - 新增 `normalize_openai_base_url()`：如果 `.env` 里填的是站点根路径，例如 `https://api.example.com`，后端会自动规范化为 `https://api.example.com/v1`
+  - 新增 `llm_runtime_payload()`：暴露 `model_name`、`base_url`、`raw_base_url`、`base_url_normalized`、`configured`
+  - 新增 `probe_llm()`：按需探测 `/models`，把 `ready`、`status_code`、`reason`、`detail` 和 `probe_url` 结构化返回
+- `backend/main.py`
+  - `GET /api/v1/health` / `GET /api/v1/config` 现在都会带 `llm`
+  - 新增 `GET /api/v1/health/llm`
+- `backend/dm_graph.py`
+  - 模型调用失败不再把整个回合打成 500
+  - 当前会返回 `turn_status=failed`
+  - 错误详情会写进 `rag_metadata.model_error` 和 `turn_trace.validation_notes`
+  - 失败回合不会推进 `turn_number`
+- `backend/utils/chapter_replay_eval.py`
+  - 新增两章回放评测脚本
+  - 在真正跑章节前先做 LLM preflight
+  - 如果鉴权、额度、路由异常，会落结构化 JSON 报告，而不是直接抛栈中断
+
+本轮实际运行结果：
+
+- 章节回放脚本已执行
+- base URL 已被自动修正为 `https://api.yuboar.com/v1`
+- 真实阻塞点已经从“路由打到站点 HTML 首页”收敛成“令牌额度已用尽”
+- 评测报告已落盘到：
+  - `backend/runtime-logs/chapter_replay_eval_20260508_144155.json`
+
+这说明当前 workflow 的下一个主要风险已经不再是编排层，而是外部模型服务的可用性与额度管理。后续如果要继续推进 replay eval，本地已经具备：
+
+1. 先用 `/api/v1/health/llm` 做诊断
+2. 再运行 `backend/utils/chapter_replay_eval.py`
+3. 根据生成的 `step_reports` / `issues` 继续修 workflow 本体

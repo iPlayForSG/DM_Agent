@@ -146,6 +146,7 @@ def health_payload():
         "checkpoint_backend": agent.checkpoint_backend,
         "checkpoint_db_path": agent.checkpoint_db_path,
         "checkpoint_warning": agent.checkpoint_warning,
+        "llm": agent.llm_runtime_payload(),
     }
 
 
@@ -475,6 +476,11 @@ async def health_check():
     return health_payload()
 
 
+@app.get("/api/v1/health/llm")
+async def llm_health_check():
+    return agent.probe_llm()
+
+
 @app.get("/api/v1/config")
 async def get_config():
     return {
@@ -485,6 +491,7 @@ async def get_config():
         "checkpoint_db_path": agent.checkpoint_db_path,
         "checkpoint_warning": agent.checkpoint_warning,
         "model_provider": "openai-compatible",
+        "llm": agent.llm_runtime_payload(),
     }
 
 

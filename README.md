@@ -124,3 +124,16 @@ RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库
 - 后端现在会把每次 `completed` 或 `input_required` 回合写成一条轻量 trace
 - `TurnResult` 会直接附带本回合 `turn_trace`
 - 也可以通过 `GET /api/v1/games/{game_id}/traces?limit=20` 查询最近回合轨迹
+
+### 2026-05-08 LLM 预检与章节回放
+
+- 后端现在会把根路径形式的 `OPENAI_API_BASE` 自动规范化为带 `/v1` 的 OpenAI-compatible 地址，避免误打到站点首页。
+- `GET /api/v1/health` 和 `GET /api/v1/config` 现在都会返回 `llm` 配置摘要，包括：
+  - `model_name`
+  - `base_url`
+  - `raw_base_url`
+  - `base_url_normalized`
+  - `configured`
+- 新增 `GET /api/v1/health/llm`，用于按需探测当前模型服务是否可用，并返回 HTTP 状态码与错误详情。
+- `backend/utils/chapter_replay_eval.py` 会在跑两章回放前先做 LLM preflight；如果鉴权、额度或路由异常，会直接落结构化报告而不是抛栈中断。
+- 模型调用失败时，LangGraph 回合现在会返回 `turn_status=failed`，并把错误原因写入 `rag_metadata.model_error` 与 `turn_trace.validation_notes`，避免前端只看到 500。

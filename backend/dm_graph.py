@@ -1895,6 +1895,13 @@ class DMGraphRunner:
         return str(content).strip() if content else ""
 
     @staticmethod
+    def _summarize_model_exception(exc: Exception) -> str:
+        message = re.sub(r"\s+", " ", str(exc or "")).strip()
+        if not message:
+            return "Unknown model invocation error."
+        return message[:320]
+
+    @staticmethod
     def _system_prompt_message(content: str) -> Any:
         if SystemMessage is not None:
             return SystemMessage(content=content)
@@ -1914,7 +1921,21 @@ class DMGraphRunner:
                 self._human_prompt_message(graph_state.get("user_input", "")),
             ]
         model = self._create_tool_bound_model(graph_state.get("allowed_tools", []))
-        response = model.invoke(messages)
+        try:
+            response = model.invoke(messages)
+        except Exception as exc:
+            detail = self._summarize_model_exception(exc)
+            validation_notes = list(graph_state.get("validation_notes", []))
+            validation_notes.append(f"Model invocation failed: {detail}")
+            rag_metadata = dict(graph_state.get("rag_metadata", {}))
+            rag_metadata["model_error"] = detail
+            return {
+                "final_response": f"当前模型服务不可用，本回合未能继续执行。原因：{detail}",
+                "turn_status": "failed",
+                "validation_notes": validation_notes,
+                "rag_metadata": rag_metadata,
+            }
+
         final_response = self.library.localize_game_terms(self._extract_message_content(response))
         result: DMGraphState = {"messages": [*messages, response]}
         if final_response:
@@ -2200,6 +2221,9 @@ class DMGraphRunner:
     def _finalize_turn(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
+        turn_status = str(graph_state.get("turn_status") or "completed")
+        if turn_status == "running":
+            turn_status = "completed"
         final_response = self.library.localize_game_terms(
             graph_state.get("final_response") or "I could not complete this turn."
         )
@@ -2209,7 +2233,8 @@ class DMGraphRunner:
         ]
 
         state.pending_turn = None
-        state.turn_number += 1
+        if turn_status != "failed":
+            state.turn_number += 1
         state.latest_tool_results = tool_results
 
         assistant_event = self._build_event(
@@ -2234,7 +2259,7 @@ class DMGraphRunner:
             "history_append": [item.model_dump(mode="json") for item in history_append],
             "timeline_append": timeline_append,
             "final_response": final_response,
-            "turn_status": "completed",
+            "turn_status": turn_status,
             "pending_input": {},
             "rag_metadata": dict(graph_state.get("rag_metadata", {})),
             "input_warnings": list(graph_state.get("input_warnings", [])),

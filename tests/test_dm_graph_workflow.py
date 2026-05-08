@@ -13,6 +13,7 @@ os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
 from models import AdventureHook, Character, GameState
+from agent import normalize_openai_base_url
 
 
 class DummyRAGEngine:
@@ -266,6 +267,40 @@ class DMGraphWorkflowTests(unittest.TestCase):
             self.assertEqual(resumed.game_state.turn_number, 1)
             self.assertEqual(runner_b.checkpoint_backend, "sqlite")
             self.assertEqual(len(resumed.game_state.turn_traces), 2)
+
+    def test_model_error_is_reported_without_crashing_turn(self) -> None:
+        class ExplodingModel:
+            def bind_tools(self, tool_schemas):
+                return self
+
+            def invoke(self, messages):
+                raise RuntimeError("Quota exhausted at provider")
+
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=object(),
+            enable_model=True,
+            api_key="test-key",
+        )
+        runner._model = ExplodingModel()
+        state = self._build_state(with_selected_adventure=True)
+
+        result = runner.run_turn(state, "I inspect the chapel.")
+
+        self.assertEqual(result.turn_status, "failed")
+        self.assertEqual(result.game_state.turn_number, 0)
+        self.assertIn("当前模型服务不可用", result.response)
+        self.assertIn("Quota exhausted at provider", result.response)
+        self.assertIn("model_error", result.rag_metadata)
+        self.assertIn("Model invocation failed:", result.turn_trace.validation_notes[-1])
+        runner.close()
+
+    def test_normalize_openai_base_url_only_appends_v1_for_root_paths(self) -> None:
+        self.assertEqual(normalize_openai_base_url("https://api.example.com"), "https://api.example.com/v1")
+        self.assertEqual(
+            normalize_openai_base_url("https://open.bigmodel.cn/api/coding/paas/v4"),
+            "https://open.bigmodel.cn/api/coding/paas/v4",
+        )
 
 
 if __name__ == "__main__":

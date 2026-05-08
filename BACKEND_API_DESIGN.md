@@ -116,6 +116,33 @@ LangGraph 重构后该响应结构保持兼容。
 }
 ```
 
+自 2026-05-08 起，这两类配置/健康接口又补充了 LLM 运行时摘要：
+
+- `GET /api/v1/health`
+- `GET /api/v1/config`
+
+新增 `llm` 字段，当前包含：
+
+- `model_name`
+- `base_url`
+- `raw_base_url`
+- `base_url_normalized`
+- `configured`
+
+同时新增：
+
+- `GET /api/v1/health/llm`
+
+该接口会主动探测当前 OpenAI-compatible 服务是否可用，并返回：
+
+- `ready`
+- `status_code`
+- `reason`
+- `detail`
+- `probe_url`
+
+后端现在还会自动把根路径形式的 `OPENAI_API_BASE` 规范化为 `/v1` 结尾，避免把请求发到站点首页而不是 API 前缀。
+
 ### 4.2 规则目录
 
 - `GET /api/v1/rules/character-builder`

@@ -9,3 +9,4 @@ pydantic
 chromadb
 huggingface-hub
 tiktoken
+requests

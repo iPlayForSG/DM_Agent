@@ -40,6 +40,15 @@ class FakeAgent:
         self.checkpoint_backend = "sqlite"
         self.checkpoint_db_path = "backend/Game/langgraph_checkpoints.sqlite"
         self.checkpoint_warning = ""
+        self.backend_name = "langgraph"
+        self.rag_engine = type(
+            "FakeRAG",
+            (),
+            {
+                "is_ready": lambda self: False,
+                "status_payload": lambda self: {"ready": False},
+            },
+        )()
 
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
         self.run_calls += 1
@@ -51,6 +60,25 @@ class FakeAgent:
 
     def close(self) -> None:
         return None
+
+    def llm_runtime_payload(self):
+        return {
+            "model_name": "fake-model",
+            "base_url": "https://example.test/v1",
+            "raw_base_url": "https://example.test",
+            "base_url_normalized": True,
+            "configured": True,
+        }
+
+    def probe_llm(self):
+        return {
+            **self.llm_runtime_payload(),
+            "ready": True,
+            "status_code": 200,
+            "reason": "ok",
+            "detail": "ok",
+            "probe_url": "https://example.test/v1/models",
+        }
 
 
 @contextmanager
@@ -161,6 +189,21 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(len(payload["traces"]), 2)
         self.assertEqual(payload["traces"][0]["turn_number"], 2)
         self.assertEqual(payload["traces"][1]["turn_number"], 3)
+
+    def test_llm_health_endpoint_exposes_probe_payload(self) -> None:
+        state = GameState(game_id="health-test", title="Health Test")
+        fake_storage = FakeStorage(state)
+        fake_agent = FakeAgent(TurnResult(response="unused", game_state=state.model_copy(deep=True)))
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.get("/api/v1/health/llm")
+
+        self.assertEqual(resp.status_code, 200)
+        payload = resp.json()
+        self.assertTrue(payload["ready"])
+        self.assertTrue(payload["base_url_normalized"])
+        self.assertEqual(payload["probe_url"], "https://example.test/v1/models")
 
 
 if __name__ == "__main__":
