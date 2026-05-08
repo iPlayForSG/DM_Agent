@@ -693,6 +693,9 @@ class DMGraphState(TypedDict, total=False):
     turn_profile: str
     turn_profile_reason: str
     turn_guidance: str
+    turn_expectation: str
+    suggested_tools: List[str]
+    turn_checklist: List[str]
     allowed_tools: List[str]
     tool_round_limit: int
     tool_call_rounds: int
@@ -858,6 +861,19 @@ class DMGraphRunner:
         return [tool_name for tool_name in subset if tool_name in base_lookup]
 
     @staticmethod
+    def _prioritize_tools(allowed_tools: List[str], suggested_tools: List[str]) -> List[str]:
+        if not suggested_tools:
+            return list(allowed_tools)
+        ordered: List[str] = []
+        seen = set()
+        for tool_name in [*suggested_tools, *allowed_tools]:
+            if tool_name in seen or tool_name not in allowed_tools:
+                continue
+            seen.add(tool_name)
+            ordered.append(tool_name)
+        return ordered
+
+    @staticmethod
     def _looks_like_question(text: str) -> bool:
         normalized = " ".join((text or "").split()).strip()
         if not normalized:
@@ -885,6 +901,140 @@ class DMGraphRunner:
             "\u662f\u4ec0\u4e48",
         ]
         return any(marker in lowered for marker in question_markers)
+
+    def _suggested_resolution_tools(self, state: GameState, user_input: str, phase: str) -> List[str]:
+        normalized = " ".join((user_input or "").split()).strip()
+        if not normalized:
+            return []
+
+        lowered = normalized.casefold()
+        suggestions: List[str] = []
+        matched_spells = self._matched_spell_names(state, normalized)
+
+        if matched_spells or any(term in lowered for term in ["cast", "\u65bd\u6cd5", "\u6cd5\u672f"]):
+            suggestions.append("cast_spell")
+        if any(
+            term in lowered
+            for term in [
+                "attack",
+                "strike",
+                "shoot",
+                "\u653b\u51fb",
+                "\u5c04\u51fb",
+                "\u6325\u780d",
+            ]
+        ):
+            suggestions.append("attack_target")
+        if any(
+            term in lowered
+            for term in [
+                "save",
+                "saving throw",
+                "\u8c41\u514d",
+            ]
+        ):
+            suggestions.append("roll_saving_throw")
+        if any(
+            term in lowered
+            for term in [
+                "perception",
+                "investigation",
+                "stealth",
+                "insight",
+                "persuasion",
+                "deception",
+                "\u611f\u77e5",
+                "\u8c03\u67e5",
+                "\u6f5c\u884c",
+                "\u6d1e\u6089",
+                "\u8bf4\u670d",
+                "\u6b3a\u7792",
+                "\u68c0\u5b9a",
+            ]
+        ):
+            suggestions.append("roll_skill_check")
+        if any(
+            term in lowered
+            for term in [
+                "heal",
+                "healing",
+                "damage",
+                "hurt",
+                "potion",
+                "\u6cbb\u7597",
+                "\u4f24\u5bb3",
+                "\u559d\u836f",
+                "\u836f\u6c34",
+            ]
+        ):
+            suggestions.append("adjust_hp")
+        if phase == "combat" and any(
+            term in lowered
+            for term in [
+                "end turn",
+                "next turn",
+                "\u7ed3\u675f\u56de\u5408",
+                "\u4e0b\u4e00\u56de\u5408",
+                "\u8f6e\u5230",
+            ]
+        ):
+            suggestions.append("advance_turn")
+
+        return self._unique_texts(suggestions, limit=3)
+
+    def _build_turn_advice(
+        self,
+        state: GameState,
+        user_input: str,
+        phase: str,
+        turn_profile: str,
+        allowed_tools: List[str],
+    ) -> Dict[str, Any]:
+        profile_name = str(turn_profile or "").strip().lower()
+        suggested_tools = [
+            tool_name
+            for tool_name in self._suggested_resolution_tools(state, user_input, phase)
+            if tool_name in allowed_tools
+        ]
+
+        expectation = "Respond naturally and only escalate into tools when needed."
+        checklist: List[str] = []
+        if profile_name == "conversation":
+            expectation = "Direct in-world reply first; skip tools unless something durable or stateful is actually created."
+            checklist = [
+                "Do not turn a simple social beat into a mechanical resolution unless the player clearly pushes for one.",
+            ]
+        elif profile_name == "rules_reference":
+            expectation = "Answer the rules question in one pass, ideally with a single lookup if needed."
+            checklist = [
+                "Keep the answer scoped to the asked rule.",
+                "Avoid unrelated state mutation tools.",
+            ]
+            suggested_tools = ["lookup_rules"] if "lookup_rules" in allowed_tools else []
+        elif profile_name == "action_resolution":
+            expectation = "Resolve the attempted action with the minimum necessary tool chain, then narrate once."
+            checklist = [
+                "Prefer one core resolution tool before considering persistence tools.",
+                "Only persist evidence, loot, or chapter progress if the fiction actually establishes it.",
+            ]
+        elif profile_name == "combat_resolution":
+            expectation = "Resolve one combat turn cleanly and avoid extra side actions or tool loops."
+            checklist = [
+                "Only resolve the current acting creature unless the turn is explicitly advanced.",
+                "Advance the turn only after the acting creature has actually finished.",
+            ]
+        elif profile_name == "setup_guidance":
+            expectation = "Keep the setup reply short and decision-oriented."
+            checklist = [
+                "Avoid dragging setup into freeform scene narration.",
+            ]
+
+        return {
+            "turn_expectation": expectation,
+            "suggested_tools": suggested_tools,
+            "turn_checklist": checklist,
+            "allowed_tools": self._prioritize_tools(allowed_tools, suggested_tools),
+        }
 
     @staticmethod
     def _build_event(
@@ -1346,6 +1496,13 @@ class DMGraphRunner:
         state_delta = dict(graph_state.get("state_delta", {}))
         phase, scene, notes, patch, policy = self._normalize_phase_state(state)
         turn_profile = self._classify_turn_profile(state, user_input, phase)
+        turn_advice = self._build_turn_advice(
+            state,
+            user_input,
+            phase,
+            turn_profile["turn_profile"],
+            list(turn_profile["allowed_tools"]),
+        )
         if patch:
             state_delta = merge_patch(state_delta, patch)
         return {
@@ -1358,8 +1515,11 @@ class DMGraphRunner:
             "turn_profile": turn_profile["turn_profile"],
             "turn_profile_reason": turn_profile["turn_profile_reason"],
             "turn_guidance": turn_profile["turn_guidance"],
+            "turn_expectation": turn_advice["turn_expectation"],
+            "suggested_tools": list(turn_advice["suggested_tools"]),
+            "turn_checklist": list(turn_advice["turn_checklist"]),
             "tool_round_limit": turn_profile["tool_round_limit"],
-            "allowed_tools": list(turn_profile["allowed_tools"]),
+            "allowed_tools": list(turn_advice["allowed_tools"]),
             "state_delta": state_delta,
             "validation_notes": notes,
         }
@@ -1382,6 +1542,9 @@ class DMGraphRunner:
             turn_profile_reason=graph_state.get("turn_profile_reason", ""),
             turn_guidance=graph_state.get("turn_guidance", ""),
             tool_round_limit=int(graph_state.get("tool_round_limit", 0) or 0),
+            turn_expectation=graph_state.get("turn_expectation", ""),
+            suggested_tools=list(graph_state.get("suggested_tools", [])),
+            turn_checklist=list(graph_state.get("turn_checklist", [])),
         )
         return {
             "state_summary": state_summary,
@@ -1786,6 +1949,13 @@ class DMGraphRunner:
             state_delta = merge_patch(state_delta, phase_patch)
             validation_notes.extend(phase_notes)
         turn_profile = self._classify_turn_profile(state, graph_state.get("user_input", ""), phase)
+        turn_advice = self._build_turn_advice(
+            state,
+            graph_state.get("user_input", ""),
+            phase,
+            turn_profile["turn_profile"],
+            list(turn_profile["allowed_tools"]),
+        )
 
         validation_message = self._build_validation_message(validation_notes)
         if validation_message is not None:
@@ -1804,8 +1974,11 @@ class DMGraphRunner:
             "turn_profile": turn_profile["turn_profile"],
             "turn_profile_reason": turn_profile["turn_profile_reason"],
             "turn_guidance": turn_profile["turn_guidance"],
+            "turn_expectation": turn_advice["turn_expectation"],
+            "suggested_tools": list(turn_advice["suggested_tools"]),
+            "turn_checklist": list(turn_advice["turn_checklist"]),
             "tool_round_limit": turn_profile["tool_round_limit"],
-            "allowed_tools": list(turn_profile["allowed_tools"]),
+            "allowed_tools": list(turn_advice["allowed_tools"]),
             "validation_notes": validation_notes,
         }
 

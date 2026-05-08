@@ -572,6 +572,7 @@ LangGraph 节点负责：
 - `prepare_context` 现在会把 phase 名称、目标、约束和 blockers 一并注入 DM prompt，模型不再只依赖 `state_summary` 自己猜当前流程。
 - `validate_state` 在原有战斗修复之外，现会复用同一套 phase normalization，把工具执行后的场景/阶段重新拉回规范路径。
 - `route_phase` 现在还会附带轻量 `turn_profile`：区分 `setup_guidance`、`conversation`、`rules_reference`、`action_resolution`、`combat_resolution`，并据此收紧工具白名单与 tool round budget，避免普通对话误入重工具链。
+- 在 `turn_profile` 之上，运行时还会生成一层确定性的 `turn_advice`，给出 expected flow、suggested tools 和 checklist，用来减少模型在本回合里的工具试探成本。
 - 规则检索判定已收紧：普通社交/叙事问句不会再因为单纯带问号就触发自动 RAG；只有命中明确规则/法术/状态/战斗关键词时才会自动检索。
 - 新增 `tests/test_dm_graph_workflow.py`，当前覆盖：
   - 冒险未选定时自动回落到 `adventure_selection`

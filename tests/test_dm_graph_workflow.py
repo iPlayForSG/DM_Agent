@@ -149,6 +149,8 @@ class DMGraphWorkflowTests(unittest.TestCase):
 
         self.assertEqual(routed["turn_profile"], "conversation")
         self.assertEqual(routed["tool_round_limit"], 1)
+        self.assertIn("Direct in-world reply first", routed["turn_expectation"])
+        self.assertEqual(routed["suggested_tools"], [])
         self.assertNotIn("roll_skill_check", routed["allowed_tools"])
         self.assertNotIn("cast_spell", routed["allowed_tools"])
         self.assertEqual(
@@ -169,6 +171,8 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(routed["turn_profile"], "rules_reference")
         self.assertEqual(routed["allowed_tools"], ["lookup_rules"])
         self.assertEqual(routed["tool_round_limit"], 1)
+        self.assertEqual(routed["suggested_tools"], ["lookup_rules"])
+        self.assertIn("Answer the rules question in one pass", routed["turn_expectation"])
 
     def test_combat_action_uses_combat_resolution_profile(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -185,6 +189,8 @@ class DMGraphWorkflowTests(unittest.TestCase):
 
         self.assertEqual(routed["phase"], "combat")
         self.assertEqual(routed["turn_profile"], "combat_resolution")
+        self.assertEqual(routed["suggested_tools"], ["attack_target"])
+        self.assertEqual(routed["allowed_tools"][0], "attack_target")
         self.assertIn("attack_target", routed["allowed_tools"])
         self.assertEqual(routed["tool_round_limit"], 3)
 

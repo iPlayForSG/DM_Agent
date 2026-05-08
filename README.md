@@ -95,5 +95,6 @@ RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库
 - `backend/dm_graph.py` 现在会先规范化 `campaign.phase` 和 `scene`，再决定当前回合开放哪些工具。
 - 当前已显式区分 `party_creation`、`adventure_selection`、`exploration`、`combat`、`downtime`、`level_up` 等 phase，并把 phase 目标/约束注入 DM prompt。
 - 当前还会按回合轻重自动区分 `conversation`、`rules_reference`、`action_resolution`、`combat_resolution` 等 turn profile，避免普通问答被重工具链拖慢。
+- 在此基础上，运行时还会生成极短的 `turn_advice`，给模型一个本回合的建议工具顺序和执行预期。
 - `validate_state` 会在工具执行后再次校正 phase 与 scene，减少状态漂移。
 - 新增 `tests/test_dm_graph_workflow.py`，用于回归这些工作流约束。

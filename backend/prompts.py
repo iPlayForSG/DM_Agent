@@ -76,6 +76,9 @@ def build_dm_instruction(
     turn_profile_reason: str = "",
     turn_guidance: str = "",
     tool_round_limit: int = 0,
+    turn_expectation: str = "",
+    suggested_tools: list[str] | None = None,
+    turn_checklist: list[str] | None = None,
 ) -> str:
     rag_status = (
         "Rules retrieval is available. Use `lookup_rules` before citing detailed rules or niche monster lore."
@@ -107,6 +110,9 @@ Current turn profile:
 - Why: {turn_profile_reason or "No special turn-shaping heuristic matched."}
 - Guidance: {turn_guidance or "Keep the turn natural and only use tools when they materially improve correctness."}
 - Tool round budget: {tool_round_limit if tool_round_limit > 0 else "default"}
+- Expected flow: {turn_expectation or "Respond naturally and only escalate into tools when needed."}
+- Suggested tools: {' | '.join(suggested_tools or []) if suggested_tools else 'None preferred.'}
+- Checklist: {' | '.join(turn_checklist or []) if turn_checklist else 'No extra checklist.'}
 """.strip()
     return f"""
 {CORE_DM_MANDATE}
