@@ -79,6 +79,7 @@ def build_dm_instruction(
     turn_expectation: str = "",
     suggested_tools: list[str] | None = None,
     turn_checklist: list[str] | None = None,
+    turn_intent: dict | None = None,
 ) -> str:
     rag_status = (
         "Rules retrieval is available. Use `lookup_rules` before citing detailed rules or niche monster lore."
@@ -104,6 +105,17 @@ Current workflow phase:
 - Constraints: {' | '.join(phase_constraints) if phase_constraints else 'None beyond the core rules and tool protocol.'}
 - Open blockers: {' | '.join(phase_blockers) if phase_blockers else 'None.'}
 """.strip()
+    intent = dict(turn_intent or {})
+    intent_block = f"""
+Structured turn intent:
+- Type: {intent.get("turn_type") or "unspecified"}
+- Why: {intent.get("reason") or "No structured intent was provided."}
+- Risk: {intent.get("risk_level") or "low"}
+- Needs rules: {intent.get("needs_rules", False)}
+- Rules intent: {intent.get("rag_intent") or "none"}
+- Action terms: {' | '.join(intent.get("action_terms") or []) if intent.get("action_terms") else 'None.'}
+- Suggested tools: {' | '.join(intent.get("suggested_tools") or []) if intent.get("suggested_tools") else 'None preferred.'}
+""".strip()
     turn_block = f"""
 Current turn profile:
 - Profile: {turn_profile or "default"}
@@ -127,6 +139,8 @@ Knowledge base status:
 {retrieved_block}
 
 {phase_block}
+
+{intent_block}
 
 {turn_block}
 

@@ -14,7 +14,7 @@ os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
 
 import main as api_main
-from models import GameState, PendingTurnState, TurnResult, TurnTrace
+from models import GameState, NodeTrace, PendingTurnState, ToolResult, TurnResult, TurnTrace, ValidationIssue
 
 
 class FakeStorage:
@@ -166,6 +166,120 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(fake_agent.run_calls, 0)
         self.assertEqual(fake_agent.resume_calls, 1)
         self.assertEqual(fake_storage.saved_game_id, "resume-test")
+
+    def test_turn_stream_emits_node_trace_events_when_available(self) -> None:
+        state = GameState(game_id="node-stream-test", title="Node Stream Test")
+        trace = TurnTrace(
+            turn_number=1,
+            turn_status="completed",
+            phase="exploration",
+            response="Resolved",
+            node_traces=[
+                NodeTrace(node_name="plan_turn", summary="Intent planned", metadata={"turn_type": "action_resolution"}),
+                NodeTrace(node_name="retrieve_rules", summary="Retrieval skipped", metadata={"intent": "none"}),
+            ],
+        )
+        result = TurnResult(
+            response="Resolved",
+            turn_status="completed",
+            turn_trace=trace,
+            game_state=state.model_copy(deep=True),
+        )
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                with client.stream(
+                    "POST",
+                    "/api/v1/games/node-stream-test/turns/stream",
+                    json={"message": "Search the altar"},
+                ) as resp:
+                    self.assertEqual(resp.status_code, 200)
+                    events = parse_sse_events(list(resp.iter_lines()))
+
+        self.assertEqual(
+            [event["event"] for event in events],
+            ["turn.started", "turn.node", "turn.node", "turn.completed", "turn.saved", "turn.finished"],
+        )
+        self.assertEqual(events[1]["data"]["node_name"], "plan_turn")
+        self.assertEqual(events[1]["data"]["metadata"]["turn_type"], "action_resolution")
+        self.assertEqual(events[2]["data"]["node_name"], "retrieve_rules")
+        self.assertEqual(events[3]["data"]["turn_trace"]["node_traces"][0]["node_name"], "plan_turn")
+
+    def test_turn_stream_emits_detail_events_from_trace(self) -> None:
+        state = GameState(game_id="detail-stream-test", title="Detail Stream Test")
+        trace = TurnTrace(
+            turn_number=2,
+            turn_status="completed",
+            phase="exploration",
+            response="Resolved",
+            rag_metadata={
+                "intent": "spell_lookup",
+                "reason": "user asked for spell rules",
+                "queries": ["Cure Wounds spell"],
+                "snippet_count": 3,
+                "sources": ["Player Handbook 2024"],
+            },
+            tool_results=[
+                ToolResult(
+                    tool_name="roll_dice",
+                    summary="Rolled 1d20 -> 14",
+                    payload={"expression": "1d20", "total": 14},
+                    status="success",
+                )
+            ],
+            validation_notes=["Normalized combat scene."],
+            validation_issues=[
+                ValidationIssue(
+                    validator="combat_phase",
+                    severity="warning",
+                    action="normalized",
+                    summary="Normalized combat scene.",
+                    metadata={"phase": "combat"},
+                )
+            ],
+        )
+        result = TurnResult(
+            response="Resolved",
+            turn_status="completed",
+            turn_trace=trace,
+            game_state=state.model_copy(deep=True),
+        )
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                with client.stream(
+                    "POST",
+                    "/api/v1/games/detail-stream-test/turns/stream",
+                    json={"message": "Check rules"},
+                ) as resp:
+                    self.assertEqual(resp.status_code, 200)
+                    events = parse_sse_events(list(resp.iter_lines()))
+
+        self.assertEqual(
+            [event["event"] for event in events],
+            [
+                "turn.started",
+                "rag.completed",
+                "tool.completed",
+                "validation.note",
+                "turn.completed",
+                "turn.saved",
+                "turn.finished",
+            ],
+        )
+        self.assertEqual(events[1]["data"]["intent"], "spell_lookup")
+        self.assertEqual(events[1]["data"]["snippet_count"], 3)
+        self.assertEqual(events[1]["data"]["query_count"], 1)
+        self.assertEqual(events[2]["data"]["tool_name"], "roll_dice")
+        self.assertEqual(events[2]["data"]["payload"]["total"], 14)
+        self.assertEqual(events[3]["data"]["note"], "Normalized combat scene.")
+        self.assertEqual(events[3]["data"]["validator"], "combat_phase")
+        self.assertEqual(events[3]["data"]["severity"], "warning")
+        self.assertEqual(events[3]["data"]["action"], "normalized")
 
     def test_trace_endpoint_returns_recent_traces(self) -> None:
         state = GameState(game_id="trace-test", title="Trace Test")

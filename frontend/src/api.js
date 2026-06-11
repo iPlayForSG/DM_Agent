@@ -29,6 +29,41 @@ async function request(path, options = {}) {
   return response.json();
 }
 
+function parseSseBlock(block) {
+  let event = "message";
+  const dataLines = [];
+
+  for (const rawLine of block.split(/\r?\n/)) {
+    if (!rawLine || rawLine.startsWith(":")) continue;
+
+    const separatorIndex = rawLine.indexOf(":");
+    const field = separatorIndex >= 0 ? rawLine.slice(0, separatorIndex) : rawLine;
+    let value = separatorIndex >= 0 ? rawLine.slice(separatorIndex + 1) : "";
+    if (value.startsWith(" ")) value = value.slice(1);
+
+    if (field === "event") event = value || "message";
+    if (field === "data") dataLines.push(value);
+  }
+
+  if (dataLines.length === 0) return null;
+
+  const rawData = dataLines.join("\n");
+  let data = rawData;
+  try {
+    data = JSON.parse(rawData);
+  } catch {
+    // SSE data can be plain text. Keep it as-is when it is not JSON.
+  }
+
+  return { event, data };
+}
+
+function streamErrorMessage(data) {
+  if (!data) return "流式回合请求失败。";
+  if (typeof data === "string") return data;
+  return data.detail || data.error || JSON.stringify(data);
+}
+
 export async function loadLobby() {
   const [gamesPayload, charactersPayload, classesPayload, monstersPayload] = await Promise.all([
     request("/games"),
@@ -147,6 +182,78 @@ export async function submitTurn(gameId, message) {
     method: "POST",
     body: JSON.stringify({ message }),
   });
+}
+
+export async function streamTurn(gameId, message, handlers = {}) {
+  let response;
+  try {
+    response = await fetch(`${API_PREFIX}/games/${encodeURIComponent(gameId)}/turns/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+  } catch {
+    throw new Error("无法连接后端服务，请确认启动脚本仍在运行，然后刷新页面重试。");
+  }
+
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail || payload);
+    } catch {
+      // ignore JSON parse errors for empty bodies
+    }
+    throw new Error(detail);
+  }
+
+  if (!response.body) {
+    const payload = await response.json();
+    handlers.onResult?.(payload, "turn.completed");
+    return payload;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let finalPayload = null;
+  let streamError = null;
+
+  const dispatchBlock = (block) => {
+    const parsed = parseSseBlock(block);
+    if (!parsed) return;
+
+    handlers.onEvent?.(parsed.event, parsed.data);
+    if (parsed.event === "turn.node") handlers.onNode?.(parsed.data);
+    if (parsed.event === "rag.completed") handlers.onRag?.(parsed.data);
+    if (parsed.event === "tool.completed") handlers.onTool?.(parsed.data);
+    if (parsed.event === "validation.note") handlers.onValidation?.(parsed.data);
+    if (parsed.event === "turn.completed" || parsed.event === "turn.input_required") {
+      finalPayload = parsed.data;
+      handlers.onResult?.(parsed.data, parsed.event);
+    }
+    if (parsed.event === "turn.error") {
+      streamError = new Error(streamErrorMessage(parsed.data));
+      handlers.onError?.(parsed.data);
+    }
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || "";
+    for (const block of blocks) dispatchBlock(block);
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) dispatchBlock(buffer);
+
+  if (streamError) throw streamError;
+  if (!finalPayload) throw new Error("流式回合没有返回结果。");
+  return finalPayload;
 }
 
 export async function advanceTurn(gameId) {

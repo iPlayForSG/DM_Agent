@@ -10,8 +10,19 @@ from typing import Any, Dict, List, Optional, TypedDict
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
 from game_logic import GameLogic
 from library import Library
-from models import ChatMessage, GameState, PendingTurnState, SessionEvent, ToolResult, TurnResult, TurnTrace
+from models import (
+    ChatMessage,
+    GameState,
+    PendingTurnState,
+    SessionEvent,
+    ToolResult,
+    TurnIntent,
+    TurnResult,
+    TurnTrace,
+    ValidationIssue,
+)
 from prompts import build_dm_instruction
+from tool_registry import ToolGuardrailResult, ToolRegistry
 
 try:
     from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
@@ -704,6 +715,7 @@ class DMGraphState(TypedDict, total=False):
     rag_reason: str
     rag_metadata: Dict[str, Any]
     input_warnings: List[str]
+    turn_intent: Dict[str, Any]
     turn_profile: str
     turn_profile_reason: str
     turn_guidance: str
@@ -721,6 +733,8 @@ class DMGraphState(TypedDict, total=False):
     timeline_append: List[Dict[str, Any]]
     history_append: List[Dict[str, Any]]
     validation_notes: List[str]
+    validation_issues: List[Dict[str, Any]]
+    node_traces: List[Dict[str, Any]]
 
 
 class DMGraphRunner:
@@ -748,6 +762,7 @@ class DMGraphRunner:
         self.enable_model = enable_model
         self.max_tool_rounds = max_tool_rounds
         self.library = Library()
+        self.tool_registry = ToolRegistry.from_schemas(LANGGRAPH_TOOL_SCHEMAS)
         self._graph = None
         self._model = None
         self._checkpoint_conn: Optional[sqlite3.Connection] = None
@@ -864,7 +879,7 @@ class DMGraphRunner:
         model = self._create_model()
         if not allowed_tools:
             return model
-        tool_schemas = [tool for tool in LANGGRAPH_TOOL_SCHEMAS if tool["name"] in set(allowed_tools)]
+        tool_schemas = self.tool_registry.schemas_for(allowed_tools)
         if not tool_schemas:
             return model
         return model.bind_tools(tool_schemas)
@@ -1086,6 +1101,20 @@ class DMGraphRunner:
         ]
         return any(marker in lowered for marker in question_markers)
 
+    @classmethod
+    def _action_terms_for_input(cls, user_input: str) -> List[str]:
+        lowered = " ".join((user_input or "").split()).strip().casefold()
+        if not lowered:
+            return []
+        return cls._unique_texts(
+            [
+                marker
+                for marker in ACTION_RESOLUTION_TERMS
+                if str(marker or "").strip() and str(marker).casefold() in lowered
+            ],
+            limit=6,
+        )
+
     def _suggested_resolution_tools(self, state: GameState, user_input: str, phase: str) -> List[str]:
         normalized = " ".join((user_input or "").split()).strip()
         if not normalized:
@@ -1166,6 +1195,93 @@ class DMGraphRunner:
 
         return self._unique_texts(suggestions, limit=3)
 
+    @staticmethod
+    def _intent_risk_level(phase: str, turn_type: str, suggested_tools: List[str]) -> str:
+        high_risk_tools = {"end_encounter", "set_defeat_state", "record_chapter_progress"}
+        medium_risk_tools = {
+            "adjust_hp",
+            "add_status",
+            "remove_status",
+            "add_inventory_item",
+            "record_evidence",
+            "record_search_outcome",
+            "record_major_experience",
+            "start_encounter",
+            "attack_target",
+            "cast_spell",
+            "roll_saving_throw",
+        }
+        tool_set = set(suggested_tools or [])
+        if tool_set & high_risk_tools:
+            return "high"
+        if phase == "combat" or turn_type == "combat_resolution" or tool_set & medium_risk_tools:
+            return "medium"
+        return "low"
+
+    def _plan_turn_intent(self, state: GameState, user_input: str, phase: str, scene: str = "") -> TurnIntent:
+        normalized_input = " ".join((user_input or "").split()).strip()
+        phase_name = str(phase or "").strip().lower() or self._derive_phase(state)
+        scene_name = str(scene or state.scene or "").strip().lower()
+        rule_intent = self._classify_rule_intent(state, normalized_input)
+        action_terms = self._action_terms_for_input(normalized_input)
+        question_shape = self._looks_like_question(normalized_input)
+
+        if phase_name in {"party_creation", "character_creation", "adventure_selection", "level_up"}:
+            turn_type = "setup_guidance"
+            reason = f"phase {phase_name} is setup-heavy and benefits from short decision-oriented replies"
+        elif not normalized_input and phase_name == "combat":
+            turn_type = "combat_resolution"
+            reason = "empty input during an active encounter should still preserve combat-focused tool access"
+        elif not normalized_input:
+            turn_type = "conversation"
+            reason = "empty or whitespace-only player input"
+        elif phase_name == "combat" and action_terms and not question_shape:
+            turn_type = "combat_resolution"
+            reason = "active encounter action should resolve directly instead of detouring into a rules-only turn"
+        elif rule_intent.get("should_retrieve") and action_terms and not question_shape:
+            turn_type = "action_resolution"
+            reason = "the turn references rules-sensitive mechanics, but the player is attempting a concrete action"
+        elif phase_name == "combat" and not rule_intent.get("should_retrieve"):
+            turn_type = "combat_resolution"
+            reason = "active encounter turn should stay focused on concrete combat resolution"
+        elif rule_intent.get("should_retrieve"):
+            turn_type = "rules_reference"
+            reason = str(rule_intent.get("reason", "rules-sensitive question or resolution"))
+        elif phase_name == "combat":
+            turn_type = "combat_resolution"
+            reason = "active encounter turn should stay focused on concrete combat resolution"
+        elif action_terms:
+            turn_type = "action_resolution"
+            reason = "player attempted an action that likely needs adjudication or tracked consequences"
+        elif question_shape:
+            turn_type = "conversation"
+            reason = "player asked an in-world or social question without obvious rules load"
+        else:
+            turn_type = "conversation"
+            reason = "player input reads like low-friction narrative conversation"
+
+        suggested_tools = self._suggested_resolution_tools(state, normalized_input, phase_name)
+        if turn_type == "rules_reference":
+            suggested_tools = ["lookup_rules"]
+        suggested_tools = self._unique_texts(suggested_tools, limit=4)
+        risk_level = self._intent_risk_level(phase_name, turn_type, suggested_tools)
+
+        return TurnIntent(
+            turn_type=turn_type,
+            reason=reason,
+            phase=phase_name,
+            scene=scene_name,
+            risk_level=risk_level,
+            needs_rules=bool(rule_intent.get("should_retrieve")),
+            rag_intent=str(rule_intent.get("intent") or "none"),
+            rag_reason=str(rule_intent.get("reason") or ""),
+            focus_terms=list(rule_intent.get("focus_terms", [])),
+            action_terms=action_terms,
+            matched_spells=list(rule_intent.get("matched_spells", [])),
+            suggested_tools=suggested_tools,
+            requires_confirmation=risk_level == "high",
+        )
+
     def _build_turn_advice(
         self,
         state: GameState,
@@ -1173,11 +1289,16 @@ class DMGraphRunner:
         phase: str,
         turn_profile: str,
         allowed_tools: List[str],
+        turn_intent: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         profile_name = str(turn_profile or "").strip().lower()
+        raw_suggested_tools = list(
+            (turn_intent or {}).get("suggested_tools")
+            or self._suggested_resolution_tools(state, user_input, phase)
+        )
         suggested_tools = [
             tool_name
-            for tool_name in self._suggested_resolution_tools(state, user_input, phase)
+            for tool_name in raw_suggested_tools
             if tool_name in allowed_tools
         ]
 
@@ -1270,6 +1391,25 @@ class DMGraphRunner:
             if len(unique) >= limit:
                 break
         return unique
+
+    @staticmethod
+    def _append_node_trace(
+        graph_state: DMGraphState,
+        node_name: str,
+        summary: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+        status: str = "completed",
+    ) -> List[Dict[str, Any]]:
+        traces = list(graph_state.get("node_traces", []))
+        traces.append(
+            {
+                "node_name": node_name,
+                "status": status,
+                "summary": summary,
+                "metadata": metadata or {},
+            }
+        )
+        return traces[-80:]
 
     @staticmethod
     def _scene_label(scene: str) -> str:
@@ -1559,54 +1699,34 @@ class DMGraphRunner:
             "matched_spells": matched_spells,
         }
 
-    def _classify_turn_profile(self, state: GameState, user_input: str, phase: str) -> Dict[str, Any]:
-        normalized_input = " ".join((user_input or "").split()).strip()
+    @staticmethod
+    def _rule_intent_payload_from_turn_intent(turn_intent: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "intent": str(turn_intent.get("rag_intent") or "none"),
+            "should_retrieve": bool(turn_intent.get("needs_rules")),
+            "reason": str(turn_intent.get("rag_reason") or "no automatic rules trigger matched"),
+            "focus_terms": list(turn_intent.get("focus_terms") or turn_intent.get("action_terms") or []),
+            "matched_spells": list(turn_intent.get("matched_spells") or []),
+        }
+
+    def _classify_turn_profile(
+        self,
+        state: GameState,
+        user_input: str,
+        phase: str,
+        turn_intent: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         phase_name = str(phase or "").strip().lower() or self._derive_phase(state)
         base_tools = self._allowed_tool_names(state, phase=phase_name)
         default_guidance = self._turn_profile_policy("action_resolution").get("guidance", "")
+        intent_payload = dict(turn_intent or {})
+        if not intent_payload:
+            intent_payload = self._plan_turn_intent(state, user_input, phase_name).model_dump(mode="json")
 
-        if phase_name in {"party_creation", "character_creation", "adventure_selection", "level_up"}:
-            profile_name = "setup_guidance"
-            reason = f"phase {phase_name} is setup-heavy and benefits from short decision-oriented replies"
-        elif not normalized_input and phase_name == "combat":
-            profile_name = "combat_resolution"
-            reason = "empty input during an active encounter should still preserve combat-focused tool access"
-        elif not normalized_input:
+        profile_name = str(intent_payload.get("turn_type") or "conversation").strip().lower()
+        if profile_name not in TURN_PROFILE_POLICIES:
             profile_name = "conversation"
-            reason = "empty or whitespace-only player input"
-        else:
-            rule_intent = self._classify_rule_intent(state, normalized_input)
-            lowered = normalized_input.casefold()
-            question_shape = self._looks_like_question(normalized_input)
-            action_markers = [
-                marker
-                for marker in ACTION_RESOLUTION_TERMS
-                if str(marker or "").strip() and str(marker).casefold() in lowered
-            ]
-            if phase_name == "combat" and action_markers and not question_shape:
-                profile_name = "combat_resolution"
-                reason = "active encounter action should resolve directly instead of detouring into a rules-only turn"
-            elif rule_intent.get("should_retrieve") and action_markers and not question_shape:
-                profile_name = "action_resolution"
-                reason = "the turn references rules-sensitive mechanics, but the player is attempting a concrete action"
-            elif phase_name == "combat" and not rule_intent.get("should_retrieve"):
-                profile_name = "combat_resolution"
-                reason = "active encounter turn should stay focused on concrete combat resolution"
-            elif rule_intent.get("should_retrieve"):
-                profile_name = "rules_reference"
-                reason = str(rule_intent.get("reason", "rules-sensitive question or resolution"))
-            elif phase_name == "combat":
-                profile_name = "combat_resolution"
-                reason = "active encounter turn should stay focused on concrete combat resolution"
-            elif action_markers:
-                profile_name = "action_resolution"
-                reason = "player attempted an action that likely needs adjudication or tracked consequences"
-            elif question_shape:
-                profile_name = "conversation"
-                reason = "player asked an in-world or social question without obvious rules load"
-            else:
-                profile_name = "conversation"
-                reason = "player input reads like low-friction narrative conversation"
+        reason = str(intent_payload.get("reason") or "structured turn intent selected this profile")
 
         policy = self._turn_profile_policy(profile_name)
         return {
@@ -1672,6 +1792,12 @@ class DMGraphRunner:
             "state_delta": {},
             "timeline_append": [player_event.model_dump(mode="json")],
             "input_warnings": input_warnings,
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "prepare_turn",
+                "Player input appended to timeline.",
+                {"input_warning_count": len(input_warnings)},
+            ),
         }
 
     def _input_gate(self, graph_state: DMGraphState) -> DMGraphState:
@@ -1689,6 +1815,12 @@ class DMGraphRunner:
                 "state_delta": state_delta,
                 "turn_status": "running",
                 "pending_input": {},
+                "node_traces": self._append_node_trace(
+                    graph_state,
+                    "input_gate",
+                    "Input accepted without clarification.",
+                    {"phase": phase},
+                ),
             }
 
         resumed_input = self._coerce_resume_input(interrupt(request))
@@ -1701,6 +1833,40 @@ class DMGraphRunner:
             "input_warnings": self._detect_input_warnings(resumed_input),
             "turn_status": "running",
             "pending_input": {},
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "input_gate",
+                "Input resumed after clarification.",
+                {"phase": phase},
+            ),
+        }
+
+    def _plan_turn(self, graph_state: DMGraphState) -> DMGraphState:
+        state = GameState.model_validate(graph_state["game_state"])
+        user_input = str(graph_state.get("user_input", ""))
+        state_delta = dict(graph_state.get("state_delta", {}))
+        phase, scene, notes, patch, _ = self._normalize_phase_state(state)
+        if patch:
+            state_delta = merge_patch(state_delta, patch)
+        turn_intent = self._plan_turn_intent(state, user_input, phase, scene)
+        return {
+            "game_state": state.model_dump(mode="json"),
+            "phase": phase,
+            "scene": scene,
+            "turn_intent": turn_intent.model_dump(mode="json"),
+            "state_delta": state_delta,
+            "validation_notes": notes,
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "plan_turn",
+                "Structured turn intent planned.",
+                {
+                    "turn_type": turn_intent.turn_type,
+                    "risk_level": turn_intent.risk_level,
+                    "needs_rules": turn_intent.needs_rules,
+                    "rag_intent": turn_intent.rag_intent,
+                },
+            ),
         }
 
     def _route_phase(self, graph_state: DMGraphState) -> DMGraphState:
@@ -1708,16 +1874,21 @@ class DMGraphRunner:
         user_input = str(graph_state.get("user_input", ""))
         state_delta = dict(graph_state.get("state_delta", {}))
         phase, scene, notes, patch, policy = self._normalize_phase_state(state)
-        turn_profile = self._classify_turn_profile(state, user_input, phase)
+        turn_intent = dict(graph_state.get("turn_intent") or {})
+        if not turn_intent:
+            turn_intent = self._plan_turn_intent(state, user_input, phase, scene).model_dump(mode="json")
+        turn_profile = self._classify_turn_profile(state, user_input, phase, turn_intent)
         turn_advice = self._build_turn_advice(
             state,
             user_input,
             phase,
             turn_profile["turn_profile"],
             list(turn_profile["allowed_tools"]),
+            turn_intent=turn_intent,
         )
         if patch:
             state_delta = merge_patch(state_delta, patch)
+            turn_intent = self._plan_turn_intent(state, user_input, phase, scene).model_dump(mode="json")
         return {
             "game_state": state.model_dump(mode="json"),
             "phase": phase,
@@ -1725,6 +1896,7 @@ class DMGraphRunner:
             "phase_objective": str(policy.get("objective", "")),
             "phase_constraints": list(policy.get("constraints", [])),
             "phase_blockers": self._phase_blockers(state, phase),
+            "turn_intent": turn_intent,
             "turn_profile": turn_profile["turn_profile"],
             "turn_profile_reason": turn_profile["turn_profile_reason"],
             "turn_guidance": turn_profile["turn_guidance"],
@@ -1737,6 +1909,17 @@ class DMGraphRunner:
             "pending_input": dict(graph_state.get("pending_input", {})),
             "state_delta": state_delta,
             "validation_notes": notes,
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "route_phase",
+                "Phase policy, profile, and allowed tools selected.",
+                {
+                    "phase": phase,
+                    "scene": scene,
+                    "turn_profile": turn_profile["turn_profile"],
+                    "allowed_tool_count": len(turn_advice["allowed_tools"]),
+                },
+            ),
         }
 
     def _prepare_context(self, graph_state: DMGraphState) -> DMGraphState:
@@ -1760,6 +1943,7 @@ class DMGraphRunner:
             turn_expectation=graph_state.get("turn_expectation", ""),
             suggested_tools=list(graph_state.get("suggested_tools", [])),
             turn_checklist=list(graph_state.get("turn_checklist", [])),
+            turn_intent=dict(graph_state.get("turn_intent", {})),
         )
         return {
             "state_summary": state_summary,
@@ -1769,6 +1953,15 @@ class DMGraphRunner:
                 self._system_prompt_message(instruction),
                 self._human_prompt_message(graph_state.get("user_input", "")),
             ],
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "prepare_context",
+                "Prompt context prepared.",
+                {
+                    "rag_context_chars": len(graph_state.get("rag_context", "") or ""),
+                    "suggested_tool_count": len(graph_state.get("suggested_tools", [])),
+                },
+            ),
         }
 
     @staticmethod
@@ -1813,10 +2006,21 @@ class DMGraphRunner:
                     "snippet_count": 0,
                     "sources": [],
                 },
+                "node_traces": self._append_node_trace(
+                    graph_state,
+                    "retrieve_rules",
+                    "Automatic rules retrieval skipped.",
+                    {"reason": reason, "ready": self.rag_engine.is_ready()},
+                ),
             }
 
         state = GameState.model_validate(graph_state["game_state"])
-        intent_payload = self._classify_rule_intent(state, graph_state.get("user_input", ""))
+        turn_intent = dict(graph_state.get("turn_intent") or {})
+        intent_payload = (
+            self._rule_intent_payload_from_turn_intent(turn_intent)
+            if turn_intent
+            else self._classify_rule_intent(state, graph_state.get("user_input", ""))
+        )
         if not intent_payload.get("should_retrieve"):
             intent = str(intent_payload.get("intent", "none"))
             reason = str(intent_payload.get("reason", "no automatic rules trigger matched"))
@@ -1836,6 +2040,12 @@ class DMGraphRunner:
                     "snippet_count": 0,
                     "sources": [],
                 },
+                "node_traces": self._append_node_trace(
+                    graph_state,
+                    "retrieve_rules",
+                    "Turn intent did not require automatic rules retrieval.",
+                    {"intent": intent, "reason": reason},
+                ),
             }
 
         queries = self._build_intent_rag_queries(state, graph_state.get("user_input", ""), intent_payload)
@@ -1868,13 +2078,25 @@ class DMGraphRunner:
                 "snippet_count": len(snippets),
                 "sources": sources,
             },
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "retrieve_rules",
+                "Automatic rules retrieval completed.",
+                {"intent": intent, "query_count": len(queries), "snippet_count": len(snippets)},
+            ),
         }
 
     def _draft_response_placeholder(self, graph_state: DMGraphState) -> DMGraphState:
         return {
             "final_response": (
                 "LangGraph turn workflow is prepared, but the model/tool execution node is not enabled yet."
-            )
+            ),
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "draft_response",
+                "Model execution skipped because enable_model is false.",
+                {"enable_model": False},
+            ),
         }
 
     @staticmethod
@@ -1926,20 +2148,46 @@ class DMGraphRunner:
         except Exception as exc:
             detail = self._summarize_model_exception(exc)
             validation_notes = list(graph_state.get("validation_notes", []))
-            validation_notes.append(f"Model invocation failed: {detail}")
+            validation_issues = list(graph_state.get("validation_issues", []))
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator="model_call",
+                severity="error",
+                action="failed_turn",
+                summary=f"Model invocation failed: {detail}",
+                metadata={"detail": detail},
+            )
             rag_metadata = dict(graph_state.get("rag_metadata", {}))
             rag_metadata["model_error"] = detail
             return {
                 "final_response": f"当前模型服务不可用，本回合未能继续执行。原因：{detail}",
                 "turn_status": "failed",
                 "validation_notes": validation_notes,
+                "validation_issues": validation_issues,
                 "rag_metadata": rag_metadata,
+                "node_traces": self._append_node_trace(
+                    graph_state,
+                    "draft_response",
+                    "Model invocation failed.",
+                    {"error": detail},
+                    status="failed",
+                ),
             }
 
         final_response = self.library.localize_game_terms(self._extract_message_content(response))
         result: DMGraphState = {"messages": [*messages, response]}
         if final_response:
             result["final_response"] = final_response
+        result["node_traces"] = self._append_node_trace(
+            graph_state,
+            "draft_response",
+            "Model response received.",
+            {
+                "tool_call_count": len(self._last_message_tool_calls([response])),
+                "response_chars": len(final_response),
+            },
+        )
         return result
 
     @staticmethod
@@ -1955,12 +2203,101 @@ class DMGraphRunner:
             return "execute_tools"
         return "finalize_turn"
 
-    def _tool_error_execution(self, tool_name: str, message: str) -> AgentToolExecution:
+    def _tool_error_execution(
+        self,
+        tool_name: str,
+        message: str,
+        guardrail: Optional[Dict[str, Any]] = None,
+    ) -> AgentToolExecution:
+        error_response = {"ok": False, "tool_name": tool_name, "error": message}
+        if guardrail:
+            error_response["guardrail"] = guardrail
         return AgentToolExecution(
             ok=False,
             error=message,
-            error_response={"ok": False, "tool_name": tool_name, "error": message},
+            error_response=error_response,
         )
+
+    @staticmethod
+    def _is_confirmation_affirmative(value: Any) -> bool:
+        if isinstance(value, dict):
+            for key in ["confirmed", "confirm", "approved", "approve", "allow", "execute"]:
+                if key in value:
+                    return bool(value.get(key))
+            text = value.get("message") or value.get("input") or value.get("content") or ""
+        else:
+            text = str(value or "")
+
+        normalized = " ".join(str(text or "").split()).strip().casefold()
+        if not normalized:
+            return False
+        negative_terms = {
+            "no",
+            "n",
+            "cancel",
+            "deny",
+            "decline",
+            "stop",
+            "否",
+            "不",
+            "不要",
+            "取消",
+            "拒绝",
+            "停止",
+        }
+        if normalized in negative_terms:
+            return False
+        affirmative_terms = {
+            "yes",
+            "y",
+            "ok",
+            "okay",
+            "confirm",
+            "confirmed",
+            "approve",
+            "approved",
+            "execute",
+            "go ahead",
+            "确认",
+            "是",
+            "可以",
+            "同意",
+            "执行",
+            "继续",
+        }
+        return normalized in affirmative_terms
+
+    def _confirm_tool_execution(
+        self,
+        graph_state: DMGraphState,
+        tool_name: str,
+        args: Dict[str, Any],
+        guardrail: ToolGuardrailResult,
+    ) -> tuple[bool, str]:
+        if not guardrail.metadata.get("requires_confirmation"):
+            return True, ""
+        if interrupt is None:
+            return False, f"Tool requires confirmation before execution: {tool_name}"
+
+        payload = {
+            "kind": "tool_confirmation",
+            "phase": str(graph_state.get("phase") or ""),
+            "prompt": (
+                f"工具 `{tool_name}` 会执行高风险状态变更。"
+                "请回复“确认”执行，或回复“取消”跳过。"
+            ),
+            "details": {
+                "reason": "high_risk_tool_confirmation",
+                "tool_name": tool_name,
+                "args": dict(args or {}),
+                "guardrail": dict(guardrail.metadata),
+                "turn_intent": dict(graph_state.get("turn_intent") or {}),
+            },
+        }
+        resumed = interrupt(payload)
+        if self._is_confirmation_affirmative(resumed):
+            return True, ""
+        return False, f"Tool execution cancelled by confirmation guardrail: {tool_name}"
 
     def _execute_single_tool(
         self,
@@ -1969,15 +2306,21 @@ class DMGraphRunner:
         args: Dict[str, Any],
         allowed_tools: List[str],
     ) -> AgentToolExecution:
+        guardrail = self.tool_registry.validate_call(
+            state=state,
+            tool_name=tool_name,
+            args=args,
+            allowed_tools=allowed_tools,
+        )
+        if not guardrail.ok:
+            return self._tool_error_execution(tool_name, guardrail.error, guardrail.metadata)
         if not self.tool_service:
             return self._tool_error_execution(tool_name, "Agent tool service is not configured.")
-        if tool_name not in allowed_tools:
-            return self._tool_error_execution(tool_name, f"Tool is not allowed in the current phase: {tool_name}")
         tool = getattr(self.tool_service, tool_name, None)
         if not tool:
             return self._tool_error_execution(tool_name, f"Unknown tool: {tool_name}")
         try:
-            return tool(state, **(args or {}))
+            return tool(state, **guardrail.args)
         except TypeError as exc:
             return self._tool_error_execution(tool_name, f"Invalid tool arguments for {tool_name}: {exc}")
         except Exception as exc:
@@ -1994,11 +2337,39 @@ class DMGraphRunner:
         tool_results = list(graph_state.get("tool_results", []))
         timeline_append = list(graph_state.get("timeline_append", []))
         state_delta = dict(graph_state.get("state_delta", {}))
+        tool_trace_items: List[Dict[str, Any]] = []
 
         for tool_call in self._last_message_tool_calls(messages):
             tool_name = tool_call.get("name", "")
             args = dict(tool_call.get("args") or {})
-            execution = self._execute_single_tool(state, tool_name, args, allowed_tools)
+            guardrail = self.tool_registry.validate_call(
+                state=state,
+                tool_name=tool_name,
+                args=args,
+                allowed_tools=allowed_tools,
+            )
+            confirmation_status = ""
+            if not guardrail.ok:
+                execution = self._tool_error_execution(tool_name, guardrail.error, guardrail.metadata)
+            else:
+                if guardrail.metadata.get("requires_confirmation"):
+                    confirmed, confirmation_error = self._confirm_tool_execution(
+                        graph_state,
+                        tool_name,
+                        args,
+                        guardrail,
+                    )
+                    confirmation_status = "confirmed" if confirmed else "cancelled"
+                    if not confirmed:
+                        execution = self._tool_error_execution(
+                            tool_name,
+                            confirmation_error,
+                            guardrail.metadata,
+                        )
+                    else:
+                        execution = self._execute_single_tool(state, tool_name, args, allowed_tools)
+                else:
+                    execution = self._execute_single_tool(state, tool_name, args, allowed_tools)
 
             if execution.ok:
                 if execution.timeline_event:
@@ -2015,6 +2386,15 @@ class DMGraphRunner:
                     tool_call_id=tool_call.get("id", tool_name or "tool_call"),
                 )
             )
+            tool_trace_items.append(
+                {
+                    "tool_name": tool_name,
+                    "ok": execution.ok,
+                    "error": execution.error,
+                    "guardrail": dict(guardrail.metadata),
+                    "confirmation_status": confirmation_status,
+                }
+            )
 
         return {
             "game_state": state.model_dump(mode="json"),
@@ -2024,6 +2404,17 @@ class DMGraphRunner:
             "state_delta": state_delta,
             "tool_call_rounds": graph_state.get("tool_call_rounds", 0) + 1,
             "allowed_tools": self._allowed_tool_names(state, phase=self._derive_phase(state)),
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "execute_tools",
+                "Tool call round executed.",
+                {
+                    "tool_call_count": len(self._last_message_tool_calls(list(graph_state.get("messages", [])))),
+                    "tool_result_count": len(tool_results),
+                    "tool_round": graph_state.get("tool_call_rounds", 0) + 1,
+                    "tools": tool_trace_items,
+                },
+            ),
         }
 
     @staticmethod
@@ -2033,12 +2424,35 @@ class DMGraphRunner:
         content = "State validation updates:\n- " + "\n- ".join(notes)
         return SystemMessage(content=content)
 
+    @staticmethod
+    def _record_validation_issue(
+        notes: List[str],
+        issues: List[Dict[str, Any]],
+        *,
+        validator: str,
+        summary: str,
+        severity: str = "info",
+        action: str = "noted",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        notes.append(summary)
+        issues.append(
+            ValidationIssue(
+                validator=validator,
+                severity=severity,
+                action=action,
+                summary=summary,
+                metadata=dict(metadata or {}),
+            ).model_dump(mode="json")
+        )
+
     def _validate_state(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         messages = list(graph_state.get("messages", []))
         timeline_append = list(graph_state.get("timeline_append", []))
         state_delta = dict(graph_state.get("state_delta", {}))
         validation_notes: List[str] = list(graph_state.get("validation_notes", []))
+        validation_issues: List[Dict[str, Any]] = list(graph_state.get("validation_issues", []))
         logic = GameLogic(state)
 
         if state.characters and (
@@ -2047,7 +2461,14 @@ class DMGraphRunner:
             first_character = next(iter(state.characters.values()))
             state.active_character_id = first_character.character_id
             state_delta = merge_patch(state_delta, {"active_character_id": first_character.character_id})
-            validation_notes.append("Recovered missing active character reference.")
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator="active_character",
+                action="recovered",
+                summary="Recovered missing active character reference.",
+                metadata={"active_character_id": first_character.character_id},
+            )
 
         encounter = state.encounter
         if encounter and encounter.active:
@@ -2055,11 +2476,25 @@ class DMGraphRunner:
             if state.scene != "combat":
                 state.scene = "combat"
                 patch["scene"] = "combat"
-                validation_notes.append("Forced scene back to combat while encounter is active.")
+                self._record_validation_issue(
+                    validation_notes,
+                    validation_issues,
+                    validator="combat_phase",
+                    action="normalized",
+                    summary="Forced scene back to combat while encounter is active.",
+                    metadata={"scene": "combat"},
+                )
             if state.campaign.phase != "combat":
                 state.campaign.phase = "combat"
                 patch["campaign"] = {"phase": "combat"}
-                validation_notes.append("Forced campaign phase back to combat while encounter is active.")
+                self._record_validation_issue(
+                    validation_notes,
+                    validation_issues,
+                    validator="combat_phase",
+                    action="normalized",
+                    summary="Forced campaign phase back to combat while encounter is active.",
+                    metadata={"phase": "combat"},
+                )
 
             if not encounter.combatants:
                 encounter.active = False
@@ -2072,7 +2507,15 @@ class DMGraphRunner:
                     "campaign": {"phase": "exploration"},
                     "encounter": encounter.model_dump(mode="json"),
                 }
-                validation_notes.append("Closed an invalid encounter with no combatants.")
+                self._record_validation_issue(
+                    validation_notes,
+                    validation_issues,
+                    validator="encounter_integrity",
+                    severity="warning",
+                    action="closed_encounter",
+                    summary="Closed an invalid encounter with no combatants.",
+                    metadata={"reason": "no_combatants"},
+                )
             else:
                 synced_party_combatants = False
                 for combatant in encounter.combatants.values():
@@ -2098,17 +2541,37 @@ class DMGraphRunner:
                         synced_party_combatants = True
                 if synced_party_combatants:
                     patch["encounter"] = encounter.model_dump(mode="json")
-                    validation_notes.append("Synced party combatants from character sheets before validating combat state.")
+                    self._record_validation_issue(
+                        validation_notes,
+                        validation_issues,
+                        validator="party_combatant_sync",
+                        action="synced",
+                        summary="Synced party combatants from character sheets before validating combat state.",
+                    )
 
                 previous_order = list(encounter.initiative_order)
                 previous_current = encounter.current_combatant_id
                 previous_started = encounter.turn_order_started
                 logic._refresh_initiative_order()
                 if encounter.initiative_order != previous_order:
-                    validation_notes.append("Normalized initiative order to match current combatants and initiative values.")
+                    self._record_validation_issue(
+                        validation_notes,
+                        validation_issues,
+                        validator="initiative_order",
+                        action="normalized",
+                        summary="Normalized initiative order to match current combatants and initiative values.",
+                    )
                 if encounter.current_combatant_id and encounter.current_combatant_id not in encounter.combatants:
                     encounter.current_combatant_id = None
-                    validation_notes.append("Cleared an invalid current combatant reference.")
+                    self._record_validation_issue(
+                        validation_notes,
+                        validation_issues,
+                        validator="current_combatant",
+                        severity="warning",
+                        action="cleared",
+                        summary="Cleared an invalid current combatant reference.",
+                        metadata={"previous_current_combatant_id": previous_current},
+                    )
 
                 eligible_order = [
                     combatant_id
@@ -2118,22 +2581,48 @@ class DMGraphRunner:
 
                 if not encounter.turn_order_started:
                     if logic._start_turn_order_if_ready():
-                        validation_notes.append("Started turn order automatically after all initiatives became available.")
+                        self._record_validation_issue(
+                            validation_notes,
+                            validation_issues,
+                            validator="turn_order",
+                            action="started",
+                            summary="Started turn order automatically after all initiatives became available.",
+                        )
                 elif eligible_order:
                     if encounter.current_combatant_id not in eligible_order:
                         encounter.current_combatant_id = eligible_order[0]
-                        validation_notes.append("Moved current combatant to the next eligible combatant.")
+                        self._record_validation_issue(
+                            validation_notes,
+                            validation_issues,
+                            validator="current_combatant",
+                            action="advanced",
+                            summary="Moved current combatant to the next eligible combatant.",
+                            metadata={"current_combatant_id": encounter.current_combatant_id},
+                        )
                 else:
                     if encounter.current_combatant_id is not None:
                         encounter.current_combatant_id = None
-                        validation_notes.append("Cleared current combatant because no combatant can currently act.")
+                        self._record_validation_issue(
+                            validation_notes,
+                            validation_issues,
+                            validator="current_combatant",
+                            action="cleared",
+                            summary="Cleared current combatant because no combatant can currently act.",
+                        )
 
                 current = encounter.get_current_combatant()
                 if current and current.linked_character_id and current.linked_character_id in state.characters:
                     if state.active_character_id != current.linked_character_id:
                         state.active_character_id = current.linked_character_id
                         patch["active_character_id"] = current.linked_character_id
-                        validation_notes.append("Synced active character to the acting party combatant.")
+                        self._record_validation_issue(
+                            validation_notes,
+                            validation_issues,
+                            validator="active_character",
+                            action="synced",
+                            summary="Synced active character to the acting party combatant.",
+                            metadata={"active_character_id": current.linked_character_id},
+                        )
 
                 enemies = [combatant for combatant in encounter.combatants.values() if combatant.side == "enemy"]
                 active_enemies = [
@@ -2161,7 +2650,14 @@ class DMGraphRunner:
                                 payload={**outcome["summary_payload"], "automatic": True},
                             ).model_dump(mode="json")
                         )
-                        validation_notes.append("Automatically ended the encounter because no active enemies remained.")
+                        self._record_validation_issue(
+                            validation_notes,
+                            validation_issues,
+                            validator="encounter_end_condition",
+                            action="ended_encounter",
+                            summary="Automatically ended the encounter because no active enemies remained.",
+                            metadata={"reason": "no_active_enemies"},
+                        )
 
                 if (
                     encounter.initiative_order != previous_order
@@ -2178,19 +2674,37 @@ class DMGraphRunner:
                 state.campaign.phase = "exploration"
                 patch["campaign"] = {"phase": "exploration"}
             state_delta = merge_patch(state_delta, patch)
-            validation_notes.append("Recovered from dangling combat scene without an active encounter.")
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator="combat_phase",
+                severity="warning",
+                action="normalized",
+                summary="Recovered from dangling combat scene without an active encounter.",
+                metadata={"scene": "exploration", "phase": state.campaign.phase},
+            )
 
         phase, scene, phase_notes, phase_patch, policy = self._normalize_phase_state(state)
         if phase_patch:
             state_delta = merge_patch(state_delta, phase_patch)
-            validation_notes.extend(phase_notes)
-        turn_profile = self._classify_turn_profile(state, graph_state.get("user_input", ""), phase)
+            for note in phase_notes:
+                self._record_validation_issue(
+                    validation_notes,
+                    validation_issues,
+                    validator="phase_normalization",
+                    action="normalized",
+                    summary=note,
+                    metadata={"phase": phase, "scene": scene},
+                )
+        turn_intent = self._plan_turn_intent(state, graph_state.get("user_input", ""), phase, scene).model_dump(mode="json")
+        turn_profile = self._classify_turn_profile(state, graph_state.get("user_input", ""), phase, turn_intent)
         turn_advice = self._build_turn_advice(
             state,
             graph_state.get("user_input", ""),
             phase,
             turn_profile["turn_profile"],
             list(turn_profile["allowed_tools"]),
+            turn_intent=turn_intent,
         )
 
         validation_message = self._build_validation_message(validation_notes)
@@ -2207,6 +2721,7 @@ class DMGraphRunner:
             "phase_objective": str(policy.get("objective", "")),
             "phase_constraints": list(policy.get("constraints", [])),
             "phase_blockers": self._phase_blockers(state, phase),
+            "turn_intent": turn_intent,
             "turn_profile": turn_profile["turn_profile"],
             "turn_profile_reason": turn_profile["turn_profile_reason"],
             "turn_guidance": turn_profile["turn_guidance"],
@@ -2216,6 +2731,24 @@ class DMGraphRunner:
             "tool_round_limit": turn_profile["tool_round_limit"],
             "allowed_tools": list(turn_advice["allowed_tools"]),
             "validation_notes": validation_notes,
+            "validation_issues": validation_issues,
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "validate_state",
+                "State validation completed.",
+                {
+                    "validation_note_count": len(validation_notes),
+                    "validation_issue_count": len(validation_issues),
+                    "validation_error_count": sum(
+                        1 for issue in validation_issues if issue.get("severity") == "error"
+                    ),
+                    "validation_warning_count": sum(
+                        1 for issue in validation_issues if issue.get("severity") == "warning"
+                    ),
+                    "phase": phase,
+                    "scene": scene,
+                },
+            ),
         }
 
     def _finalize_turn(self, graph_state: DMGraphState) -> DMGraphState:
@@ -2263,6 +2796,14 @@ class DMGraphRunner:
             "pending_input": {},
             "rag_metadata": dict(graph_state.get("rag_metadata", {})),
             "input_warnings": list(graph_state.get("input_warnings", [])),
+            "validation_notes": list(graph_state.get("validation_notes", [])),
+            "validation_issues": list(graph_state.get("validation_issues", [])),
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "finalize_turn",
+                "Turn finalized.",
+                {"turn_status": turn_status, "turn_number": state.turn_number},
+            ),
         }
 
     def _build_graph(self):
@@ -2270,6 +2811,7 @@ class DMGraphRunner:
         builder = StateGraph(DMGraphState)
         builder.add_node("prepare_turn", self._prepare_turn)
         builder.add_node("input_gate", self._input_gate)
+        builder.add_node("plan_turn", self._plan_turn)
         builder.add_node("route_phase", self._route_phase)
         builder.add_node("retrieve_rules", self._retrieve_rules)
         builder.add_node("prepare_context", self._prepare_context)
@@ -2280,7 +2822,8 @@ class DMGraphRunner:
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
         builder.add_edge("prepare_turn", "input_gate")
-        builder.add_edge("input_gate", "route_phase")
+        builder.add_edge("input_gate", "plan_turn")
+        builder.add_edge("plan_turn", "route_phase")
         builder.add_edge("route_phase", "retrieve_rules")
         builder.add_edge("retrieve_rules", "prepare_context")
         builder.add_edge("prepare_context", "draft_response")
@@ -2357,6 +2900,11 @@ class DMGraphRunner:
             thread_id=thread_id,
             phase=str(result_payload.get("phase") or updated_state.campaign.phase or ""),
             scene=str(result_payload.get("scene") or updated_state.scene or ""),
+            turn_intent=(
+                TurnIntent.model_validate(result_payload.get("turn_intent"))
+                if result_payload.get("turn_intent")
+                else None
+            ),
             turn_profile=str(result_payload.get("turn_profile") or ""),
             tool_round_limit=int(result_payload.get("tool_round_limit", 0) or 0),
             user_input=str(user_input or ""),
@@ -2366,9 +2914,14 @@ class DMGraphRunner:
             suggested_tools=list(result_payload.get("suggested_tools", [])),
             allowed_tools=list(result_payload.get("allowed_tools", [])),
             validation_notes=list(result_payload.get("validation_notes", [])),
+            validation_issues=[
+                item if isinstance(item, ValidationIssue) else ValidationIssue.model_validate(item)
+                for item in result_payload.get("validation_issues", [])
+            ],
             tool_results=tool_results,
             rag_metadata=dict(result_payload.get("rag_metadata", {})),
             state_delta=dict(result_payload.get("state_delta", {})),
+            node_traces=list(result_payload.get("node_traces", [])),
         )
 
     @staticmethod
@@ -2407,6 +2960,10 @@ class DMGraphRunner:
             item if isinstance(item, ToolResult) else ToolResult.model_validate(item)
             for item in result_payload.get("tool_results", [])
         ]
+        validation_issues = [
+            item if isinstance(item, ValidationIssue) else ValidationIssue.model_validate(item)
+            for item in result_payload.get("validation_issues", [])
+        ]
 
         if interrupt_values:
             pending_turn = self._pending_turn_from_interrupt(thread_id, interrupt_values[0], user_input)
@@ -2436,6 +2993,7 @@ class DMGraphRunner:
                 tool_results=tool_results,
                 rag_metadata=dict(result_payload.get("rag_metadata", {})),
                 input_warnings=list(result_payload.get("input_warnings", [])),
+                validation_issues=validation_issues,
                 state_delta=dict(result_payload.get("state_delta", {})),
                 game_state=updated_state,
             )
@@ -2465,6 +3023,7 @@ class DMGraphRunner:
             tool_results=tool_results,
             rag_metadata=dict(result_payload.get("rag_metadata", {})),
             input_warnings=list(result_payload.get("input_warnings", [])),
+            validation_issues=validation_issues,
             state_delta=dict(result_payload.get("state_delta", {})),
             game_state=updated_state,
         )

@@ -404,6 +404,7 @@ DMGraphState
 
 - 执行模型请求的工具。
 - 工具必须只通过本地 service 修改 `GameState`。
+- actor-bound 工具会先经过 `ToolRegistry` 当前行动者 guardrail；活动遭遇中非当前行动者不能发起攻击、技能检定或施法。
 - 每次工具执行都生成 `ToolResult`。
 
 `validate_state`
@@ -411,7 +412,7 @@ DMGraphState
 - 继续承担最小状态修复，同时开始承担更明确的 Rules Guard 职责。
 - 会在校验前先同步 party combatant 与角色卡的 HP、AC、状态和 defeat state，减少镜像漂移。
 - 当敌方全部失去行动能力时会自动结束遭遇，写回 encounter summary，并追加自动结束事件到 `timeline_append`。
-- 校验遭遇状态、当前行动者、资源消耗、法术位、物品数量和状态变更。
+- 校验遭遇状态、资源消耗、法术位、物品数量和状态变更；当前行动者的工具入口约束由 `ToolRegistry` 先行执行。
 - 对不合法工具调用返回错误结果，而不是让模型直接修改状态。
 
 `finalize_turn`
@@ -443,6 +444,7 @@ LangGraph 节点负责：
 
 - 从图状态取出 `GameState`。
 - 校验当前阶段是否允许该工具。
+- 校验活动遭遇中的 actor-bound 工具是否由当前行动者发起。
 - 调用工具服务。
 - 把结果合并回图状态。
 
@@ -656,8 +658,12 @@ LangGraph 节点负责：
   - `Content-Type: text/event-stream`
   - 请求体与 `POST /api/v1/games/{game_id}/turns` 相同，仍然是：
     - `{"message": "..."}`
-- 当前会按顺序发送最小生命周期事件：
+- 当前会按顺序发送生命周期与 trace detail 事件：
   - `turn.started`
+  - `turn.node`（可选，按 `TurnTrace.node_traces` 逐条发送）
+  - `rag.completed`（可选，按 `TurnTrace.rag_metadata` 派生）
+  - `tool.completed`（可选，按 `TurnTrace.tool_results` 逐条发送）
+  - `validation.note`（可选，按 `TurnTrace.validation_notes` 逐条发送）
   - `turn.completed` 或 `turn.input_required`
   - `turn.saved`
   - `turn.finished`
@@ -667,6 +673,10 @@ LangGraph 节点负责：
     - `turn.finished`
 - 事件 payload 设计：
   - `turn.started`：`game_id`、`mode`、`checkpoint_backend`、`checkpoint_db_path`、`has_pending_turn`
+  - `turn.node`：`game_id`、`mode`、`trace_id`、`turn_number`、`index`、`node_name`、`status`、`summary`、`metadata`
+  - `rag.completed`：`game_id`、`mode`、`trace_id`、`turn_number`、`status`、`intent`、`reason`、`query_count`、`snippet_count`、`source_count`、`queries`、`sources`、`metadata`
+  - `tool.completed`：`game_id`、`mode`、`trace_id`、`turn_number`、`index`、`tool_name`、`status`、`summary`、`payload`
+  - `validation.note`：`game_id`、`mode`、`trace_id`、`turn_number`、`index`、`status`、`note`、`validator`、`severity`、`action`、`metadata`
   - `turn.completed` / `turn.input_required`：完整 `TurnResult` JSON，再补 `game_id` 与 `mode`
   - `turn.saved`：`game_id`、`turn_status`、`updated_at`
   - `turn.finished`：最终 `status`
@@ -674,8 +684,8 @@ LangGraph 节点负责：
   - 原 `POST /api/v1/games/{game_id}/turns` 保持不变，仍返回完整 `TurnResult`
   - 新的 stream 接口只是把同一回合执行过程拆成前端可消费的 SSE 生命周期事件
 - 现阶段边界：
-  - 还没有把工具调用中间态逐条流出
-  - 还没有把 RAG 召回中间态逐条流出
+  - `turn.node`、`rag.completed`、`tool.completed`、`validation.note` 目前都来自本回合完成后的 `TurnTrace`，不是 graph 执行过程中的实时 token / tool delta
+  - 工具调用和 RAG 已能通过 detail events 暴露摘要，但还没有逐 token / 逐 tool-call 实时流出
   - 还没有做 server-side heartbeat / keepalive
 
 ## 2026-05-08 Turn Trace Update
@@ -707,9 +717,11 @@ LangGraph 节点负责：
   - `suggested_tools`
   - `allowed_tools`
   - `validation_notes`
+  - `validation_issues`
   - `tool_results`
   - `rag_metadata`
   - `state_delta`
+  - `node_traces`
 - 现阶段仍然是“每回合一条摘要 trace”
   - 不是每个 tool round 一条
   - 不是每个 token / 每个 prompt block 一条

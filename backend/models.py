@@ -508,6 +508,43 @@ class PendingTurnState(BaseModel):
         }
 
 
+class TurnIntent(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    turn_type: str = "conversation"
+    reason: str = ""
+    phase: str = ""
+    scene: str = ""
+    risk_level: str = "low"
+    needs_rules: bool = False
+    rag_intent: str = "none"
+    rag_reason: str = ""
+    focus_terms: List[str] = Field(default_factory=list)
+    action_terms: List[str] = Field(default_factory=list)
+    matched_spells: List[str] = Field(default_factory=list)
+    suggested_tools: List[str] = Field(default_factory=list)
+    requires_confirmation: bool = False
+
+
+class NodeTrace(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    node_name: str = ""
+    status: str = "completed"
+    summary: str = ""
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ValidationIssue(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    validator: str = ""
+    severity: str = "info"
+    action: str = "noted"
+    summary: str = ""
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class TurnTrace(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -518,6 +555,7 @@ class TurnTrace(BaseModel):
     thread_id: str = ""
     phase: str = ""
     scene: str = ""
+    turn_intent: Optional[TurnIntent] = None
     turn_profile: str = ""
     tool_round_limit: int = 0
     user_input: str = ""
@@ -527,9 +565,11 @@ class TurnTrace(BaseModel):
     suggested_tools: List[str] = Field(default_factory=list)
     allowed_tools: List[str] = Field(default_factory=list)
     validation_notes: List[str] = Field(default_factory=list)
+    validation_issues: List[ValidationIssue] = Field(default_factory=list)
     tool_results: List[ToolResult] = Field(default_factory=list)
     rag_metadata: Dict[str, Any] = Field(default_factory=dict)
     state_delta: Dict[str, Any] = Field(default_factory=dict)
+    node_traces: List[NodeTrace] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -665,5 +705,6 @@ class TurnResult(BaseModel):
     tool_results: List[ToolResult] = Field(default_factory=list)
     rag_metadata: Dict[str, Any] = Field(default_factory=dict)
     input_warnings: List[str] = Field(default_factory=list)
+    validation_issues: List[ValidationIssue] = Field(default_factory=list)
     state_delta: Dict[str, Any] = Field(default_factory=dict)
     game_state: GameState

@@ -75,7 +75,7 @@ npm run dev
 ```
 
 Vite 开发服务器会把 `/api` 代理到 `http://127.0.0.1:23333`。
-如果存在 `frontend/.env.development.local` 里的 `VITE_BACKEND_URL`，前端会优先直连该后端地址；`start.ps1` 会自动写入这个运行时配置，Windows 下也可以直接双击 `start.cmd` 启动。
+如果存在 `frontend/.env.development.local` 里的 `VITE_BACKEND_URL`，前端会优先直连该后端地址；Windows 下可以直接双击 `start.cmd`，它会自动写入这个运行时配置、启动前后端并打开前端页面。
 
 ## 当前状态
 

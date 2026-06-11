@@ -159,6 +159,108 @@ def _sse_event(event: str, data: Dict[str, Any]) -> str:
     return f"event: {event}\ndata: {payload}\n\n"
 
 
+def _turn_node_event_payloads(result: TurnResult, game_id: str, mode: str) -> List[Dict[str, Any]]:
+    trace = result.turn_trace
+    if not trace or not trace.node_traces:
+        return []
+    payloads: List[Dict[str, Any]] = []
+    for index, node_trace in enumerate(trace.node_traces):
+        payloads.append(
+            {
+                "game_id": game_id,
+                "mode": mode,
+                "trace_id": trace.trace_id,
+                "turn_number": trace.turn_number,
+                "index": index,
+                **node_trace.model_dump(mode="json"),
+            }
+        )
+    return payloads
+
+
+def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> List[tuple[str, Dict[str, Any]]]:
+    trace = result.turn_trace
+    if not trace:
+        return []
+
+    base_payload = {
+        "game_id": game_id,
+        "mode": mode,
+        "trace_id": trace.trace_id,
+        "turn_number": trace.turn_number,
+    }
+    events: List[tuple[str, Dict[str, Any]]] = []
+
+    if trace.rag_metadata:
+        metadata = dict(trace.rag_metadata or {})
+        queries = metadata.get("queries") if isinstance(metadata.get("queries"), list) else []
+        sources = metadata.get("sources") if isinstance(metadata.get("sources"), list) else []
+        try:
+            snippet_count = int(metadata.get("snippet_count") or 0)
+        except (TypeError, ValueError):
+            snippet_count = 0
+        events.append(
+            (
+                "rag.completed",
+                {
+                    **base_payload,
+                    "status": "completed",
+                    "intent": metadata.get("intent", "none"),
+                    "reason": metadata.get("reason", ""),
+                    "query_count": len(queries),
+                    "snippet_count": snippet_count,
+                    "source_count": len(sources),
+                    "queries": queries,
+                    "sources": sources,
+                    "metadata": metadata,
+                },
+            )
+        )
+
+    for index, tool_result in enumerate(trace.tool_results or []):
+        if hasattr(tool_result, "model_dump"):
+            payload = tool_result.model_dump(mode="json")
+        else:
+            payload = dict(tool_result or {})
+        events.append(
+            (
+                "tool.completed",
+                {
+                    **base_payload,
+                    "index": index,
+                    "tool_name": payload.get("tool_name", ""),
+                    "status": payload.get("status", "success"),
+                    "summary": payload.get("summary", ""),
+                    "payload": payload.get("payload", {}),
+                },
+            )
+        )
+
+    issues = list(trace.validation_issues or [])
+    for index, note in enumerate(trace.validation_notes or []):
+        issue_payload: Dict[str, Any] = {}
+        if index < len(issues):
+            issue = issues[index]
+            issue_payload = issue.model_dump(mode="json") if hasattr(issue, "model_dump") else dict(issue or {})
+        events.append(
+            (
+                "validation.note",
+                {
+                    **base_payload,
+                    "index": index,
+                    "status": "noted",
+                    "note": str(note),
+                    "validator": issue_payload.get("validator", ""),
+                    "severity": issue_payload.get("severity", "info"),
+                    "action": issue_payload.get("action", "noted"),
+                    "metadata": issue_payload.get("metadata", {}),
+                },
+            )
+        )
+
+    return events
+
+
 async def _execute_turn_request(state: GameState, message: str) -> tuple[TurnResult, str]:
     mode = "resume" if state.pending_turn else "start"
     if state.pending_turn:
@@ -832,6 +934,10 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
         payload["game_id"] = game_id
         payload["mode"] = mode
         result_event = "turn.input_required" if result.turn_status == "input_required" else "turn.completed"
+        for node_payload in _turn_node_event_payloads(result, game_id, mode):
+            yield _sse_event("turn.node", node_payload)
+        for detail_event, detail_payload in _turn_detail_event_payloads(result, game_id, mode):
+            yield _sse_event(detail_event, detail_payload)
         yield _sse_event(result_event, payload)
         yield _sse_event(
             "turn.saved",

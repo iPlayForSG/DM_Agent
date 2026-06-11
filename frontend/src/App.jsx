@@ -24,7 +24,7 @@ import {
   spawnEncounterTemplate,
   startEncounter,
   setEncounterInitiative,
-  submitTurn,
+  streamTurn,
   useItemAction,
 } from "./api";
 import "./index.css";
@@ -201,6 +201,52 @@ const parseEntries = (text, prefix) => text.split("\n").map((x) => x.trim()).fil
 const entriesToText = (entries = []) => entries.map((x) => x.description).join("\n");
 const mapMessages = (history = []) => history.map((m) => ({ sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system", text: m.content }));
 const eventLabel = (t) => ({ player_action: "玩家", assistant_response: "主持", dice_result: "骰点", hp_changed: "生命", attack_resolved: "攻击", skill_check: "技能", saving_throw: "豁免", spell_cast: "施法", item_used: "物品", turn_advanced: "回合", encounter_started: "遭遇", monster_template_saved: "怪物模板", monster_spawned: "怪物生成" }[t] || t);
+const WORKFLOW_NODE_LABELS = {
+  turn_started: "启动",
+  prepare_turn: "准备",
+  input_gate: "输入检查",
+  plan_turn: "回合规划",
+  route_phase: "路由",
+  retrieve_rules: "规则检索",
+  prepare_context: "上下文",
+  draft_response: "草稿",
+  execute_tools: "工具",
+  validate_state: "校验",
+  finalize_turn: "收尾",
+  rag_completed: "规则检索",
+  tool_completed: "工具结果",
+  validation_note: "校验备注",
+};
+const WORKFLOW_STATUS_LABELS = { started: "开始", completed: "完成", skipped: "跳过", blocked: "暂停", success: "成功", noted: "已记录", error: "错误" };
+const workflowNodeLabel = (nodeName) => WORKFLOW_NODE_LABELS[nodeName] || nodeName || "节点";
+const workflowStatusLabel = (status) => WORKFLOW_STATUS_LABELS[status] || status || "完成";
+const compactWorkflowMetadata = (metadata = {}) => {
+  const fields = [];
+  if (metadata.mode) fields.push(`模式: ${metadata.mode}`);
+  if (metadata.turn_type) fields.push(`意图: ${metadata.turn_type}`);
+  if (metadata.rag_intent) fields.push(`RAG: ${metadata.rag_intent}`);
+  if (metadata.intent) fields.push(`意图: ${metadata.intent}`);
+  if (metadata.rag_used !== undefined) fields.push(`RAG: ${metadata.rag_used ? "使用" : "未用"}`);
+  if (metadata.query_count !== undefined) fields.push(`查询: ${metadata.query_count}`);
+  if (metadata.snippet_count !== undefined) fields.push(`片段: ${metadata.snippet_count}`);
+  if (metadata.source_count !== undefined) fields.push(`来源: ${metadata.source_count}`);
+  if (metadata.tool_name) fields.push(`工具: ${metadata.tool_name}`);
+  if (metadata.validator) fields.push(`校验: ${metadata.validator}`);
+  if (metadata.severity) fields.push(`级别: ${metadata.severity}`);
+  if (metadata.action) fields.push(`动作: ${metadata.action}`);
+  if (metadata.allowed_tools_count !== undefined) fields.push(`工具: ${metadata.allowed_tools_count}`);
+  if (metadata.tool_results_count !== undefined) fields.push(`结果: ${metadata.tool_results_count}`);
+  if (metadata.confirmation_status) fields.push(`确认: ${metadata.confirmation_status}`);
+  if (metadata.note_index !== undefined) fields.push(`备注: ${Number(metadata.note_index) + 1}`);
+  return fields.join(" · ");
+};
+const compactToolArgs = (args = {}) => {
+  const pairs = Object.entries(args || {}).slice(0, 5).map(([key, value]) => {
+    const rendered = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+    return `${key}: ${rendered}`;
+  });
+  return pairs.join(" · ") || "无参数";
+};
 const getSpellLevel = (spell) => Number(spell?.level ?? 0);
 const localizeStat = (stat) => {
   if (!stat) return stat;
@@ -292,13 +338,14 @@ export default function App() {
   const [selectedGameChars, setSelectedGameChars] = useState([]), [newGameId, setNewGameId] = useState("");
   const [activeGameId, setActiveGameId] = useState(null), [gameState, setGameState] = useState(null), [actionOptions, setActionOptions] = useState({ actors: [] });
   const [actionDraft, setActionDraft] = useState({ ...EMPTY_ACTIONS }), [messages, setMessages] = useState([]);
+  const [workflowEvents, setWorkflowEvents] = useState([]);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
   const [isBuilderLoading, setIsBuilderLoading] = useState(false);
   const [creatorStep, setCreatorStep] = useState(0);
   const messagesEndRef = useRef(null);
 
   useEffect(() => { refreshLobby(); }, []);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, workflowEvents, isLoading]);
   useEffect(() => {
     const nextDrafts = {};
     for (const combatant of gameState?.encounter?.initiative_order?.map((id) => gameState?.encounter?.combatants?.[id]).filter(Boolean) || []) {
@@ -407,6 +454,10 @@ export default function App() {
     || itemTurnLocked
     || Number(actionDraft.item.quantity || 1) <= 0
     || Number(actionDraft.item.quantity || 1) > Number(selectedItemOption.quantity || 0);
+  const pendingTurn = gameState?.pending_turn || null;
+  const isToolConfirmationPending = pendingTurn?.kind === "tool_confirmation";
+  const pendingToolDetails = isToolConfirmationPending ? pendingTurn.details || {} : null;
+  const chatInputDisabled = gameState?.campaign?.phase === "adventure_selection" || isLoading;
 
   useEffect(() => {
     if (!encounterDraft.monster_id) {
@@ -619,7 +670,12 @@ export default function App() {
     setActionDraft((prev) => ({ ...prev, attack: nextAttack }));
   }, [actionOptions]);
 
-  async function enterGame(gameId) { setActiveGameId(gameId); setView("chat"); await syncGame(gameId, await loadGame(gameId)); }
+  async function enterGame(gameId) {
+    setActiveGameId(gameId);
+    setWorkflowEvents([]);
+    setView("chat");
+    await syncGame(gameId, await loadGame(gameId));
+  }
   function adjustStat(stat, delta) {
     const currentValue = Number(charDraft.stats?.[stat] || 0);
     const nextValue = currentValue + delta;
@@ -860,6 +916,7 @@ export default function App() {
       setError("");
       const result = await createGame({ game_id: gameId, title: gameId, character_ids: selectedGameChars });
       setActiveGameId(gameId);
+      setWorkflowEvents([]);
       setView("chat");
       applyGameSnapshot(result.game_state, result.action_options);
       setInput("");
@@ -867,7 +924,81 @@ export default function App() {
     } catch (err) { setError(err.message || "创建游戏失败。"); }
   }
   async function chooseAdventure(adventureId) { if (!activeGameId) return; const result = await selectAdventure(activeGameId, adventureId); await syncGame(activeGameId, result.game_state); }
-  async function sendMessage() { if (!input.trim() || !activeGameId || isLoading) return; if (gameState?.campaign?.phase === "adventure_selection") return setError("请先选择冒险。"); setIsLoading(true); try { const result = await submitTurn(activeGameId, input.trim()); setInput(""); await syncGame(activeGameId, result.game_state); } catch (err) { setError(err.message || "发送消息失败。"); } finally { setIsLoading(false); } }
+  async function submitChatMessage(rawMessage, options = {}) {
+    const message = String(rawMessage || "").trim();
+    const gameId = activeGameId;
+    if (!message || !gameId || isLoading) return;
+    if (gameState?.campaign?.phase === "adventure_selection") return setError("请先选择冒险。");
+
+    setIsLoading(true);
+    setError("");
+    setWorkflowEvents([]);
+    try {
+      const pushWorkflowEvent = (event) => {
+        setWorkflowEvents((prev) => [...prev.slice(-29), event]);
+      };
+      const result = await streamTurn(gameId, message, {
+        onEvent: (eventName, data) => {
+          if (eventName !== "turn.started") return;
+          pushWorkflowEvent({
+            node_name: "turn_started",
+            status: "started",
+            summary: data?.mode === "resume" ? "恢复暂停回合" : "启动新回合",
+            metadata: { mode: data?.mode, checkpoint_backend: data?.checkpoint_backend },
+          });
+        },
+        onNode: (node) => {
+          pushWorkflowEvent(node);
+        },
+        onRag: (data) => {
+          const snippetCount = Number(data?.snippet_count || 0);
+          pushWorkflowEvent({
+            node_name: "rag_completed",
+            status: "completed",
+            summary: snippetCount > 0 ? `检索到 ${snippetCount} 条规则片段。` : data?.reason || "未触发规则检索。",
+            metadata: {
+              intent: data?.intent,
+              query_count: data?.query_count,
+              snippet_count: data?.snippet_count,
+              source_count: data?.source_count,
+            },
+          });
+        },
+        onTool: (data) => {
+          const rawStatus = data?.status || "completed";
+          const status = rawStatus === "success" ? "success" : rawStatus === "failed" ? "error" : rawStatus;
+          pushWorkflowEvent({
+            node_name: "tool_completed",
+            status,
+            summary: data?.summary || `${data?.tool_name || "tool"} completed.`,
+            metadata: { tool_name: data?.tool_name },
+          });
+        },
+        onValidation: (data) => {
+          pushWorkflowEvent({
+            node_name: "validation_note",
+            status: "noted",
+            summary: data?.note || "状态校验记录。",
+            metadata: {
+              note_index: data?.index,
+              validator: data?.validator,
+              severity: data?.severity,
+              action: data?.action,
+            },
+          });
+        },
+      });
+      if (options.clearInput) setInput("");
+      await syncGame(gameId, result.game_state);
+    } catch (err) {
+      setError(err.message || "发送消息失败。");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function sendMessage() { await submitChatMessage(input, { clearInput: true }); }
+  async function respondToPendingTurn(response) { await submitChatMessage(response); }
 
   async function createEncounterFromNames() {
     if (!activeGameId) return;
@@ -1243,6 +1374,21 @@ export default function App() {
                     </div>
                   </div>
                 )}
+                {isToolConfirmationPending && (
+                  <div className="pending-turn-card">
+                    <div className="pending-turn-title">需要确认工具执行</div>
+                    <div className="pending-turn-prompt">{pendingTurn.prompt || "当前回合需要确认后才能继续。"}</div>
+                    <div className="pending-turn-meta">
+                      <span>工具：{pendingToolDetails?.tool_name || "unknown"}</span>
+                      <span>风险：{pendingToolDetails?.guardrail?.risk_level || "high"}</span>
+                    </div>
+                    <div className="pending-turn-args">{compactToolArgs(pendingToolDetails?.args || {})}</div>
+                    <div className="pending-turn-actions">
+                      <button className="btn-danger" onClick={() => respondToPendingTurn("取消")} disabled={isLoading}>取消</button>
+                      <button className="btn-primary" onClick={() => respondToPendingTurn("确认")} disabled={isLoading}>确认执行</button>
+                    </div>
+                  </div>
+                )}
                 {messages.map((message, index) => (
                   <div key={`${message.sender}-${index}`} className={`message ${message.sender} anime-pop`}>
                     <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
@@ -1251,6 +1397,23 @@ export default function App() {
                     </div>
                   </div>
                 ))}
+                {workflowEvents.length > 0 && (
+                  <div className="workflow-trace">
+                    {workflowEvents.map((event, index) => {
+                      const metadataLine = compactWorkflowMetadata(event?.metadata || {});
+                      return (
+                        <div key={`${event?.node_name || "node"}-${index}`} className={`workflow-event workflow-${event?.status || "completed"}`}>
+                          <div className="workflow-event-header">
+                            <span className="workflow-event-title">{workflowNodeLabel(event?.node_name)}</span>
+                            <span className="workflow-event-status">{workflowStatusLabel(event?.status)}</span>
+                          </div>
+                          {event?.summary && <div className="workflow-event-summary">{event.summary}</div>}
+                          {metadataLine && <div className="workflow-event-meta">{metadataLine}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {isLoading && <div className="loading-indicator">主持人思考中...</div>}
                 <div ref={messagesEndRef} />
               </div>
@@ -1455,8 +1618,8 @@ export default function App() {
               </div>
             </div>
             <div className="input-area">
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : "描述你的行动..."} disabled={gameState?.campaign?.phase === "adventure_selection"} />
-              <button onClick={sendMessage} disabled={gameState?.campaign?.phase === "adventure_selection"}>发送</button>
+              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isToolConfirmationPending ? "可直接确认或取消，也可以输入补充说明。" : "描述你的行动..."} disabled={chatInputDisabled} />
+              <button onClick={sendMessage} disabled={chatInputDisabled || !input.trim()}>发送</button>
             </div>
           </div>
         )}

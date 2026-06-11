@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from action_service import GameActionService
 from adventure_service import generate_initial_adventures
 from agent import DMAgent
 from game_logic import GameLogic
@@ -122,9 +121,8 @@ def run_local_chapter_two_encounter(state: GameState) -> Dict[str, str]:
 
 
 def wound_character_for_heal_test(state: GameState) -> Dict[str, str]:
-    action_service = GameActionService()
     if state.active_character_id:
-        action_service.adjust_hp(state, state.active_character_id, -5, "chapter-2-heal-setup")
+        GameLogic(state).update_target_hp(state.active_character_id, -5)
     return {}
 
 
