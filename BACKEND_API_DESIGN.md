@@ -265,8 +265,11 @@ LangGraph 重构后该响应结构保持兼容。
 - `POST /api/v1/games/{game_id}/actions/saving-throw`
 - `POST /api/v1/games/{game_id}/actions/cast-spell`
 - `POST /api/v1/games/{game_id}/actions/use-item`
+- `POST /api/v1/games/{game_id}/actions/use-feature`
 
 这些接口在激活遭遇中会校验当前行动者，拒绝非当前回合持有者的本地动作请求。
+造成伤害的动作会复用 `GameLogic.update_target_hp`；若目标正在维持专注，会按伤害触发体质豁免，失败或因伤害陷入失能/败北时清空当前专注法术。
+`use-feature` 会复用 `GameLogic.resolve_feature_use`，支持从已知特性名推断动作成本和资源池；`action-options.actors[].features` 会暴露可用的角色资源特性和怪物模板特性。
 
 ## 5. 当前 LangGraph 工具能力
 
@@ -280,6 +283,7 @@ LangGraph 重构后该响应结构保持兼容。
 - `append_adventure_log`
 - `add_inventory_item`
 - `use_item`
+- `use_feature`
 - `record_evidence`
 - `record_search_outcome`
 - `record_major_experience`
@@ -407,11 +411,12 @@ DMGraphState
 
 - 执行模型请求的工具。
 - 工具必须只通过本地 service 修改 `GameState`。
-- actor-bound 工具会先经过 `ToolRegistry` 当前行动者 guardrail；活动遭遇中非当前行动者不能发起攻击、技能检定、施法或使用物品。
+- actor-bound 工具会先经过 `ToolRegistry` 当前行动者 guardrail；活动遭遇中非当前行动者不能发起攻击、技能检定、施法、使用物品或使用特性。
 - `use_item` 会先校验使用者库存和数量，拒绝 0、负数或超量消耗。
-- 攻击、技能检定、施法和使用物品会消耗当前行动者本回合的主动作；同一回合第二个主动作会在工具入口被拒绝。
+- `use_feature` 记录职业特性、怪物特性、trait、附赠动作和反应使用；会按 `action_cost` 或已知特性定义消耗主动作、附赠动作或反应槽，并可扣减角色卡上的 `resources` 池。
+- 攻击、技能检定、施法、使用物品和使用特性会按各自成本消耗当前行动者本回合的动作槽；同一回合第二个同类槽位会在工具入口被拒绝。
 - `cast_spell` 会在工具入口预检已知/准备、法术位和 upcast 等级，并按法术 `castingTime` 占用主动作、附赠动作或反应槽。
-- 专注法术成功施放后会写入角色当前专注法术；受伤后的专注豁免仍属于后续规则守卫范围。
+- 专注法术成功施放后会写入角色当前专注法术；`adjust_hp` 和 `attack_target` 造成伤害时会返回 `concentration_check`，并在失败或失能/败北时结束专注。
 - 每次工具执行都生成 `ToolResult`。
 
 `validate_state`

@@ -8,6 +8,7 @@ from uuid import uuid4
 from typing import Any, Dict, List, Optional, TypedDict
 
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
+from campaign_memory import compile_campaign_memory
 from game_logic import GameLogic
 from library import Library
 from models import (
@@ -143,6 +144,26 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
                 "reason": {"type": "string", "default": ""},
             },
             "required": ["user_ref", "item_name"],
+        },
+    },
+    {
+        "name": "use_feature",
+        "description": "Record a class feature, monster feature, trait, bonus action, or reaction use, consuming the chosen turn slot and optional character resource.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "actor_ref": {"type": "string"},
+                "feature_name": {"type": "string"},
+                "action_cost": {
+                    "type": "string",
+                    "enum": ["action", "bonus_action", "reaction", "free"],
+                    "default": "action",
+                },
+                "resource_name": {"type": "string", "default": ""},
+                "resource_cost": {"type": "integer", "default": 0},
+                "reason": {"type": "string", "default": ""},
+            },
+            "required": ["actor_ref", "feature_name"],
         },
     },
     {
@@ -525,6 +546,7 @@ BASE_TOOL_NAMES = [
     "append_adventure_log",
     "add_inventory_item",
     "use_item",
+    "use_feature",
     "record_evidence",
     "record_search_outcome",
     "record_major_experience",
@@ -726,6 +748,7 @@ class DMGraphState(TypedDict, total=False):
     messages: List[Any]
     state_summary: str
     recent_history: str
+    campaign_memory: str
     instruction: str
     rag_snippets: List[Dict[str, Any]]
     rag_context: str
@@ -1204,6 +1227,29 @@ class DMGraphRunner:
             ]
         ):
             suggestions.append("use_item")
+        if any(
+            term in lowered
+            for term in [
+                "feature",
+                "ability",
+                "trait",
+                "class feature",
+                "monster feature",
+                "bonus action",
+                "reaction",
+                "second wind",
+                "\u7279\u6027",
+                "\u80fd\u529b",
+                "\u804c\u4e1a\u7279\u6027",
+                "\u602a\u7269\u7279\u6027",
+                "\u9644\u8d60\u52a8\u4f5c",
+                "\u9644\u52a0\u52a8\u4f5c",
+                "\u53cd\u5e94",
+                "\u52a8\u4f5c\u6fc0\u6d8c",
+                "\u56de\u6c14",
+            ]
+        ):
+            suggestions.append("use_feature")
         if any(
             term in lowered
             for term in [
@@ -1979,9 +2025,11 @@ class DMGraphRunner:
         logic = GameLogic(state)
         state_summary = logic.get_state_summary()
         recent_history = logic.get_recent_history()
+        campaign_memory = compile_campaign_memory(state)
         instruction = build_dm_instruction(
             state_summary=state_summary,
             recent_history=recent_history,
+            campaign_memory=campaign_memory,
             rag_enabled=self.rag_engine.is_ready(),
             retrieved_context=graph_state.get("rag_context", ""),
             phase_name=graph_state.get("phase", ""),
@@ -2000,6 +2048,7 @@ class DMGraphRunner:
         return {
             "state_summary": state_summary,
             "recent_history": recent_history,
+            "campaign_memory": campaign_memory,
             "instruction": instruction,
             "messages": [
                 self._system_prompt_message(instruction),
@@ -2011,6 +2060,7 @@ class DMGraphRunner:
                 "Prompt context prepared.",
                 {
                     "rag_context_chars": len(graph_state.get("rag_context", "") or ""),
+                    "campaign_memory_chars": len(campaign_memory),
                     "suggested_tool_count": len(graph_state.get("suggested_tools", [])),
                 },
             ),

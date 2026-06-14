@@ -93,6 +93,15 @@ class UseItemActionRequest(BaseModel):
     quantity: int = 1
 
 
+class UseFeatureActionRequest(BaseModel):
+    actor_ref: str
+    feature_name: str
+    action_cost: str = "action"
+    resource_name: str = ""
+    resource_cost: int = 0
+    reason: str = ""
+
+
 class StartEncounterRequest(BaseModel):
     enemy_names: List[str] = Field(default_factory=list)
     enemy_hp: int = 10
@@ -354,6 +363,74 @@ def _derive_monster_attack_options(monster):
     return attacks
 
 
+def _monster_feature_name(entry):
+    name = str(entry.name or "").strip()
+    if name and not re.fullmatch(r"Entry\s+\d+", name, re.IGNORECASE):
+        return name
+    description = str(entry.description or "").strip()
+    if not description:
+        return name or "Feature"
+    return description.split(".", 1)[0].strip()[:80] or name or "Feature"
+
+
+def _action_cost_display(action_cost: str) -> str:
+    if action_cost == "bonus_action":
+        return library.localize_game_terms("Bonus Action")
+    if action_cost == "reaction":
+        return library.localize_game_terms("Reaction")
+    if action_cost == "free":
+        return "自由动作"
+    return library.localize_game_terms("Action")
+
+
+def _derive_character_feature_options(character: Character):
+    features = []
+    for resource_name, pool in character.resources.items():
+        definition = GameLogic.feature_definition_for(resource_name)
+        action_cost = definition.get("action_cost", "action")
+        resource_cost = int(definition.get("resource_cost") or 0)
+        features.append(
+            {
+                "name": str(definition.get("name") or resource_name),
+                "name_display": library.localize_game_terms(str(definition.get("name") or resource_name)),
+                "action_cost": action_cost,
+                "action_cost_display": _action_cost_display(action_cost),
+                "resource_name": resource_name,
+                "resource_cost": resource_cost,
+                "resource_current": pool.current_value,
+                "resource_max": pool.max_value,
+                "resource_recovery": pool.recovery,
+                "source": "character_resource",
+            }
+        )
+    return sorted(features, key=lambda item: (item["action_cost"], item["name"]))
+
+
+def _derive_monster_feature_options(monster: MonsterTemplate):
+    features = []
+    groups = [
+        ("traits", "free"),
+        ("actions", "action"),
+        ("bonus_actions", "bonus_action"),
+        ("reactions", "reaction"),
+    ]
+    for source, action_cost in groups:
+        for entry in getattr(monster, source, []) or []:
+            name = _monster_feature_name(entry)
+            features.append(
+                {
+                    "name": name,
+                    "name_display": library.localize_game_terms(name),
+                    "action_cost": action_cost,
+                    "action_cost_display": _action_cost_display(action_cost),
+                    "resource_name": "",
+                    "resource_cost": 0,
+                    "source": f"monster_{source}",
+                }
+            )
+    return features
+
+
 def _add_display_fields(value):
     if isinstance(value, list):
         return [_add_display_fields(item) for item in value]
@@ -520,6 +597,7 @@ def action_options_payload(state: GameState):
                     for name, pool in character.resources.items()
                 },
                 "attacks": _derive_character_attack_options(character),
+                "features": _derive_character_feature_options(character),
             }
         )
 
@@ -544,6 +622,7 @@ def action_options_payload(state: GameState):
                     "skills": sorted(combatant.skills.keys()),
                     "saves": sorted(combatant.saving_throws.keys()),
                     "attacks": [],
+                    "features": [],
                 }
             )
 
@@ -551,6 +630,7 @@ def action_options_payload(state: GameState):
                 monster = monster_storage.load_monster(combatant.monster_template_id)
                 if monster:
                     actors[-1]["attacks"] = _derive_monster_attack_options(monster)
+                    actors[-1]["features"] = _derive_monster_feature_options(monster)
 
     return {
         "phase": state.campaign.phase,
@@ -1076,6 +1156,25 @@ async def use_item_action(game_id: str, req: UseItemActionRequest):
             user_ref=req.user_ref,
             item_name=req.item_name,
             quantity=req.quantity,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    game_storage.save_game(game_id, result["game_state"])
+    return result
+
+
+@app.post("/api/v1/games/{game_id}/actions/use-feature")
+async def use_feature_action(game_id: str, req: UseFeatureActionRequest):
+    state = _load_game_or_404(game_id)
+    try:
+        result = action_service.use_feature(
+            state=state,
+            actor_ref=req.actor_ref,
+            feature_name=req.feature_name,
+            action_cost=req.action_cost,
+            resource_name=req.resource_name,
+            resource_cost=req.resource_cost,
+            reason=req.reason,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

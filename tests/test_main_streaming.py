@@ -14,7 +14,8 @@ os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
 
 import main as api_main
-from models import GameState, NodeTrace, PendingTurnState, ToolResult, TurnResult, TurnTrace, ValidationIssue
+from game_logic import GameLogic
+from models import Character, GameState, NodeTrace, PendingTurnState, ResourcePool, ToolResult, TurnResult, TurnTrace, ValidationIssue
 
 
 class FakeStorage:
@@ -303,6 +304,52 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(len(payload["traces"]), 2)
         self.assertEqual(payload["traces"][0]["turn_number"], 2)
         self.assertEqual(payload["traces"][1]["turn_number"], 3)
+
+    def test_use_feature_action_endpoint_uses_inferred_feature_metadata(self) -> None:
+        state = GameState(game_id="feature-api-test", title="Feature Api Test")
+        character = Character(name="凯德", class_name="Fighter")
+        character.resources["Second Wind"] = ResourcePool(current_value=1, max_value=1)
+        state.characters[character.character_id] = character
+        state.active_character_id = character.character_id
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == character.character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        fake_storage = FakeStorage(state)
+        fake_agent = FakeAgent(TurnResult(response="unused", game_state=state.model_copy(deep=True)))
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                options_resp = client.get("/api/v1/games/feature-api-test/action-options")
+                action_resp = client.post(
+                    "/api/v1/games/feature-api-test/actions/use-feature",
+                    json={
+                        "actor_ref": character.character_id,
+                        "feature_name": "Second Wind",
+                    },
+                )
+
+        self.assertEqual(options_resp.status_code, 200)
+        actor = next(item for item in options_resp.json()["actors"] if item["ref"] == character.character_id)
+        self.assertEqual(actor["features"][0]["name"], "Second Wind")
+        self.assertEqual(actor["features"][0]["action_cost"], "bonus_action")
+        self.assertEqual(action_resp.status_code, 200)
+        payload = action_resp.json()
+        self.assertEqual(payload["tool_result"]["payload"]["action_cost"], "bonus_action")
+        self.assertEqual(payload["tool_result"]["payload"]["resource_after"], 0)
+        self.assertEqual(fake_storage.saved_game_id, "feature-api-test")
+        self.assertEqual(fake_storage.saved_state.characters[character.character_id].resources["Second Wind"].current_value, 0)
+        self.assertTrue(fake_storage.saved_state.encounter.turn_bonus_action_used)
 
     def test_llm_health_endpoint_exposes_probe_payload(self) -> None:
         state = GameState(game_id="health-test", title="Health Test")

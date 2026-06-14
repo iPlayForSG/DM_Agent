@@ -35,6 +35,7 @@ Tool protocol:
 - Use `add_status` and `remove_status` for conditions such as Prone or Poisoned.
 - Use `append_adventure_log` for important events worth keeping.
 - Use `add_inventory_item` when the party gains named loot, clues, letters, keys, weapons, or other evidence that should persist.
+- Use `use_feature` when a class feature, monster feature, trait, bonus action, or reaction is used so turn slots and character resource pools stay authoritative.
 - Use `record_evidence` for named clues, documents, tokens, and other investigation artifacts that should remain queryable later.
 - Use `record_search_outcome` after a meaningful body search, room search, or suspect frisk so the result is not trapped only in prose. When it references evidence, you may pass either the evidence title or the evidence id from `record_evidence`.
 - Use `record_major_experience` when a character has a meaningful milestone, revelation, or lasting outcome worth keeping on the sheet.
@@ -56,6 +57,7 @@ Tool protocol:
 - Use `roll_skill_check` for exploration and social checks.
 - Use `roll_saving_throw` when a creature must make a save against a DC.
 - Use `cast_spell` when a character casts a spell so the system can verify preparation and spend slots locally.
+- Use `use_feature` instead of prose-only narration for non-spell features such as Second Wind, Action Surge, monster bonus actions, and reactions. Pass `action_cost` as `action`, `bonus_action`, `reaction`, or `free`; pass `resource_name` and `resource_cost` when the character sheet tracks a spendable pool.
 - Use `roll_initiative` or `set_initiative` when combat order becomes relevant.
 - In an active encounter, only the current combatant may take an action. Do not narrate actions for a different combatant until you have called `advance_turn` and the state summary shows the new current combatant.
 - Do not narrate two different combatants taking separate turns inside the same reply unless you explicitly call `advance_turn` between them.
@@ -70,6 +72,7 @@ Tool protocol:
 def build_dm_instruction(
     state_summary: str,
     recent_history: str,
+    campaign_memory: str = "",
     rag_enabled: bool = False,
     retrieved_context: str = "",
     phase_name: str = "",
@@ -150,6 +153,9 @@ Knowledge base status:
 
 Current game state:
 {state_summary}
+
+Campaign memory:
+{campaign_memory or "No durable campaign memory has been recorded yet."}
 
 Recent visible conversation:
 {recent_history}

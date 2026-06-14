@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -11,9 +12,10 @@ os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
 os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 
 from action_service import GameActionService
+from campaign_memory import compile_campaign_memory
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
-from models import AdventureHook, Character, GameState, InventoryItem, SpellSlot
+from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, ResourcePool, SearchRecord, SpellSlot
 from agent import normalize_openai_base_url
 from agent_tools import AgentToolExecution, AgentToolService
 from langchain_core.messages import AIMessage
@@ -141,6 +143,76 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("Structured turn intent:", instruction)
         self.assertIn("setup_guidance", instruction)
         self.assertIn("Do not begin active exploration or combat until an adventure hook is selected.", instruction)
+
+    def test_campaign_memory_compiler_summarizes_durable_state(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        state.campaign.current_chapter_number = 2
+        state.campaign.current_chapter_title = "祭坛下的回声"
+        state.campaign.current_chapter_summary = "队伍进入礼拜堂地下空间。"
+        state.campaign.completed_chapters.append(
+            ChapterRecord(
+                chapter_number=1,
+                title="钟声再起",
+                summary="队伍发现仪式灰烬、单向脚印和碎铜片。",
+            )
+        )
+        state.evidence_records.append(
+            EvidenceRecord(
+                title="碎铜片",
+                summary="带弧线纹路的铜器碎片，疑似来自裂钟。",
+                location="礼拜堂门口",
+                tags=["bell", "ritual"],
+            )
+        )
+        state.search_records.append(
+            SearchRecord(
+                searcher_character_id=state.active_character_id,
+                target_ref="祭坛暗格",
+                summary="发现文书、断裂铜钟舌和失踪者名单。",
+                recovered_items=["断裂铜钟舌"],
+                recovered_evidence_ids=["碎铜片"],
+            )
+        )
+        state.get_active_char().major_experiences.append("第一章：制服钟楼暴徒。")
+        state.adventure_log.append("村民确认无月之夜后会有人失踪。")
+
+        memory = compile_campaign_memory(state)
+
+        self.assertIn("Campaign arc:", memory)
+        self.assertIn("Completed 1: 钟声再起", memory)
+        self.assertIn("Durable evidence:", memory)
+        self.assertIn("碎铜片", memory)
+        self.assertIn("Search outcomes:", memory)
+        self.assertIn("祭坛暗格", memory)
+        self.assertIn("Character milestones:", memory)
+        self.assertIn("制服钟楼暴徒", memory)
+
+    def test_prepare_context_includes_campaign_memory(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        state.campaign.completed_chapters.append(
+            ChapterRecord(chapter_number=1, title="钟声再起", summary="队伍发现碎铜片。")
+        )
+        state.evidence_records.append(EvidenceRecord(title="碎铜片", summary="裂钟残片。"))
+
+        routed = self.runner._route_phase(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "state_delta": {},
+            }
+        )
+        prepared = self.runner._prepare_context(
+            {
+                **routed,
+                "game_state": routed["game_state"],
+                "user_input": "继续推进",
+                "rag_context": "",
+            }
+        )
+
+        self.assertIn("Campaign memory:", prepared["instruction"])
+        self.assertIn("Completed 1: 钟声再起", prepared["instruction"])
+        self.assertIn("碎铜片", prepared["instruction"])
+        self.assertGreater(prepared["node_traces"][-1]["metadata"]["campaign_memory_chars"], 0)
 
     def test_validate_state_restores_combat_phase_for_active_encounter(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -667,6 +739,203 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertFalse(second_bonus_guardrail.ok)
         self.assertIn("bonus action already used", second_bonus_guardrail.error)
 
+    def test_use_feature_bonus_action_consumes_bonus_slot_and_resource(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        character = state.characters[state.active_character_id]
+        character.resources["Second Wind"] = ResourcePool(current_value=1, max_value=1)
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="use_feature",
+            args={
+                "actor_ref": character.character_id,
+                "feature_name": "Second Wind",
+                "action_cost": "bonus_action",
+                "resource_name": "second wind",
+                "resource_cost": 1,
+            },
+            allowed_tools=["use_feature"],
+        )
+        attack_guardrail = runner.tool_registry.validate_call(
+            state=state,
+            tool_name="attack_target",
+            args={
+                "attacker_ref": character.character_id,
+                "target_ref": enemy_combatant.combatant_id,
+                "attack_bonus": 5,
+                "damage_expression": "1d8+3",
+            },
+            allowed_tools=["attack_target"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["action_cost"], "bonus_action")
+        self.assertEqual(execution.payload["resource_before"], 1)
+        self.assertEqual(execution.payload["resource_after"], 0)
+        self.assertEqual(character.resources["Second Wind"].current_value, 0)
+        self.assertFalse(state.encounter.turn_action_used)
+        self.assertTrue(state.encounter.turn_bonus_action_used)
+        self.assertEqual(state.encounter.turn_bonus_action_tool, "use_feature")
+        self.assertTrue(attack_guardrail.ok)
+        self.assertEqual(
+            execution.state_patch["characters"][character.character_id]["resources"]["Second Wind"]["current_value"],
+            0,
+        )
+
+    def test_use_feature_infers_known_feature_cost_and_resource(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        logic.mark_current_action_used("attack_target")
+        character = state.characters[state.active_character_id]
+        character.resources["Second Wind"] = ResourcePool(current_value=1, max_value=1)
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="use_feature",
+            args={
+                "actor_ref": character.character_id,
+                "feature_name": "Second Wind",
+            },
+            allowed_tools=["use_feature"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["action_cost"], "bonus_action")
+        self.assertEqual(execution.payload["resource_name"], "Second Wind")
+        self.assertEqual(execution.payload["resource_after"], 0)
+        self.assertTrue(state.encounter.turn_action_used)
+        self.assertTrue(state.encounter.turn_bonus_action_used)
+
+    def test_use_feature_reaction_guardrail_blocks_second_reaction(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        first_reaction = runner._execute_single_tool(
+            state=state,
+            tool_name="use_feature",
+            args={
+                "actor_ref": state.active_character_id,
+                "feature_name": "Parry",
+                "action_cost": "reaction",
+            },
+            allowed_tools=["use_feature"],
+        )
+        second_reaction = runner.tool_registry.validate_call(
+            state=state,
+            tool_name="use_feature",
+            args={
+                "actor_ref": state.active_character_id,
+                "feature_name": "Parry",
+                "action_cost": "reaction",
+            },
+            allowed_tools=["use_feature"],
+        )
+
+        self.assertTrue(first_reaction.ok, first_reaction.response())
+        self.assertTrue(state.encounter.turn_reaction_used)
+        self.assertFalse(second_reaction.ok)
+        self.assertIn("reaction already used", second_reaction.error)
+        self.assertEqual(second_reaction.metadata["turn_action_cost_arg"], "action_cost")
+
+    def test_use_feature_free_action_does_not_require_open_action_slot(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        logic.mark_current_action_used("attack_target")
+
+        guardrail = self.runner.tool_registry.validate_call(
+            state=state,
+            tool_name="use_feature",
+            args={
+                "actor_ref": state.active_character_id,
+                "feature_name": "Danger Sense",
+                "action_cost": "free",
+            },
+            allowed_tools=["use_feature"],
+        )
+
+        self.assertTrue(guardrail.ok, guardrail.error)
+        self.assertEqual(guardrail.args["action_cost"], "free")
+
     def test_concentration_spell_updates_character_concentration(self) -> None:
         state = self._build_state(with_selected_adventure=True)
         logic = GameLogic(state)
@@ -713,6 +982,52 @@ class DMGraphWorkflowTests(unittest.TestCase):
             execution.state_patch["characters"][character.character_id]["concentration_spell"],
             "剑刃防护",
         )
+
+    def test_damage_triggers_concentration_save_and_breaks_on_failure(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.get_active_char()
+        character.concentration_spell = "祝福术"
+        character.concentration_spell_level = 1
+
+        with patch("game_logic.random.randint", return_value=1):
+            result = GameLogic(state).update_target_hp(character.character_id, -8)
+
+        check = result["concentration_check"]
+        self.assertEqual(check["dc"], 10)
+        self.assertFalse(check["save"]["success"])
+        self.assertTrue(check["broken"])
+        self.assertEqual(check["previous_spell"], "祝福术")
+        self.assertEqual(character.concentration_spell, "")
+        self.assertEqual(
+            result["patch"]["characters"][character.character_id]["concentration_spell"],
+            "",
+        )
+
+    def test_agent_adjust_hp_reports_successful_concentration_save(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.get_active_char()
+        character.concentration_spell = "祝福术"
+        character.concentration_spell_level = 1
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        with patch("game_logic.random.randint", return_value=20):
+            execution = service.adjust_hp(
+                state,
+                target_ref=character.character_id,
+                amount=-4,
+                reason="测试专注豁免",
+            )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(character.concentration_spell, "祝福术")
+        self.assertIn("concentration_check", execution.payload)
+        self.assertFalse(execution.payload["concentration_check"]["broken"])
+        self.assertIn("专注豁免", execution.tool_result.summary)
+        self.assertIn("维持专注", execution.tool_result.summary)
 
     def test_completed_turn_records_node_traces(self) -> None:
         if not self.runner.is_available:

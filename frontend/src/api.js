@@ -296,3 +296,10 @@ export async function useItemAction(gameId, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function useFeatureAction(gameId, payload) {
+  return request(`/games/${encodeURIComponent(gameId)}/actions/use-feature`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

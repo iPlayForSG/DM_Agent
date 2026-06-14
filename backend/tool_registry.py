@@ -19,6 +19,8 @@ class ToolContract:
     current_actor_arg: str = ""
     consumes_turn_action: bool = False
     turn_action_cost: str = ""
+    turn_action_cost_arg: str = ""
+    feature_name_arg: str = ""
     spell_caster_arg: str = ""
     spell_name_arg: str = ""
     spell_slot_arg: str = ""
@@ -52,6 +54,14 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
         "inventory_user_arg": "user_ref",
         "inventory_item_arg": "item_name",
         "inventory_quantity_arg": "quantity",
+    },
+    "use_feature": {
+        "side_effect": "state_write",
+        "risk_level": "medium",
+        "current_actor_arg": "actor_ref",
+        "consumes_turn_action": True,
+        "turn_action_cost_arg": "action_cost",
+        "feature_name_arg": "feature_name",
     },
     "record_evidence": {"side_effect": "story_write", "risk_level": "medium"},
     "record_search_outcome": {"side_effect": "story_write", "risk_level": "medium"},
@@ -204,7 +214,12 @@ class ToolRegistry:
         if current_actor_error:
             return self._reject(tool_name, current_actor_error, contract=contract)
 
-        turn_action_error = self._validate_turn_action_available(contract, state, runtime_metadata)
+        turn_action_error = self._validate_turn_action_available(
+            contract,
+            state,
+            normalized_args,
+            runtime_metadata,
+        )
         if turn_action_error:
             return self._reject(tool_name, turn_action_error, contract=contract)
 
@@ -450,6 +465,7 @@ class ToolRegistry:
         self,
         contract: ToolContract,
         state: GameState,
+        args: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         if not contract.consumes_turn_action:
@@ -465,9 +481,28 @@ class ToolRegistry:
         if not current:
             return ""
 
-        action_cost = self._normalize_turn_action_cost(
-            str((metadata or {}).get("turn_action_cost") or contract.turn_action_cost or "action")
-        )
+        feature_definition: Dict[str, Any] = {}
+        if contract.feature_name_arg and args is not None:
+            try:
+                from game_logic import GameLogic
+
+                feature_definition = GameLogic.feature_definition_for(str(args.get(contract.feature_name_arg) or ""))
+            except Exception:
+                feature_definition = {}
+
+        if feature_definition.get("action_cost"):
+            raw_action_cost = str(feature_definition.get("action_cost"))
+        elif contract.turn_action_cost_arg:
+            raw_action_cost = str((args or {}).get(contract.turn_action_cost_arg) or "action")
+        else:
+            raw_action_cost = str((metadata or {}).get("turn_action_cost") or contract.turn_action_cost or "action")
+        action_cost = self._normalize_turn_action_cost(raw_action_cost)
+        if contract.turn_action_cost_arg and args is not None:
+            args[contract.turn_action_cost_arg] = action_cost
+            if metadata is not None:
+                metadata["turn_action_cost"] = action_cost
+        if action_cost == "free":
+            return ""
         key_field, used_field, tool_field = self._turn_slot_fields(action_cost)
         turn_key = f"{encounter.round_number}:{current.combatant_id}"
         if getattr(encounter, used_field, False) and getattr(encounter, key_field, "") == turn_key:
@@ -482,6 +517,8 @@ class ToolRegistry:
             return "bonus_action"
         if normalized == "reaction":
             return "reaction"
+        if normalized in {"free", "none", "no_action", "no-action", "passive"}:
+            return "free"
         return "action"
 
     @staticmethod
@@ -536,6 +573,8 @@ class ToolRegistry:
             "current_actor_arg": contract.current_actor_arg,
             "consumes_turn_action": contract.consumes_turn_action,
             "turn_action_cost": contract.turn_action_cost,
+            "turn_action_cost_arg": contract.turn_action_cost_arg,
+            "feature_name_arg": contract.feature_name_arg,
             "spell_caster_arg": contract.spell_caster_arg,
             "spell_name_arg": contract.spell_name_arg,
             "spell_slot_arg": contract.spell_slot_arg,

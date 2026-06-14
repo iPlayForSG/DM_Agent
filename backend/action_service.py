@@ -17,6 +17,30 @@ class GameActionService:
         attr = ABILITY_ALIAS.get(ability_name, ability_name).lower()
         return (getattr(combatant.stats, attr, 10) - 10) // 2
 
+    @staticmethod
+    def _concentration_summary(check: Optional[Dict[str, Any]]) -> str:
+        if not check:
+            return ""
+        spell_name = str(check.get("previous_spell") or "专注法术")
+        if check.get("save"):
+            save = dict(check.get("save") or {})
+            outcome = "成功" if save.get("success") else "失败"
+            suffix = "，维持专注" if save.get("success") else f"，{spell_name}专注结束"
+            return f" | 专注豁免 {save.get('total')} vs DC {check.get('dc')} -> {outcome}{suffix}"
+        if check.get("broken"):
+            return f" | {spell_name}专注因失能或败北而结束"
+        return ""
+
+    @staticmethod
+    def _action_cost_display(action_cost: str) -> str:
+        if action_cost == "bonus_action":
+            return "附赠动作"
+        if action_cost == "reaction":
+            return "反应"
+        if action_cost == "free":
+            return "自由动作"
+        return "动作"
+
     # Every local action returns the same response shape the frontend already expects.
     def _append_result(
         self,
@@ -104,6 +128,9 @@ class GameActionService:
             "target_defeat_state": result["target_defeat_state"],
             "target_defeat_state_display": target_defeat_state_display,
         }
+        concentration_check = result.get("concentration_check")
+        if concentration_check:
+            payload["concentration_check"] = concentration_check
         hit_display = "命中" if result["hit"] else "未命中"
         summary = (
             f"{result['attacker_name']} 攻击 {result['target_name']}："
@@ -113,6 +140,7 @@ class GameActionService:
             summary += f"，伤害 {result['damage_total']}"
             if damage_type:
                 summary += f" {damage_type_display}"
+            summary += self._concentration_summary(concentration_check)
             if result["target_defeat_state"] != "active":
                 summary += f" | 目标{target_defeat_state_display}"
         action_patch = logic.mark_current_action_used("attack_target")
@@ -279,6 +307,58 @@ class GameActionService:
             event_type="item_used",
             payload=payload,
             patch=GameLogic._merge_patches(result["patch"], action_patch),
+        )
+
+    def use_feature(
+        self,
+        state: GameState,
+        actor_ref: str,
+        feature_name: str,
+        action_cost: str = "action",
+        resource_name: str = "",
+        resource_cost: int = 0,
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        result = GameLogic(state).resolve_feature_use(
+            actor_ref=actor_ref,
+            feature_name=feature_name,
+            action_cost=action_cost,
+            resource_name=resource_name,
+            resource_cost=resource_cost,
+        )
+        feature_display = self.library.localize_game_terms(result["feature_name"])
+        payload = {
+            "actor_type": result["actor_type"],
+            "actor_id": result["actor_id"],
+            "actor_name": result["actor_name"],
+            "feature_name": result["feature_name"],
+            "feature_name_display": feature_display,
+            "action_cost": result["action_cost"],
+            "action_cost_display": self._action_cost_display(result["action_cost"]),
+            "resource_name": result["resource_name"],
+            "resource_cost": result["resource_cost"],
+            "resource_before": result["resource_before"],
+            "resource_after": result["resource_after"],
+            "reason": reason,
+        }
+        summary = (
+            f"{result['actor_name']} 使用特性：{feature_display}"
+            f"（{payload['action_cost_display']}）"
+        )
+        if result["resource_cost"] > 0:
+            summary += (
+                f"，消耗 {result['resource_cost']} 点 {self.library.localize_game_terms(result['resource_name'])}"
+                f"（{result['resource_after']} 剩余）"
+            )
+        if reason:
+            summary += f" | {self.library.localize_game_terms(reason)}"
+        return self._append_result(
+            state,
+            summary=summary,
+            event_type="feature_used",
+            payload=payload,
+            patch=result["patch"],
+            content=reason,
         )
 
     # Story-state helpers persist rewards and chapter outcomes without requiring ad hoc JSON edits.

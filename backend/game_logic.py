@@ -57,6 +57,44 @@ class DiceRoller:
 
 class GameLogic:
     _library = Library()
+    FEATURE_DEFINITIONS: Dict[str, Dict[str, Any]] = {
+        "second wind": {
+            "name": "Second Wind",
+            "action_cost": "bonus_action",
+            "resource_name": "Second Wind",
+            "resource_cost": 1,
+        },
+        "二次呼吸": {
+            "name": "Second Wind",
+            "action_cost": "bonus_action",
+            "resource_name": "Second Wind",
+            "resource_cost": 1,
+        },
+        "wild shape": {
+            "name": "Wild Shape",
+            "action_cost": "bonus_action",
+            "resource_name": "Wild Shape",
+            "resource_cost": 1,
+        },
+        "野性变身": {
+            "name": "Wild Shape",
+            "action_cost": "bonus_action",
+            "resource_name": "Wild Shape",
+            "resource_cost": 1,
+        },
+        "action surge": {
+            "name": "Action Surge",
+            "action_cost": "free",
+            "resource_name": "Action Surge",
+            "resource_cost": 1,
+        },
+        "动作激涌": {
+            "name": "Action Surge",
+            "action_cost": "free",
+            "resource_name": "Action Surge",
+            "resource_cost": 1,
+        },
+    }
 
     def __init__(self, state: GameState):
         self.state = state
@@ -112,6 +150,19 @@ class GameLogic:
             return "unconscious"
         return "dead"
 
+    def _concentration_character(self, identifier: str) -> Optional[Character]:
+        character = self.get_character(identifier)
+        if character:
+            return character
+        combatant = self.get_combatant(identifier)
+        if combatant and combatant.linked_character_id:
+            return self.state.characters.get(combatant.linked_character_id)
+        return None
+
+    @staticmethod
+    def _concentration_dc(damage_amount: int) -> int:
+        return min(30, max(10, int(damage_amount) // 2))
+
     @staticmethod
     def _ability_modifier_from_stats(stats: Any, ability_name: str) -> int:
         attr = ABILITY_ALIAS.get(ability_name, ability_name).lower()
@@ -139,6 +190,73 @@ class GameLogic:
             ability = ABILITY_ALIAS.get(save_name, save_name).lower()
             modifiers[ability] = cls._ability_modifier_from_stats(character.stats, ability) + proficiency
         return modifiers
+
+    @classmethod
+    def _character_save_modifier(cls, character: Character, save_name: str) -> int:
+        ability = ABILITY_ALIAS.get(save_name, save_name).lower()
+        modifier = cls._ability_modifier_from_stats(character.stats, ability)
+        proficient = any(
+            bool(value) and ABILITY_ALIAS.get(str(key), str(key)).lower() == ability
+            for key, value in character.save_proficiencies.items()
+        )
+        if proficient:
+            modifier += proficiency_bonus_for_level(character.level)
+        return modifier
+
+    def resolve_concentration_after_damage(self, identifier: str, damage_amount: int) -> Optional[Dict[str, Any]]:
+        if damage_amount <= 0:
+            return None
+
+        character = self._concentration_character(identifier)
+        if not character or not character.concentration_spell:
+            return None
+
+        previous_spell = character.concentration_spell
+        previous_level = character.concentration_spell_level
+        dc = self._concentration_dc(damage_amount)
+        save_result: Optional[Dict[str, Any]] = None
+        reason = "damage"
+        broken = character.defeat_state != "active" or character.hp_current <= 0
+
+        if broken:
+            reason = "incapacitated_or_defeated"
+        else:
+            modifier = self._character_save_modifier(character, "constitution")
+            save_result = self.roll_saving_throw(
+                target_ref=character.character_id,
+                save_name="constitution",
+                modifier=modifier,
+                dc=dc,
+            )
+            broken = not bool(save_result["success"])
+            reason = "failed_save" if broken else "successful_save"
+
+        patch: Dict[str, Any] = {}
+        if broken:
+            character.concentration_spell = ""
+            character.concentration_spell_level = 0
+            patch = {
+                "characters": {
+                    character.character_id: {
+                        "concentration_spell": character.concentration_spell,
+                        "concentration_spell_level": character.concentration_spell_level,
+                    }
+                }
+            }
+
+        return {
+            "character_id": character.character_id,
+            "character_name": character.name,
+            "damage_amount": int(damage_amount),
+            "dc": dc,
+            "previous_spell": previous_spell,
+            "previous_spell_level": previous_level,
+            "current_spell": character.concentration_spell,
+            "broken": broken,
+            "reason": reason,
+            "save": save_result,
+            "patch": patch,
+        }
 
     def _resolve_evidence_ref(
         self,
@@ -496,6 +614,8 @@ class GameLogic:
 
     # HP and status mutations keep character and encounter mirrors in sync.
     def update_target_hp(self, identifier: str, amount: int) -> Optional[Dict[str, Any]]:
+        concentration_check: Optional[Dict[str, Any]] = None
+        damage_amount = max(0, -int(amount))
         character = self.get_character(identifier)
         if character:
             character.hp_current = max(0, min(character.hp_current + amount, character.hp_max))
@@ -513,6 +633,9 @@ class GameLogic:
                     }
                 }
             }
+            concentration_check = self.resolve_concentration_after_damage(character.character_id, damage_amount)
+            if concentration_check and concentration_check.get("patch"):
+                patch = self._merge_patches(patch, concentration_check["patch"])
             if combatant:
                 patch["encounter"] = {
                     "combatants": {
@@ -523,7 +646,12 @@ class GameLogic:
                         }
                     }
                 }
-            return {"target_type": "character", "target": character, "patch": patch}
+            return {
+                "target_type": "character",
+                "target": character,
+                "patch": patch,
+                "concentration_check": concentration_check,
+            }
 
         combatant = self.get_combatant(identifier)
         if not combatant:
@@ -554,7 +682,16 @@ class GameLogic:
                     "defeat_state": character.defeat_state,
                 }
             }
-        return {"target_type": "combatant", "target": combatant, "patch": patch}
+        concentration_ref = character.character_id if character else combatant.combatant_id
+        concentration_check = self.resolve_concentration_after_damage(concentration_ref, damage_amount)
+        if concentration_check and concentration_check.get("patch"):
+            patch = self._merge_patches(patch, concentration_check["patch"])
+        return {
+            "target_type": "combatant",
+            "target": combatant,
+            "patch": patch,
+            "concentration_check": concentration_check,
+        }
 
     def set_defeat_state(self, identifier: str, defeat_state: str) -> Optional[Dict[str, Any]]:
         normalized = self._normalize_defeat_state(defeat_state)
@@ -786,6 +923,131 @@ class GameLogic:
             }
         }
         return {"character": user, "item": item, "quantity": quantity, "patch": patch}
+
+    @staticmethod
+    def _normalize_feature_action_cost(action_cost: str) -> str:
+        normalized = str(action_cost or "action").strip().lower()
+        if normalized in {"bonus", "bonus-action", "bonus_action"}:
+            return "bonus_action"
+        if normalized == "reaction":
+            return "reaction"
+        if normalized in {"free", "none", "no_action", "no-action", "passive"}:
+            return "free"
+        return "action"
+
+    @staticmethod
+    def _find_character_resource(character: Character, resource_name: str):
+        normalized = str(resource_name or "").strip().casefold()
+        if not normalized:
+            return "", None
+        for key, pool in character.resources.items():
+            if key.casefold() == normalized:
+                return key, pool
+        return "", None
+
+    @classmethod
+    def feature_definition_for(cls, feature_name: str) -> Dict[str, Any]:
+        normalized = str(feature_name or "").strip().casefold()
+        if not normalized:
+            return {}
+        return dict(cls.FEATURE_DEFINITIONS.get(normalized) or {})
+
+    def resolve_feature_use(
+        self,
+        actor_ref: str,
+        feature_name: str,
+        action_cost: str = "action",
+        resource_name: str = "",
+        resource_cost: int = 0,
+    ) -> Dict[str, Any]:
+        normalized_feature = str(feature_name or "").strip()
+        if not normalized_feature:
+            raise ValueError("Feature name is required")
+
+        self.require_current_actor(actor_ref)
+        character = self.get_character(actor_ref)
+        combatant = self.get_combatant(actor_ref)
+        if not character and combatant and combatant.linked_character_id:
+            character = self.state.characters.get(combatant.linked_character_id)
+        if not character and not combatant:
+            raise ValueError(f"Feature actor not found: {actor_ref}")
+
+        actor_type = "character" if character else "combatant"
+        actor_id = character.character_id if character else combatant.combatant_id
+        actor_name = character.name if character else combatant.name
+        feature_definition = self.feature_definition_for(normalized_feature)
+        normalized_action_cost = self._normalize_feature_action_cost(
+            feature_definition.get("action_cost") or action_cost
+        )
+        patch: Dict[str, Any] = {}
+        resource_payload: Dict[str, Any] = {}
+
+        if normalized_action_cost != "free":
+            self.require_turn_slot_available(normalized_action_cost, "use_feature")
+
+        parsed_resource_cost = int(resource_cost or 0)
+        if parsed_resource_cost < 0:
+            raise ValueError("Feature resource cost cannot be negative")
+        normalized_resource_name = str(resource_name or feature_definition.get("resource_name") or "").strip()
+        if parsed_resource_cost <= 0 and feature_definition.get("resource_cost") and character:
+            inferred_resource_name = normalized_resource_name or str(feature_definition.get("resource_name") or "")
+            _, inferred_resource = self._find_character_resource(character, inferred_resource_name)
+            if inferred_resource:
+                parsed_resource_cost = int(feature_definition.get("resource_cost") or 0)
+        if parsed_resource_cost > 0:
+            if not normalized_resource_name:
+                raise ValueError("Feature resource name is required when resource_cost is greater than zero")
+            if not character:
+                raise ValueError(f"Feature resource requires a character sheet: {actor_name}")
+            resource_key, resource_pool = self._find_character_resource(character, normalized_resource_name)
+            if not resource_pool:
+                raise ValueError(f"Feature resource not found for {character.name}: {normalized_resource_name}")
+            if resource_pool.current_value < parsed_resource_cost:
+                raise ValueError(
+                    f"Not enough feature resource for {resource_key}: "
+                    f"requested {parsed_resource_cost}, available {resource_pool.current_value}"
+                )
+            before_value = resource_pool.current_value
+            resource_pool.current_value -= parsed_resource_cost
+            resource_payload = {
+                "resource_name": resource_key,
+                "resource_cost": parsed_resource_cost,
+                "resource_before": before_value,
+                "resource_after": resource_pool.current_value,
+            }
+            patch = self._merge_patches(
+                patch,
+                {
+                    "characters": {
+                        character.character_id: {
+                            "resources": {
+                                key: pool.model_dump(mode="json")
+                                for key, pool in character.resources.items()
+                            }
+                        }
+                    }
+                },
+            )
+
+        if normalized_action_cost != "free":
+            patch = self._merge_patches(
+                patch,
+                self.mark_current_turn_slot_used(normalized_action_cost, "use_feature"),
+            )
+
+        return {
+            "actor_type": actor_type,
+            "actor_id": actor_id,
+            "actor_name": actor_name,
+            "feature_name": normalized_feature,
+            "action_cost": normalized_action_cost,
+            "resource_name": resource_payload.get("resource_name", normalized_resource_name),
+            "resource_cost": resource_payload.get("resource_cost", parsed_resource_cost),
+            "resource_before": resource_payload.get("resource_before"),
+            "resource_after": resource_payload.get("resource_after"),
+            "feature_definition": feature_definition,
+            "patch": patch,
+        }
 
     def record_evidence(
         self,
@@ -1108,6 +1370,7 @@ class GameLogic:
         damage_detail = ""
         damage_roll = damage_expression
         patch: Dict[str, Any] = {}
+        concentration_check: Optional[Dict[str, Any]] = None
         if hit and damage_expression:
             if critical:
                 damage_roll = self._expand_critical_damage(damage_expression)
@@ -1116,6 +1379,7 @@ class GameLogic:
             if hp_result:
                 patch = hp_result["patch"]
                 target = hp_result["target"]
+                concentration_check = hp_result.get("concentration_check")
                 if target.hp_current <= 0:
                     if resolution_mode == "nonlethal":
                         defeat_result = self.set_defeat_state(target_ref, "unconscious")
@@ -1143,6 +1407,7 @@ class GameLogic:
             "resolution_mode": resolution_mode,
             "target_hp_current": target.hp_current,
             "target_defeat_state": getattr(target, "defeat_state", "active"),
+            "concentration_check": concentration_check,
             "patch": patch,
         }
 
