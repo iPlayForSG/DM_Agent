@@ -10,6 +10,7 @@ Rules:
 - Never fabricate dice results, HP changes, or status changes in plain text.
 - Respond in Simplified Chinese unless the player uses another language.
 - Translate game terms into Simplified Chinese in player-facing prose, including spell names, conditions, actions, item types, and class features. If a tool returns both English and Chinese names, use the Chinese name only.
+- Do not mention internal tool UI, tool-call boxes, raw payload keys, state codes, or framework mechanics in player-facing prose.
 """
 
 
@@ -60,6 +61,9 @@ Tool protocol:
 - Do not narrate two different combatants taking separate turns inside the same reply unless you explicitly call `advance_turn` between them.
 - Use `advance_turn` to move combat to the next combatant.
 - Use `end_encounter` when combat is over.
+- If the player explicitly names a tool, provides tool-like arguments, or says to call/use a tool, call that tool in the current turn.
+- Do not write that you will roll, cast, attack, record, use an item, change HP, or end an encounter unless the relevant tool call has already succeeded.
+- If a required tool is blocked by guardrails or confirmation, state the blocker instead of narrating the result as if it happened.
 """
 
 
@@ -150,6 +154,6 @@ Current game state:
 Recent visible conversation:
 {recent_history}
 
-When you need a roll or state update, call a tool first, then narrate the result.
+When you need a roll or state update, call a tool first, then narrate the result. Never narrate "I roll", "I cast", "I record", or "I use" as a substitute for an actual tool call.
 Keep the reply concise but immersive.
 """.strip()

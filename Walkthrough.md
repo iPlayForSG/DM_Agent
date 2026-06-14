@@ -215,7 +215,7 @@ backend/runtime-logs/runtime-state.json
 仍是原型的部分：
 
 - `frontend/src/App.jsx` 过大，后续需要拆组件。
-- Rules Guard 已有结构化 issue 输出和当前行动者工具约束，但动作经济、法术位、专注、反应、物品消耗等严格校验仍需继续补。
+- Rules Guard 已有结构化 issue 输出、当前行动者工具约束、物品数量校验、每回合主动作消耗校验，以及按法术施法时间占用主动作/附赠动作/反应槽；职业/怪物特性的 bonus action、reaction 和专注豁免仍需继续补。
 - SSE 还不是真正实时 tool delta。
 - 还没有 token streaming。
 - 长期记忆和章节记忆编译器尚未成型。
@@ -267,31 +267,14 @@ backend/runtime-logs/runtime-state.json
 
 ## 9. 下一步队列
 
-优先级较高：
+按调研后的 Agent 方向，优先做这些：
 
-1. 拆分 `frontend/src/App.jsx`。
-   - 先抽 chat/session sidepanel/action panel。
-   - 不要在同一轮重写视觉体系。
-2. 强化 Rules Guard。
-   - 动作经济。
-   - 法术位和专注。
-   - 物品数量。
-   - 遭遇结束条件。
-3. 细化 stream 事件。
-   - 增加真正执行过程中的 `tool.started/tool.completed`。
-   - 保持现有派生事件兼容。
-4. 增加浏览器级 smoke。
-   - 启动应用。
-   - 新建游戏。
-   - 选择冒险。
-   - 发送回合。
-   - 触发并确认 `tool_confirmation`。
-5. 设计章节记忆编译器。
-   - NPC 事实。
-   - 任务线索。
-   - 玩家偏好。
-   - 证据关联。
-   - 重大经历。
+1. 补章节记忆编译器：把 NPC 事实、任务线索、玩家偏好、证据关联和重大经历压缩成可注入上下文。
+2. 继续强化 Rules Guard：职业/怪物特性的 bonus action、reaction、专注豁免、遭遇结束条件和资源消耗账本。
+3. 收紧 Agent 控制流：显式输出意图、计划、允许工具、状态校验和失败重试理由，避免模型只靠叙事推进。
+4. 做长流程评估：保留三章以上 replay 脚本、工具轨迹断言、状态断言和失败案例，用真实交互压力测试回归。
+5. 细化 stream 与观测：增加执行过程中的 `tool.started/tool.completed`，让前端能看到真实工具进度。
+6. 拆分 `frontend/src/App.jsx`：先抽 chat、session sidepanel 和 action panel，不在同一轮重写视觉体系。
 
 暂不优先：
 

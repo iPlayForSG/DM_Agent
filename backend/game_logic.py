@@ -195,6 +195,7 @@ class GameLogic:
         ]
         encounter.current_combatant_id = eligible[0] if eligible else None
         encounter.turn_order_started = True
+        self._reset_turn_action_state(encounter)
         return True
 
     @staticmethod
@@ -269,6 +270,111 @@ class GameLogic:
         if self.is_current_actor(identifier):
             return current
         raise ValueError(f"It is currently {current.name}'s turn, not {self.get_actor_name(identifier)}'s turn")
+
+    @staticmethod
+    def _turn_action_key(encounter: EncounterState) -> str:
+        if not encounter.current_combatant_id:
+            return ""
+        return f"{encounter.round_number}:{encounter.current_combatant_id}"
+
+    def _reset_turn_action_state(self, encounter: Optional[EncounterState] = None) -> Dict[str, Any]:
+        encounter = encounter or self.state.encounter
+        if not encounter:
+            return {}
+        turn_key = self._turn_action_key(encounter)
+        encounter.turn_action_key = turn_key
+        encounter.turn_action_used = False
+        encounter.turn_action_tool = ""
+        encounter.turn_bonus_action_key = turn_key
+        encounter.turn_bonus_action_used = False
+        encounter.turn_bonus_action_tool = ""
+        encounter.turn_reaction_key = turn_key
+        encounter.turn_reaction_used = False
+        encounter.turn_reaction_tool = ""
+        return {
+            "encounter": {
+                "turn_action_key": encounter.turn_action_key,
+                "turn_action_used": encounter.turn_action_used,
+                "turn_action_tool": encounter.turn_action_tool,
+                "turn_bonus_action_key": encounter.turn_bonus_action_key,
+                "turn_bonus_action_used": encounter.turn_bonus_action_used,
+                "turn_bonus_action_tool": encounter.turn_bonus_action_tool,
+                "turn_reaction_key": encounter.turn_reaction_key,
+                "turn_reaction_used": encounter.turn_reaction_used,
+                "turn_reaction_tool": encounter.turn_reaction_tool,
+            }
+        }
+
+    @staticmethod
+    def _normalize_turn_action_cost(action_cost: str) -> str:
+        normalized = str(action_cost or "action").strip().lower()
+        if normalized in {"bonus", "bonus-action", "bonus_action"}:
+            return "bonus_action"
+        if normalized == "reaction":
+            return "reaction"
+        return "action"
+
+    @staticmethod
+    def _turn_slot_fields(action_cost: str) -> Tuple[str, str, str]:
+        normalized = GameLogic._normalize_turn_action_cost(action_cost)
+        if normalized == "bonus_action":
+            return "turn_bonus_action_key", "turn_bonus_action_used", "turn_bonus_action_tool"
+        if normalized == "reaction":
+            return "turn_reaction_key", "turn_reaction_used", "turn_reaction_tool"
+        return "turn_action_key", "turn_action_used", "turn_action_tool"
+
+    @staticmethod
+    def _turn_slot_label(action_cost: str) -> str:
+        normalized = GameLogic._normalize_turn_action_cost(action_cost)
+        if normalized == "bonus_action":
+            return "bonus action"
+        if normalized == "reaction":
+            return "reaction"
+        return "action"
+
+    def require_turn_slot_available(self, action_cost: str, action_name: str) -> None:
+        encounter = self.state.encounter
+        if not encounter or not encounter.active:
+            return
+        current = encounter.get_current_combatant()
+        if not current:
+            return
+        turn_key = self._turn_action_key(encounter)
+        key_field, used_field, tool_field = self._turn_slot_fields(action_cost)
+        slot_key = getattr(encounter, key_field, "")
+        if slot_key and slot_key != turn_key:
+            self._reset_turn_action_state(encounter)
+        if getattr(encounter, used_field, False) and getattr(encounter, key_field, "") == turn_key:
+            used_tool = getattr(encounter, tool_field, "") or f"a {self._turn_slot_label(action_cost)}"
+            raise ValueError(
+                f"{current.name} has already used their {self._turn_slot_label(action_cost)} this turn: {used_tool}"
+            )
+
+    def require_turn_action_available(self, action_name: str) -> None:
+        self.require_turn_slot_available("action", action_name)
+
+    def mark_current_turn_slot_used(self, action_cost: str, action_name: str) -> Dict[str, Any]:
+        encounter = self.state.encounter
+        if not encounter or not encounter.active:
+            return {}
+        current = encounter.get_current_combatant()
+        if not current:
+            return {}
+        self.require_turn_slot_available(action_cost, action_name)
+        key_field, used_field, tool_field = self._turn_slot_fields(action_cost)
+        setattr(encounter, key_field, self._turn_action_key(encounter))
+        setattr(encounter, used_field, True)
+        setattr(encounter, tool_field, action_name)
+        return {
+            "encounter": {
+                key_field: getattr(encounter, key_field),
+                used_field: getattr(encounter, used_field),
+                tool_field: getattr(encounter, tool_field),
+            }
+        }
+
+    def mark_current_action_used(self, action_name: str) -> Dict[str, Any]:
+        return self.mark_current_turn_slot_used("action", action_name)
 
     def _ensure_encounter(self) -> EncounterState:
         # Reuse the current active encounter, otherwise build a fresh one around the party.
@@ -643,6 +749,43 @@ class GameLogic:
             }
         }
         return {"character": character, "item": item, "patch": patch}
+
+    def use_inventory_item(
+        self,
+        user_ref: str,
+        item_name: str,
+        quantity: int = 1,
+    ) -> Dict[str, Any]:
+        if quantity <= 0:
+            raise ValueError("Item quantity must be greater than zero")
+
+        self.require_current_actor(user_ref)
+        user = self.get_character(user_ref)
+        if not user:
+            raise ValueError(f"Item user not found: {user_ref}")
+
+        normalized_name = item_name.strip()
+        if not normalized_name:
+            raise ValueError("Item name is required")
+
+        item = next((entry for entry in user.inventory if entry.name == normalized_name), None)
+        if not item:
+            raise ValueError(f"Item not found: {normalized_name}")
+        if item.quantity < quantity:
+            raise ValueError(
+                f"Not enough item quantity for {normalized_name}: "
+                f"requested {quantity}, available {item.quantity}"
+            )
+
+        item.quantity -= quantity
+        patch = {
+            "characters": {
+                user.character_id: {
+                    "inventory": [entry.model_dump(mode="json") for entry in user.inventory]
+                }
+            }
+        }
+        return {"character": user, "item": item, "quantity": quantity, "patch": patch}
 
     def record_evidence(
         self,
@@ -1064,6 +1207,7 @@ class GameLogic:
             ]
             if eligible_order:
                 encounter.current_combatant_id = eligible_order[0]
+                self._reset_turn_action_state(encounter)
         return combatant
 
     def roll_initiative(self, identifier: str) -> Optional[Dict[str, Any]]:
@@ -1090,6 +1234,7 @@ class GameLogic:
             ]
             if eligible_order:
                 encounter.current_combatant_id = eligible_order[0]
+                self._reset_turn_action_state(encounter)
         return {"combatant": combatant, "total": total, "detail": detail, "expression": expression}
 
     def advance_turn(self) -> Optional[Combatant]:
@@ -1113,6 +1258,7 @@ class GameLogic:
 
         if encounter.current_combatant_id not in eligible_order:
             encounter.current_combatant_id = eligible_order[0]
+            self._reset_turn_action_state(encounter)
             return encounter.get_current_combatant()
 
         current_index = eligible_order.index(encounter.current_combatant_id)
@@ -1120,6 +1266,7 @@ class GameLogic:
         if next_index == 0:
             encounter.round_number += 1
         encounter.current_combatant_id = eligible_order[next_index]
+        self._reset_turn_action_state(encounter)
         return encounter.get_current_combatant()
 
     # Encounter summaries feed logs, HTTP responses, and DM context.

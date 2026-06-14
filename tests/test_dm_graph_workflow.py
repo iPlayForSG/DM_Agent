@@ -10,12 +10,15 @@ sys.path.insert(0, str(ROOT / "backend"))
 os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
 os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 
+from action_service import GameActionService
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
-from models import AdventureHook, Character, GameState
+from models import AdventureHook, Character, GameState, InventoryItem, SpellSlot
 from agent import normalize_openai_base_url
-from agent_tools import AgentToolExecution
+from agent_tools import AgentToolExecution, AgentToolService
 from langchain_core.messages import AIMessage
+from rules_catalog import RuleCatalog
+from storage import MonsterStorage
 
 
 class DummyRAGEngine:
@@ -404,6 +407,312 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertTrue(skill_guardrail.ok)
         self.assertEqual(attack_guardrail.metadata["current_actor_arg"], "attacker_ref")
         self.assertEqual(skill_guardrail.metadata["current_actor_arg"], "actor_ref")
+
+    def test_tool_guardrail_rejects_unavailable_inventory_use(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.inventory.append(InventoryItem(name="Healing Potion", quantity=1))
+
+        guardrail = self.runner.tool_registry.validate_call(
+            state=state,
+            tool_name="use_item",
+            args={
+                "user_ref": character.name,
+                "item_name": "Healing Potion",
+                "quantity": 2,
+            },
+            allowed_tools=["use_item"],
+        )
+        negative_guardrail = self.runner.tool_registry.validate_call(
+            state=state,
+            tool_name="use_item",
+            args={
+                "user_ref": character.character_id,
+                "item_name": "Healing Potion",
+                "quantity": 0,
+            },
+            allowed_tools=["use_item"],
+        )
+
+        self.assertFalse(guardrail.ok)
+        self.assertIn("Not enough item quantity", guardrail.error)
+        self.assertEqual(guardrail.metadata["inventory_quantity_arg"], "quantity")
+        self.assertFalse(negative_guardrail.ok)
+        self.assertIn("greater than zero", negative_guardrail.error)
+
+    def test_use_item_guardrail_normalizes_and_agent_tool_consumes_inventory(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.inventory.append(InventoryItem(name="Healing Potion", quantity=2))
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="use_item",
+            args={
+                "user_ref": character.name.lower(),
+                "item_name": "healing potion",
+                "quantity": 2,
+            },
+            allowed_tools=["use_item"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(character.inventory[0].quantity, 0)
+        self.assertEqual(execution.payload["quantity_remaining"], 0)
+        self.assertEqual(
+            execution.state_patch["characters"][character.character_id]["inventory"][0]["quantity"],
+            0,
+        )
+
+    def test_local_use_item_rejects_non_positive_quantity(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.inventory.append(InventoryItem(name="Torch", quantity=1))
+
+        with self.assertRaisesRegex(ValueError, "greater than zero"):
+            GameActionService().use_item(
+                state=state,
+                user_ref=character.character_id,
+                item_name="Torch",
+                quantity=-1,
+            )
+
+        self.assertEqual(character.inventory[0].quantity, 1)
+
+    def test_agent_action_consumes_turn_action_and_blocks_second_action(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        character = state.characters[state.active_character_id]
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="roll_skill_check",
+            args={"actor_ref": character.character_id, "skill_name": "Perception", "dc": 10},
+            allowed_tools=["roll_skill_check"],
+        )
+        second_action = runner.tool_registry.validate_call(
+            state=state,
+            tool_name="attack_target",
+            args={
+                "attacker_ref": character.character_id,
+                "target_ref": enemy_combatant.combatant_id,
+                "attack_bonus": 5,
+                "damage_expression": "1d8+3",
+            },
+            allowed_tools=["attack_target"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertTrue(state.encounter.turn_action_used)
+        self.assertEqual(state.encounter.turn_action_tool, "roll_skill_check")
+        self.assertTrue(execution.state_patch["encounter"]["turn_action_used"])
+        self.assertFalse(second_action.ok)
+        self.assertIn("action already used", second_action.error)
+        self.assertTrue(second_action.metadata["consumes_turn_action"])
+
+    def test_advance_turn_resets_turn_action_ledger(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        logic.mark_current_action_used("attack_target")
+
+        logic.advance_turn()
+        enemy_action = self.runner.tool_registry.validate_call(
+            state=state,
+            tool_name="attack_target",
+            args={
+                "attacker_ref": enemy_combatant.combatant_id,
+                "target_ref": party_combatant.combatant_id,
+                "attack_bonus": 4,
+                "damage_expression": "1d6+2",
+            },
+            allowed_tools=["attack_target"],
+        )
+
+        self.assertEqual(state.encounter.current_combatant_id, enemy_combatant.combatant_id)
+        self.assertFalse(state.encounter.turn_action_used)
+        self.assertTrue(enemy_action.ok)
+
+    def test_spell_guardrail_rejects_unavailable_spell_slot(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.spells.prepared = ["Healing Word"]
+        character.spells.slots = {"1": SpellSlot(total=1, used=1)}
+
+        guardrail = self.runner.tool_registry.validate_call(
+            state=state,
+            tool_name="cast_spell",
+            args={
+                "caster_ref": character.name,
+                "spell_name": "healing word",
+                "slot_level": 1,
+            },
+            allowed_tools=["cast_spell"],
+        )
+
+        self.assertFalse(guardrail.ok)
+        self.assertIn("No available spell slot", guardrail.error)
+        self.assertEqual(guardrail.metadata["spell_name_arg"], "spell_name")
+
+    def test_bonus_action_spell_uses_bonus_slot_without_blocking_action(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        character = state.characters[state.active_character_id]
+        character.spells.prepared = ["Healing Word"]
+        character.spells.slots = {"1": SpellSlot(total=2, used=0)}
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="cast_spell",
+            args={
+                "caster_ref": character.character_id,
+                "spell_name": "Healing Word",
+                "slot_level": 1,
+            },
+            allowed_tools=["cast_spell"],
+        )
+        attack_guardrail = runner.tool_registry.validate_call(
+            state=state,
+            tool_name="attack_target",
+            args={
+                "attacker_ref": character.character_id,
+                "target_ref": enemy_combatant.combatant_id,
+                "attack_bonus": 5,
+                "damage_expression": "1d8+3",
+            },
+            allowed_tools=["attack_target"],
+        )
+        second_bonus_guardrail = runner.tool_registry.validate_call(
+            state=state,
+            tool_name="cast_spell",
+            args={
+                "caster_ref": character.character_id,
+                "spell_name": "Healing Word",
+                "slot_level": 1,
+            },
+            allowed_tools=["cast_spell"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["action_cost"], "bonus_action")
+        self.assertFalse(state.encounter.turn_action_used)
+        self.assertTrue(state.encounter.turn_bonus_action_used)
+        self.assertEqual(character.spells.slots["1"].used, 1)
+        self.assertTrue(attack_guardrail.ok)
+        self.assertFalse(second_bonus_guardrail.ok)
+        self.assertIn("bonus action already used", second_bonus_guardrail.error)
+
+    def test_concentration_spell_updates_character_concentration(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        enemy_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.side == "enemy"
+        )
+        logic.set_initiative(party_combatant.combatant_id, 18)
+        logic.set_initiative(enemy_combatant.combatant_id, 8)
+        character = state.characters[state.active_character_id]
+        character.spells.cantrips = ["Blade Ward"]
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="cast_spell",
+            args={
+                "caster_ref": character.character_id,
+                "spell_name": "Blade Ward",
+            },
+            allowed_tools=["cast_spell"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["action_cost"], "action")
+        self.assertTrue(execution.payload["concentration"])
+        self.assertEqual(character.concentration_spell, "剑刃防护")
+        self.assertEqual(
+            execution.state_patch["characters"][character.character_id]["concentration_spell"],
+            "剑刃防护",
+        )
 
     def test_completed_turn_records_node_traces(self) -> None:
         if not self.runner.is_available:

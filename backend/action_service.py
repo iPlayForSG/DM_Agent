@@ -71,6 +71,7 @@ class GameActionService:
     ) -> Dict[str, Any]:
         logic = GameLogic(state)
         logic.require_current_actor(attacker_ref)
+        logic.require_turn_action_available("attack_target")
         result = logic.resolve_attack(
             attacker_ref,
             target_ref,
@@ -114,12 +115,13 @@ class GameActionService:
                 summary += f" {damage_type_display}"
             if result["target_defeat_state"] != "active":
                 summary += f" | 目标{target_defeat_state_display}"
+        action_patch = logic.mark_current_action_used("attack_target")
         return self._append_result(
             state,
             summary=summary,
             event_type="attack_resolved",
             payload=payload,
-            patch=result["patch"],
+            patch=GameLogic._merge_patches(result["patch"], action_patch),
         )
 
     def skill_check(
@@ -132,6 +134,7 @@ class GameActionService:
     ) -> Dict[str, Any]:
         logic = GameLogic(state)
         logic.require_current_actor(actor_ref)
+        logic.require_turn_action_available("roll_skill_check")
         actor = logic.get_character(actor_ref)
         if modifier is not None:
             resolved_modifier = modifier
@@ -147,11 +150,13 @@ class GameActionService:
         summary = f"{result['actor_name']} {skill_display}检定 {result['total']}"
         if dc > 0:
             summary += f" vs DC {dc} -> {'成功' if result['success'] else '失败'}"
+        action_patch = logic.mark_current_action_used("roll_skill_check")
         return self._append_result(
             state,
             summary=summary,
             event_type="skill_check",
             payload=result,
+            patch=action_patch,
         )
 
     def saving_throw(
@@ -202,7 +207,13 @@ class GameActionService:
 
         resolved_slot = int(validation["resolved_slot_level"])
         canonical_spell_name = str(validation.get("spell_name") or validation["spell"].get("name") or spell_name)
+        action_cost = self.rules.spell_action_cost(validation["spell"])
+        logic.require_turn_slot_available(action_cost, "cast_spell")
+        previous_concentration = caster.concentration_spell
         self.rules.consume_spell_slot(caster, resolved_slot)
+        if bool(validation["spell"].get("concentration")):
+            caster.concentration_spell = canonical_spell_name
+            caster.concentration_spell_level = int(validation["spell"].get("level", 0))
         payload = {
             "caster_id": caster.character_id,
             "caster_name": caster.name,
@@ -210,6 +221,10 @@ class GameActionService:
             "requested_spell_name": spell_name,
             "spell_level": int(validation["spell"].get("level", 0)),
             "resolved_slot_level": resolved_slot,
+            "action_cost": action_cost,
+            "concentration": bool(validation["spell"].get("concentration")),
+            "previous_concentration_spell": previous_concentration,
+            "current_concentration_spell": caster.concentration_spell,
             "remaining_slots": {
                 level: {"total": slot.total, "used": slot.used}
                 for level, slot in caster.spells.slots.items()
@@ -218,41 +233,52 @@ class GameActionService:
         summary = f"{caster.name} 施放 {canonical_spell_name}"
         if resolved_slot > 0:
             summary += f"，消耗 {resolved_slot} 环法术位"
+        action_patch = logic.mark_current_turn_slot_used(action_cost, "cast_spell")
         return self._append_result(
             state,
             summary=summary,
             event_type="spell_cast",
             payload=payload,
-            patch={"characters": {caster.character_id: {"spells": caster.spells.model_dump(mode="json")}}},
+            patch=GameLogic._merge_patches(
+                {
+                    "characters": {
+                        caster.character_id: {
+                            "spells": caster.spells.model_dump(mode="json"),
+                            "concentration_spell": caster.concentration_spell,
+                            "concentration_spell_level": caster.concentration_spell_level,
+                        }
+                    }
+                },
+                action_patch,
+            ),
         )
 
     def use_item(self, state: GameState, user_ref: str, item_name: str, quantity: int = 1) -> Dict[str, Any]:
         logic = GameLogic(state)
-        logic.require_current_actor(user_ref)
-        user = logic.get_character(user_ref)
-        if not user:
-            raise ValueError(f"Item user not found: {user_ref}")
-
-        item = next((entry for entry in user.inventory if entry.name == item_name), None)
-        if not item or item.quantity < quantity:
-            raise ValueError(f"Not enough item quantity for {item_name}")
-
-        item.quantity -= quantity
+        logic.require_turn_action_available("use_item")
+        result = logic.use_inventory_item(
+            user_ref=user_ref,
+            item_name=item_name,
+            quantity=quantity,
+        )
+        user = result["character"]
+        item = result["item"]
         payload = {
             "user_id": user.character_id,
             "user_name": user.name,
-            "item_name": item_name,
-            "item_name_display": self.library.localize_game_terms(item_name),
-            "quantity_used": quantity,
+            "item_name": item.name,
+            "item_name_display": self.library.localize_game_terms(item.name),
+            "quantity_used": result["quantity"],
             "quantity_remaining": item.quantity,
         }
-        summary = f"{user.name} 使用 {quantity} x {self.library.localize_game_terms(item_name)}"
+        summary = f"{user.name} 使用 {result['quantity']} x {self.library.localize_game_terms(item.name)}"
+        action_patch = logic.mark_current_action_used("use_item")
         return self._append_result(
             state,
             summary=summary,
             event_type="item_used",
             payload=payload,
-            patch={"characters": {user.character_id: {"inventory": [entry.model_dump(mode='json') for entry in user.inventory]}}},
+            patch=GameLogic._merge_patches(result["patch"], action_patch),
         )
 
     # Story-state helpers persist rewards and chapter outcomes without requiring ad hoc JSON edits.

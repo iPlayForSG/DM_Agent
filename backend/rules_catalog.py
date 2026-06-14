@@ -705,6 +705,15 @@ class RuleCatalog:
 
         return {"ok": True, "spell": details, "spell_name": canonical_name, "resolved_slot_level": resolved_slot}
 
+    @staticmethod
+    def spell_action_cost(spell_details: Dict[str, Any]) -> str:
+        casting_time = str(spell_details.get("castingTime") or spell_details.get("casting_time") or "").casefold()
+        if "附赠" in casting_time or "bonus" in casting_time:
+            return "bonus_action"
+        if "反应" in casting_time or "reaction" in casting_time:
+            return "reaction"
+        return "action"
+
     def consume_spell_slot(self, character: Character, slot_level: int) -> None:
         if slot_level <= 0:
             return

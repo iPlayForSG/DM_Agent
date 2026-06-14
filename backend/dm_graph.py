@@ -132,6 +132,20 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         },
     },
     {
+        "name": "use_item",
+        "description": "Use and consume an item from a character inventory, reducing quantity only when available.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_ref": {"type": "string"},
+                "item_name": {"type": "string"},
+                "quantity": {"type": "integer", "default": 1},
+                "reason": {"type": "string", "default": ""},
+            },
+            "required": ["user_ref", "item_name"],
+        },
+    },
+    {
         "name": "record_evidence",
         "description": "Persist a clue or document as structured evidence.",
         "parameters": {
@@ -510,6 +524,7 @@ BASE_TOOL_NAMES = [
     "remove_status",
     "append_adventure_log",
     "add_inventory_item",
+    "use_item",
     "record_evidence",
     "record_search_outcome",
     "record_major_experience",
@@ -651,7 +666,11 @@ ACTION_RESOLUTION_TERMS = [
     "\u68c0\u5b9a",
     "\u8c41\u514d",
     "\u65bd\u6cd5",
+    "\u65bd\u653e",
+    "\u91ca\u653e",
     "\u653b\u51fb",
+    "\u4f7f\u7528",
+    "\u559d",
     "\u4f11\u606f",
     "\u6cbb\u7597",
     "\u559d\u836f",
@@ -1121,7 +1140,7 @@ class DMGraphRunner:
             return []
 
         lowered = normalized.casefold()
-        suggestions: List[str] = []
+        suggestions: List[str] = self._explicit_tool_names_in_input(normalized)
         matched_spells = self._matched_spell_names(state, normalized)
 
         if matched_spells or any(term in lowered for term in ["cast", "\u65bd\u6cd5", "\u6cd5\u672f"]):
@@ -1169,6 +1188,25 @@ class DMGraphRunner:
         if any(
             term in lowered
             for term in [
+                "use",
+                "drink",
+                "consume",
+                "heal",
+                "healing",
+                "potion",
+                "item",
+                "\u4f7f\u7528",
+                "\u6d88\u8017",
+                "\u559d",
+                "\u559d\u836f",
+                "\u836f\u6c34",
+                "\u7269\u54c1",
+            ]
+        ):
+            suggestions.append("use_item")
+        if any(
+            term in lowered
+            for term in [
                 "heal",
                 "healing",
                 "damage",
@@ -1196,6 +1234,19 @@ class DMGraphRunner:
         return self._unique_texts(suggestions, limit=3)
 
     @staticmethod
+    def _explicit_tool_names_in_input(user_input: str) -> List[str]:
+        lowered = " ".join((user_input or "").split()).strip().casefold()
+        if not lowered:
+            return []
+
+        matches: List[str] = []
+        for schema in LANGGRAPH_TOOL_SCHEMAS:
+            tool_name = str(schema.get("name") or "").strip()
+            if tool_name and tool_name.casefold() in lowered:
+                matches.append(tool_name)
+        return DMGraphRunner._unique_texts(matches, limit=6)
+
+    @staticmethod
     def _intent_risk_level(phase: str, turn_type: str, suggested_tools: List[str]) -> str:
         high_risk_tools = {"end_encounter", "set_defeat_state", "record_chapter_progress"}
         medium_risk_tools = {
@@ -1203,6 +1254,7 @@ class DMGraphRunner:
             "add_status",
             "remove_status",
             "add_inventory_item",
+            "use_item",
             "record_evidence",
             "record_search_outcome",
             "record_major_experience",
@@ -2176,15 +2228,52 @@ class DMGraphRunner:
             }
 
         final_response = self.library.localize_game_terms(self._extract_message_content(response))
+        tool_calls = self._last_message_tool_calls([response])
+        retry_node_trace: List[Dict[str, Any]] = []
+        if self._should_retry_missing_tool_call(graph_state, final_response, tool_calls):
+            retry_instruction = self._human_prompt_message(
+                "上一条回复描述了掷骰、施法、攻击、记录、使用物品或状态变更，但没有发起工具调用。"
+                "请现在只调用必要工具；在工具结果返回前不要叙述结果。"
+                "如果没有任何工具适合，请简短说明无法调用工具的具体原因。"
+            )
+            retry_messages = [*messages, response, retry_instruction]
+            try:
+                retry_response = model.invoke(retry_messages)
+                retry_tool_calls = self._last_message_tool_calls([retry_response])
+                if retry_tool_calls:
+                    messages = retry_messages
+                    response = retry_response
+                    tool_calls = retry_tool_calls
+                    final_response = self.library.localize_game_terms(self._extract_message_content(retry_response))
+                retry_node_trace = self._append_node_trace(
+                    graph_state,
+                    "draft_response",
+                    "Retried model response after missing expected tool call.",
+                    {
+                        "retry_tool_call_count": len(retry_tool_calls),
+                        "previous_response_chars": len(final_response),
+                    },
+                )
+            except Exception as exc:
+                detail = self._summarize_model_exception(exc)
+                retry_node_trace = self._append_node_trace(
+                    graph_state,
+                    "draft_response",
+                    "Model retry after missing tool call failed.",
+                    {"error": detail},
+                    status="failed",
+                )
+
         result: DMGraphState = {"messages": [*messages, response]}
         if final_response:
             result["final_response"] = final_response
+        trace_base = {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])}
         result["node_traces"] = self._append_node_trace(
-            graph_state,
+            trace_base,
             "draft_response",
             "Model response received.",
             {
-                "tool_call_count": len(self._last_message_tool_calls([response])),
+                "tool_call_count": len(tool_calls),
                 "response_chars": len(final_response),
             },
         )
@@ -2195,6 +2284,65 @@ class DMGraphRunner:
         if not messages:
             return []
         return list(getattr(messages[-1], "tool_calls", []) or [])
+
+    def _should_retry_missing_tool_call(
+        self,
+        graph_state: DMGraphState,
+        response_text: str,
+        tool_calls: List[Dict[str, Any]],
+    ) -> bool:
+        if tool_calls:
+            return False
+        allowed_tools = list(graph_state.get("allowed_tools", []))
+        if not allowed_tools:
+            return False
+
+        user_input = str(graph_state.get("user_input") or "")
+        lowered_input = user_input.casefold()
+        explicit_tool_request = "\u8c03\u7528" in lowered_input or "tool" in lowered_input
+        explicit_names = set(self._explicit_tool_names_in_input(user_input))
+        for tool_name in allowed_tools:
+            tool_lower = tool_name.casefold()
+            if tool_lower and (
+                f"{tool_lower}(" in lowered_input
+                or f"`{tool_lower}`" in lowered_input
+                or f"\u8c03\u7528 {tool_lower}" in lowered_input
+                or f"\u8c03\u7528{tool_lower}" in lowered_input
+                or (tool_name in explicit_names and any(marker in lowered_input for marker in ["call", "use", "\u7528", "\u8c03\u7528"]))
+            ):
+                explicit_tool_request = True
+                break
+
+        suggested_tools = set(graph_state.get("suggested_tools", []) or [])
+        if not explicit_tool_request and not suggested_tools:
+            return False
+
+        lowered_response = (response_text or "").casefold()
+        tool_intent_terms = [
+            "i roll",
+            "i cast",
+            "i attack",
+            "i record",
+            "i use",
+            "rolling",
+            "casting",
+            "\u6211\u6765",
+            "\u5148\u5904\u7406",
+            "\u63b7\u9ab0",
+            "\u6295\u9ab0",
+            "\u65bd\u653e",
+            "\u65bd\u6cd5",
+            "\u653b\u51fb",
+            "\u8bb0\u5f55",
+            "\u4f7f\u7528",
+            "\u559d\u4e0b",
+            "hp",
+            "\u751f\u547d\u503c",
+            "\u6218\u6597\u7ed3\u675f",
+            "\u906d\u9047\u7ed3\u675f",
+            "\u5df2\u5012\u4e0b",
+        ]
+        return explicit_tool_request or any(term in lowered_response for term in tool_intent_terms)
 
     def _should_continue_after_model(self, graph_state: DMGraphState) -> str:
         tool_calls = self._last_message_tool_calls(list(graph_state.get("messages", [])))

@@ -279,6 +279,9 @@ LangGraph 重构后该响应结构保持兼容。
 - `remove_status`
 - `append_adventure_log`
 - `add_inventory_item`
+- `use_item`
+- `record_evidence`
+- `record_search_outcome`
 - `record_major_experience`
 - `record_chapter_progress`
 - `set_defeat_state`
@@ -404,7 +407,11 @@ DMGraphState
 
 - 执行模型请求的工具。
 - 工具必须只通过本地 service 修改 `GameState`。
-- actor-bound 工具会先经过 `ToolRegistry` 当前行动者 guardrail；活动遭遇中非当前行动者不能发起攻击、技能检定或施法。
+- actor-bound 工具会先经过 `ToolRegistry` 当前行动者 guardrail；活动遭遇中非当前行动者不能发起攻击、技能检定、施法或使用物品。
+- `use_item` 会先校验使用者库存和数量，拒绝 0、负数或超量消耗。
+- 攻击、技能检定、施法和使用物品会消耗当前行动者本回合的主动作；同一回合第二个主动作会在工具入口被拒绝。
+- `cast_spell` 会在工具入口预检已知/准备、法术位和 upcast 等级，并按法术 `castingTime` 占用主动作、附赠动作或反应槽。
+- 专注法术成功施放后会写入角色当前专注法术；受伤后的专注豁免仍属于后续规则守卫范围。
 - 每次工具执行都生成 `ToolResult`。
 
 `validate_state`
@@ -412,7 +419,7 @@ DMGraphState
 - 继续承担最小状态修复，同时开始承担更明确的 Rules Guard 职责。
 - 会在校验前先同步 party combatant 与角色卡的 HP、AC、状态和 defeat state，减少镜像漂移。
 - 当敌方全部失去行动能力时会自动结束遭遇，写回 encounter summary，并追加自动结束事件到 `timeline_append`。
-- 校验遭遇状态、资源消耗、法术位、物品数量和状态变更；当前行动者的工具入口约束由 `ToolRegistry` 先行执行。
+- 校验遭遇状态、资源消耗和状态变更；当前行动者、动作槽、法术位预检与物品数量的工具入口约束由 `ToolRegistry` 先行执行。
 - 对不合法工具调用返回错误结果，而不是让模型直接修改状态。
 
 `finalize_turn`
@@ -445,6 +452,9 @@ LangGraph 节点负责：
 - 从图状态取出 `GameState`。
 - 校验当前阶段是否允许该工具。
 - 校验活动遭遇中的 actor-bound 工具是否由当前行动者发起。
+- 校验当前行动者本回合是否仍有相应动作槽可用。
+- 校验施法者是否知道/准备该法术，以及是否有足够法术位。
+- 校验物品消耗是否有对应库存与足够数量。
 - 调用工具服务。
 - 把结果合并回图状态。
 

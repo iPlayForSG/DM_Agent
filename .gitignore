@@ -26,6 +26,7 @@ backend/Characters/
 backend/Monsters/
 LOCAL_FRAMEWORK_DECISION.md
 backend/runtime-logs/
+runtime-logs/
 
 # Local D&D source material and generated RAG indexes
 backend/Documents/
@@ -38,7 +39,6 @@ backend/data/spells.json
 .DS_Store
 Thumbs.db
 *.log
-backend/runtime-logs/
 
 # Claude local data and cache
 .claude/

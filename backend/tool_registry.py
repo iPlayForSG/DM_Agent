@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from models import Combatant, GameState
+from rules_catalog import RuleCatalog
 
 
 @dataclass(frozen=True)
@@ -16,6 +17,14 @@ class ToolContract:
     needs_active_encounter: bool = False
     blocks_active_encounter: bool = False
     current_actor_arg: str = ""
+    consumes_turn_action: bool = False
+    turn_action_cost: str = ""
+    spell_caster_arg: str = ""
+    spell_name_arg: str = ""
+    spell_slot_arg: str = ""
+    inventory_user_arg: str = ""
+    inventory_item_arg: str = ""
+    inventory_quantity_arg: str = ""
     notes: str = ""
 
 
@@ -35,6 +44,15 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "remove_status": {"side_effect": "state_write", "risk_level": "medium"},
     "append_adventure_log": {"side_effect": "story_write", "risk_level": "low"},
     "add_inventory_item": {"side_effect": "state_write", "risk_level": "medium"},
+    "use_item": {
+        "side_effect": "state_write",
+        "risk_level": "medium",
+        "current_actor_arg": "user_ref",
+        "consumes_turn_action": True,
+        "inventory_user_arg": "user_ref",
+        "inventory_item_arg": "item_name",
+        "inventory_quantity_arg": "quantity",
+    },
     "record_evidence": {"side_effect": "story_write", "risk_level": "medium"},
     "record_search_outcome": {"side_effect": "story_write", "risk_level": "medium"},
     "record_major_experience": {"side_effect": "state_write", "risk_level": "medium"},
@@ -71,17 +89,24 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
         "risk_level": "medium",
         "needs_active_encounter": True,
         "current_actor_arg": "attacker_ref",
+        "consumes_turn_action": True,
     },
     "roll_skill_check": {
         "side_effect": "random",
         "risk_level": "low",
         "current_actor_arg": "actor_ref",
+        "consumes_turn_action": True,
     },
     "roll_saving_throw": {"side_effect": "random", "risk_level": "medium"},
     "cast_spell": {
         "side_effect": "state_write",
         "risk_level": "medium",
         "current_actor_arg": "caster_ref",
+        "consumes_turn_action": True,
+        "turn_action_cost": "spell",
+        "spell_caster_arg": "caster_ref",
+        "spell_name_arg": "spell_name",
+        "spell_slot_arg": "slot_level",
     },
     "set_initiative": {
         "side_effect": "combat_write",
@@ -170,14 +195,27 @@ class ToolRegistry:
                 contract=contract,
             )
 
+        runtime_metadata: Dict[str, Any] = {}
+        spell_error = self._validate_spell_cast(contract, state, normalized_args, runtime_metadata)
+        if spell_error:
+            return self._reject(tool_name, spell_error, contract=contract)
+
         current_actor_error = self._validate_current_actor(contract, state, normalized_args)
         if current_actor_error:
             return self._reject(tool_name, current_actor_error, contract=contract)
 
+        turn_action_error = self._validate_turn_action_available(contract, state, runtime_metadata)
+        if turn_action_error:
+            return self._reject(tool_name, turn_action_error, contract=contract)
+
+        inventory_error = self._validate_inventory_quantity(contract, state, normalized_args)
+        if inventory_error:
+            return self._reject(tool_name, inventory_error, contract=contract)
+
         return ToolGuardrailResult(
             ok=True,
             args=normalized_args,
-            metadata=self._metadata(contract),
+            metadata={**self._metadata(contract), **runtime_metadata},
         )
 
     def _validate_schema_args(self, contract: ToolContract, args: Dict[str, Any]) -> str:
@@ -297,6 +335,183 @@ class ToolRegistry:
     def _normalize_ref(value: str) -> str:
         return str(value or "").strip().casefold()
 
+    def _validate_inventory_quantity(
+        self,
+        contract: ToolContract,
+        state: GameState,
+        args: Dict[str, Any],
+    ) -> str:
+        user_arg = contract.inventory_user_arg
+        item_arg = contract.inventory_item_arg
+        quantity_arg = contract.inventory_quantity_arg
+        if not user_arg or not item_arg:
+            return ""
+
+        user_ref = str(args.get(user_arg) or "").strip()
+        item_name = str(args.get(item_arg) or "").strip()
+        if not user_ref or not item_name:
+            return ""
+
+        quantity_value = args.get(quantity_arg, 1) if quantity_arg else 1
+        try:
+            quantity = int(quantity_value)
+        except (TypeError, ValueError):
+            return f"Invalid item quantity for {contract.name}: {quantity_value!r}."
+        if quantity <= 0:
+            return f"Item quantity must be greater than zero for {contract.name}."
+
+        character = self._resolve_character(state, user_ref)
+        if not character:
+            return f"Item user not found for {contract.name}: {user_ref}"
+
+        item = next(
+            (
+                entry
+                for entry in character.inventory
+                if self._normalize_ref(entry.name) == self._normalize_ref(item_name)
+            ),
+            None,
+        )
+        if not item:
+            return f"Inventory item not found for {character.name}: {item_name}"
+        if item.quantity < quantity:
+            return (
+                f"Not enough item quantity for {item.name}: "
+                f"requested {quantity}, available {item.quantity}."
+            )
+
+        args[user_arg] = character.character_id
+        args[item_arg] = item.name
+        if quantity_arg:
+            args[quantity_arg] = quantity
+        return ""
+
+    def _validate_spell_cast(
+        self,
+        contract: ToolContract,
+        state: GameState,
+        args: Dict[str, Any],
+        metadata: Dict[str, Any],
+    ) -> str:
+        caster_arg = contract.spell_caster_arg
+        spell_arg = contract.spell_name_arg
+        if not caster_arg or not spell_arg:
+            return ""
+
+        caster_ref = str(args.get(caster_arg) or "").strip()
+        spell_name = str(args.get(spell_arg) or "").strip()
+        if not caster_ref or not spell_name:
+            return ""
+
+        caster = self._resolve_character(state, caster_ref)
+        if not caster:
+            return f"Spell caster not found for {contract.name}: {caster_ref}"
+
+        slot_level = None
+        slot_arg = contract.spell_slot_arg
+        if slot_arg:
+            raw_slot_level = args.get(slot_arg, 0)
+            try:
+                parsed_slot_level = int(raw_slot_level or 0)
+            except (TypeError, ValueError):
+                return f"Invalid spell slot level for {contract.name}: {raw_slot_level!r}."
+            slot_level = parsed_slot_level or None
+
+        validation = RuleCatalog().can_cast_spell(
+            character=caster,
+            spell_name=spell_name,
+            slot_level=slot_level,
+        )
+        if not validation.get("ok"):
+            return str(validation.get("error") or f"Spell validation failed for {contract.name}.")
+
+        resolved_slot = int(validation.get("resolved_slot_level") or 0)
+        canonical_name = str(validation.get("spell_name") or spell_name).strip()
+        spell_details = dict(validation.get("spell") or {})
+        action_cost = RuleCatalog.spell_action_cost(spell_details)
+
+        args[caster_arg] = caster.character_id
+        args[spell_arg] = canonical_name
+        if slot_arg:
+            args[slot_arg] = resolved_slot
+        metadata.update(
+            {
+                "spell_name": canonical_name,
+                "resolved_slot_level": resolved_slot,
+                "spell_level": int(spell_details.get("level", 0)),
+                "spell_action_cost": action_cost,
+                "turn_action_cost": action_cost,
+                "concentration": bool(spell_details.get("concentration")),
+            }
+        )
+        return ""
+
+    def _validate_turn_action_available(
+        self,
+        contract: ToolContract,
+        state: GameState,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        if not contract.consumes_turn_action:
+            return ""
+
+        encounter = state.encounter
+        if not encounter or not encounter.active:
+            return ""
+
+        current = encounter.get_current_combatant()
+        if not current and not encounter.turn_order_started:
+            current = self._first_ready_combatant(state)
+        if not current:
+            return ""
+
+        action_cost = self._normalize_turn_action_cost(
+            str((metadata or {}).get("turn_action_cost") or contract.turn_action_cost or "action")
+        )
+        key_field, used_field, tool_field = self._turn_slot_fields(action_cost)
+        turn_key = f"{encounter.round_number}:{current.combatant_id}"
+        if getattr(encounter, used_field, False) and getattr(encounter, key_field, "") == turn_key:
+            used_tool = getattr(encounter, tool_field, "") or f"a {self._turn_slot_label(action_cost)}"
+            return f"Current turn {self._turn_slot_label(action_cost)} already used by `{current.name}`: {used_tool}."
+        return ""
+
+    @staticmethod
+    def _normalize_turn_action_cost(action_cost: str) -> str:
+        normalized = str(action_cost or "action").strip().lower()
+        if normalized in {"bonus", "bonus-action", "bonus_action"}:
+            return "bonus_action"
+        if normalized == "reaction":
+            return "reaction"
+        return "action"
+
+    @staticmethod
+    def _turn_slot_fields(action_cost: str) -> tuple[str, str, str]:
+        normalized = ToolRegistry._normalize_turn_action_cost(action_cost)
+        if normalized == "bonus_action":
+            return "turn_bonus_action_key", "turn_bonus_action_used", "turn_bonus_action_tool"
+        if normalized == "reaction":
+            return "turn_reaction_key", "turn_reaction_used", "turn_reaction_tool"
+        return "turn_action_key", "turn_action_used", "turn_action_tool"
+
+    @staticmethod
+    def _turn_slot_label(action_cost: str) -> str:
+        normalized = ToolRegistry._normalize_turn_action_cost(action_cost)
+        if normalized == "bonus_action":
+            return "bonus action"
+        if normalized == "reaction":
+            return "reaction"
+        return "action"
+
+    @classmethod
+    def _resolve_character(cls, state: GameState, identifier: str):
+        normalized = cls._normalize_ref(identifier)
+        if identifier in state.characters:
+            return state.characters[identifier]
+        for character in state.characters.values():
+            if cls._normalize_ref(character.character_id) == normalized or cls._normalize_ref(character.name) == normalized:
+                return character
+        return None
+
     @classmethod
     def _reject(
         cls,
@@ -319,4 +534,12 @@ class ToolRegistry:
             "needs_active_encounter": contract.needs_active_encounter,
             "blocks_active_encounter": contract.blocks_active_encounter,
             "current_actor_arg": contract.current_actor_arg,
+            "consumes_turn_action": contract.consumes_turn_action,
+            "turn_action_cost": contract.turn_action_cost,
+            "spell_caster_arg": contract.spell_caster_arg,
+            "spell_name_arg": contract.spell_name_arg,
+            "spell_slot_arg": contract.spell_slot_arg,
+            "inventory_user_arg": contract.inventory_user_arg,
+            "inventory_item_arg": contract.inventory_item_arg,
+            "inventory_quantity_arg": contract.inventory_quantity_arg,
         }

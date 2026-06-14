@@ -156,6 +156,8 @@ class Character(BaseModel):
 
     stats: Stats = Field(default_factory=Stats)
     spells: Spellbook = Field(default_factory=Spellbook)
+    concentration_spell: str = ""
+    concentration_spell_level: int = 0
     resources: Dict[str, ResourcePool] = Field(default_factory=dict)
     inventory: List[InventoryItem] = Field(default_factory=list)
     status_effects: List[str] = Field(default_factory=list)
@@ -441,6 +443,15 @@ class EncounterState(BaseModel):
     round_number: int = 1
     current_combatant_id: Optional[str] = None
     turn_order_started: bool = False
+    turn_action_key: str = ""
+    turn_action_used: bool = False
+    turn_action_tool: str = ""
+    turn_bonus_action_key: str = ""
+    turn_bonus_action_used: bool = False
+    turn_bonus_action_tool: str = ""
+    turn_reaction_key: str = ""
+    turn_reaction_used: bool = False
+    turn_reaction_tool: str = ""
     initiative_order: List[str] = Field(default_factory=list)
     combatants: Dict[str, Combatant] = Field(default_factory=dict)
 

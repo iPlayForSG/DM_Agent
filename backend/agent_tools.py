@@ -635,6 +635,7 @@ class AgentToolService:
         logic = GameLogic(state)
         try:
             logic.require_current_actor(attacker_ref)
+            logic.require_turn_action_available("attack_target")
         except ValueError as exc:
             return self._error(str(exc))
 
@@ -685,13 +686,17 @@ class AgentToolService:
                 summary += f" | 目标{target_defeat_state_display}"
         if reason:
             summary += f" | {self.library.localize_game_terms(reason)}"
+        try:
+            action_patch = logic.mark_current_action_used("attack_target")
+        except ValueError as exc:
+            return self._error(str(exc))
         return self._success(
             tool_name="combat.attack_target",
             summary=summary,
             payload=payload,
             event_type="attack_resolved",
             content=reason,
-            state_patch=result["patch"],
+            state_patch=GameLogic._merge_patches(result["patch"], action_patch),
         )
 
     def roll_skill_check(
@@ -706,6 +711,7 @@ class AgentToolService:
         logic = GameLogic(state)
         try:
             logic.require_current_actor(actor_ref)
+            logic.require_turn_action_available("roll_skill_check")
         except ValueError as exc:
             return self._error(str(exc))
 
@@ -735,12 +741,17 @@ class AgentToolService:
             summary += f" vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         if reason:
             summary += f" | {self.library.localize_game_terms(reason)}"
+        try:
+            action_patch = logic.mark_current_action_used("roll_skill_check")
+        except ValueError as exc:
+            return self._error(str(exc))
         return self._success(
             tool_name="check.skill",
             summary=summary,
             payload=payload,
             event_type="skill_check",
             content=reason,
+            state_patch=action_patch,
         )
 
     def roll_saving_throw(
@@ -810,7 +821,16 @@ class AgentToolService:
 
         resolved_slot = int(validation["resolved_slot_level"])
         canonical_spell_name = str(validation.get("spell_name") or validation["spell"].get("name") or spell_name)
+        action_cost = self.rules_catalog.spell_action_cost(validation["spell"])
+        try:
+            logic.require_turn_slot_available(action_cost, "cast_spell")
+        except ValueError as exc:
+            return self._error(str(exc))
+        previous_concentration = caster.concentration_spell
         self.rules_catalog.consume_spell_slot(caster, resolved_slot)
+        if bool(validation["spell"].get("concentration")):
+            caster.concentration_spell = canonical_spell_name
+            caster.concentration_spell_level = int(validation["spell"].get("level", 0))
         payload = {
             "caster_id": caster.character_id,
             "caster_name": caster.name,
@@ -818,6 +838,10 @@ class AgentToolService:
             "requested_spell_name": spell_name,
             "spell_level": int(validation["spell"].get("level", 0)),
             "resolved_slot_level": resolved_slot,
+            "action_cost": action_cost,
+            "concentration": bool(validation["spell"].get("concentration")),
+            "previous_concentration_spell": previous_concentration,
+            "current_concentration_spell": caster.concentration_spell,
             "reason": reason,
             "remaining_slots": {
                 level: {
@@ -832,13 +856,74 @@ class AgentToolService:
             summary += f"，消耗 {resolved_slot} 环法术位"
         if reason:
             summary += f" | {reason}"
+        try:
+            action_patch = logic.mark_current_turn_slot_used(action_cost, "cast_spell")
+        except ValueError as exc:
+            return self._error(str(exc))
         return self._success(
             tool_name="magic.cast_spell",
             summary=summary,
             payload=payload,
             event_type="spell_cast",
             content=reason,
-            state_patch={"characters": {caster.character_id: {"spells": caster.spells.model_dump(mode="json")}}},
+            state_patch=GameLogic._merge_patches(
+                {
+                    "characters": {
+                        caster.character_id: {
+                            "spells": caster.spells.model_dump(mode="json"),
+                            "concentration_spell": caster.concentration_spell,
+                            "concentration_spell_level": caster.concentration_spell_level,
+                        }
+                    }
+                },
+                action_patch,
+            ),
+        )
+
+    def use_item(
+        self,
+        state: GameState,
+        user_ref: str,
+        item_name: str,
+        quantity: int = 1,
+        reason: str = "",
+    ) -> AgentToolExecution:
+        logic = GameLogic(state)
+        try:
+            logic.require_turn_action_available("use_item")
+            result = logic.use_inventory_item(
+                user_ref=user_ref,
+                item_name=item_name,
+                quantity=quantity,
+            )
+        except ValueError as exc:
+            return self._error(str(exc))
+
+        user = result["character"]
+        item = result["item"]
+        payload = {
+            "user_id": user.character_id,
+            "user_name": user.name,
+            "item_name": item.name,
+            "item_name_display": self.library.localize_game_terms(item.name),
+            "quantity_used": result["quantity"],
+            "quantity_remaining": item.quantity,
+            "reason": reason,
+        }
+        summary = f"{user.name} 使用 {result['quantity']} x {self.library.localize_game_terms(item.name)}"
+        if reason:
+            summary += f" | {self.library.localize_game_terms(reason)}"
+        try:
+            action_patch = logic.mark_current_action_used("use_item")
+        except ValueError as exc:
+            return self._error(str(exc))
+        return self._success(
+            tool_name="inventory.use_item",
+            summary=summary,
+            payload=payload,
+            event_type="item_used",
+            content=reason,
+            state_patch=GameLogic._merge_patches(result["patch"], action_patch),
         )
 
     def set_initiative(self, state: GameState, combatant_ref: str, initiative: int) -> AgentToolExecution:
