@@ -1579,6 +1579,43 @@ class DMGraphRunner:
         match = re.match(r"^(?:[-*•]\s+|(?:\d+|[一二三四])[\.\)、:：]\s*)(.+)$", text)
         return " ".join(match.group(1).split()).strip() if match else ""
 
+    @staticmethod
+    def _looks_like_inline_choice_sentence(sentence: str) -> bool:
+        text = " ".join(str(sentence or "").split()).strip()
+        if not text:
+            return False
+
+        choice_markers = [
+            "你可以",
+            "你现在可以",
+            "可以先",
+            "可以选择",
+            "你该先",
+            "你要先",
+            "你会先",
+        ]
+        if not any(marker in text for marker in choice_markers):
+            return False
+
+        connectors = ["或者", "抑或", "还是", "也可以", "或直接", "或先", "、"]
+        action_terms = [
+            "调查",
+            "追踪",
+            "跟踪",
+            "深入",
+            "前往",
+            "询问",
+            "盘问",
+            "检查",
+            "进入",
+            "寻找",
+            "搜索",
+            "观察",
+        ]
+        if any(connector in text for connector in connectors):
+            return True
+        return sum(1 for term in action_terms if term in text) >= 2
+
     @classmethod
     def _strip_inline_action_options(cls, response: str) -> str:
         text = str(response or "").strip()
@@ -1619,22 +1656,15 @@ class DMGraphRunner:
         paragraphs = re.split(r"(\n\s*\n)", text)
         if paragraphs:
             last = paragraphs[-1].strip()
-            choice_sentence = re.match(
-                r"^(?:你(?:现在)?可以|你(?:该|要|会)?先|接下来(?:你)?可以|下一步(?:你)?可以)"
-                r".*(?:选择|调查|询问|前往|进入|尝试|继续|或(?:者)?|还是|也可以).*[。！？!?]?$",
-                last,
-            )
-            if choice_sentence:
+            if len(paragraphs) > 1 and cls._looks_like_inline_choice_sentence(last):
                 text = "".join(paragraphs[:-1]).strip()
 
         terminal_choice = re.search(
-            r"(?:^|(?<=[。！？!?]))\s*"
-            r"(?:你(?:现在)?可以|你(?:该|要|会)?先|接下来(?:你)?可以|下一步(?:你)?可以)"
-            r"[^。！？!?\n]*(?:选择|调查|询问|前往|进入|尝试|继续|或(?:者)?|还是|也可以)"
+            r"[^。！？!?\n]*(?:你可以|你现在可以|可以先|可以选择|你该先|你要先|你会先)"
             r"[^。！？!?\n]*[。！？!?]?$",
             text,
         )
-        if terminal_choice:
+        if terminal_choice and cls._looks_like_inline_choice_sentence(terminal_choice.group(0)):
             text = text[: terminal_choice.start()].strip()
 
         return text or str(response or "").strip()

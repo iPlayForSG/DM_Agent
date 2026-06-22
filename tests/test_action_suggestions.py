@@ -41,6 +41,21 @@ class ActionSuggestionTest(unittest.TestCase):
         self.assertNotIn("你该先", cleaned)
         self.assertNotIn("还是立刻", cleaned)
 
+    def test_prefixed_inline_choice_sentence_is_removed_from_opening_scene(self) -> None:
+        response = (
+            "你站在石桥村的烂醉巨人酒馆前，冷雨洒落石板路。"
+            "酒馆老板在吧台后压低嗓子提醒，最近有个陌生兜帽人常在黄昏时分向废弃矿道走去。"
+            "此刻，你可以先去调查哈拉尔家的现场，或者追踪兜帽人的行迹，"
+            "抑或直接深入灰岩矿坑寻找声源。"
+        )
+
+        cleaned = DMGraphRunner._strip_inline_action_options(response)
+
+        self.assertIn("烂醉巨人酒馆", cleaned)
+        self.assertIn("陌生兜帽人", cleaned)
+        self.assertNotIn("此刻，你可以", cleaned)
+        self.assertNotIn("抑或直接深入", cleaned)
+
     def test_trailing_option_list_is_removed_from_player_response(self) -> None:
         response = """守卫把灯举高，门后的走廊传来潮湿的回声。
 

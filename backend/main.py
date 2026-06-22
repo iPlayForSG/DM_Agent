@@ -185,6 +185,7 @@ def health_payload():
             "batch_delete": True,
             "ai_generated_adventures": True,
             "llm_profiles": True,
+            "action_suggestions": True,
         },
     }
 
