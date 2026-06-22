@@ -125,6 +125,18 @@ class CharacterStorage:
         summaries.sort(key=lambda item: item.name)
         return summaries
 
+    def delete_character(self, identifier: str) -> bool:
+        character = self.load_character(identifier)
+        if not character:
+            return False
+
+        path = self._get_path(character.character_id)
+        if not os.path.exists(path):
+            return False
+
+        os.remove(path)
+        return True
+
 
 class MonsterStorage:
     # Monster templates are long-lived content assets.

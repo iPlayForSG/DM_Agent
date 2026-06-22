@@ -7,8 +7,13 @@ import {
   attackAction,
   castSpellAction,
   createGame,
+  deleteCharacter,
+  deleteCharacters,
+  deleteGame,
+  deleteGames,
   endEncounter,
   loadActionOptions,
+  loadCharacter,
   loadCharacterBuilder,
   loadGame,
   loadLobby,
@@ -231,6 +236,7 @@ const EVENT_LABELS = {
 };
 const SHOW_DM_ENCOUNTER_TEMPLATE_TOOLS = false;
 const SHOW_DM_CONTROLS_IN_PLAYER_SESSION = false;
+const SHOW_WORKFLOW_TRACE_IN_PLAYER_SESSION = false;
 const EVENT_SUMMARY_LABELS = {
   "Player action": "玩家行动",
   "DM response": "主持人叙事",
@@ -324,7 +330,7 @@ const normalizeLookupKey = (value) => String(value || "").trim().toLowerCase().r
 const localizeSize = (size) => SIZE_LABELS[normalizeLookupKey(size)] || size || "未知体型";
 const localizeCreatureType = (type) => CREATURE_TYPE_LABELS[normalizeLookupKey(type)] || type || "未知类型";
 const localizeAlignment = (alignment) => ALIGNMENT_LABELS[normalizeLookupKey(alignment)] || alignment || "未知阵营";
-const localizeName = (entry) => entry?.name_display || entry?.name || "";
+const localizeName = (entry) => typeof entry === "string" ? entry : entry?.name_display || entry?.name || "";
 const localizeSpellcastingMode = (mode) => mode === "prepared" ? "预备施法" : mode === "known" ? "已知施法" : mode || "未说明";
 const formatActorLabel = (actor) => actor.side ? `${actor.name}（${localizeSide(actor.side)}）` : actor.name;
 const localizeEquipmentType = (type) => EQUIPMENT_TYPE_LABELS[type] || type || "物品";
@@ -349,17 +355,331 @@ const formatShopItemMeta = (item) => {
 const formatResourceRecovery = (resource) => resource.recovery === "short_rest" ? "短休" : resource.recovery === "long_rest" ? "长休" : resource.recovery;
 const formatSpellSlotLine = ([level, total]) => `${level}环法术位 · ${total}`;
 const formatGoldLine = (goldGp) => `${Number(goldGp || 0)} 金币`;
+const localizeEquipmentMode = (mode) => mode === "starter_package" ? "标准套装" : mode === "custom_purchase" ? "自定义购买" : "未记录";
 const formatAttackSource = (source) => source === "monster_action" ? "怪物动作" : source === "inventory" ? "装备" : source || "攻击";
 const formatMonsterSummary = (monster) => `${localizeCreatureType(monster.creature_type)} · 挑战等级 ${monster.challenge_rating}`;
 const formatMonsterPreviewLine = (monster) => `${localizeCreatureType(monster.creature_type)} · 挑战等级 ${monster.challenge_rating} · 护甲 ${monster.ac} · 生命 ${monster.hp_max}`;
 const formatCombatantStateLine = (combatant) => `生命 ${combatant.hp_current}/${combatant.hp_max} · 护甲 ${combatant.ac} · 先攻 ${combatant.initiative ?? "?"}`;
 const formatHpBarLabel = (current, max) => `${current}/${max} 生命`;
+const formatSigned = (value) => `${Number(value || 0) >= 0 ? "+" : ""}${Number(value || 0)}`;
+const formatAbilityModifier = (score) => formatSigned(Math.floor((Number(score || 10) - 10) / 2));
+const formatSpellSlotStatus = ([level, slot]) => {
+  const total = Number(slot?.total ?? slot ?? 0);
+  const used = Number(slot?.used || 0);
+  return `${level}环 ${Math.max(0, total - used)}/${total}`;
+};
+const formatAttackSummary = (attack) => {
+  const details = [];
+  if (attack?.attack_bonus !== undefined && attack?.attack_bonus !== "") details.push(`命中 ${formatSigned(attack.attack_bonus)}`);
+  if (attack?.damage_expression) details.push(attack.damage_expression);
+  if (attack?.damage_type_display || attack?.damage_type) details.push(attack.damage_type_display || attack.damage_type);
+  return [localizeName(attack), details.join(" · ")].filter(Boolean).join(" · ");
+};
 const choiceClassName = (base, selected, disabled, extra = "") => [base, selected ? "selected" : "", disabled ? "is-disabled" : "", extra].filter(Boolean).join(" ");
 function ChoiceButton({ selected = false, disabled = false, className = "", children, ...props }) {
   return <button type="button" className={choiceClassName("class-card", selected, disabled, className)} aria-pressed={selected} disabled={disabled} {...props}>{children}</button>;
 }
 function SpellChoiceButton({ selected = false, disabled = false, className = "", children, ...props }) {
   return <button type="button" className={choiceClassName("spell-card", selected, disabled, className)} aria-pressed={selected} disabled={disabled} {...props}>{children}</button>;
+}
+function MarkdownBlock({ children }) {
+  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{String(children || "")}</ReactMarkdown>;
+}
+function TimelinePanel({ timeline, title = "时间线", emptyText = "还没有记录。" }) {
+  return (
+    <section className="panel-card timeline-panel">
+      <h3>{title}</h3>
+      <div className="timeline-list">
+        {timeline.length === 0 && <p className="empty-text">{emptyText}</p>}
+        {timeline.map((event) => {
+          const content = eventContent(event);
+          return (
+            <div key={event.event_id} className="timeline-item">
+              <div className="timeline-type">{eventLabel(event.type)}</div>
+              <div className="timeline-summary">{eventSummary(event)}</div>
+              {content && <div className="timeline-content markdown-body"><MarkdownBlock>{content}</MarkdownBlock></div>}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant }) {
+  return (
+    <section className="side-section combat-panel">
+      <h3>场上形势</h3>
+      {!encounter ? (
+        <p className="empty-text">当前没有战斗。</p>
+      ) : (
+        <div className="combatant-list">
+          {combatants.map((combatant) => (
+            <div key={combatant.combatant_id} className={`combatant-item ${encounter.current_combatant_id === combatant.combatant_id ? "combatant-active" : ""}`}>
+              <div className="timeline-summary">{combatant.name} · {localizeSide(combatant.side)}</div>
+              <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
+              {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
+                <>
+                  <div className="action-grid" style={{ marginTop: 10 }}>
+                    <input value={initiativeDrafts[combatant.combatant_id] ?? ""} onChange={(e) => setInitiativeDrafts((prev) => ({ ...prev, [combatant.combatant_id]: e.target.value }))} placeholder="先攻" />
+                    <button className="btn-secondary" onClick={() => saveEncounterInitiative(combatant.combatant_id)}>设置先攻</button>
+                    <button className="btn-secondary" onClick={() => rerollEncounterInitiative(combatant.combatant_id)}>重掷先攻</button>
+                  </div>
+                  {!combatant.linked_character_id && (
+                    <div className="btn-row" style={{ marginTop: 10 }}>
+                      <button className="btn-danger" onClick={() => dropEncounterCombatant(combatant.combatant_id)}>移除</button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+function CharacterStatusCard({ character, actor, primary = false }) {
+  const [isOpen, setIsOpen] = useState(primary);
+  const stats = character?.stats || {};
+  const resources = Object.entries(actor?.resources || character?.resources || {});
+  const inventory = actor?.items?.length ? actor.items : character?.inventory || [];
+  const spells = actor?.spells || character?.spells || {};
+  const cantrips = spells.cantrips || [];
+  const prepared = spells.prepared || [];
+  const slots = Object.entries(spells.slots || {}).filter(([, slot]) => Number(slot?.total ?? slot ?? 0) > 0);
+  const skills = actor?.skills || Object.keys(character?.skill_proficiencies || {});
+  const saves = actor?.saves || Object.keys(character?.save_proficiencies || {});
+  const attacks = actor?.attacks || [];
+  const statuses = character?.status_effects || [];
+  const defeatState = character?.defeat_state || "active";
+
+  return (
+    <details className={`party-card ${primary ? "party-card-primary" : ""}`} open={isOpen} onToggle={(event) => setIsOpen(event.currentTarget.open)}>
+      <summary>
+        <span className="avatar">{primary ? "主" : "伴"}</span>
+        <span className="party-card-title">
+          <strong>{character.name}</strong>
+          <span>{character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</span>
+        </span>
+        <span className="party-card-hp">{formatHpBarLabel(character.hp_current, character.hp_max)}</span>
+      </summary>
+      <div className="party-card-body">
+        <div className="hp-bar">
+          <div className="fill" style={{ width: `${character.hp_max > 0 ? (character.hp_current / character.hp_max) * 100 : 0}%` }} />
+          <span className="text">{formatHpBarLabel(character.hp_current, character.hp_max)}</span>
+        </div>
+        <div className="party-vitals">
+          <span>护甲 {character.ac}</span>
+          <span>速度 {character.speed}</span>
+          <span>先攻 {formatSigned(character.initiative_bonus)}</span>
+          <span>{formatGoldLine(character.gold_gp)}</span>
+        </div>
+        <div className="stats-hex compact">
+          {STATS.map((stat) => (
+            <div key={stat} className="stat-point">
+              <span className="label">{localizeStat(stat)}</span>
+              <span className="val">{stats[stat] ?? 10}</span>
+              <span className="mod">{formatAbilityModifier(stats[stat])}</span>
+            </div>
+          ))}
+        </div>
+        {(statuses.length > 0 || defeatState !== "active" || character.inspiration) && (
+          <div className="tags">
+            {character.inspiration && <span className="tag">激励</span>}
+            {defeatState !== "active" && <span className="tag">{defeatState}</span>}
+            {statuses.map((status) => <span key={status} className="tag">{status}</span>)}
+          </div>
+        )}
+        {resources.length > 0 && (
+          <section className="sheet-section">
+            <h4>资源</h4>
+            {resources.map(([name, resource]) => <div key={name} className="sheet-row"><span>{localizeClassResource(name)}</span><strong>{resource.current_value}/{resource.max_value}</strong></div>)}
+          </section>
+        )}
+        {(cantrips.length > 0 || prepared.length > 0 || slots.length > 0) && (
+          <section className="sheet-section">
+            <h4>法术</h4>
+            {slots.length > 0 && <div className="tags">{slots.map((slot) => <span key={slot[0]} className="tag">{formatSpellSlotStatus(slot)}</span>)}</div>}
+            {cantrips.length > 0 && <div className="timeline-content">戏法：{cantrips.map(localizeName).join("、")}</div>}
+            {prepared.length > 0 && <div className="timeline-content">准备：{prepared.map(localizeName).join("、")}</div>}
+          </section>
+        )}
+        {attacks.length > 0 && (
+          <section className="sheet-section">
+            <h4>攻击</h4>
+            {attacks.slice(0, 5).map((attack) => <div key={`${character.character_id}-${localizeName(attack)}`} className="sheet-row"><span>{formatAttackSummary(attack)}</span></div>)}
+          </section>
+        )}
+        {(skills.length > 0 || saves.length > 0) && (
+          <section className="sheet-section">
+            <h4>熟练</h4>
+            {skills.length > 0 && <div className="timeline-content">技能：{skills.map(localizeSkill).join("、")}</div>}
+            {saves.length > 0 && <div className="timeline-content">豁免：{saves.map(localizeStat).join("、")}</div>}
+          </section>
+        )}
+        <section className="sheet-section">
+          <h4>物品栏</h4>
+          {inventory.length === 0 ? <p className="empty-text">没有记录物品。</p> : inventory.map((item, index) => (
+            <div key={`${character.character_id}-item-${item.name}-${index}`} className="inventory-row">
+              <span>{item.name_display || item.name}</span>
+              <small>{formatEquipmentLine(item) || item.type_display || localizeEquipmentType(item.type)}</small>
+            </div>
+          ))}
+        </section>
+      </div>
+    </details>
+  );
+}
+function CharacterSheetDetail({ character }) {
+  if (!character) {
+    return (
+      <div className="character-sheet-empty">
+        <h2>选择一张角色卡</h2>
+        <p className="info-text">从左侧模板列表选择角色，查看完整角色卡。</p>
+      </div>
+    );
+  }
+
+  const stats = character.stats || {};
+  const resources = Object.entries(character.resources || {});
+  const inventory = character.inventory || [];
+  const attacks = inventory.filter((item) => item.damage_expression || (item.attack_bonus !== null && item.attack_bonus !== undefined));
+  const spells = character.spells || {};
+  const cantrips = spells.cantrips || [];
+  const prepared = spells.prepared || [];
+  const slots = Object.entries(spells.slots || {}).filter(([, slot]) => Number(slot?.total ?? slot ?? 0) > 0);
+  const skills = Object.entries(character.skill_proficiencies || {}).filter(([, rank]) => Number(rank) > 0);
+  const saves = Object.entries(character.save_proficiencies || {}).filter(([, proficient]) => Boolean(proficient));
+  const statuses = character.status_effects || [];
+  const experiences = character.major_experiences || [];
+  const starterChoices = Object.entries(character.starter_choice_ids || {});
+
+  return (
+    <article className="character-sheet">
+      <header className="character-sheet-hero">
+        <div className="sheet-sigil">角</div>
+        <div>
+          <p className="eyebrow">角色卡模板</p>
+          <h1>{character.name}</h1>
+          <p>{localizeSpeciesName(character.species || character.race)} · {localizeBackgroundName(character.background_name || character.background)} · {character.class_name_display || localizeClassName(character.class_name)} {character.level}级</p>
+        </div>
+      </header>
+
+      <section className="sheet-vital-strip">
+        <div><span>生命</span><strong>{character.hp_current}/{character.hp_max}</strong></div>
+        <div><span>临时生命</span><strong>{character.temp_hp || 0}</strong></div>
+        <div><span>护甲</span><strong>{character.ac}</strong></div>
+        <div><span>速度</span><strong>{character.speed}</strong></div>
+        <div><span>先攻</span><strong>{formatSigned(character.initiative_bonus)}</strong></div>
+        <div><span>财富</span><strong>{formatGoldLine(character.gold_gp)}</strong></div>
+      </section>
+
+      <div className="character-sheet-grid">
+        <section className="sheet-panel ability-panel">
+          <h3>属性</h3>
+          <div className="ability-score-grid">
+            {STATS.map((stat) => (
+              <div key={stat} className="ability-score">
+                <span>{localizeStat(stat)}</span>
+                <strong>{stats[stat] ?? 10}</strong>
+                <em>{formatAbilityModifier(stats[stat])}</em>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="sheet-panel identity-panel">
+          <h3>身份</h3>
+          <div className="sheet-data-grid">
+            <div><span>等级</span><strong>{character.level || 1}级</strong></div>
+            <div><span>阵营</span><strong>{character.alignment || "未说明"}</strong></div>
+            <div><span>起源专长</span><strong>{localizeOriginFeat(character.origin_feat) || "未记录"}</strong></div>
+            <div><span>经验值</span><strong>{character.experience_points || 0}</strong></div>
+            <div><span>激励</span><strong>{character.inspiration ? "有" : "无"}</strong></div>
+            <div><span>状态</span><strong>{character.defeat_state || "active"}</strong></div>
+          </div>
+          {statuses.length > 0 && <div className="tags sheet-tags">{statuses.map((status) => <span key={status} className="tag">{status}</span>)}</div>}
+        </section>
+
+        <section className="sheet-panel">
+          <h3>熟练</h3>
+          {skills.length === 0 && saves.length === 0 ? <p className="empty-text">没有记录熟练项。</p> : (
+            <>
+              {skills.length > 0 && <p className="timeline-content">技能：{skills.map(([skill]) => localizeSkill(skill)).join("、")}</p>}
+              {saves.length > 0 && <p className="timeline-content">豁免：{saves.map(([save]) => localizeStat(save)).join("、")}</p>}
+            </>
+          )}
+        </section>
+
+        <section className="sheet-panel">
+          <h3>职业资源</h3>
+          {resources.length === 0 ? <p className="empty-text">没有可追踪资源。</p> : resources.map(([name, resource]) => (
+            <div key={name} className="sheet-row">
+              <span>{localizeClassResource(name)}</span>
+              <strong>{resource.current_value}/{resource.max_value}</strong>
+            </div>
+          ))}
+        </section>
+
+        <section className="sheet-panel">
+          <h3>攻击</h3>
+          {attacks.length === 0 ? <p className="empty-text">没有记录武器或攻击项。</p> : attacks.map((attack, index) => (
+            <div key={`${attack.name}-${index}`} className="attack-card">
+              <strong>{attack.name_display || attack.name}</strong>
+              <span>{formatAttackSummary(attack) || "攻击资料未完整记录"}</span>
+              {attack.properties?.length > 0 && <small>{attack.properties.join("、")}</small>}
+            </div>
+          ))}
+        </section>
+
+        <section className="sheet-panel">
+          <h3>法术</h3>
+          {(cantrips.length === 0 && prepared.length === 0 && slots.length === 0) ? <p className="empty-text">该角色没有记录法术。</p> : (
+            <>
+              <div className="sheet-data-grid compact">
+                <div><span>施法属性</span><strong>{localizeStat(spells.ability)}</strong></div>
+                <div><span>施法方式</span><strong>{localizeSpellcastingMode(spells.casting_mode)}</strong></div>
+              </div>
+              {slots.length > 0 && <div className="tags sheet-tags">{slots.map((slot) => <span key={slot[0]} className="tag">{formatSpellSlotStatus(slot)}</span>)}</div>}
+              {cantrips.length > 0 && <p className="timeline-content">戏法：{cantrips.map(localizeName).join("、")}</p>}
+              {prepared.length > 0 && <p className="timeline-content">准备：{prepared.map(localizeName).join("、")}</p>}
+            </>
+          )}
+        </section>
+
+        <section className="sheet-panel inventory-panel">
+          <h3>物品栏</h3>
+          {inventory.length === 0 ? <p className="empty-text">没有记录物品。</p> : inventory.map((item, index) => (
+            <div key={`${item.name}-${index}`} className="inventory-card">
+              <div>
+                <strong>{item.name_display || item.name}</strong>
+                <span>{formatEquipmentLine(item) || item.type_display || localizeEquipmentType(item.type)}</span>
+              </div>
+              <em>x{item.quantity || 1}</em>
+              {item.notes && <p>{item.notes}</p>}
+              {item.tags?.length > 0 && <small>{item.tags.join("、")}</small>}
+            </div>
+          ))}
+        </section>
+
+        <section className="sheet-panel">
+          <h3>起始装备</h3>
+          <div className="sheet-data-grid">
+            <div><span>职业套装</span><strong>{character.starter_option_id ? "已选择" : "未记录"}</strong></div>
+            <div><span>装备方式</span><strong>{localizeEquipmentMode(character.equipment_mode)}</strong></div>
+          </div>
+          {starterChoices.length > 0 && <p className="timeline-content">套装选择：已记录 {starterChoices.length} 项</p>}
+          {character.custom_purchase_items?.length > 0 && <p className="timeline-content">自定义购买：已记录 {character.custom_purchase_items.length} 项</p>}
+          {character.custom_pending_item?.name && <p className="timeline-content">待定装备：{character.custom_pending_item.name}</p>}
+        </section>
+
+        <section className="sheet-panel experiences-panel">
+          <h3>经历</h3>
+          {experiences.length === 0 ? <p className="empty-text">还没有记录重要经历。</p> : experiences.map((entry, index) => <p key={`${entry}-${index}`} className="timeline-content">{entry}</p>)}
+        </section>
+      </div>
+    </article>
+  );
 }
 const resolveStarterPreviewItems = (starterOption, starterChoiceIds = {}) => {
   if (!starterOption) return [];
@@ -387,6 +707,13 @@ export default function App() {
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
   const [isBuilderLoading, setIsBuilderLoading] = useState(false);
   const [creatorStep, setCreatorStep] = useState(0);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
+  const [isCharacterLoading, setIsCharacterLoading] = useState(false);
+  const [deleteRequest, setDeleteRequest] = useState(null);
+  const [gameDeleteMode, setGameDeleteMode] = useState(false);
+  const [selectedGameDeleteIds, setSelectedGameDeleteIds] = useState([]);
+  const [characterDeleteMode, setCharacterDeleteMode] = useState(false);
+  const [selectedCharacterDeleteIds, setSelectedCharacterDeleteIds] = useState([]);
   const messagesEndRef = useRef(null);
 
   useEffect(() => { refreshLobby(); }, []);
@@ -501,6 +828,10 @@ export default function App() {
   const pendingTurn = gameState?.pending_turn || null;
   const isToolConfirmationPending = pendingTurn?.kind === "tool_confirmation";
   const chatInputDisabled = gameState?.campaign?.phase === "adventure_selection" || isLoading;
+  const selectedGameDeleteSet = new Set(selectedGameDeleteIds);
+  const selectedCharacterDeleteSet = new Set(selectedCharacterDeleteIds);
+  const selectedGameDeleteCount = selectedGameDeleteIds.length;
+  const selectedCharacterDeleteCount = selectedCharacterDeleteIds.length;
 
   useEffect(() => {
     if (!encounterDraft.monster_id) {
@@ -593,6 +924,162 @@ export default function App() {
     if (!builderReady) {
       await loadBuilderCatalog(false);
     }
+  }
+
+  function openCharacterLibrary() {
+    setError("");
+    setSelectedCharacter(null);
+    setView("characters");
+  }
+
+  async function openCharacterSheet(identifier) {
+    if (!identifier) return;
+    try {
+      setError("");
+      setIsCharacterLoading(true);
+      setView("characters");
+      const character = await loadCharacter(identifier);
+      setSelectedCharacter(character);
+    } catch (err) {
+      setError(err.message || "读取角色卡失败。");
+    } finally {
+      setIsCharacterLoading(false);
+    }
+  }
+
+  function beginDeleteRequest(kind, entries) {
+    const ids = [...new Set(entries.map((entry) => entry.id).filter(Boolean))];
+    if (ids.length === 0) return;
+    setError("");
+    const targetLabel = ids.length === 1
+      ? entries.find((entry) => entry.id === ids[0])?.label || ids[0]
+      : `${ids.length} ${kind === "game" ? "个已保存游戏" : "张角色卡模板"}`;
+    setDeleteRequest({
+      kind,
+      ids,
+      label: targetLabel,
+      count: ids.length,
+      step: 1,
+      busy: false,
+    });
+  }
+
+  function requestGameDeletion(game) {
+    beginDeleteRequest("game", [{ id: game.game_id, label: game.title || game.game_id }]);
+  }
+
+  function requestCharacterDeletion(character) {
+    beginDeleteRequest("character", [{ id: character.character_id, label: character.name || character.character_id }]);
+  }
+
+  function toggleGameDeleteMode() {
+    const nextMode = !gameDeleteMode;
+    setGameDeleteMode(nextMode);
+    if (!nextMode) setSelectedGameDeleteIds([]);
+  }
+
+  function toggleCharacterDeleteMode() {
+    const nextMode = !characterDeleteMode;
+    setCharacterDeleteMode(nextMode);
+    if (!nextMode) setSelectedCharacterDeleteIds([]);
+  }
+
+  function toggleGameDeleteSelection(gameId) {
+    setSelectedGameDeleteIds((prev) => (
+      prev.includes(gameId) ? prev.filter((item) => item !== gameId) : [...prev, gameId]
+    ));
+  }
+
+  function toggleCharacterDeleteSelection(characterId) {
+    setSelectedCharacterDeleteIds((prev) => (
+      prev.includes(characterId) ? prev.filter((item) => item !== characterId) : [...prev, characterId]
+    ));
+  }
+
+  function requestSelectedGameDeletion() {
+    const entries = games
+      .filter((game) => selectedGameDeleteSet.has(game.game_id))
+      .map((game) => ({ id: game.game_id, label: game.title || game.game_id }));
+    beginDeleteRequest("game", entries);
+  }
+
+  function requestSelectedCharacterDeletion() {
+    const entries = characters
+      .filter((character) => selectedCharacterDeleteSet.has(character.character_id))
+      .map((character) => ({ id: character.character_id, label: character.name || character.character_id }));
+    beginDeleteRequest("character", entries);
+  }
+
+  function selectAllGameDeletes() {
+    setSelectedGameDeleteIds(games.map((game) => game.game_id));
+  }
+
+  function selectAllCharacterDeletes() {
+    setSelectedCharacterDeleteIds(characters.map((character) => character.character_id));
+  }
+
+  function clearGameDeleteSelection() {
+    setSelectedGameDeleteIds([]);
+  }
+
+  function clearCharacterDeleteSelection() {
+    setSelectedCharacterDeleteIds([]);
+  }
+
+  async function confirmDeleteRequest() {
+    if (!deleteRequest || deleteRequest.busy) return;
+    if (deleteRequest.step < 2) {
+      setDeleteRequest((current) => current ? { ...current, step: current.step + 1 } : current);
+      return;
+    }
+
+    const current = deleteRequest;
+    const targetIds = current.ids || [];
+    try {
+      setError("");
+      setDeleteRequest({ ...current, busy: true });
+      if (current.kind === "game") {
+        if (targetIds.length === 1) {
+          await deleteGame(targetIds[0]);
+        } else {
+          await deleteGames(targetIds);
+        }
+        setSelectedGameDeleteIds((prev) => prev.filter((item) => !targetIds.includes(item)));
+        setGameDeleteMode(false);
+        if (targetIds.includes(activeGameId)) {
+          setActiveGameId(null);
+          setGameState(null);
+          setActionOptions({ actors: [] });
+          setMessages([]);
+          setWorkflowEvents([]);
+          setView("home");
+        }
+      } else {
+        if (targetIds.length === 1) {
+          await deleteCharacter(targetIds[0]);
+        } else {
+          await deleteCharacters(targetIds);
+        }
+        setSelectedCharacterDeleteIds((prev) => prev.filter((item) => !targetIds.includes(item)));
+        setCharacterDeleteMode(false);
+        setSelectedGameChars((prev) => prev.filter((item) => !targetIds.includes(item)));
+        if (targetIds.includes(selectedCharacter?.character_id)) {
+          setSelectedCharacter(null);
+        }
+      }
+      setDeleteRequest(null);
+      await refreshLobby();
+    } catch (err) {
+      setDeleteRequest((latest) => latest ? { ...latest, busy: false } : latest);
+      const message = err.message || "删除失败。";
+      setError(message.includes("Method Not Allowed") || message.includes("405")
+        ? "删除接口已更新，但当前后端进程仍是旧版本。请重新运行 start.cmd 后再试。"
+        : message);
+    }
+  }
+
+  function cancelDeleteRequest() {
+    if (!deleteRequest?.busy) setDeleteRequest(null);
   }
 
   function renderBuilderLoadState(title) {
@@ -1147,10 +1634,13 @@ export default function App() {
   const encounter = gameState?.encounter;
   const combatants = encounter?.initiative_order?.map((id) => encounter.combatants[id]).filter(Boolean) || [];
   const timeline = (gameState?.timeline || []).slice(-12).reverse();
+  const partyCharacters = Object.values(gameState?.characters || {});
+  const activeCharacterId = gameState?.active_character_id || partyCharacters[0]?.character_id || "";
+  const characterActorById = Object.fromEntries(charActors.map((actor) => [actor.ref, actor]));
 
   return (
     <div className="app-container">
-      {!["home", "new_game", "creator", "monsters"].includes(view) && (
+      {!["home", "new_game", "creator", "characters", "monsters"].includes(view) && (
         <aside className="sidebar">
           <div className="brand">
             <span className="brand-mark">DM</span>
@@ -1159,13 +1649,44 @@ export default function App() {
           <div className="menu-items">
             <div className="menu-active-info">当前游戏：{activeGameId}</div>
             <button onClick={() => setView("chat")} className={view === "chat" ? "active" : ""}>对话</button>
-            <button onClick={() => setView("status")} className={view === "status" ? "active" : ""}>状态</button>
+            <button onClick={() => setView("status")} className={view === "status" ? "active" : ""}>时间线</button>
             <button className="btn-danger" onClick={() => { setActiveGameId(null); setGameState(null); setMessages([]); setView("home"); }}>返回主页</button>
           </div>
         </aside>
       )}
       <main className="main-content">
         {error && <div className="list-item error-banner" style={{ margin: 16 }}>{error}</div>}
+        {deleteRequest && (
+          <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+            <div className="modal-content delete-confirm-modal anime-pop">
+              <div className="delete-confirm-header">
+                <span className="danger-mark">!</span>
+                <div>
+                  <p className="eyebrow">删除确认 {deleteRequest.step} / 2</p>
+                  <h2 id="delete-confirm-title">确认删除{deleteRequest.kind === "game" ? "已保存游戏" : "角色卡模板"}</h2>
+                </div>
+              </div>
+              <p className="delete-confirm-copy">
+                即将删除 <strong>{deleteRequest.label}</strong>。这个操作会移除本地保存文件，不能从界面内撤销。
+              </p>
+              <div className="confirm-step-track" aria-label="删除确认进度">
+                {[1, 2].map((step) => (
+                  <span key={step} className={`confirm-step ${deleteRequest.step >= step ? "active" : ""}`}>
+                    {step}
+                  </span>
+                ))}
+              </div>
+              <div className="btn-row">
+                <button type="button" className="btn-text" disabled={deleteRequest.busy} onClick={cancelDeleteRequest}>
+                  取消
+                </button>
+                <button type="button" className="btn-danger" disabled={deleteRequest.busy} onClick={confirmDeleteRequest}>
+                  {deleteRequest.busy ? "正在删除..." : deleteRequest.step < 2 ? "第一次确认" : "第二次确认并删除"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {view === "home" && (
           <div className="home-container anime-fade-in">
@@ -1186,7 +1707,7 @@ export default function App() {
                   <h3>创建角色卡</h3>
                   <p>整理角色模板、装备与职业资源。</p>
                 </button>
-                <button type="button" className="bento-card glow-hover" onClick={openCreator}>
+                <button type="button" className="bento-card glow-hover" onClick={openCharacterLibrary}>
                   <div className="card-icon">册</div>
                   <h3>角色卡模板</h3>
                   <p>查看可带入游戏的玩家角色卡。</p>
@@ -1196,36 +1717,184 @@ export default function App() {
 
             <section className="lobby-grid">
               <div className="lobby-panel">
-                <div className="panel-heading">
+                <div className="panel-heading panel-heading-actions">
                   <h3>已保存游戏</h3>
-                  <span>{games.length} 局</span>
+                  <div className="panel-actions">
+                    <span>{games.length} 局</span>
+                    {games.length > 0 && (
+                      <button type="button" className="mini-action" onClick={toggleGameDeleteMode}>
+                        {gameDeleteMode ? "完成" : "批量选择"}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="scroll-list">
                   {games.length === 0 && <p className="empty-text">还没有已保存的游戏。</p>}
                   {games.map((game) => (
-                    <button type="button" key={game.game_id} className="list-item" onClick={() => enterGame(game.game_id)}>
-                      <span className="icon">骰</span>
-                      <span>{game.title}（{localizeScene(game.scene)}）{game.encounter_active ? " · 战斗中" : ""}</span>
-                    </button>
+                    <div key={game.game_id} className={`list-item split-list-item ${selectedGameDeleteSet.has(game.game_id) ? "is-selected" : ""}`}>
+                      <button
+                        type="button"
+                        className="list-main-action"
+                        aria-pressed={gameDeleteMode ? selectedGameDeleteSet.has(game.game_id) : undefined}
+                        onClick={() => gameDeleteMode ? toggleGameDeleteSelection(game.game_id) : enterGame(game.game_id)}
+                      >
+                        {gameDeleteMode && <span className={`selection-box ${selectedGameDeleteSet.has(game.game_id) ? "checked" : ""}`} />}
+                        <span className="icon">骰</span>
+                        <span>{game.title}（{localizeScene(game.scene)}）{game.encounter_active ? " · 战斗中" : ""}</span>
+                      </button>
+                      {!gameDeleteMode && (
+                        <button
+                          type="button"
+                          className="delete-inline"
+                          aria-label={`删除游戏 ${game.title || game.game_id}`}
+                          title="删除游戏"
+                          onClick={() => requestGameDeletion(game)}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
                   ))}
+                  {gameDeleteMode && (
+                    <div className="batch-delete-bar">
+                      <span>已选择 {selectedGameDeleteCount} 局</span>
+                      <button type="button" className="btn-text" onClick={clearGameDeleteSelection}>清空</button>
+                      <button type="button" className="btn-secondary" onClick={selectAllGameDeletes}>全选</button>
+                      <button type="button" className="btn-danger" disabled={selectedGameDeleteCount === 0} onClick={requestSelectedGameDeletion}>删除所选</button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="lobby-panel">
-                <div className="panel-heading">
+                <div className="panel-heading panel-heading-actions">
                   <h3>角色卡模板</h3>
-                  <span>{characters.length} 张</span>
+                  <div className="panel-actions">
+                    <span>{characters.length} 张</span>
+                    {characters.length > 0 && (
+                      <button type="button" className="mini-action" onClick={toggleCharacterDeleteMode}>
+                        {characterDeleteMode ? "完成" : "批量选择"}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="scroll-list">
                   {characters.length === 0 && <p className="empty-text">还没有角色卡。先创建一张角色卡，再开局。</p>}
-                  {characters.slice(0, 8).map((character) => (
-                    <button type="button" key={character.character_id} className="list-item" onClick={openCreator}>
-                      <span className="icon">角</span>
-                      <span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</span>
-                    </button>
+                  {characters.map((character) => (
+                    <div key={character.character_id} className={`list-item split-list-item ${selectedCharacterDeleteSet.has(character.character_id) ? "is-selected" : ""}`}>
+                      <button
+                        type="button"
+                        className="list-main-action"
+                        aria-pressed={characterDeleteMode ? selectedCharacterDeleteSet.has(character.character_id) : undefined}
+                        onClick={() => characterDeleteMode ? toggleCharacterDeleteSelection(character.character_id) : openCharacterSheet(character.character_id)}
+                      >
+                        {characterDeleteMode && <span className={`selection-box ${selectedCharacterDeleteSet.has(character.character_id) ? "checked" : ""}`} />}
+                        <span className="icon">角</span>
+                        <span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</span>
+                      </button>
+                      {!characterDeleteMode && (
+                        <button
+                          type="button"
+                          className="delete-inline"
+                          aria-label={`删除角色卡 ${character.name}`}
+                          title="删除角色卡"
+                          onClick={() => requestCharacterDeletion(character)}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
                   ))}
+                  {characterDeleteMode && (
+                    <div className="batch-delete-bar">
+                      <span>已选择 {selectedCharacterDeleteCount} 张</span>
+                      <button type="button" className="btn-text" onClick={clearCharacterDeleteSelection}>清空</button>
+                      <button type="button" className="btn-secondary" onClick={selectAllCharacterDeletes}>全选</button>
+                      <button type="button" className="btn-danger" disabled={selectedCharacterDeleteCount === 0} onClick={requestSelectedCharacterDeletion}>删除所选</button>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
+          </div>
+        )}
+
+        {view === "characters" && (
+          <div className="character-library anime-slide-up">
+            <header className="library-header">
+              <div>
+                <p className="eyebrow">角色卡模板</p>
+                <h1>玩家角色册</h1>
+                <p className="info-text">查看已保存角色的完整卡面，再决定带谁入局。</p>
+              </div>
+              <div className="btn-row">
+                <button className="btn-text" onClick={() => setView("home")}>返回主页</button>
+                <button className="btn-primary" onClick={openCreator}>创建新角色</button>
+              </div>
+            </header>
+            <div className="character-library-layout">
+              <aside className="character-roster panel-card">
+                <div className="panel-heading panel-heading-actions">
+                  <h3>已保存角色</h3>
+                  <div className="panel-actions">
+                    <span>{characters.length} 张</span>
+                    {characters.length > 0 && (
+                      <button type="button" className="mini-action" onClick={toggleCharacterDeleteMode}>
+                        {characterDeleteMode ? "完成" : "批量选择"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="scroll-list">
+                  {characters.length === 0 && <p className="empty-text">还没有角色卡。先创建一张角色卡，再回来查看。</p>}
+                  {characters.map((character) => (
+                    <div key={character.character_id} className={`character-roster-row ${selectedCharacterDeleteSet.has(character.character_id) ? "is-selected" : ""}`}>
+                      <button
+                        type="button"
+                        className={`character-roster-item ${selectedCharacter?.character_id === character.character_id ? "selected" : ""}`}
+                        aria-pressed={characterDeleteMode ? selectedCharacterDeleteSet.has(character.character_id) : undefined}
+                        onClick={() => characterDeleteMode ? toggleCharacterDeleteSelection(character.character_id) : openCharacterSheet(character.character_id)}
+                      >
+                        {characterDeleteMode && <span className={`selection-box ${selectedCharacterDeleteSet.has(character.character_id) ? "checked" : ""}`} />}
+                        <span className="avatar">角</span>
+                        <span>
+                          <strong>{character.name}</strong>
+                          <small>{character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</small>
+                        </span>
+                      </button>
+                      {!characterDeleteMode && (
+                        <button
+                          type="button"
+                          className="delete-inline roster-delete"
+                          aria-label={`删除角色卡 ${character.name}`}
+                          title="删除角色卡"
+                          onClick={() => requestCharacterDeletion(character)}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {characterDeleteMode && (
+                    <div className="batch-delete-bar">
+                      <span>已选择 {selectedCharacterDeleteCount} 张</span>
+                      <button type="button" className="btn-text" onClick={clearCharacterDeleteSelection}>清空</button>
+                      <button type="button" className="btn-secondary" onClick={selectAllCharacterDeletes}>全选</button>
+                      <button type="button" className="btn-danger" disabled={selectedCharacterDeleteCount === 0} onClick={requestSelectedCharacterDeletion}>删除所选</button>
+                    </div>
+                  )}
+                </div>
+              </aside>
+              <section className="character-sheet-stage">
+                {isCharacterLoading ? (
+                  <div className="character-sheet-empty">
+                    <h2>读取角色卡中...</h2>
+                    <p className="info-text">正在从本地存档载入完整角色信息。</p>
+                  </div>
+                ) : (
+                  <CharacterSheetDetail character={selectedCharacter} />
+                )}
+              </section>
+            </div>
           </div>
         )}
 
@@ -1289,7 +1958,7 @@ export default function App() {
                     <div className="builder-preview-card">
                       <h3>生命上限</h3>
                       <div className="timeline-summary">{computedHpMax}</div>
-                      <div className="timeline-content">按职业生命骰和体质调整值自动计算，创建阶段不再手填。</div>
+                      <div className="timeline-content">按职业生命骰和体质调整值自动计算。</div>
                     </div>
                     <div className="builder-preview-card">
                       <h3>属性购点</h3>
@@ -1302,11 +1971,11 @@ export default function App() {
                   </div>
                   <div className="form-group" style={{ marginTop: 24 }}>
                     <label>职业技能</label>
-                    {!classDef ? <p className="info-text">先选择职业，才能分配职业技能。</p> : <><p className="spell-meta">需要选择 {classSkillTarget} 项职业技能，当前 {selectedClassSkillCount}/{classSkillTarget}。</p><div className="class-grid">
+                    {!classDef ? <p className="info-text">先选择职业，才能分配职业技能。</p> : <><p className="spell-meta">需要选择 {classSkillTarget} 项职业技能，当前 {selectedClassSkillCount}/{classSkillTarget}。</p><div className="class-grid skill-choice-grid">
                       {(classDef?.skill_choices || []).map((skill) => {
                         const providedByBackground = backgroundSkills.has(skill);
                         const selected = Number(charDraft.skill_proficiencies[skill] || 0) > 0;
-                        return <ChoiceButton key={skill} selected={selected} disabled={providedByBackground} onClick={() => toggleSkill(skill)}>{localizeSkill(skill)}{providedByBackground && <span className="choice-note">背景已提供</span>}</ChoiceButton>;
+                        return <ChoiceButton key={skill} className="skill-choice-card" selected={selected} disabled={providedByBackground} onClick={() => toggleSkill(skill)}>{localizeSkill(skill)}{providedByBackground && <span className="choice-note">背景已提供</span>}</ChoiceButton>;
                       })}
                     </div></>}
                   </div>
@@ -1512,12 +2181,12 @@ export default function App() {
                 {messages.map((message, index) => (
                   <div key={`${message.sender}-${index}`} className={`message ${message.sender} anime-pop`}>
                     <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
-                    <div className="bubble">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
+                    <div className="bubble markdown-body">
+                      <MarkdownBlock>{message.text}</MarkdownBlock>
                     </div>
                   </div>
                 ))}
-                {false && workflowEvents.length > 0 && (
+                {SHOW_WORKFLOW_TRACE_IN_PLAYER_SESSION && workflowEvents.length > 0 && (
                   <div className="workflow-trace">
                     {workflowEvents.map((event, index) => {
                       const metadataLine = compactWorkflowMetadata(event?.metadata || {});
@@ -1675,7 +2344,7 @@ export default function App() {
                     </div>
                     {attackTurnLocked && <div className="timeline-content">当前不是该单位的回合，攻击已锁定。</div>}
                     {attackMetadataLocked && <div className="timeline-content">当前攻击数据来自 {formatAttackSource(attackChoices.find((attack) => attack.name === actionDraft.attack.attack_name)?.source)}，但你仍可切换普通伤害、非致命或俘获模式。</div>}
-                    {attackActor && attackChoices.length === 0 && <div className="timeline-content">该单位还没有可解析的攻击选项，已保留手动填写作为兜底。</div>}
+                    {attackActor && attackChoices.length === 0 && <div className="timeline-content">该单位还没有记录攻击动作。你可以填写本次攻击。</div>}
                     <div className="action-grid">
                       <select value={actionDraft.spell.caster_ref} onChange={(e) => handleSpellCasterChange(e.target.value)}>
                         <option value="">施法者</option>
@@ -1733,44 +2402,35 @@ export default function App() {
                 </div>
                   </>
                 )}
-                <div className="panel-card">
-                  <h3>时间线</h3>
-                  <div className="timeline-list">
-                    {timeline.map((event) => {
-                      const content = eventContent(event);
-                      return <div key={event.event_id} className="timeline-item"><div className="timeline-type">{eventLabel(event.type)}</div><div className="timeline-summary">{eventSummary(event)}</div>{content && <div className="timeline-content">{content}</div>}</div>;
-                    })}
+                <section className="side-section party-panel">
+                  <div className="side-section-header">
+                    <h3>队伍状态</h3>
+                    <span>{partyCharacters.length} 人</span>
                   </div>
-                </div>
-                <div className="panel-card">
-                  <h3>场上形势</h3>
-                  {!encounter ? (
-                    <p className="empty-text">当前没有战斗。</p>
+                  {partyCharacters.length === 0 ? (
+                    <p className="empty-text">当前队伍还没有角色。</p>
                   ) : (
-                    <div className="combatant-list">
-                      {combatants.map((combatant) => (
-                        <div key={combatant.combatant_id} className={`combatant-item ${encounter.current_combatant_id === combatant.combatant_id ? "combatant-active" : ""}`}>
-                          <div className="timeline-summary">{combatant.name} · {localizeSide(combatant.side)}</div>
-                          <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
-                          {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
-                            <>
-                              <div className="action-grid" style={{ marginTop: 10 }}>
-                                <input value={initiativeDrafts[combatant.combatant_id] ?? ""} onChange={(e) => setInitiativeDrafts((prev) => ({ ...prev, [combatant.combatant_id]: e.target.value }))} placeholder="先攻" />
-                                <button className="btn-secondary" onClick={() => saveEncounterInitiative(combatant.combatant_id)}>设置先攻</button>
-                                <button className="btn-secondary" onClick={() => rerollEncounterInitiative(combatant.combatant_id)}>重掷先攻</button>
-                              </div>
-                              {!combatant.linked_character_id && (
-                                <div className="btn-row" style={{ marginTop: 10 }}>
-                                  <button className="btn-danger" onClick={() => dropEncounterCombatant(combatant.combatant_id)}>移除</button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
+                    <div className="party-list">
+                      {partyCharacters.map((character) => (
+                        <CharacterStatusCard
+                          key={character.character_id}
+                          character={character}
+                          actor={characterActorById[character.character_id]}
+                          primary={character.character_id === activeCharacterId}
+                        />
                       ))}
                     </div>
                   )}
-                </div>
+                </section>
+                <CombatantPanel
+                  encounter={encounter}
+                  combatants={combatants}
+                  initiativeDrafts={initiativeDrafts}
+                  setInitiativeDrafts={setInitiativeDrafts}
+                  saveEncounterInitiative={saveEncounterInitiative}
+                  rerollEncounterInitiative={rerollEncounterInitiative}
+                  dropEncounterCombatant={dropEncounterCombatant}
+                />
               </div>
             </div>
             <div className="input-area">
@@ -1781,7 +2441,22 @@ export default function App() {
         )}
 
 
-        {view === "status" && <div className="status-screen anime-fade-in"><h2>队伍状态</h2><div className="status-cards">{Object.values(gameState?.characters || {}).map((character) => <div key={character.character_id} className="char-stat-card"><div className="char-header"><div className="avatar-lg">角</div><div><h3>{character.name}</h3><span className="badge">{character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</span></div></div><div className="hp-bar"><div className="fill" style={{ width: `${character.hp_max > 0 ? (character.hp_current / character.hp_max) * 100 : 0}%` }}></div><span className="text">{formatHpBarLabel(character.hp_current, character.hp_max)}</span></div><div className="timeline-content">财富：{formatGoldLine(character.gold_gp)}</div></div>)}</div><h2 style={{ marginTop: 32 }}>遭遇状态</h2><div className="status-cards">{combatants.length === 0 && <p className="empty-text">当前没有战斗单位。</p>}{combatants.map((combatant) => <div key={combatant.combatant_id} className="char-stat-card"><div className="char-header"><div className="avatar-lg">{combatant.side === "enemy" ? "敌" : "角"}</div><div><h3>{combatant.name}</h3><span className="badge">{localizeSide(combatant.side)} · 先攻 {combatant.initiative ?? "?"}</span></div></div><div className="hp-bar"><div className="fill" style={{ width: `${combatant.hp_max > 0 ? (combatant.hp_current / combatant.hp_max) * 100 : 0}%` }}></div><span className="text">{formatHpBarLabel(combatant.hp_current, combatant.hp_max)}</span></div></div>)}</div></div>}
+        {view === "status" && (
+          <div className="status-screen anime-fade-in">
+            <div className="status-layout">
+              <TimelinePanel timeline={timeline} title="时间线" emptyText="这局游戏还没有时间线记录。" />
+              <CombatantPanel
+                encounter={encounter}
+                combatants={combatants}
+                initiativeDrafts={initiativeDrafts}
+                setInitiativeDrafts={setInitiativeDrafts}
+                saveEncounterInitiative={saveEncounterInitiative}
+                rerollEncounterInitiative={rerollEncounterInitiative}
+                dropEncounterCombatant={dropEncounterCombatant}
+              />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

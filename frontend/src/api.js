@@ -96,6 +96,23 @@ export async function saveCharacter(draft) {
   });
 }
 
+export async function loadCharacter(identifier) {
+  return request(`/characters/${encodeURIComponent(identifier)}`);
+}
+
+export async function deleteCharacter(identifier) {
+  return request(`/characters/${encodeURIComponent(identifier)}/delete`, {
+    method: "POST",
+  });
+}
+
+export async function deleteCharacters(identifiers) {
+  return request("/characters/batch-delete", {
+    method: "POST",
+    body: JSON.stringify({ ids: identifiers }),
+  });
+}
+
 export async function saveMonsterTemplate(draft) {
   return request("/monsters", {
     method: "POST",
@@ -116,6 +133,19 @@ export async function createGame(payload) {
 
 export async function loadGame(gameId) {
   return request(`/games/${encodeURIComponent(gameId)}`);
+}
+
+export async function deleteGame(gameId) {
+  return request(`/games/${encodeURIComponent(gameId)}/delete`, {
+    method: "POST",
+  });
+}
+
+export async function deleteGames(gameIds) {
+  return request("/games/batch-delete", {
+    method: "POST",
+    body: JSON.stringify({ ids: gameIds }),
+  });
 }
 
 export async function loadActionOptions(gameId) {

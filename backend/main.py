@@ -54,6 +54,10 @@ class CreateGameRequest(BaseModel):
     character_names: List[str] = Field(default_factory=list)
 
 
+class BatchDeleteRequest(BaseModel):
+    ids: List[str] = Field(default_factory=list)
+
+
 class SelectAdventureRequest(BaseModel):
     adventure_id: str
 
@@ -156,6 +160,11 @@ def health_payload():
         "checkpoint_db_path": agent.checkpoint_db_path,
         "checkpoint_warning": agent.checkpoint_warning,
         "llm": agent.llm_runtime_payload(),
+        "api_features": {
+            "delete_games": True,
+            "delete_characters": True,
+            "batch_delete": True,
+        },
     }
 
 
@@ -342,6 +351,34 @@ def games_payload():
         "games": summaries,
         "ids": [summary["game_id"] for summary in summaries],
     }
+
+
+def delete_characters_payload(identifiers: List[str]) -> Dict[str, Any]:
+    deleted: List[str] = []
+    missing: List[str] = []
+    for identifier in dict.fromkeys(item for item in identifiers if item):
+        char = char_storage.load_character(identifier)
+        if not char:
+            missing.append(identifier)
+            continue
+        if char_storage.delete_character(char.character_id):
+            deleted.append(char.character_id)
+        else:
+            missing.append(identifier)
+    return {"status": "deleted", "deleted": deleted, "missing": missing}
+
+
+def delete_games_payload(game_ids: List[str]) -> Dict[str, Any]:
+    deleted: List[str] = []
+    missing: List[str] = []
+    for game_id in dict.fromkeys(item for item in game_ids if item):
+        state = game_storage.load_game(game_id)
+        if not state:
+            missing.append(game_id)
+            continue
+        game_storage.delete_game(game_id)
+        deleted.append(state.game_id or game_id)
+    return {"status": "deleted", "deleted": deleted, "missing": missing}
 
 
 def _derive_character_attack_options(character: Character):
@@ -785,12 +822,33 @@ async def create_character(char: Character):
     return {"status": "saved", "character": char.to_summary().model_dump(mode="json")}
 
 
+@app.post("/api/v1/characters/batch-delete")
+async def batch_delete_characters(req: BatchDeleteRequest):
+    return delete_characters_payload(req.ids)
+
+
 @app.get("/api/v1/characters/{identifier}")
 async def get_character(identifier: str):
     char = char_storage.load_character(identifier)
     if not char:
         raise HTTPException(status_code=404, detail="Character not found")
     return char
+
+
+@app.post("/api/v1/characters/{identifier}/delete")
+async def post_delete_character(identifier: str):
+    payload = delete_characters_payload([identifier])
+    if not payload["deleted"]:
+        raise HTTPException(status_code=404, detail="Character not found")
+    return {"status": "deleted", "character_id": payload["deleted"][0]}
+
+
+@app.delete("/api/v1/characters/{identifier}")
+async def delete_character(identifier: str):
+    payload = delete_characters_payload([identifier])
+    if not payload["deleted"]:
+        raise HTTPException(status_code=404, detail="Character not found")
+    return {"status": "deleted", "character_id": payload["deleted"][0]}
 
 
 @app.get("/api/v1/monsters")
@@ -853,12 +911,33 @@ async def create_game(req: CreateGameRequest):
     }
 
 
+@app.post("/api/v1/games/batch-delete")
+async def batch_delete_games(req: BatchDeleteRequest):
+    return delete_games_payload(req.ids)
+
+
 @app.get("/api/v1/games/{game_id}")
 async def get_game_state(game_id: str) -> GameState:
     state = game_storage.load_game(game_id)
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
     return state
+
+
+@app.post("/api/v1/games/{game_id}/delete")
+async def post_delete_game(game_id: str):
+    payload = delete_games_payload([game_id])
+    if not payload["deleted"]:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return {"status": "deleted", "game_id": payload["deleted"][0]}
+
+
+@app.delete("/api/v1/games/{game_id}")
+async def delete_game(game_id: str):
+    payload = delete_games_payload([game_id])
+    if not payload["deleted"]:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return {"status": "deleted", "game_id": payload["deleted"][0]}
 
 
 @app.get("/api/v1/games/{game_id}/monsters")

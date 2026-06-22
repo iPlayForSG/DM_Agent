@@ -94,6 +94,17 @@ function Test-UrlReady {
     }
 }
 
+function Test-BackendCompatible {
+    param([Parameter(Mandatory = $true)][string]$HealthUrl)
+    try {
+        $payload = Invoke-RestMethod -UseBasicParsing -Uri $HealthUrl -TimeoutSec 3
+        return [bool]($payload.api_features -and $payload.api_features.batch_delete)
+    }
+    catch {
+        return $false
+    }
+}
+
 function Test-PortAvailable {
     param(
         [Parameter(Mandatory = $true)][string]$BindHost,
@@ -317,7 +328,7 @@ function Start-BackendProcess {
 
     return Start-Process `
         -FilePath $Runner.Command `
-        -ArgumentList @($Runner.Arguments + @("-m", "uvicorn", "main:app", "--host", $BackendHost, "--port", $Port.ToString())) `
+        -ArgumentList @($Runner.Arguments + @("-m", "uvicorn", "main:app", "--host", $BackendHost, "--port", $Port.ToString(), "--reload")) `
         -WorkingDirectory $BackendDir `
         -WindowStyle Hidden `
         -RedirectStandardOutput $OutLog `
@@ -395,7 +406,12 @@ try {
     $backendOutLog = $null
     $backendErrLog = $null
 
-    if ($null -ne $runtimeState -and $runtimeState.backendHealthUrl -and (Test-UrlReady -Url $runtimeState.backendHealthUrl)) {
+    if (
+        $null -ne $runtimeState -and
+        $runtimeState.backendHealthUrl -and
+        (Test-UrlReady -Url $runtimeState.backendHealthUrl) -and
+        (Test-BackendCompatible -HealthUrl $runtimeState.backendHealthUrl)
+    ) {
         $backendPort = [int]$runtimeState.backendPort
         $backendUrl = [string]$runtimeState.backendUrl
         $backendHealthUrl = [string]$runtimeState.backendHealthUrl
@@ -413,10 +429,14 @@ try {
         }
         Write-Host "Backend already running at $backendUrl"
     }
-    else {
+    elseif ($null -ne $runtimeState -and $runtimeState.backendHealthUrl -and (Test-UrlReady -Url $runtimeState.backendHealthUrl)) {
+        Write-Host "Ignoring older backend at $($runtimeState.backendUrl); it does not expose the current API."
+    }
+
+    if (-not $backendUrl) {
         $defaultBackendUrl = "http://${BackendHost}:$DefaultBackendPort"
         $defaultBackendHealthUrl = "$defaultBackendUrl/api/v1/health"
-        if (Test-UrlReady -Url $defaultBackendHealthUrl) {
+        if ((Test-UrlReady -Url $defaultBackendHealthUrl) -and (Test-BackendCompatible -HealthUrl $defaultBackendHealthUrl)) {
             $backendPort = $DefaultBackendPort
             $backendUrl = $defaultBackendUrl
             $backendHealthUrl = $defaultBackendHealthUrl
@@ -424,17 +444,21 @@ try {
             $backendErrLog = Join-Path $LogDir "backend-$backendPort.err.log"
             Write-Host "Backend already running at $backendUrl"
         }
-        else {
-            $backendPort = Get-AvailablePort -BindHost $BackendHost -PreferredPort $DefaultBackendPort -Span $PortSearchSpan
-            $backendUrl = "http://${BackendHost}:$backendPort"
-            $backendHealthUrl = "$backendUrl/api/v1/health"
-            $backendOutLog = Join-Path $LogDir "backend-$backendPort.out.log"
-            $backendErrLog = Join-Path $LogDir "backend-$backendPort.err.log"
-            Write-Host "Starting backend at $backendUrl..."
-            $backendProcess = Start-BackendProcess -Runner $pythonRunner -Port $backendPort -OutLog $backendOutLog -ErrLog $backendErrLog
-            $startedBackend = $true
-            Wait-UrlReady -Name "Backend" -Url $backendHealthUrl -Process $backendProcess -Attempts 120
+        elseif (Test-UrlReady -Url $defaultBackendHealthUrl) {
+            Write-Host "Ignoring older backend at $defaultBackendUrl; it does not expose the current API."
         }
+    }
+
+    if (-not $backendUrl) {
+        $backendPort = Get-AvailablePort -BindHost $BackendHost -PreferredPort $DefaultBackendPort -Span $PortSearchSpan
+        $backendUrl = "http://${BackendHost}:$backendPort"
+        $backendHealthUrl = "$backendUrl/api/v1/health"
+        $backendOutLog = Join-Path $LogDir "backend-$backendPort.out.log"
+        $backendErrLog = Join-Path $LogDir "backend-$backendPort.err.log"
+        Write-Host "Starting backend at $backendUrl..."
+        $backendProcess = Start-BackendProcess -Runner $pythonRunner -Port $backendPort -OutLog $backendOutLog -ErrLog $backendErrLog
+        $startedBackend = $true
+        Wait-UrlReady -Name "Backend" -Url $backendHealthUrl -Process $backendProcess -Attempts 120
     }
 
     $frontendPort = $null
