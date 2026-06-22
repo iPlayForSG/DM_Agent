@@ -579,6 +579,8 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
         "constraints": [
             "Do not narrate live exploration or combat before at least one playable character exists.",
             "Keep the reply focused on missing party setup decisions.",
+            "Calibrate explanation depth to the player's D&D experience and offer a ready-to-play default when they want speed.",
+            "Ask one clear setup question at a time instead of presenting a long questionnaire.",
         ],
         "blockers": [
             "No party members are currently loaded into the game state.",
@@ -591,6 +593,8 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
         "constraints": [
             "Do not start scenes, encounters, or chapter progression while build choices remain unresolved.",
             "Answer build questions with rules support instead of improvising sheet changes in prose.",
+            "For beginners, explain the practical impact of the next choice before asking them to choose.",
+            "For experienced players, keep the guidance terse and respect their prepared build unless validation fails.",
         ],
         "blockers": [
             "The active workflow is still in character setup.",
@@ -603,6 +607,7 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
         "constraints": [
             "Do not begin active exploration or combat until an adventure hook is selected.",
             "Keep the turn centered on clarifying the available hooks, stakes, and tone.",
+            "If the player wants fast setup, recommend one hook and ask for confirmation instead of re-explaining every option.",
         ],
         "blockers": [
             "No selected adventure is locked in yet.",
@@ -625,6 +630,7 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
         "constraints": [
             "Only the current combatant may take an action until advance_turn changes the acting creature.",
             "Do not leave combat state through prose alone; use encounter tools to mutate it.",
+            "Make combat replies decision-ready: name the current actor, visible threats, and meaningful state changes without dumping hidden stats.",
         ],
         "blockers": [],
     },
@@ -744,7 +750,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
     "setup_guidance": {
         "tool_round_limit": 1,
         "tool_subset": [],
-        "guidance": "Keep the turn short and decision-oriented. Do not over-narrate; help the player finish setup cleanly.",
+        "guidance": "Keep the turn short and decision-oriented. Calibrate to player experience, offer defaults for beginners, and ask one setup question at a time.",
     },
     "conversation": {
         "tool_round_limit": 1,
@@ -773,7 +779,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
     "combat_resolution": {
         "tool_round_limit": 3,
         "tool_subset": [],
-        "guidance": "Keep combat crisp. Resolve only the current acting creature's turn and avoid side detours or extra tool loops.",
+        "guidance": "Keep combat crisp and decision-ready. Resolve only the current acting creature's turn, recap tool-backed state changes, and avoid side detours or extra tool loops.",
     },
 }
 

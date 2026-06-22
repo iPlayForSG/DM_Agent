@@ -1674,6 +1674,17 @@ class GameLogic:
             active_class = self._library.localize_game_terms(active.class_name)
             lines.append(f"Active Character: {active.name} ({active_class} Lv.{active.level})")
 
+        if self.state.monster_templates:
+            lines.append("Game-scoped monster templates:")
+            for monster in list(self.state.monster_templates.values())[:8]:
+                lines.append(
+                    (
+                        f"- {monster.name} [{monster.monster_id}] | "
+                        f"{monster.creature_type} | CR {monster.challenge_rating} | "
+                        f"HP {monster.hp_max} | AC {monster.ac}"
+                    )
+                )
+
         if not self.state.characters:
             lines.append("Party: none")
         else:
