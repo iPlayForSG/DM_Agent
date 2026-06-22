@@ -2280,7 +2280,9 @@ class DMGraphRunner:
         final_response = self.library.localize_game_terms(self._extract_message_content(response))
         tool_calls = self._last_message_tool_calls([response])
         retry_node_trace: List[Dict[str, Any]] = []
-        if self._should_retry_missing_tool_call(graph_state, final_response, tool_calls):
+        repair_required = str(graph_state.get("validation_status") or "") == "repair_required"
+        missing_tool_expected = self._should_retry_missing_tool_call(graph_state, final_response, tool_calls)
+        if not repair_required and missing_tool_expected:
             retry_instruction = self._human_prompt_message(
                 "上一条回复描述了掷骰、施法、攻击、记录、使用物品或状态变更，但没有发起工具调用。"
                 "请现在只调用必要工具；在工具结果返回前不要叙述结果。"
@@ -2313,6 +2315,44 @@ class DMGraphRunner:
                     {"error": detail},
                     status="failed",
                 )
+        if (repair_required or missing_tool_expected) and not tool_calls:
+            validation_notes = list(graph_state.get("validation_notes", []))
+            validation_issues = list(graph_state.get("validation_issues", []))
+            validator = "turn_repair" if repair_required else "tool_required"
+            summary = (
+                "Model did not call a required repair tool after validation requested state repair."
+                if repair_required
+                else "Model described an action that required tools but did not call any tool."
+            )
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator=validator,
+                severity="error",
+                action="failed_turn",
+                summary=summary,
+                metadata={
+                    "allowed_tools": list(graph_state.get("allowed_tools", [])),
+                    "suggested_tools": list(graph_state.get("suggested_tools", [])),
+                },
+            )
+            return {
+                "messages": [*messages, response],
+                "final_response": (
+                    "本回合需要先通过工具修复状态或执行规则结算，但模型没有发起必要工具调用；"
+                    "为避免叙事和状态不一致，本回合未提交。"
+                ),
+                "turn_status": "failed",
+                "validation_notes": validation_notes,
+                "validation_issues": validation_issues,
+                "node_traces": self._append_node_trace(
+                    graph_state,
+                    "draft_response",
+                    summary,
+                    {"tool_call_count": 0, "validation_status": graph_state.get("validation_status", "")},
+                    status="failed",
+                ),
+            }
 
         result: DMGraphState = {"messages": [*messages, response]}
         if final_response:
@@ -2395,11 +2435,19 @@ class DMGraphRunner:
         return explicit_tool_request or any(term in lowered_response for term in tool_intent_terms)
 
     def _should_continue_after_model(self, graph_state: DMGraphState) -> str:
+        if str(graph_state.get("turn_status") or "") == "failed":
+            return "finalize_turn"
         tool_calls = self._last_message_tool_calls(list(graph_state.get("messages", [])))
         tool_round_limit = int(graph_state.get("tool_round_limit", 0) or self.max_tool_rounds)
         if tool_calls and graph_state.get("tool_call_rounds", 0) < tool_round_limit:
             return "execute_tools"
         return "finalize_turn"
+
+    @staticmethod
+    def _should_continue_after_validation(graph_state: DMGraphState) -> str:
+        if str(graph_state.get("validation_status") or "") == "failed":
+            return "finalize_turn"
+        return "draft_response"
 
     def _tool_error_execution(
         self,
@@ -2652,70 +2700,74 @@ class DMGraphRunner:
         validation_notes: List[str] = list(graph_state.get("validation_notes", []))
         validation_issues: List[Dict[str, Any]] = list(graph_state.get("validation_issues", []))
         logic = GameLogic(state)
+        repair_tools: List[str] = []
+        validation_status = "ok"
+
+        def mark_repair(
+            *,
+            validator: str,
+            summary: str,
+            tools: Optional[List[str]] = None,
+            metadata: Optional[Dict[str, Any]] = None,
+        ) -> None:
+            nonlocal validation_status
+            validation_status = "repair_required" if validation_status != "failed" else validation_status
+            repair_tools.extend(tools or [])
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator=validator,
+                severity="error",
+                action="repair_required",
+                summary=summary,
+                metadata=metadata,
+            )
+
+        def mark_failed(
+            *,
+            validator: str,
+            summary: str,
+            metadata: Optional[Dict[str, Any]] = None,
+        ) -> None:
+            nonlocal validation_status
+            validation_status = "failed"
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator=validator,
+                severity="error",
+                action="failed_turn",
+                summary=summary,
+                metadata=metadata,
+            )
 
         if state.characters and (
             not state.active_character_id or state.active_character_id not in state.characters
         ):
-            first_character = next(iter(state.characters.values()))
-            state.active_character_id = first_character.character_id
-            state_delta = merge_patch(state_delta, {"active_character_id": first_character.character_id})
-            self._record_validation_issue(
-                validation_notes,
-                validation_issues,
+            mark_repair(
                 validator="active_character",
-                action="recovered",
-                summary="Recovered missing active character reference.",
-                metadata={"active_character_id": first_character.character_id},
+                summary="Active character reference is missing or invalid; call set_active_character before narrating.",
+                tools=["set_active_character"],
+                metadata={"active_character_id": state.active_character_id},
             )
 
         encounter = state.encounter
         if encounter and encounter.active:
-            patch: Dict[str, Any] = {}
-            if state.scene != "combat":
-                state.scene = "combat"
-                patch["scene"] = "combat"
-                self._record_validation_issue(
-                    validation_notes,
-                    validation_issues,
+            if state.scene != "combat" or state.campaign.phase != "combat":
+                mark_repair(
                     validator="combat_phase",
-                    action="normalized",
-                    summary="Forced scene back to combat while encounter is active.",
-                    metadata={"scene": "combat"},
-                )
-            if state.campaign.phase != "combat":
-                state.campaign.phase = "combat"
-                patch["campaign"] = {"phase": "combat"}
-                self._record_validation_issue(
-                    validation_notes,
-                    validation_issues,
-                    validator="combat_phase",
-                    action="normalized",
-                    summary="Forced campaign phase back to combat while encounter is active.",
-                    metadata={"phase": "combat"},
+                    summary="Encounter is active but scene/campaign phase is not combat; call set_scene with combat before narrating.",
+                    tools=["set_scene"],
+                    metadata={"scene": state.scene, "phase": state.campaign.phase, "expected": "combat"},
                 )
 
             if not encounter.combatants:
-                encounter.active = False
-                encounter.current_combatant_id = None
-                encounter.turn_order_started = False
-                state.scene = "exploration"
-                state.campaign.phase = "exploration"
-                patch = {
-                    "scene": "exploration",
-                    "campaign": {"phase": "exploration"},
-                    "encounter": encounter.model_dump(mode="json"),
-                }
-                self._record_validation_issue(
-                    validation_notes,
-                    validation_issues,
+                mark_failed(
                     validator="encounter_integrity",
-                    severity="warning",
-                    action="closed_encounter",
-                    summary="Closed an invalid encounter with no combatants.",
-                    metadata={"reason": "no_combatants"},
+                    summary="Active encounter has no combatants; this cannot be repaired by narration.",
+                    metadata={"encounter_id": encounter.encounter_id},
                 )
             else:
-                synced_party_combatants = False
                 for combatant in encounter.combatants.values():
                     if not combatant.linked_character_id:
                         continue
@@ -2735,91 +2787,87 @@ class DMGraphRunner:
                         or combatant.skills != expected_skills
                         or combatant.saving_throws != expected_saves
                     ):
-                        logic._sync_combatant_from_character(character)
-                        synced_party_combatants = True
-                if synced_party_combatants:
-                    patch["encounter"] = encounter.model_dump(mode="json")
-                    self._record_validation_issue(
-                        validation_notes,
-                        validation_issues,
-                        validator="party_combatant_sync",
-                        action="synced",
-                        summary="Synced party combatants from character sheets before validating combat state.",
-                    )
+                        mark_failed(
+                            validator="party_combatant_sync",
+                            summary=(
+                                "Party combatant mirror differs from its character sheet; "
+                                "the mutating tool must sync both views instead of validate_state patching it."
+                            ),
+                            metadata={"combatant_id": combatant.combatant_id, "character_id": character.character_id},
+                        )
+                        break
 
-                previous_order = list(encounter.initiative_order)
-                previous_current = encounter.current_combatant_id
-                previous_started = encounter.turn_order_started
-                logic._refresh_initiative_order()
-                if encounter.initiative_order != previous_order:
-                    self._record_validation_issue(
-                        validation_notes,
-                        validation_issues,
+                order_index = {
+                    combatant_id: index
+                    for index, combatant_id in enumerate(encounter.initiative_order)
+                }
+                expected_order = sorted(
+                    encounter.combatants.values(),
+                    key=lambda combatant: (
+                        combatant.initiative is None,
+                        -(combatant.initiative or -999),
+                        order_index.get(combatant.combatant_id, 9999),
+                        combatant.name,
+                    ),
+                )
+                expected_order_ids = [combatant.combatant_id for combatant in expected_order]
+                if encounter.initiative_order != expected_order_ids:
+                    mark_failed(
                         validator="initiative_order",
-                        action="normalized",
-                        summary="Normalized initiative order to match current combatants and initiative values.",
-                    )
-                if encounter.current_combatant_id and encounter.current_combatant_id not in encounter.combatants:
-                    encounter.current_combatant_id = None
-                    self._record_validation_issue(
-                        validation_notes,
-                        validation_issues,
-                        validator="current_combatant",
-                        severity="warning",
-                        action="cleared",
-                        summary="Cleared an invalid current combatant reference.",
-                        metadata={"previous_current_combatant_id": previous_current},
+                        summary="Initiative order is out of sync; initiative-mutating tools must refresh it.",
+                        metadata={"initiative_order": encounter.initiative_order, "expected_order": expected_order_ids},
                     )
 
+                if encounter.current_combatant_id and encounter.current_combatant_id not in encounter.combatants:
+                    mark_repair(
+                        validator="current_combatant",
+                        summary="Current combatant reference is invalid; call advance_turn to select a legal combatant.",
+                        tools=["advance_turn"],
+                        metadata={"current_combatant_id": encounter.current_combatant_id},
+                    )
+
+                all_initiatives_ready = bool(encounter.initiative_order) and all(
+                    encounter.combatants.get(combatant_id)
+                    and encounter.combatants[combatant_id].initiative is not None
+                    for combatant_id in encounter.initiative_order
+                )
                 eligible_order = [
                     combatant_id
                     for combatant_id in encounter.initiative_order
                     if logic._combatant_can_take_turn(encounter.combatants.get(combatant_id))
                 ]
-
-                if not encounter.turn_order_started:
-                    if logic._start_turn_order_if_ready():
-                        self._record_validation_issue(
-                            validation_notes,
-                            validation_issues,
-                            validator="turn_order",
-                            action="started",
-                            summary="Started turn order automatically after all initiatives became available.",
-                        )
-                elif eligible_order:
-                    if encounter.current_combatant_id not in eligible_order:
-                        encounter.current_combatant_id = eligible_order[0]
-                        self._record_validation_issue(
-                            validation_notes,
-                            validation_issues,
-                            validator="current_combatant",
-                            action="advanced",
-                            summary="Moved current combatant to the next eligible combatant.",
-                            metadata={"current_combatant_id": encounter.current_combatant_id},
-                        )
-                else:
-                    if encounter.current_combatant_id is not None:
-                        encounter.current_combatant_id = None
-                        self._record_validation_issue(
-                            validation_notes,
-                            validation_issues,
-                            validator="current_combatant",
-                            action="cleared",
-                            summary="Cleared current combatant because no combatant can currently act.",
-                        )
+                if not encounter.turn_order_started and all_initiatives_ready:
+                    mark_repair(
+                        validator="turn_order",
+                        summary="Initiative is ready but turn order has not started; call advance_turn before narrating turns.",
+                        tools=["advance_turn"],
+                    )
+                elif encounter.turn_order_started and eligible_order and encounter.current_combatant_id not in eligible_order:
+                    mark_repair(
+                        validator="current_combatant",
+                        summary="Current combatant cannot act; call advance_turn before narrating another action.",
+                        tools=["advance_turn"],
+                        metadata={"current_combatant_id": encounter.current_combatant_id},
+                    )
+                elif encounter.turn_order_started and not eligible_order and encounter.current_combatant_id is not None:
+                    mark_repair(
+                        validator="current_combatant",
+                        summary="No combatant can currently act but current_combatant_id is still set; call advance_turn or end_encounter.",
+                        tools=["advance_turn", "end_encounter"],
+                        metadata={"current_combatant_id": encounter.current_combatant_id},
+                    )
 
                 current = encounter.get_current_combatant()
                 if current and current.linked_character_id and current.linked_character_id in state.characters:
                     if state.active_character_id != current.linked_character_id:
-                        state.active_character_id = current.linked_character_id
-                        patch["active_character_id"] = current.linked_character_id
-                        self._record_validation_issue(
-                            validation_notes,
-                            validation_issues,
+                        mark_repair(
                             validator="active_character",
-                            action="synced",
-                            summary="Synced active character to the acting party combatant.",
-                            metadata={"active_character_id": current.linked_character_id},
+                            summary="Active character does not match the current party combatant; call set_active_character.",
+                            tools=["set_active_character"],
+                            metadata={
+                                "active_character_id": state.active_character_id,
+                                "expected_active_character_id": current.linked_character_id,
+                            },
                         )
 
                 enemies = [combatant for combatant in encounter.combatants.values() if combatant.side == "enemy"]
@@ -2829,71 +2877,23 @@ class DMGraphRunner:
                     if combatant.hp_current > 0 and combatant.defeat_state == "active"
                 ]
                 if enemies and not active_enemies:
-                    outcome = logic.finalize_encounter()
-                    if outcome:
-                        patch = merge_patch(
-                            patch,
-                            {
-                                "scene": state.scene,
-                                "campaign": {"phase": state.campaign.phase},
-                                "encounter": outcome["encounter"].model_dump(mode="json"),
-                                "adventure_log": list(state.adventure_log),
-                            },
-                        )
-                        timeline_append.append(
-                            self._build_event(
-                                event_type="encounter_ended",
-                                summary=outcome["summary"],
-                                content=outcome["summary"],
-                                payload={**outcome["summary_payload"], "automatic": True},
-                            ).model_dump(mode="json")
-                        )
-                        self._record_validation_issue(
-                            validation_notes,
-                            validation_issues,
-                            validator="encounter_end_condition",
-                            action="ended_encounter",
-                            summary="Automatically ended the encounter because no active enemies remained.",
-                            metadata={"reason": "no_active_enemies"},
-                        )
-
-                if (
-                    encounter.initiative_order != previous_order
-                    or encounter.current_combatant_id != previous_current
-                    or encounter.turn_order_started != previous_started
-                ):
-                    patch["encounter"] = encounter.model_dump(mode="json")
-            if patch:
-                state_delta = merge_patch(state_delta, patch)
+                    mark_repair(
+                        validator="encounter_end_condition",
+                        summary="No active enemies remain; call end_encounter before final narration.",
+                        tools=["end_encounter"],
+                        metadata={"reason": "no_active_enemies"},
+                    )
         elif state.scene == "combat":
-            state.scene = "exploration"
-            patch = {"scene": "exploration"}
-            if state.campaign.phase == "combat":
-                state.campaign.phase = "exploration"
-                patch["campaign"] = {"phase": "exploration"}
-            state_delta = merge_patch(state_delta, patch)
-            self._record_validation_issue(
-                validation_notes,
-                validation_issues,
+            mark_repair(
                 validator="combat_phase",
-                severity="warning",
-                action="normalized",
-                summary="Recovered from dangling combat scene without an active encounter.",
-                metadata={"scene": "exploration", "phase": state.campaign.phase},
+                summary="Scene is combat but no active encounter exists; call set_scene before narrating.",
+                tools=["set_scene"],
+                metadata={"scene": state.scene, "phase": state.campaign.phase},
             )
 
-        phase, scene, phase_notes, phase_patch, policy = self._normalize_phase_state(state)
-        if phase_patch:
-            state_delta = merge_patch(state_delta, phase_patch)
-            for note in phase_notes:
-                self._record_validation_issue(
-                    validation_notes,
-                    validation_issues,
-                    validator="phase_normalization",
-                    action="normalized",
-                    summary=note,
-                    metadata={"phase": phase, "scene": scene},
-                )
+        phase = self._derive_phase(state)
+        scene = self._expected_scene_for_phase(phase, state.scene)
+        policy = self._phase_policy(phase)
         turn_intent = self._plan_turn_intent(state, graph_state.get("user_input", ""), phase, scene).model_dump(mode="json")
         turn_profile = self._classify_turn_profile(state, graph_state.get("user_input", ""), phase, turn_intent)
         turn_advice = self._build_turn_advice(
@@ -2905,9 +2905,34 @@ class DMGraphRunner:
             turn_intent=turn_intent,
         )
 
-        validation_message = self._build_validation_message(validation_notes)
-        if validation_message is not None:
-            messages.append(validation_message)
+        repair_tools = self._unique_texts(repair_tools, limit=8)
+        if validation_status == "repair_required":
+            repair_text = (
+                "State verification requires repair before any final narration.\n"
+                f"Allowed repair tools: {' | '.join(repair_tools) if repair_tools else 'none'}.\n"
+                "Call the necessary repair tool now. Do not narrate outcomes until the repair tool succeeds.\n"
+                "Issues:\n- " + "\n- ".join(validation_notes[-6:])
+            )
+            messages.append(self._system_prompt_message(repair_text))
+            turn_advice["allowed_tools"] = repair_tools
+            turn_advice["suggested_tools"] = repair_tools
+            turn_advice["turn_expectation"] = "Repair state with a tool call only; no final narration yet."
+            turn_advice["turn_checklist"] = ["Call a repair tool before narration."]
+            turn_profile["turn_guidance"] = "State verification found an inconsistency that must be repaired by tools."
+            turn_profile["tool_round_limit"] = max(
+                int(turn_profile["tool_round_limit"] or 0),
+                int(graph_state.get("tool_call_rounds", 0) or 0) + 1,
+            )
+        else:
+            validation_message = self._build_validation_message(validation_notes)
+            if validation_message is not None:
+                messages.append(validation_message)
+
+        final_response = ""
+        turn_status = str(graph_state.get("turn_status") or "running")
+        if validation_status == "failed":
+            final_response = "状态校验发现无法安全自动修复的问题；为避免叙事和状态不一致，本回合未提交。"
+            turn_status = "failed"
 
         return {
             "game_state": state.model_dump(mode="json"),
@@ -2928,6 +2953,10 @@ class DMGraphRunner:
             "turn_checklist": list(turn_advice["turn_checklist"]),
             "tool_round_limit": turn_profile["tool_round_limit"],
             "allowed_tools": list(turn_advice["allowed_tools"]),
+            "turn_status": turn_status,
+            "final_response": final_response,
+            "validation_status": validation_status,
+            "validation_repair_tools": repair_tools,
             "validation_notes": validation_notes,
             "validation_issues": validation_issues,
             "node_traces": self._append_node_trace(
@@ -2943,6 +2972,8 @@ class DMGraphRunner:
                     "validation_warning_count": sum(
                         1 for issue in validation_issues if issue.get("severity") == "warning"
                     ),
+                    "validation_status": validation_status,
+                    "repair_tool_count": len(repair_tools),
                     "phase": phase,
                     "scene": scene,
                 },
@@ -3034,7 +3065,14 @@ class DMGraphRunner:
             },
         )
         builder.add_edge("execute_tools", "validate_state")
-        builder.add_edge("validate_state", "draft_response")
+        builder.add_conditional_edges(
+            "validate_state",
+            self._should_continue_after_validation,
+            {
+                "draft_response": "draft_response",
+                "finalize_turn": "finalize_turn",
+            },
+        )
         builder.add_edge("finalize_turn", END)
         if self._checkpointer is not None:
             return builder.compile(checkpointer=self._checkpointer)

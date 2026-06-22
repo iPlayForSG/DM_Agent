@@ -159,13 +159,9 @@ class DMAgent:
     ) -> GameState:
         state = GameState(game_id=game_id, title=title or game_id)
 
-        if not characters:
-            fallback = Character(name="Adventurer")
-            state.characters[fallback.character_id] = fallback
-            state.active_character_id = fallback.character_id
-        else:
-            for character in characters:
-                state.characters[character.character_id] = character
+        for character in characters:
+            state.characters[character.character_id] = character
+        if characters:
             state.active_character_id = characters[0].character_id
 
         return state

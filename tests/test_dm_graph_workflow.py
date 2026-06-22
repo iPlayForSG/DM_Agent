@@ -16,7 +16,7 @@ from campaign_memory import compile_campaign_memory
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
 from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, ResourcePool, SearchRecord, SpellSlot
-from agent import normalize_openai_base_url
+from agent import DMAgent, normalize_openai_base_url
 from agent_tools import AgentToolExecution, AgentToolService
 from langchain_core.messages import AIMessage
 from rules_catalog import RuleCatalog
@@ -214,7 +214,17 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("碎铜片", prepared["instruction"])
         self.assertGreater(prepared["node_traces"][-1]["metadata"]["campaign_memory_chars"], 0)
 
-    def test_validate_state_restores_combat_phase_for_active_encounter(self) -> None:
+    def test_create_new_game_without_characters_does_not_create_fallback_character(self) -> None:
+        agent = DMAgent()
+        try:
+            state = agent.create_new_game([], game_id="empty-party", title="Empty Party")
+        finally:
+            agent.close()
+
+        self.assertEqual(state.characters, {})
+        self.assertIsNone(state.active_character_id)
+
+    def test_validate_state_requires_repair_for_combat_phase_drift(self) -> None:
         state = self._build_state(with_selected_adventure=True)
         logic = GameLogic(state)
         logic.start_encounter(["地精"], enemy_hp=7, enemy_ac=12)
@@ -231,21 +241,51 @@ class DMGraphWorkflowTests(unittest.TestCase):
             }
         )
 
-        normalized = GameState.model_validate(validated["game_state"])
-        self.assertEqual(normalized.scene, "combat")
-        self.assertEqual(normalized.campaign.phase, "combat")
-        self.assertIn("attack_target", validated["allowed_tools"])
-        self.assertIn("advance_turn", validated["allowed_tools"])
-        self.assertIn(
-            "Forced campaign phase back to combat while encounter is active.",
-            validated["validation_notes"],
-        )
+        checked = GameState.model_validate(validated["game_state"])
+        self.assertEqual(checked.scene, "exploration")
+        self.assertEqual(checked.campaign.phase, "exploration")
+        self.assertEqual(validated["validation_status"], "repair_required")
+        self.assertEqual(validated["allowed_tools"], ["set_scene"])
+        self.assertEqual(validated["suggested_tools"], ["set_scene"])
+        self.assertIn("call set_scene", validated["validation_notes"][0])
         issues = validated["validation_issues"]
-        self.assertGreaterEqual(len(issues), 2)
+        self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0]["validator"], "combat_phase")
-        self.assertEqual(issues[0]["action"], "normalized")
-        self.assertEqual(issues[1]["validator"], "combat_phase")
+        self.assertEqual(issues[0]["action"], "repair_required")
+        self.assertEqual(issues[0]["severity"], "error")
+        self.assertEqual(validated["state_delta"], {})
         self.assertEqual(validated["node_traces"][-1]["metadata"]["validation_issue_count"], len(issues))
+        self.assertEqual(validated["node_traces"][-1]["metadata"]["validation_status"], "repair_required")
+
+    def test_validate_state_fails_on_party_combatant_mirror_drift(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        party_combatant = next(
+            combatant
+            for combatant in state.encounter.combatants.values()
+            if combatant.linked_character_id == state.active_character_id
+        )
+        party_combatant.hp_current = 1
+        character_hp = state.characters[state.active_character_id].hp_current
+
+        validated = self.runner._validate_state(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "messages": [],
+                "timeline_append": [],
+                "state_delta": {},
+            }
+        )
+        checked = GameState.model_validate(validated["game_state"])
+        checked_party = checked.encounter.combatants[party_combatant.combatant_id]
+
+        self.assertEqual(validated["validation_status"], "failed")
+        self.assertEqual(validated["turn_status"], "failed")
+        self.assertEqual(checked_party.hp_current, 1)
+        self.assertEqual(checked.characters[state.active_character_id].hp_current, character_hp)
+        self.assertIn("Party combatant mirror differs", validated["validation_notes"][0])
+        self.assertEqual(validated["validation_issues"][0]["action"], "failed_turn")
 
     def test_level_up_phase_disables_encounter_tools(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -1168,7 +1208,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
             rag_engine=DummyRAGEngine(),
             tool_service=object(),
             enable_model=True,
-            api_key="test-key",
+            **{"api_key": "test-key"},
         )
         runner._model = ExplodingModel()
         state = self._build_state(with_selected_adventure=True)
@@ -1185,6 +1225,76 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(result.validation_issues[-1].severity, "error")
         self.assertEqual(result.turn_trace.validation_issues[-1].action, "failed_turn")
         runner.close()
+
+    def test_repair_required_model_response_without_tool_fails_turn(self) -> None:
+        class NoToolModel:
+            def bind_tools(self, tool_schemas):
+                return self
+
+            def invoke(self, messages):
+                return AIMessage(content="我会直接说明状态已经修好了。")
+
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=object(),
+            enable_model=True,
+            **{"api_key": "test-key"},
+        )
+        runner._model = NoToolModel()
+
+        result = runner._call_model(
+            {
+                "messages": [AIMessage(content="previous")],
+                "allowed_tools": ["set_scene"],
+                "suggested_tools": ["set_scene"],
+                "validation_status": "repair_required",
+                "validation_notes": ["Encounter is active but scene/campaign phase is not combat."],
+                "validation_issues": [],
+                "node_traces": [],
+            }
+        )
+
+        self.assertEqual(result["turn_status"], "failed")
+        self.assertIn("没有发起必要工具调用", result["final_response"])
+        self.assertEqual(result["validation_issues"][-1]["validator"], "turn_repair")
+        self.assertEqual(result["validation_issues"][-1]["action"], "failed_turn")
+
+    def test_missing_required_tool_after_retry_fails_turn(self) -> None:
+        class NoToolModel:
+            def __init__(self):
+                self.calls = 0
+
+            def bind_tools(self, tool_schemas):
+                return self
+
+            def invoke(self, messages):
+                self.calls += 1
+                return AIMessage(content="我掷骰并告诉你结果。")
+
+        model = NoToolModel()
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=object(),
+            enable_model=True,
+            **{"api_key": "test-key"},
+        )
+        runner._model = model
+
+        result = runner._call_model(
+            {
+                "messages": [AIMessage(content="previous")],
+                "user_input": "请调用 roll_dice 掷 1d20",
+                "allowed_tools": ["roll_dice"],
+                "suggested_tools": ["roll_dice"],
+                "validation_notes": [],
+                "validation_issues": [],
+                "node_traces": [],
+            }
+        )
+
+        self.assertEqual(model.calls, 2)
+        self.assertEqual(result["turn_status"], "failed")
+        self.assertEqual(result["validation_issues"][-1]["validator"], "tool_required")
 
     def test_normalize_openai_base_url_only_appends_v1_for_root_paths(self) -> None:
         self.assertEqual(normalize_openai_base_url("https://api.example.com"), "https://api.example.com/v1")

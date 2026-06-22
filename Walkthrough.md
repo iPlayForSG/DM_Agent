@@ -178,7 +178,7 @@ backend/runtime-logs/runtime-state.json
 - 高风险工具会进入 `tool_confirmation` 暂停态，前端用确认卡片 resume。
 - 回合暂停使用 LangGraph interrupt/checkpoint 和 `GameState.pending_turn`。
 - 每回合写入 `TurnTrace`，用于调试、回放和前端过程展示。
-- 状态校验会同时写入兼容性的 `validation_notes` 和结构化的 `validation_issues`。
+- 状态校验会同时写入兼容性的 `validation_notes` 和结构化的 `validation_issues`；它不直接修补 `GameState`，而是要求工具修复或让本回合失败。
 
 当前已支持的 trace/SSE：
 
@@ -211,11 +211,12 @@ backend/runtime-logs/runtime-state.json
 - 记录聊天、时间线、工具结果、RAG metadata、状态修正和 turn trace。
 - 通过 SSE 向前端展示回合过程。
 - 高风险工具执行前确认。
+- `validate_state` 只做审计和分流，不再自动同步镜像、校正场景或结束遭遇。
 
 仍是原型的部分：
 
 - `frontend/src/App.jsx` 过大，后续需要拆组件。
-- Rules Guard 已有结构化 issue 输出、当前行动者工具约束、物品数量校验、每回合动作槽消耗、施法时间动作成本、`use_feature` 特性入口、部分特性成本推断，以及受伤后的专注豁免；完整职业/怪物特性目录仍需继续补。
+- Rules Guard 已有结构化 issue 输出、当前行动者工具约束、物品数量校验、每回合动作槽消耗、施法时间动作成本、`use_feature` 特性入口、部分特性成本推断、受伤后的专注豁免，以及校验失败后的工具修复分流；完整职业/怪物特性目录仍需继续补。
 - SSE 还不是真正实时 tool delta。
 - 还没有 token streaming。
 - 章节记忆已有派生编译器；玩家偏好等长期记忆还需要更结构化的写入入口。

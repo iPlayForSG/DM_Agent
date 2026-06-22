@@ -338,7 +338,7 @@ POST /api/v1/games/{game_id}/turns
 
 - 已新增 `backend/dm_graph.py`。
 - 已声明 `langgraph`、`langchain`、`langchain-openai` 后端依赖。
-- `DMGraphRunner` 当前包含 `prepare_turn -> route_phase -> retrieve_rules -> prepare_context -> draft_response -> execute_tools -> validate_state -> finalize_turn` 的单回合图。
+- `DMGraphRunner` 当前包含 `prepare_turn -> route_phase -> retrieve_rules -> prepare_context -> draft_response -> execute_tools -> validate_state -> draft_response/finalize_turn` 的单回合图。
 - `draft_response` 在 `enable_model=True` 时会调用 OpenAI-compatible `ChatOpenAI` 模型节点。
 - 已接入 `execute_tools` 节点，能够执行模型返回的 tool calls，并把 `ToolResult`、`timeline_append` 和 `state_delta` 合并回图状态。
 - 已接入 `retrieve_rules` 节点，能够在模型调用前先做规则意图分类，再按当前状态做自动 query planning，并从 Qwen3/Chroma RAG 中取回带来源片段。
@@ -346,9 +346,9 @@ POST /api/v1/games/{game_id}/turns
 - 自动检索当前会区分 `rules_question`、`combat_resolution`、`spell_resolution`、`condition_resolution`、`skill_resolution` 和 `rest_recovery` 等意图。
 - 已按当前场景生成 `allowed_tools`。非战斗阶段保留检定、豁免、施法、HP 与状态变化等常见规则结算工具；战斗阶段额外暴露遭遇、攻击、先攻、推进回合和结束遭遇工具。
 - 已将 `route_phase` 拆成独立节点，当前负责写入 `phase`、`scene` 和 `allowed_tools`；后续可以从这里扩展条件分支。
-- 已接入 `validate_state` 节点，当前会在工具执行后修复缺失的 `active_character_id`、悬空的 `current_combatant_id`，并在遭遇激活/结束时校正 `scene` 与 `campaign.phase`。
-- `validate_state` 现已进一步复用 `GameLogic` 整理先攻顺序、自动启动回合序列，并在玩家回合同步 `active_character_id`。
-- `validate_state` 现已开始承担更明确的 Rules Guard 职责：会同步 party combatant 镜像，并在敌方全部失去行动能力时自动结束遭遇并追加时间线事件。
+- 已接入 `validate_state` 节点；它现在只做状态审计，不再直接修补 `GameState`。可修复问题会进入 `repair_required`，下一步只允许模型调用指定修复工具；不可安全修复的问题会把本回合标记为 `failed`。
+- `validate_state` 会检查活动遭遇 phase/scene、当前行动者、party combatant 镜像、先攻顺序、回合序列和遭遇结束条件，但不会替工具写状态。
+- 模型在 `repair_required` 后如果没有调用修复工具，本回合会失败，避免叙事和状态不一致。
 - `DMAgent` 已固定使用 LangGraph runner，不再支持 ADK 后端切换。
 - 默认后端已切换为 `langgraph`。
 - LangGraph 模型节点直接调用模型 provider，不再吞掉 provider 异常；真实 smoke test 需要直接暴露 provider 与工具调用链路问题。
@@ -421,9 +421,9 @@ DMGraphState
 
 `validate_state`
 
-- 继续承担最小状态修复，同时开始承担更明确的 Rules Guard 职责。
-- 会在校验前先同步 party combatant 与角色卡的 HP、AC、状态和 defeat state，减少镜像漂移。
-- 当敌方全部失去行动能力时会自动结束遭遇，写回 encounter summary，并追加自动结束事件到 `timeline_append`。
+- 只做状态审计和分流，不直接修改 `GameState`。
+- 对可由工具修复的问题写入 `validation_status=repair_required`，收窄 `allowed_tools`，并把修复要求作为系统消息交回模型。
+- 对不能安全自动修复的问题写入 `validation_status=failed` 和 `turn_status=failed`，本回合不提交最终叙事。
 - 校验遭遇状态、资源消耗和状态变更；当前行动者、动作槽、法术位预检与物品数量的工具入口约束由 `ToolRegistry` 先行执行。
 - 对不合法工具调用返回错误结果，而不是让模型直接修改状态。
 
@@ -556,8 +556,8 @@ LangGraph 节点负责：
 - `DMGraphRunner` 会把自动检索得到的 `rag_intent` 一并写入图状态，并在注入片段前显式标记 retrieval intent。
 - Runtime 已移除 `rg` fallback；只有目标 Qwen3/Chroma collection 非空时 `rag_enabled` 才为 true。
 - Runtime 支持 `refresh()`，`GET /api/v1/rag/status` 会刷新并返回 collection 计数、模型、路径和错误信息；当前本地默认 collection `dnd_rules_qwen3_embedding_4b_q6_k` 已构建完成，计数为 19694。
-- `DMGraphRunner` 已在 `prepare_context` 前加入 `retrieve_rules` 节点，并把规则片段直接注入当前回合 prompt；普通叙事输入默认跳过自动检索，规则问答、施法裁定、战斗裁定、状态裁定和休息恢复会触发注入。工具执行后的 `validate_state` 还会把修正说明写回下一轮模型消息流。
-- `validate_state` 现已在敌方全部失去行动能力时自动结束遭遇，回写 encounter summary 到 `adventure_log`，并追加自动结束的 `encounter_ended` timeline event。
+- `DMGraphRunner` 已在 `prepare_context` 前加入 `retrieve_rules` 节点，并把规则片段直接注入当前回合 prompt；普通叙事输入默认跳过自动检索，规则问答、施法裁定、战斗裁定、状态裁定和休息恢复会触发注入。工具执行后的 `validate_state` 会审计状态一致性，并在需要时要求模型调用修复工具。
+- 敌方全部失去行动能力时，`validate_state` 不再自动结束遭遇；它会要求模型调用 `end_encounter`，否则本回合不能完成最终叙事。
 
 ### Phase 5: 可恢复执行与观测
 
@@ -614,14 +614,14 @@ LangGraph 节点负责：
 - `route_phase` 不再只把 `campaign.phase`/`scene` 原样抄进图状态；它现在会先按 `encounter.active`、`setup_complete`、`selected_adventure_id`、`scene` 推导规范 phase，并同步修正 `scene`。
 - phase policy 现已显式化：`party_creation`、`character_creation`、`adventure_selection`、`exploration`、`combat`、`downtime`、`level_up` 都有独立的工具白名单、阶段目标和约束。
 - `prepare_context` 现在会把 phase 名称、目标、约束和 blockers 一并注入 DM prompt，模型不再只依赖 `state_summary` 自己猜当前流程。
-- `validate_state` 在原有战斗修复之外，现会复用同一套 phase normalization，把工具执行后的场景/阶段重新拉回规范路径。
+- `validate_state` 不再做战斗兜底修复；它只报告不一致并要求工具修复或失败。阶段推导仍由 `route_phase` 在回合路由阶段完成。
 - `route_phase` 现在还会附带轻量 `turn_profile`：区分 `setup_guidance`、`conversation`、`rules_reference`、`action_resolution`、`combat_resolution`，并据此收紧工具白名单与 tool round budget，避免普通对话误入重工具链。
 - 在 `turn_profile` 之上，运行时还会生成一层确定性的 `turn_advice`，给出 expected flow、suggested tools 和 checklist，用来减少模型在本回合里的工具试探成本。
 - 规则检索判定已收紧：普通社交/叙事问句不会再因为单纯带问号就触发自动 RAG；只有命中明确规则/法术/状态/战斗关键词时才会自动检索。
 - 新增 `tests/test_dm_graph_workflow.py`，当前覆盖：
   - 冒险未选定时自动回落到 `adventure_selection`
   - phase 指南成功注入 prompt
-  - 活跃遭遇会强制恢复 `combat`
+  - 活跃遭遇 phase 漂移会要求 `set_scene` 修复，而不是直接改状态
   - `level_up` 阶段不会暴露遭遇/攻击工具
   - 社交问句保持 `conversation` profile
   - 纯规则问句限制为 `lookup_rules`

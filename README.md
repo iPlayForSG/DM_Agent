@@ -64,7 +64,7 @@ python rag_ingest.py --max-chunks 2 --reset --db-path Knowledge/vector_db_smoke 
 
 当前默认切片为 512 字符、80 字符 overlap，本地全量 dry-run 统计为 2948 个源文件、19694 个 chunk，当前默认知识库也已经在本机构建完成。为保证中文规则文本的稳定嵌入，`RAG_LLAMA_SERVER_CTX` 建议保持 `4096`；无 CUDA 时，脚本会阻止大批量 CPU 构建。确实要强制执行可加 `--allow-slow-cpu`，但预计会非常慢。中断后的构建可以去掉 `--reset` 直接续跑，脚本会跳过 collection 中已有的 chunk id，也支持通过 `--start-chunk` 从指定偏移继续。
 
-LangGraph 当前会先做规则意图分类，再决定是否自动检索；命中时会把 `rag_intent` 和规划出的 query 一起注入回合上下文。工具执行后的 `validate_state` 还会同步 party combatant 镜像，并在敌方全部失去行动能力时自动结束遭遇。
+LangGraph 当前会先做规则意图分类，再决定是否自动检索；命中时会把 `rag_intent` 和规划出的 query 一起注入回合上下文。工具执行后的 `validate_state` 只做状态审计：可修复问题会要求模型调用指定工具，不可安全修复的问题会让本回合失败。
 
 ## 前端运行
 
@@ -96,7 +96,7 @@ RAG 相关代码已经接入 LangGraph；规则原文、模型缓存和向量库
 - 当前已显式区分 `party_creation`、`adventure_selection`、`exploration`、`combat`、`downtime`、`level_up` 等 phase，并把 phase 目标/约束注入 DM prompt。
 - 当前还会按回合轻重自动区分 `conversation`、`rules_reference`、`action_resolution`、`combat_resolution` 等 turn profile，避免普通问答被重工具链拖慢。
 - 在此基础上，运行时还会生成极短的 `turn_advice`，给模型一个本回合的建议工具顺序和执行预期。
-- `validate_state` 会在工具执行后再次校正 phase 与 scene，减少状态漂移。
+- `validate_state` 会在工具执行后审计 phase、scene、遭遇和工具结果一致性；它不会直接修补 `GameState`，而是要求工具修复或让本回合失败。
 - 新增 `tests/test_dm_graph_workflow.py`，用于回归这些工作流约束。
 
 ### 2026-05-08 持久化补充
