@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-mm25-vine-blight",
+  "name": "枯藤怪",
+  "size": "中型",
+  "creature_type": "植物",
+  "alignment": "中立邪恶",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 19,
+  "initiative_bonus": -1,
+  "speed": 20,
+  "stats": {
+    "strength": 15,
+    "dexterity": 8,
+    "constitution": 14,
+    "intelligence": 5,
+    "wisdom": 10,
+    "charisma": 3
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": -1,
+    "constitution": 2,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -4
+  },
+  "skills": {
+    "stealth": 1
+  },
+  "senses": [
+    "盲视60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "耳聋"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "藤蔓绞缠",
+      "description": "近战攻击检定：+4，触及10尺 命中：6（1d8+2）钝击伤害。若目标生物体型不超过大型，则其陷入受擒状态（逃脱DC12）。目标在其回合开始时受到4（1d8）钝击伤害，且枯藤怪无法再发动藤蔓绞缠攻击，直至擒抱结束。"
+    },
+    {
+      "name": "植物缠绕",
+      "description": "枯藤怪施展纠缠术Entangle ，使用体质作为施法属性（法术豁免DC12）。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Vine Blight\n速度：20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\植物\\枯萎怪\\枯藤怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,70 @@
+{
+  "monster_id": "mon-mm25-nothic",
+  "name": "诺斯怪",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "中立邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 45,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 16,
+    "constitution": 16,
+    "intelligence": 13,
+    "wisdom": 10,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 3,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 0,
+    "charisma": -1
+  },
+  "skills": {
+    "arcana": 3,
+    "insight": 4,
+    "perception": 4,
+    "stealth": 5
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "地底通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "诺斯怪发动2次爪击攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+5，触及5尺。命中：8（1d10+3）挥砍伤害。"
+    },
+    {
+      "name": "腐朽凝视",
+      "description": "体质豁免检定：DC13，单一120尺内诺斯怪可见的生物。失败：17（5d6）暗蚀伤害。成功：半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "怪异洞悉",
+      "description": "感知豁免检定：DC14，单一120尺内诺斯怪可见的生物。失败：诺斯怪魔法性的得知一件与目标相关的事实或秘密。"
+    }
+  ],
+  "notes": "英文名：Nothic\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\诺斯怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

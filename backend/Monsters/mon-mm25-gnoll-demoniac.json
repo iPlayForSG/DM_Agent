@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-gnoll-demoniac",
+  "name": "鬣狗人魔头",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 135,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 12,
+    "constitution": 17,
+    "intelligence": 14,
+    "wisdom": 15,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 1,
+    "constitution": 6,
+    "intelligence": 2,
+    "wisdom": 5,
+    "charisma": 6
+  },
+  "skills": {
+    "perception": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "鬣狗人语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鬣狗人发动两次深渊打击攻击。"
+    },
+    {
+      "name": "深渊打击",
+      "description": "近战或远程攻击检定：+6，触及5尺或射程60尺。命中：20（5d6+3）毒素伤害。"
+    },
+    {
+      "name": "耶诺古之欲",
+      "description": "鬣狗人以60尺内其可见的一点为源点，30尺立方区域内咒唤魔法黑暗，持续1分钟或在鬣狗人专注终止时提前结束。该区域为困难地形。敏捷豁免检定：DC14，在某个回合中首次进入该区域或是在其中开始回合的每名生物。失败：28（8d6）暗蚀伤害，且鬣狗人或一名由其选择且其可见的生物获得10临时生命值。成功：仅半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "横行",
+      "description": "鬣狗人对一名已浴血的生物造成伤害后，立即移动至多等于其速度一半的距离，并发动一次深渊打击攻击。"
+    }
+  ],
+  "notes": "英文名：Gnoll Demoniac\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\鬣狗人\\鬣狗人魔头.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

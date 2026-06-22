@@ -1,0 +1,79 @@
+{
+  "monster_id": "mon-mm25-dao",
+  "name": "土巨灵",
+  "size": "大型",
+  "creature_type": "元素（巨灵）",
+  "alignment": "中立",
+  "challenge_rating": "11",
+  "proficiency_bonus": 4,
+  "ac": 18,
+  "hp_max": 200,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 23,
+    "dexterity": 12,
+    "constitution": 24,
+    "intelligence": 12,
+    "wisdom": 13,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 5,
+    "constitution": 7,
+    "intelligence": 1,
+    "wisdom": 5,
+    "charisma": 4
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "原初语（土族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "石化"
+  ],
+  "traits": [
+    {
+      "name": "遁地",
+      "description": "土巨灵可以掘穴穿过非魔法且未经加工的泥土及岩石。遁地期间，土巨灵不会破坏其穿过的任何材质。"
+    },
+    {
+      "name": "元素重生",
+      "description": "若土巨灵于土元素位面之外死去，其身躯会化为尘土，并在1d4天后于土元素位面某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "祈愿",
+      "description": "每个土巨灵都有30%概率知晓法术祈愿术Wish。若知晓，则土巨灵可以但仅能在有非巨灵生物向其许愿（以土巨灵能理解的方式）时为那名生物施展此法术。土巨灵为该生物施展祈愿术将不会承受祈愿术的负担。一旦此土巨灵施展过三次祈愿术，其在365天内无法再次施展此法术。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "土巨灵发动三次大地重锤或两次地能爆发攻击。"
+    },
+    {
+      "name": "大地重锤",
+      "description": "近战攻击检定：+10，触及5尺。命中：20（4d6+6）钝击伤害，若目标生物体型不超过大型，则其陷入倒地状态。"
+    },
+    {
+      "name": "地能爆发",
+      "description": "远程攻击检定：+10，射程120尺。命中：15（2d8+6）钝击伤害。命中或失手：目标所处空间处将爆发岩爆，产生以下效应。敏捷豁免检定：DC16，源自目标且包括目标自身的10尺光环区域内的每名生物。失败：10（3d6）雷鸣伤害"
+    },
+    {
+      "name": "施法",
+      "description": "土巨灵施展以下一道法术，无需任何材料成分并使用魅力作为施法属性（法术豁免DC16）： 随意： 侦测善恶Detect Evil and Good,侦测魔法 Detect Magic, 塑石术Stone Shape 每项1/日：气化形体Gaseous Form, 隐形术Invisibility, 地动术Move Earth，穿墙术 Passwall，位面转移Plane Shift,，巧言术Tongues, 石墙术Wall of Stone"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Dao\n速度：30尺，掘穴30尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\巨灵\\土巨灵.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

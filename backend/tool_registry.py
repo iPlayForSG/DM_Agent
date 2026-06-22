@@ -88,7 +88,7 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
         "risk_level": "medium",
         "needs_active_encounter": True,
     },
-    "save_monster_template": {"side_effect": "asset_write", "risk_level": "medium"},
+    "save_monster_template": {"side_effect": "state_write", "risk_level": "medium"},
     "spawn_monster_from_template": {
         "side_effect": "combat_write",
         "risk_level": "medium",

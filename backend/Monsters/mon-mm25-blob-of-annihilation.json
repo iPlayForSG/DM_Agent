@@ -1,0 +1,95 @@
+{
+  "monster_id": "mon-mm25-blob-of-annihilation",
+  "name": "吞世黏浆",
+  "size": "超巨型",
+  "creature_type": "泥怪（泰坦）",
+  "alignment": "中立邪恶",
+  "challenge_rating": "23",
+  "proficiency_bonus": 7,
+  "ac": 18,
+  "hp_max": 448,
+  "initiative_bonus": 16,
+  "speed": 30,
+  "stats": {
+    "strength": 27,
+    "dexterity": 14,
+    "constitution": 28,
+    "intelligence": 10,
+    "wisdom": 16,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 9,
+    "constitution": 16,
+    "intelligence": 0,
+    "wisdom": 3,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "盲视120尺",
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "强酸",
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "震慑",
+    "昏迷"
+  ],
+  "traits": [
+    {
+      "name": "星界内爆",
+      "description": "若黏浆生命值降至0，则其内爆并将其吞入体内的一切生物和物件喷进星界海。黏浆随即消失，只在原地留下一滩覆盖600尺的粘液。黏浆会在1d20年内于物质位面中的某个随机世界重组。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "黏浆豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "黏浆对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "黏浆发动两次伪足攻击并使用吞没。其可以将其中一次攻击替换为使用缚体黏浆。"
+    },
+    {
+      "name": "伪足",
+      "description": "近战攻击检定：+15，触及30尺。命中：24（3d10+8）力场伤害。"
+    },
+    {
+      "name": "吞没",
+      "description": "黏浆移动至多等于其速度的距离，并且可以移动穿过不超过巨型的生物或物件所处的空间。力量豁免检定：DC23，在黏浆移动过程中，所处空间首次被黏浆经过的每个生物或物件。失败：目标被黏浆吞没。被吞没期间，目标对黏浆体外的攻击或其他效应而言处于全身掩护，且当黏浆移动时，被吞没目标也将一并移动。非魔法物件被吞没1分钟后被摧毁。 被吞没期间，生物在其回合开始时受21（6d6）力场伤害，且窒息 ，陷入束缚状态，并在其回合结束时重复豁免。被吞没生物生命值降至0时被溶解为尘埃并被喷进星界海。成功：目标脱离并进入最近的未占据空间中"
+    },
+    {
+      "name": "缚体黏浆",
+      "description": "黏浆向600尺内的一名不超过大型的生物射出一团粘液。敏捷豁免检定：DC23，被指定的生物。失败：18（3d6+8）强酸伤害。粘液令目标向黏浆直线滚动60尺，且目标陷入束缚状态直至其下个回合结束，此时目标身上的粘液无害地溶解。成功：仅半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Blob of Annihilation\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\泰坦\\吞世黏浆.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

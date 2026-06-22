@@ -1,0 +1,86 @@
+{
+  "monster_id": "mon-mm25-revenant",
+  "name": "还魂鬼",
+  "size": "中型",
+  "creature_type": "亡灵",
+  "alignment": "中立",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 13,
+  "hp_max": 127,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 14,
+    "constitution": 18,
+    "intelligence": 13,
+    "wisdom": 16,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 2,
+    "constitution": 7,
+    "intelligence": 1,
+    "wisdom": 6,
+    "charisma": 7
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉13"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [
+    "暗蚀",
+    "心灵"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "中毒",
+    "震慑"
+  ],
+  "traits": [
+    {
+      "name": "再生",
+      "description": "还魂鬼在其回合开始时恢复10生命值。若还魂鬼受到火焰或光耀伤害，则该特质在其下个回合开始时无法生效。还魂鬼的躯体只有以0生命值开始其回合且无法再生时，才会被摧毁。"
+    },
+    {
+      "name": "亡灵复苏",
+      "description": "若还魂鬼死亡，除非对其遗体施展驱逐善恶Dispel Evil or Good，否则其在24小时后于另一躯体上复生 。还魂鬼复生后会活化同一存在位面中的另一具类人遗体，这会改变其外形，但不会改变其游戏数据，且还魂鬼以满生命值复活。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "还魂鬼使用复仇怒视并发动两次猛击攻击。"
+    },
+    {
+      "name": "猛击攻击",
+      "description": "近战攻击检定：+7，触及5尺。命中：11（2d6+4）暗蚀伤害。"
+    },
+    {
+      "name": "复仇怒视",
+      "description": "感知豁免检定：DC15，单一30尺内还魂鬼可见的生物。失败：目标陷入恐慌状态，并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。 若恐慌目标被还魂鬼诅咒（见死仇誓言），则目标还会在此期间陷入麻痹状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "死仇誓言",
+      "description": "还魂鬼诅咒其30尺内一名其可见的生物。还魂鬼将知晓自身与受诅咒目标之间的距离与方向，即使双方不在同一存在位面中亦是如此。该诅咒在还魂鬼对另一名生物使用此附赠动作时结束。"
+    }
+  ],
+  "notes": "英文名：Revenant\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\还魂鬼\\还魂鬼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

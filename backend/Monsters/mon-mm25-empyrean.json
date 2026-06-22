@@ -1,0 +1,83 @@
+{
+  "monster_id": "mon-mm25-empyrean",
+  "name": "至高天",
+  "size": "巨型",
+  "creature_type": "天族或邪魔（泰坦）",
+  "alignment": "绝对中立",
+  "challenge_rating": "23",
+  "proficiency_bonus": 7,
+  "ac": 22,
+  "hp_max": 346,
+  "initiative_bonus": 19,
+  "speed": 50,
+  "stats": {
+    "strength": 30,
+    "dexterity": 21,
+    "constitution": 30,
+    "intelligence": 21,
+    "wisdom": 22,
+    "charisma": 27
+  },
+  "saving_throws": {
+    "strength": 17,
+    "dexterity": 5,
+    "constitution": 10,
+    "intelligence": 5,
+    "wisdom": 13,
+    "charisma": 8
+  },
+  "skills": {
+    "insight": 13,
+    "perception": 13
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "全部"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "暗蚀",
+    "光耀"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "至高天豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "至高天对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "至高天使用圣洁武器或神力射线发动共计两次攻击。"
+    },
+    {
+      "name": "圣洁武器",
+      "description": "近战攻击检定：+17，触及10尺。命中：31（6d6+10）力场伤害，且目标陷入震慑状态直至至高天的下个回合开始。目标可以选择不受震慑，改为额外受到21点无视抗性或免疫的力场伤害。"
+    },
+    {
+      "name": "神力射线",
+      "description": "远程攻击检定：+15，射程600尺。命中：35（6d8+8）暗蚀或光耀伤害（由至高天选择）。"
+    },
+    {
+      "name": "施法",
+      "description": "至高天施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC23）： 随意：安定心神Calm Emotions，高等复原术Greater Restoration，行动无踪Pass without Trance，水下呼吸Water Breathing 每项1/日：通神术Commune，驱逐善恶Dispel Evil and Good，位面转移Plane Shift"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Empyrean\n速度：50尺，飞行50尺（悬浮），游泳50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\泰坦\\至高天.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-swarm-of-insects",
+  "name": "昆虫集群",
+  "size": "微型",
+  "creature_type": "野兽的中型集群",
+  "alignment": "无阵营",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 19,
+  "initiative_bonus": 1,
+  "speed": 20,
+  "stats": {
+    "strength": 3,
+    "dexterity": 13,
+    "constitution": 14,
+    "intelligence": 1,
+    "wisdom": 7,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": -4,
+    "dexterity": 1,
+    "constitution": 2,
+    "intelligence": -5,
+    "wisdom": -2,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "盲视30尺",
+    "被动察觉8"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "倒地",
+    "束缚",
+    "震慑"
+  ],
+  "traits": [
+    {
+      "name": "蛛行",
+      "description": "若昆虫集群拥有攀爬速度，则昆虫集群可以在难以攀爬的表面上攀爬，包括沿着天花板移动，且无需为此进行属性检定。"
+    },
+    {
+      "name": "集群",
+      "description": "昆虫集群可以进驻另一生物身处的空间，反之亦然。而且昆虫集群可以通过任何足够一只微型昆虫通过的通道。昆虫集群不能恢复生命值也不能获得临时生命值 。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+3，触及5尺。 命中：6（2d4+1）毒素伤害，若昆虫集群处于浴血则改为3（1d4+1）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Swarm of Insects\n速度：20尺，攀爬20尺或飞行20尺（由DM选择）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\集群\\昆虫集群.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

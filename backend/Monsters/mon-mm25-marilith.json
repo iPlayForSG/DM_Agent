@@ -1,0 +1,94 @@
+{
+  "monster_id": "mon-mm25-marilith",
+  "name": "六臂蛇魔",
+  "size": "大型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "16",
+  "proficiency_bonus": 5,
+  "ac": 16,
+  "hp_max": 220,
+  "initiative_bonus": 10,
+  "speed": 40,
+  "stats": {
+    "strength": 18,
+    "dexterity": 20,
+    "constitution": 20,
+    "intelligence": 18,
+    "wisdom": 16,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": 9,
+    "dexterity": 5,
+    "constitution": 10,
+    "intelligence": 4,
+    "wisdom": 8,
+    "charisma": 10
+  },
+  "skills": {
+    "perception": 8
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉18"
+  ],
+  "languages": [
+    "深渊语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若六臂蛇魔于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "六臂蛇魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "机敏反应",
+      "description": "六臂蛇魔在战斗中的每个回合均可执行一个反应。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "六臂蛇魔发动六次契约魔刃攻击并使用绞缠。"
+    },
+    {
+      "name": "契约魔刃",
+      "description": "近战攻击检定：+10，触及5尺。命中：10（1d10+5）挥砍伤害外加7（2d6）暗蚀伤害。"
+    },
+    {
+      "name": "绞缠",
+      "description": "力量豁免：DC17，单一5尺内六臂蛇魔可见的体型不超过中型的生物。失败：15（2d10+4）钝击伤害。目标陷入受擒状态（逃脱DC14），且目标陷入束缚状态直至擒抱结束。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "格挡",
+      "description": "触发：六臂蛇魔在持握武器期间因近战攻击检定被命中。响应：六臂蛇魔令其对抗那次攻击的AC+5，可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "传送",
+      "description": "六臂蛇魔传送至多120尺至一处其可见的未占据空间。"
+    }
+  ],
+  "notes": "英文名：Marilith\n速度：40尺，攀爬40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\六臂蛇魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

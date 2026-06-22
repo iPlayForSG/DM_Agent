@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-mm25-noble",
+  "name": "贵族",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "1/8",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 9,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 11,
+    "dexterity": 12,
+    "constitution": 11,
+    "intelligence": 12,
+    "wisdom": 14,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 1,
+    "constitution": 0,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 3
+  },
+  "skills": {
+    "deception": 5,
+    "insight": 4,
+    "游说": 5
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "刺剑",
+      "description": "近战攻击检定：+3，触及5尺。命中：5（1d8+1）穿刺伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "格挡",
+      "description": "触发：贵族在持握武器期间因近战攻击检定被命中。响应：贵族令其对抗那次攻击的AC+2，可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Noble\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\贵族\\贵族.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

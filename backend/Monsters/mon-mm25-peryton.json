@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-peryton",
+  "name": "鹿鹰",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 33,
+  "initiative_bonus": 3,
+  "speed": 20,
+  "stats": {
+    "strength": 16,
+    "dexterity": 12,
+    "constitution": 13,
+    "intelligence": 9,
+    "wisdom": 12,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -1,
+    "wisdom": 1,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 5,
+    "stealth": 3
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [
+    "理解通用语和精灵语",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "飞掠",
+      "description": "鹿鹰飞行离开敌人的触及时不会引发借机攻击。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鹿鹰发动一次角刺攻击和一次禽爪攻击。"
+    },
+    {
+      "name": "角刺",
+      "description": "近战攻击检定：+5，触及5尺。 命中：7（1d8+3）穿刺伤害，若鹿鹰在此次攻击前立即向着目标直线移动了30+尺，则目标额外受到9（2d8）穿刺伤害。"
+    },
+    {
+      "name": "禽爪",
+      "description": "近战攻击检定：+5，触及5尺。 命中：8（2d4+3）挥砍伤害。若类人目标因此伤害生命值降至0，鹿鹰掏出目标的心脏来杀死目标。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Peryton\n速度：20尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\鹿鹰.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

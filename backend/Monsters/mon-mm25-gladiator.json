@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-gladiator",
+  "name": "角斗士",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 112,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 15,
+    "constitution": 16,
+    "intelligence": 10,
+    "wisdom": 12,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 5,
+    "constitution": 6,
+    "intelligence": 0,
+    "wisdom": 4,
+    "charisma": 2
+  },
+  "skills": {
+    "athletics": 10,
+    "performance": 5
+  },
+  "senses": [
+    "被动察觉11"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "角斗士发动三次矛攻击。其可以将其中一次攻击替换为使用盾击。"
+    },
+    {
+      "name": "矛",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程20/60尺。命中：11（2d6+4）穿刺伤害。"
+    },
+    {
+      "name": "盾击",
+      "description": "力量豁免检定：DC15，单一5尺内角斗士可见的生物。失败：9（2d4+4）钝击伤害。若目标生物体型不超过中型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "格挡",
+      "description": "触发：角斗士在持握武器期间因近战攻击检定被命中。响应：角斗士令其对抗那次攻击的AC+3，可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Gladiator\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\角斗士.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

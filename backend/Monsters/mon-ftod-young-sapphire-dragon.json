@@ -1,0 +1,58 @@
+{
+  "monster_id": "mon-ftod-young-sapphire-dragon",
+  "name": "青年蓝宝石龙",
+  "size": "大型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言守序中立",
+  "challenge_rating": "9",
+  "proficiency_bonus": 4,
+  "ac": 17,
+  "hp_max": 157,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 21,
+    "dexterity": 14,
+    "constitution": 20,
+    "intelligence": 16,
+    "wisdom": 15,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "dexterity": 6,
+    "constitution": 9,
+    "wisdom": 6,
+    "charisma": 7
+  },
+  "skills": {
+    "history": 7,
+    "perception": 10,
+    "游说": 11,
+    "stealth": 6
+  },
+  "senses": [
+    "盲视 30尺",
+    "黑暗视觉120尺",
+    "被动察觉20"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "闪电",
+    "雷鸣"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌"
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Sapphire Dragon\n速度：40尺，掘穴20尺，攀爬40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\蓝宝石龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-demilich",
+  "name": "半巫妖",
+  "size": "微型",
+  "creature_type": "亡灵",
+  "alignment": "中立邪恶",
+  "challenge_rating": "18",
+  "proficiency_bonus": 6,
+  "ac": 20,
+  "hp_max": 180,
+  "initiative_bonus": 17,
+  "speed": 5,
+  "stats": {
+    "strength": 1,
+    "dexterity": 20,
+    "constitution": 10,
+    "intelligence": 20,
+    "wisdom": 17,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 11,
+    "constitution": 6,
+    "intelligence": 11,
+    "wisdom": 9,
+    "charisma": 5
+  },
+  "skills": {},
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素",
+    "心灵"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "震慑"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "半巫妖豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "亡者再生",
+      "description": "若半巫妖被摧毁，除非其遗骸被施展祈愿术Wish，其在1d10天后重获生命并恢复全部生命值，"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "半巫妖发动3次暗能爆裂攻击。"
+    },
+    {
+      "name": "暗能爆裂",
+      "description": "近战或远程攻击检定：+11，触及5尺或射程120尺。命中：24（7d6）暗蚀伤害。"
+    },
+    {
+      "name": "尖啸",
+      "description": "体质豁免检定：DC19，源自半巫妖的30尺光环区域内的每名生物。失败：70（20d6）心灵伤害。失败或成功：目标陷入恐慌状态，直至半巫妖的下个回合开始。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Demilich\n速度：5尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\半巫妖.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

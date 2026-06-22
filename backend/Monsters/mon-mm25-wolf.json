@@ -1,0 +1,58 @@
+{
+  "monster_id": "mon-mm25-wolf",
+  "name": "狼",
+  "size": "中型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 11,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 14,
+    "dexterity": 15,
+    "constitution": 12,
+    "intelligence": 3,
+    "wisdom": 12,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 5,
+    "stealth": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "集群战术",
+      "description": "若狼的攻击目标生物5尺内存在有至少一名狼未失能的盟友，则狼对该生物进行的攻击检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）穿刺伤害，若目标生物体型不超过中型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Wolf\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\狼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

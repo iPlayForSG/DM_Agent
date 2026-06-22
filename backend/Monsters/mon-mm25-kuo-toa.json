@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-kuo-toa",
+  "name": "寇涛",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "中立邪恶",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 18,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 13,
+    "dexterity": 10,
+    "constitution": 11,
+    "intelligence": 11,
+    "wisdom": 10,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 0,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 4
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "真实视觉30尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "地底通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "寇涛可以在空气和水中呼吸。"
+    },
+    {
+      "name": "日照敏感",
+      "description": "若寇涛身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "矛",
+      "description": "近战或远程攻击检定：+3，触及5尺或射程20/60尺。命中：5（1d8+1）穿刺伤害。"
+    },
+    {
+      "name": "粘性捕网",
+      "description": "敏捷豁免检定：DC10，单一15尺内寇涛可见的不超过大型的生物。失败：目标陷入束缚状态直至捕网被摧毁（AC10，HP5；免疫钝击，毒素和心灵伤害）。一名生物物能够以动作进行一次DC10的力量（运动）检定来尝试解救自身或位于自身5尺内困在捕网中的其他生物，成功则摧毁捕网。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "粘性盾牌",
+      "description": "触发：一名生物以武器进行的近战攻击检定对寇涛失手。响应-力量豁免检定：DC11，触发生物。失败：攻击者的该武器粘在寇涛的盾牌上。若目标不放开武器，则该武器被粘住期间目标陷入受擒状态（逃脱DC11）。该武器被粘住期间无法被使用。目标能够以动作进行一次DC11的力量（运动）检定，成功则该武器被解放。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Kuo-toa\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\寇涛\\寇涛.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

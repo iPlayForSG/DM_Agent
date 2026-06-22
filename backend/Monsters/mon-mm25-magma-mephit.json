@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-magma-mephit",
+  "name": "熔岩魔蝠",
+  "size": "小型",
+  "creature_type": "元素",
+  "alignment": "中立邪恶",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 18,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 8,
+    "dexterity": 12,
+    "constitution": 12,
+    "intelligence": 7,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "stealth": 3
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "原初语（火族语",
+    "土族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [
+    "寒冷"
+  ],
+  "condition_immunities": [
+    "力竭",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "自爆",
+      "description": "魔蝠在死亡时爆炸。敏捷豁免检定：DC11，源自魔蝠的5尺光环区域内的每名生物。 失败：7（2d6）火焰伤害。 成功：半伤。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+3，触及5尺。 命中：3（1d4+1）挥砍伤害外加3（1d6）火焰伤害。"
+    },
+    {
+      "name": "火焰吐息",
+      "description": "敏捷豁免检定：DC11，15尺锥状区域内的每名生物。 失败：7（2d6）火焰伤害。 成功：半伤"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Magma Mephit\n速度：30尺，飞行30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\魔蝠\\熔岩魔蝠.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

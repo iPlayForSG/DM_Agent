@@ -1,0 +1,56 @@
+{
+  "monster_id": "mon-mm25-crocodile",
+  "name": "鳄鱼",
+  "size": "大型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 13,
+  "initiative_bonus": 0,
+  "speed": 20,
+  "stats": {
+    "strength": 15,
+    "dexterity": 10,
+    "constitution": 13,
+    "intelligence": 2,
+    "wisdom": 10,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 0,
+    "constitution": 3,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "stealth": 2
+  },
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "屏息",
+      "description": "鳄鱼可以屏息一小时。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：6（1d8+2）穿刺伤害。若目标生物体型不超过中型，则其还会陷入受擒状态（逃脱DC15）。受擒期间，目标还会陷入束缚状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Crocodile\n速度：20尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\鳄鱼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

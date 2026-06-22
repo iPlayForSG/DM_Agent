@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-wraith",
+  "name": "邪灵",
+  "size": "中型或小型",
+  "creature_type": "亡灵",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 13,
+  "hp_max": 67,
+  "initiative_bonus": 3,
+  "speed": 5,
+  "stats": {
+    "strength": 6,
+    "dexterity": 16,
+    "constitution": 16,
+    "intelligence": 12,
+    "wisdom": 14,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 3,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "钝击",
+    "寒冷",
+    "火焰",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "昏迷"
+  ],
+  "traits": [
+    {
+      "name": "虚体移动",
+      "description": "邪灵可以移动穿过其他生物或物件，如同穿过困难地形一般。在其回合结束时，若邪灵还处于物件内，其受到5（1d10）力场伤害"
+    },
+    {
+      "name": "日照敏感",
+      "description": "若邪灵身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "吸取生命",
+      "description": "近战攻击检定：+6，触及5尺。命中：21（4d8+3）暗蚀伤害。若目标为生物，其生命值上限减少等于其受到伤害的数值。"
+    },
+    {
+      "name": "生成恶灵",
+      "description": "邪灵指定10尺内一具死亡不超过1分钟的类人生物尸体为目标。目标的灵体将被复生为一个恶灵Specter出现在尸体所处的空间或最近的一处未占据空间。恶灵受邪灵的控制，邪灵以此发同时能控制的恶灵数上限为七。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Wraith\n速度：5尺，飞行60尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\邪灵.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

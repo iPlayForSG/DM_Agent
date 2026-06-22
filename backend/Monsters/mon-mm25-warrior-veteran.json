@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-warrior-veteran",
+  "name": "历战武者",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 17,
+  "hp_max": 65,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 13,
+    "constitution": 14,
+    "intelligence": 10,
+    "wisdom": 11,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 2,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "athletics": 5,
+    "perception": 2
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "历战武者发动两次巨剑或重弩攻击。"
+    },
+    {
+      "name": "巨剑",
+      "description": "近战攻击检定：+5，触及5尺。命中：10（2d6+3）挥砍伤害。"
+    },
+    {
+      "name": "重弩",
+      "description": "远程攻击检定：+3，射程100/400尺。命中：12（2d10+1）穿刺伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "格挡",
+      "description": "触发：武者在持握武器期间因近战攻击检定被命中。响应：武者令其对抗那次攻击的AC+2，可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Warrior Veteran\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\武者\\历战武者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

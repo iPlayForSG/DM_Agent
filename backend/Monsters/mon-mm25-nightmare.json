@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-nightmare",
+  "name": "梦魇",
+  "size": "大型",
+  "creature_type": "邪魔",
+  "alignment": "中立邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 68,
+  "initiative_bonus": 2,
+  "speed": 60,
+  "stats": {
+    "strength": 18,
+    "dexterity": 15,
+    "constitution": 16,
+    "intelligence": 10,
+    "wisdom": 13,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 3,
+    "intelligence": 0,
+    "wisdom": 1,
+    "charisma": 2
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉11"
+  ],
+  "languages": [
+    "理解深渊语",
+    "通用语和炼狱语",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "赋予火焰抗性",
+      "description": "骑乘梦魇期间，梦魇可以赋予一名骑手对火焰伤害的抗性。"
+    },
+    {
+      "name": "照明",
+      "description": "梦魇散发出半径10尺的明亮光照以及额外10尺的微光光照。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "蹄击",
+      "description": "近战攻击检定：+6，触及5尺。命中：13（2d8+4）钝击伤害外加10（3d6）火焰伤害。"
+    },
+    {
+      "name": "以太折跃",
+      "description": "梦魇和其5尺内至多三名自愿的生物一起从物质位面传送至以太位面，或反之。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Nightmare\n速度：60尺，飞行90尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\梦魇.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

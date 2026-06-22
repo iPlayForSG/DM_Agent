@@ -1,0 +1,90 @@
+{
+  "monster_id": "mon-ftod-ancient-emerald-dragon",
+  "name": "远古翡翠龙",
+  "size": "超巨型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言守序中立",
+  "challenge_rating": "21",
+  "proficiency_bonus": 7,
+  "ac": 20,
+  "hp_max": 332,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 25,
+    "dexterity": 12,
+    "constitution": 25,
+    "intelligence": 20,
+    "wisdom": 18,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "dexterity": 8,
+    "constitution": 14,
+    "wisdom": 11,
+    "charisma": 12
+  },
+  "skills": {
+    "arcana": 12,
+    "deception": 12,
+    "perception": 18,
+    "stealth": 8
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉120尺",
+    "被动察觉28"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "火焰",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "若翡翠龙在一次豁免中失败，它可以选择直接成功。"
+    },
+    {
+      "name": "掘道者",
+      "description": "翡翠龙能够以其一半的掘穴速度通过坚硬的岩层，并在其身后留下直径20尺的地道。"
+    },
+    {
+      "name": "复写知觉",
+      "description": "翡翠龙能施展海市蜃楼mirage arcane，无需任何法术成分，并使用智力作为其施法属性。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "翡翠龙进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+14，触及15尺，单一目标。 命中： 18（2d10+7）穿刺伤害，外加10（3d6）心灵伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+14，触及10尺，单一目标。 命中： 14（2d6+7）挥砍伤害。"
+    },
+    {
+      "name": "惑心吐息",
+      "description": "翡翠龙喷出一波不谐的灵能之力，覆盖90尺锥状区域，区域内的所有生物必须进行一次DC 22的智力豁免，豁免失败者将受56（16d6）点心灵伤害，并且直到其下个回合结束，每当该生物进行一次攻击检定或属性检定时，它必须投一枚d8并从检定结果中减去其骰值。豁免成功则伤害减半，并不会受到额外的效应影响。"
+    },
+    {
+      "name": "施法",
+      "description": "翡翠龙施展以下一个法术，无需任何法术成分并使用智力作为其施法属性（法术豁免DC20）： 随意： 法师之手mage hand（手是隐形的），次级幻象minor illusion 1/每日：侦测思想detect thoughts，解除魔法dispel magic，以太化etherealness，高级幻影major image，假象术mislead"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ancient Emerald Dragon\n速度：40尺，掘穴40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\翡翠龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

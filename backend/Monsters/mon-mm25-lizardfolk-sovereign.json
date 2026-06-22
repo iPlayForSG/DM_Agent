@@ -1,0 +1,71 @@
+{
+  "monster_id": "mon-mm25-lizardfolk-sovereign",
+  "name": "蜥蜴人大王",
+  "size": "中型",
+  "creature_type": "元素",
+  "alignment": "中立",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 78,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 12,
+    "constitution": 15,
+    "intelligence": 11,
+    "wisdom": 11,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 4,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 4,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "龙语",
+    "原初语（土族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蜥蜴人大王发动一次啃咬攻击和一次大地重锤攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5，触及5尺。命中：8（1d10+3）穿刺伤害。若目标生物非构装且非亡灵，则蜥蜴人获得等于以此造成的伤害的临时生命值。"
+    },
+    {
+      "name": "大地重锤",
+      "description": "近战攻击检定：+5，触及5尺。命中：10（2d6+3）钝击伤害。若目标生物体型不超过中型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "冲锋",
+      "description": "蜥蜴人向一名其可见的敌人直线移动至多等于其速度或其游泳速度的距离。"
+    }
+  ],
+  "notes": "英文名：Lizardfolk Sovereign\n速度：30尺，掘穴20尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\蜥蜴人\\蜥蜴人大王.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

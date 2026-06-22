@@ -1,0 +1,62 @@
+{
+  "monster_id": "mon-mm25-ettin",
+  "name": "双头巨人",
+  "size": "大型",
+  "creature_type": "巨人",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 85,
+  "initiative_bonus": -1,
+  "speed": 40,
+  "stats": {
+    "strength": 21,
+    "dexterity": 8,
+    "constitution": 17,
+    "intelligence": 6,
+    "wisdom": 10,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": -1,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "巨人语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "双头巨人发动一次战斧攻击和一次钉头锤攻击。"
+    },
+    {
+      "name": "战斧",
+      "description": "近战攻击检定：+7，触及5尺。命中：14（2d8+5）挥砍伤害。如果目标生物体型不超过大型，则其陷入倒地状态。"
+    },
+    {
+      "name": "钉头锤",
+      "description": "近战攻击检定：+7，触及5尺。命中：14（2d8+5）穿刺伤害，并且在在目标的下个回合结束前，其进行的下次攻击检定具有劣势。 两倍恶毒、两倍好斗还有两倍食欲——双头巨人表明，两个脑袋不见得比一个好。 ——心火审判官贝特兰德"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ettin\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\巨人\\双头巨人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,92 @@
+{
+  "monster_id": "mon-mm25-mezzoloth",
+  "name": "毒虫罗斯魔",
+  "size": "中型",
+  "creature_type": "邪魔（尤格罗斯魔）",
+  "alignment": "中立邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 18,
+  "hp_max": 75,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 18,
+    "dexterity": 11,
+    "constitution": 16,
+    "intelligence": 7,
+    "wisdom": 14,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 0,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 5
+  },
+  "senses": [
+    "盲视60尺",
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "深渊语",
+    "炼狱语",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "强酸",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "邪魔复苏",
+      "description": "若毒虫罗斯魔于焦炎火狱之外死去，其身躯将会溶解成脓水，并立即在焦炎火狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "毒虫罗斯魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "毒虫罗斯魔使用爪击或变幻三叉戟发动共计两次攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+7，触及5尺。命中：9（2d4+4）挥砍伤害，若目标生物体型不超过大型，则其被四爪之二擒抱，陷入受擒状态（逃脱DC14），且目标陷入束缚状态直至擒抱结束。"
+    },
+    {
+      "name": "变幻三叉戟",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程20/60尺。命中：8（1d8+4）穿刺伤害外加10（3d6）力场伤害。命中或失手：三叉戟在远程攻击后立即魔法地回到毒虫罗斯魔爪中。"
+    },
+    {
+      "name": "施法",
+      "description": "毒虫罗斯魔施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC13）： 每项1/日：死云术Cloudkill，黑暗术Darkness，解除魔法Dispel Magic"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "传送",
+      "description": "毒虫罗斯魔传送至多60尺至一处其可见的未占据空间中。其可以将一名正被其擒抱的生物传送至目标空间5尺内的未占据空间。"
+    }
+  ],
+  "notes": "英文名：Mezzoloth\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\尤格罗斯魔\\毒虫罗斯魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

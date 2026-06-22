@@ -1,0 +1,77 @@
+{
+  "monster_id": "mon-mm25-flumph",
+  "name": "呋噜",
+  "size": "小型",
+  "creature_type": "异怪",
+  "alignment": "守序善良",
+  "challenge_rating": "1/8",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 7,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 6,
+    "dexterity": 15,
+    "constitution": 10,
+    "intelligence": 14,
+    "wisdom": 14,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": 2,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {
+    "arcana": 4,
+    "history": 4,
+    "religion": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "理解地底通用语",
+    "但不会说",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [
+    "心灵"
+  ],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "增强心灵感应",
+      "description": "呋噜可以感知到其60尺内的任何心灵感应交流的内容。"
+    },
+    {
+      "name": "倒地缺陷",
+      "description": "若呋噜陷入倒地状态，掷一枚骰子。若结果为奇数，其陷入失能状态。呋噜在其每个回合结束时进行一次DC10的敏捷豁免，成功则结束失能状态。"
+    },
+    {
+      "name": "心灵屏蔽",
+      "description": "呋噜的思维无法以任何方式被阅读，且法术无法在远程观测其或侦测其位置。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "触须",
+      "description": "近战攻击检定：+4，触及5尺。命中：4（1d4+2）强酸伤害。"
+    },
+    {
+      "name": "恶臭喷射",
+      "description": "敏捷豁免检定：DC10，单一15尺内呋噜可见的生物。 失败：目标被一种恶臭难闻的液体包裹，在1d4小时内持续散发恶臭，并在恶臭持续期间陷入中毒状态。其他生物在身处源自被恶臭包裹生物的5尺光环区域内期间，也陷入中毒状态。目标可以在短休或长休期间通过洗澡来去除身上的恶臭。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Flumph\n速度：5尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\呋噜.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

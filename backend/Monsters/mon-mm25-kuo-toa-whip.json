@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-kuo-toa-whip",
+  "name": "寇涛驱策者",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "中立邪恶",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 45,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 10,
+    "constitution": 14,
+    "intelligence": 12,
+    "wisdom": 14,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 0,
+    "constitution": 2,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 6,
+    "religion": 3
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "真实视觉30尺",
+    "被动察觉16"
+  ],
+  "languages": [
+    "地底通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "寇涛可以在空气和水中呼吸。"
+    },
+    {
+      "name": "日照敏感",
+      "description": "若寇涛身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "钳杖",
+      "description": "近战攻击检定：+4，触及10尺。命中：9（2d6+2）穿刺伤害。若目标生物体型不超过中型，则其陷入受擒状态（逃脱DC12）。且寇涛无法再次发动钳杖攻击，直至擒抱结束。"
+    },
+    {
+      "name": "咒唤粘液之球",
+      "description": "远程攻击检定：+4，射程60尺。命中：9（3d4+2）强酸伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "虔诚护盾",
+      "description": "寇涛施展虔诚护盾Shield of Faith，使用感知作为施法属性。"
+    }
+  ],
+  "notes": "英文名：Kuo-toa Whip\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\寇涛\\寇涛驱策者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,62 @@
+{
+  "monster_id": "mon-mm25-giant-eagle",
+  "name": "巨鹰",
+  "size": "大型",
+  "creature_type": "天族",
+  "alignment": "中立善良",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 26,
+  "initiative_bonus": 3,
+  "speed": 10,
+  "stats": {
+    "strength": 16,
+    "dexterity": 17,
+    "constitution": 13,
+    "intelligence": 8,
+    "wisdom": 14,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 3,
+    "constitution": 1,
+    "intelligence": -1,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 6
+  },
+  "senses": [
+    "被动察觉16"
+  ],
+  "languages": [
+    "天界语",
+    "理解通用语和原初语（气族语）",
+    "但不会说"
+  ],
+  "damage_resistances": [
+    "暗蚀",
+    "光耀"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "巨鹰发动两次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+5，触及5尺。命中：5（1d4+3）挥砍伤害外加3（1d6）光耀伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Giant Eagle\n速度：10尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\天族\\巨鹰.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

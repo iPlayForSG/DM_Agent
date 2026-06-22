@@ -1,0 +1,77 @@
+{
+  "monster_id": "mon-mm25-cambion",
+  "name": "坎比翁",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "中立邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 19,
+  "hp_max": 105,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 18,
+    "constitution": 16,
+    "intelligence": 14,
+    "wisdom": 12,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 4,
+    "constitution": 6,
+    "intelligence": 5,
+    "wisdom": 1,
+    "charisma": 6
+  },
+  "skills": {
+    "deception": 6,
+    "perception": 4,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "炼狱语"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电",
+    "毒素"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "坎比翁使用爪击或火焰射线发动共计两次攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+7，触及5尺。命中：8（1d8+4）挥砍伤害，外加7（2d6）火焰伤害。"
+    },
+    {
+      "name": "火焰射线",
+      "description": "远程攻击检定：+7，射程120尺。命中：13（3d6+3）火焰伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "坎比翁施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC14）： 每项2/日： 变身术Alter Self，命令术Command（三环版本）， 侦测魔法Detect Magic 每项1/日： 支配人类Dominate Person（八环版本）， 位面转移Plane Shift（仅自身）"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Cambion\n速度：30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\坎比翁.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

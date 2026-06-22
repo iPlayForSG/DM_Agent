@@ -1,0 +1,58 @@
+{
+  "monster_id": "mon-mm25-cat",
+  "name": "猫",
+  "size": "微型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 2,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 3,
+    "dexterity": 15,
+    "constitution": 10,
+    "intelligence": 3,
+    "wisdom": 12,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": -4,
+    "dexterity": 4,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 3,
+    "stealth": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "猫跃",
+      "description": "猫使用其敏捷来决定跳跃的距离，而非其力量。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "爪挠",
+      "description": "近战攻击检定：+4，触及5尺。命中：1挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Cat\n速度：40尺，攀爬40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\猫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

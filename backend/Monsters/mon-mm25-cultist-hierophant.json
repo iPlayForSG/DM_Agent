@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-cultist-hierophant",
+  "name": "邪教教宗",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 16,
+  "hp_max": 144,
+  "initiative_bonus": 8,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 18,
+    "constitution": 18,
+    "intelligence": 13,
+    "wisdom": 16,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 4,
+    "constitution": 4,
+    "intelligence": 1,
+    "wisdom": 7,
+    "charisma": 9
+  },
+  "skills": {
+    "perception": 7,
+    "游说": 9,
+    "religion": 5
+  },
+  "senses": [
+    "被动察觉17"
+  ],
+  "languages": [
+    "天界语",
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "邪教教宗使用契约魔刃或光耀射线发动共计三次攻击。"
+    },
+    {
+      "name": "契约魔刃",
+      "description": "近战攻击：+9，触及5尺。命中：12（2d6+5）挥砍伤害外加18（4d8）光耀伤害。"
+    },
+    {
+      "name": "光耀射线",
+      "description": "远程攻击：+9，射程120尺。命中：31（4d12+5）光耀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "邪教教宗施展以下一道法术，使用魅力作为施法属性（法术豁免DC17）： 随意： 奇术Thaumaturgy 每项1/日： 贾拉兹光辉风暴Jailarzi's Storm of Radiance（七环版本）， 群体暗示术Mass Suggestion"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Cultist Hierophant\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\邪教徒\\邪教教宗.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-bandit-crime-lord",
+  "name": "匪帮祸首",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "11",
+  "proficiency_bonus": 4,
+  "ac": 17,
+  "hp_max": 169,
+  "initiative_bonus": 9,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 20,
+    "constitution": 14,
+    "intelligence": 18,
+    "wisdom": 14,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 9,
+    "constitution": 6,
+    "intelligence": 4,
+    "wisdom": 2,
+    "charisma": 2
+  },
+  "skills": {
+    "特技": 9,
+    "perception": 10,
+    "stealth": 13
+  },
+  "senses": [
+    "被动察觉20"
+  ],
+  "languages": [
+    "通用语",
+    "盗贼黑话"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "反射闪避",
+      "description": "当匪帮祸首受到一个允许其进行敏捷豁免来只承受一半伤害的效应影响时，其豁免成功时不受伤害，豁免失败时只承受一半伤害。其无法在失能期间使用此特质。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "匪帮祸首使用弯刀或手铳发动共计三次攻击。"
+    },
+    {
+      "name": "弯刀",
+      "description": "近战攻击检定：+9，触及5尺。命中：12（2d6+5）挥砍伤害外加14（4d6）毒素伤害。"
+    },
+    {
+      "name": "手铳",
+      "description": "远程攻击检定：+9，射程30/90尺。命中：10（1d10+5）穿刺伤害外加14（4d6）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "致命瞄准",
+      "description": "匪帮祸首令其在当前回合中进行的下次攻击检定具有优势。且若那次攻击检定命中，其目标额外受到28（8d6）毒素伤害。"
+    }
+  ],
+  "notes": "英文名：Bandit Crime Lord\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\匪徒\\匪帮祸首.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

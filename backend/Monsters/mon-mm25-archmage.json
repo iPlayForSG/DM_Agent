@@ -1,0 +1,81 @@
+{
+  "monster_id": "mon-mm25-archmage",
+  "name": "大法师",
+  "size": "中型或小型",
+  "creature_type": "类人（法师）",
+  "alignment": "中立",
+  "challenge_rating": "12",
+  "proficiency_bonus": 4,
+  "ac": 17,
+  "hp_max": 170,
+  "initiative_bonus": 6,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 20,
+    "wisdom": 15,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": 9,
+    "wisdom": 6,
+    "charisma": 3
+  },
+  "skills": {
+    "arcana": 13,
+    "history": 9,
+    "perception": 6
+  },
+  "senses": [
+    "被动察觉16"
+  ],
+  "languages": [
+    "通用语以及五门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "心灵",
+    "魅惑（心灵屏障Mind Blank 期间）"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "大法师对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "大法师发动四次奥能爆发攻击。"
+    },
+    {
+      "name": "奥能爆发",
+      "description": "近战或远程攻击：+9，触及5尺或射程150尺。命中：27（4d10+5）力场伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "大法师施展以下一道法术，使用智力作为施法属性（法术豁免DC17）： 随意： 侦测魔法Detect Magic，侦测思想Detect Thoughts，易容术Disguise，隐形术Invisibility，光亮术Light，法师护甲Mage Armor（已计入AC）， 法师之手Mage Hand，魔法伎俩Prestidigitation 每项2/日：飞行术Fly，闪电束Lightening Bolt（七环版本） 每项1/日： 寒冰锥Cone of Cold（九环版本）， 心灵屏障Mind Blank（于战斗前施展）， 探知Scrying，传送术Teleport"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "护身魔法",
+      "description": "大法师施展法术反制Counterspell或护盾术Shield（触发条件见这些法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "迷踪步",
+      "description": "大法师施展迷踪步Misty Step，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Archmage\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\魔法师\\大法师.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

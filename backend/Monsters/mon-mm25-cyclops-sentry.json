@@ -1,0 +1,64 @@
+{
+  "monster_id": "mon-mm25-cyclops-sentry",
+  "name": "独眼巨人哨卫",
+  "size": "巨型",
+  "creature_type": "巨人",
+  "alignment": "混乱中立",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 14,
+  "hp_max": 138,
+  "initiative_bonus": 0,
+  "speed": 40,
+  "stats": {
+    "strength": 22,
+    "dexterity": 11,
+    "constitution": 20,
+    "intelligence": 8,
+    "wisdom": 6,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 0,
+    "constitution": 5,
+    "intelligence": -1,
+    "wisdom": -2,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉8"
+  ],
+  "languages": [
+    "巨人语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "独眼巨人哨卫使用石棒或掷石发动共计两次攻击。"
+    },
+    {
+      "name": "石棒",
+      "description": "近战攻击检定：+9，触及10尺。命中：16（3d6+6）钝击伤害，若目标生物体型不超过巨型，则其陷入倒地状态。"
+    },
+    {
+      "name": "掷石",
+      "description": "远程攻击检定：+9，射程30/120尺。 命中：22（3d10+6）钝击伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "有限未来视",
+      "description": "触发：一名独眼巨人哨卫可见的生物对其进行攻击检定。响应：独眼巨人哨卫令此次检定具有劣势，且直至其下个回合结束，其对目标发动的攻击检定具有优势。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Cyclops Sentry\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\巨人\\独眼巨人\\独眼巨人哨卫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

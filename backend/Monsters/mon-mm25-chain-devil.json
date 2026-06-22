@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-chain-devil",
+  "name": "链魔",
+  "size": "中型",
+  "creature_type": "邪魔（魔鬼）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 85,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 15,
+    "constitution": 18,
+    "intelligence": 11,
+    "wisdom": 12,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 7,
+    "intelligence": 0,
+    "wisdom": 4,
+    "charisma": 2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺（不受魔法黑暗阻碍）",
+    "被动察觉11"
+  ],
+  "languages": [
+    "炼狱语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "寒冷",
+    "挥砍",
+    "穿刺"
+  ],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔鬼复苏",
+      "description": "若链魔于九层地狱之外死去，其身躯会化为硫磺烟雾消失，并立即在九层地狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "链魔在对抗法术和其他魔法效应的豁免中具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "链魔发动两次锁链攻击并使用咒唤地狱锁链。"
+    },
+    {
+      "name": "锁链",
+      "description": "近战攻击检定：+7，触及10尺。命中：11（2d6+4）挥砍伤害。若目标生物体型不超过大型，则其被两条锁链之一所擒抱，陷入受擒状态（逃脱DC14）。目标陷入束缚状态直至擒抱结束。"
+    },
+    {
+      "name": "咒唤地狱锁链",
+      "description": "链魔咒唤出一条炽热的锁链来捆缚某名生物。敏捷豁免检定：DC15，单一60尺内链魔可见的生物。失败：9（2d4+4）火焰伤害，且目标陷入束缚状态，直至链魔的下个回合开始，此时锁链消失。若目标生物体型不超过大型，链魔将其向自身方向直线移动至多30尺。成功：锁链直接消失。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "可怖凝视",
+      "description": "触发：一名链魔可见的生物在链魔30尺内开始其回合。响应-感知豁免检定：DC15，触发生物。失败：目标陷入恐慌状态，直至其回合结束。成功：目标在24小时内免疫此链魔的可怖凝视。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Chain Devil\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\魔鬼\\链魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

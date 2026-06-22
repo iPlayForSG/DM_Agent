@@ -1,0 +1,86 @@
+{
+  "monster_id": "mon-mm25-mind-flayer-arcanist",
+  "name": "夺心魔奥术师",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "守序邪恶",
+  "challenge_rating": "11",
+  "proficiency_bonus": 4,
+  "ac": 16,
+  "hp_max": 143,
+  "initiative_bonus": 6,
+  "speed": 30,
+  "stats": {
+    "strength": 11,
+    "dexterity": 14,
+    "constitution": 13,
+    "intelligence": 20,
+    "wisdom": 17,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 6,
+    "constitution": 1,
+    "intelligence": 9,
+    "wisdom": 7,
+    "charisma": 7
+  },
+  "skills": {
+    "arcana": 13,
+    "insight": 7,
+    "perception": 7,
+    "stealth": 6
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "深潜语",
+    "地底通用语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "心灵"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "夺心魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "夺心魔发动三次奥术触须攻击。"
+    },
+    {
+      "name": "奥术触须",
+      "description": "近战或远程攻击检定：+9，触及5尺或射程120尺。 命中：27（4d10+5）心灵伤害，且夺心魔可以将目标传送至多30尺至一处夺心魔可见的、有足以支撑目标的表面或液体的未占据空间中。若目标因此伤害生命值降至0，夺心魔杀死目标并以魔法吞食其大脑。"
+    },
+    {
+      "name": "心灵爆裂",
+      "description": "智力豁免检定：DC17，源自夺心魔的40尺光环区域内的每名生物。 失败：41（8d8+5）心灵伤害，且目标陷入震慑状态直至夺心魔的下个回合结束。 成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "夺心魔施展以下一道法术，无需法术成分并使用智力作为施法属性（法术豁免DC17）： 随意： 侦测魔法Detect Magic， 侦测思想Detect Thoughts， 易容术Disguise Self， 法师之手Mage Hand（手是隐形的） 每项1/日： 鹰眼术Clairvoyance， 任意门Dimension Door， 火球术Fireball（五环版本）， 闪电束Lightning Bolt（五环版本）， 位面转移Plane Shift（仅自身）， 短讯术Sending"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "护盾术",
+      "description": "夺心魔施展护盾术Shield （触发条件见该法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Mind Flayer Arcanist\n速度：30尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\夺心魔\\夺心魔奥术师.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

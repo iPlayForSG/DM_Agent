@@ -1,0 +1,84 @@
+{
+  "monster_id": "mon-mm25-nycaloth",
+  "name": "征伐罗斯魔",
+  "size": "大型",
+  "creature_type": "邪魔（尤格罗斯魔）",
+  "alignment": "中立邪恶",
+  "challenge_rating": "9",
+  "proficiency_bonus": 4,
+  "ac": 18,
+  "hp_max": 152,
+  "initiative_bonus": 4,
+  "speed": 40,
+  "stats": {
+    "strength": 20,
+    "dexterity": 11,
+    "constitution": 19,
+    "intelligence": 12,
+    "wisdom": 10,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 0,
+    "constitution": 4,
+    "intelligence": 1,
+    "wisdom": 0,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 4,
+    "stealth": 4
+  },
+  "senses": [
+    "盲视60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "深渊语",
+    "炼狱语",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "强酸",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "邪魔复苏",
+      "description": "若征伐罗斯魔于焦炎火狱之外死去，其身躯将会溶解成脓水，并立即在焦炎火狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "征伐罗斯魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "征伐罗斯魔发动两次变幻巨斧攻击。"
+    },
+    {
+      "name": "变幻巨斧",
+      "description": "近战或远程攻击检定：+9，触及10尺或射程30/90尺。命中：18（2d12+5）点挥砍伤害外加10（3d6）点力场伤害。命中或失手：巨斧在远程攻击后立即魔法地回到征伐罗斯魔手中。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "蔽影传送",
+      "description": "征伐罗斯魔获得隐形状态，持续1分钟，并且其传送至多30尺至一处其可见的未占据空间。隐形状态在征伐罗斯魔造成伤害后立即提前结束。"
+    }
+  ],
+  "notes": "英文名：Nycaloth\n速度：40尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\尤格罗斯魔\\征伐罗斯魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

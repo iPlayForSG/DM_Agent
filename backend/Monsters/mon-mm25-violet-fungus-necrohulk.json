@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-violet-fungus-necrohulk",
+  "name": "紫腐菌尸聚怪",
+  "size": "大型",
+  "creature_type": "植物",
+  "alignment": "中立邪恶",
+  "challenge_rating": "7",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 123,
+  "initiative_bonus": 4,
+  "speed": 40,
+  "stats": {
+    "strength": 19,
+    "dexterity": 12,
+    "constitution": 18,
+    "intelligence": 7,
+    "wisdom": 14,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 1,
+    "constitution": 4,
+    "intelligence": -2,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "盲视60尺",
+    "被动察觉12"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "目盲",
+    "魅惑",
+    "耳聋",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "尸聚怪发动两次腐烂猛击攻击。"
+    },
+    {
+      "name": "腐烂猛击",
+      "description": "近战攻击检定：+7，触及10尺。 命中：9（1d10+4）钝击伤害外加7（2d6）暗蚀伤害。"
+    },
+    {
+      "name": "蕈孢炸弹",
+      "description": "体质豁免检定：DC15，以60尺内尸聚怪可见一点为中心，半径20尺球状区域内的每名生物。 失败：28（8d6）暗蚀伤害，且目标陷入中毒状态，持续至尸聚怪的下个回合开始。中毒期间，目标无法恢复生命值。 成功：仅半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "吞吃躯体",
+      "description": "力量豁免检定：DC15，单一5尺内体型不超过中型且尸聚怪可见的生物。 失败：目标被拉入尸聚怪所在的空间，并被嫁接到尸聚怪身上。尸聚怪同时能嫁接的生物数上限为一。被嫁接期间，目标陷入束缚 状态且其进行的体质豁免具有劣势。当尸聚怪移动时，被嫁接目标也将一并移动。若目标在被嫁接期间死亡，其遗体将被摧毁，且尸聚怪恢复10生命值。被嫁接目标自身或位于尸聚怪5尺内的生物，都能够以动作进行一次DC15的力量（运动）检定。检定成功则目标不再被嫁接，并移动至尸聚怪5尺内的一处未占据空间。"
+    }
+  ],
+  "notes": "英文名：Violet Fungus Necrohulk\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\植物\\真菌\\紫腐菌尸聚怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

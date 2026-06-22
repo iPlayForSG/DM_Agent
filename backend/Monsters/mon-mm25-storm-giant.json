@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-storm-giant",
+  "name": "风暴巨人",
+  "size": "巨型",
+  "creature_type": "巨人",
+  "alignment": "混乱善良",
+  "challenge_rating": "13",
+  "proficiency_bonus": 5,
+  "ac": 16,
+  "hp_max": 230,
+  "initiative_bonus": 7,
+  "speed": 50,
+  "stats": {
+    "strength": 29,
+    "dexterity": 14,
+    "constitution": 20,
+    "intelligence": 16,
+    "wisdom": 20,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 14,
+    "dexterity": 2,
+    "constitution": 10,
+    "intelligence": 3,
+    "wisdom": 10,
+    "charisma": 9
+  },
+  "skills": {
+    "arcana": 8,
+    "athletics": 14,
+    "history": 8,
+    "perception": 10
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "真实视觉30尺",
+    "被动察觉20"
+  ],
+  "languages": [
+    "通用语",
+    "巨人语"
+  ],
+  "damage_resistances": [
+    "寒冷"
+  ],
+  "damage_immunities": [
+    "闪电",
+    "雷鸣"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "风暴巨人可以在空气和水中呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "风暴巨人使用风暴之剑或雷霆轰击发动共计两次攻击。"
+    },
+    {
+      "name": "风暴之剑",
+      "description": "近战攻击检定：+14，触及10尺。命中：23（4d6+9）挥砍伤害外加13（3d8）闪电伤害。"
+    },
+    {
+      "name": "雷霆轰击",
+      "description": "远程攻击检定：+14，射程500尺。命中：22（2d12+9）闪电伤害，且目标陷入目盲和耳聋状态，直至风暴巨人的下个回合开始。"
+    },
+    {
+      "name": "闪电风暴",
+      "description": "敏捷豁免检定：DC18，以500尺内风暴巨人可见一点为源点，半径10尺、高40尺的柱状区域内的每名生物。失败：55（10d10）闪电伤害。成功：半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "风暴巨人施展以下一道法术，其无需材料成分并使用感知作为施法属性（法术豁免DC18）： 随意：侦测魔法Detect Magic，光亮术Light 1/日：操控天气Control Weather"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Storm Giant\n速度：50尺，飞行25尺（悬浮），游泳50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\巨人\\序位巨人\\风暴巨人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

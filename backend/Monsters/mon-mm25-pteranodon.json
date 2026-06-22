@@ -1,0 +1,56 @@
+{
+  "monster_id": "mon-mm25-pteranodon",
+  "name": "无齿翼龙",
+  "size": "中型",
+  "creature_type": "野兽（恐龙）",
+  "alignment": "无阵营",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 13,
+  "initiative_bonus": 2,
+  "speed": 10,
+  "stats": {
+    "strength": 12,
+    "dexterity": 15,
+    "constitution": 10,
+    "intelligence": 2,
+    "wisdom": 9,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": -1,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 1
+  },
+  "senses": [
+    "被动察觉11"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "飞掠",
+      "description": "无齿翼龙飞行离开敌人的触及范围时不会引发借机攻击。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：6（1d8+2）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Pteranodon\n速度：10尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\恐龙\\无齿翼龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

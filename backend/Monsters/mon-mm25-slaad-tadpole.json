@@ -1,0 +1,66 @@
+{
+  "monster_id": "mon-mm25-slaad-tadpole",
+  "name": "史拉蟾蝌蚪",
+  "size": "微型",
+  "creature_type": "异怪",
+  "alignment": "混乱中立",
+  "challenge_rating": "1/8",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 7,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 7,
+    "dexterity": 15,
+    "constitution": 10,
+    "intelligence": 3,
+    "wisdom": 5,
+    "charisma": 3
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": -3,
+    "charisma": -4
+  },
+  "skills": {
+    "stealth": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉7"
+  ],
+  "languages": [
+    "理解史拉蟾语",
+    "但不会说"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "寒冷",
+    "火焰",
+    "闪电",
+    "雷鸣"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "史拉蟾对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Slaad Tadpole\n速度：30尺，掘穴10尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\史拉蟾\\史拉蟾蝌蚪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-young-brass-dragon",
+  "name": "青年黄铜龙",
+  "size": "大型",
+  "creature_type": "龙类（金属龙）",
+  "alignment": "混乱善良",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 110,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 19,
+    "dexterity": 10,
+    "constitution": 17,
+    "intelligence": 12,
+    "wisdom": 11,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 3,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 3,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 6,
+    "游说": 5,
+    "stealth": 3
+  },
+  "senses": [
+    "盲视30尺",
+    "黑暗视觉120尺",
+    "被动察觉16"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "黄铜龙发动三次撕裂攻击。其可以将其中两次攻击替换为使用睡眠吐息。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+7，触及10尺。命中：15（2d10+4）挥砍伤害。"
+    },
+    {
+      "name": "火焰吐息",
+      "description": "敏捷豁免检定：DC14，40尺长、5尺宽的线状区域内的每名生物。失败：38（11d6）火焰伤害。成功：半伤。"
+    },
+    {
+      "name": "睡眠吐息",
+      "description": "体质豁免检定：DC14，30尺锥状区域内的每名生物。首次失败：目标陷入失能状态，直至其下个回合结束，此时目标重复豁免。再次失败：目标陷入昏迷状态，持续1分钟。目标身上的此效应在其受到伤害或被目标5尺内的另一生物用一个动作摇醒时提前结束。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Brass Dragon\n速度：40尺，掘穴20尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\黄铜龙\\青年黄铜龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

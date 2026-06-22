@@ -1,0 +1,89 @@
+{
+  "monster_id": "mon-mm25-nalfeshnee",
+  "name": "判魂魔",
+  "size": "大型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "13",
+  "proficiency_bonus": 5,
+  "ac": 18,
+  "hp_max": 184,
+  "initiative_bonus": 5,
+  "speed": 20,
+  "stats": {
+    "strength": 21,
+    "dexterity": 10,
+    "constitution": 22,
+    "intelligence": 19,
+    "wisdom": 12,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 0,
+    "constitution": 11,
+    "intelligence": 9,
+    "wisdom": 6,
+    "charisma": 7
+  },
+  "skills": {},
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "深渊语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若判魂魔于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "判魂魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "判魂魔发动两次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+10，触及10尺。命中：16（2d10+5）挥砍伤害外加11（2d10）力场伤害。"
+    },
+    {
+      "name": "传送",
+      "description": "判魂魔传送至多120尺至一处其可见的未占据空间。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "追击",
+      "description": "触发：另一名判魂魔可见的生物在判魂魔120尺内结束其移动时。响应：判魂魔使用传送，但目标空间必须位于触发生物10尺内。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "恐惧灵气",
+      "description": "感知豁免：DC15，源自判魂魔的15尺光环区域内的每名生物。失败：28（8d6）心灵伤害，且目标陷入恐慌状态，持续1分钟，或在其受到伤害或其结束回合时判魂魔不在其视线中时提前结束。成功：目标在24小时内免疫此判魂魔的恐惧灵气。"
+    }
+  ],
+  "notes": "英文名：Nalfeshnee\n速度：20尺，飞行30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\判魂魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

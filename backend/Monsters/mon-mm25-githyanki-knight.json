@@ -1,0 +1,65 @@
+{
+  "monster_id": "mon-mm25-githyanki-knight",
+  "name": "吉斯洋基骑士",
+  "size": "中型",
+  "creature_type": "异怪（吉斯人）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 18,
+  "hp_max": 117,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 14,
+    "constitution": 15,
+    "intelligence": 14,
+    "wisdom": 14,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 2,
+    "constitution": 5,
+    "intelligence": 5,
+    "wisdom": 5,
+    "charisma": 2
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语",
+    "吉斯语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "吉斯洋基人发动三次银剑攻击。其可以将其中一次攻击替换为使用施法施展心灵遥控Telekinesis （若条件允许）。"
+    },
+    {
+      "name": "银剑",
+      "description": "近战攻击检定：+6，触及5尺。命中：10（2d6+3）挥砍伤害外加14（4d6）心灵伤害。重击：若目标处于星界躯体状态（如受星界投影Astral Projection 影响），吉斯洋基人可切断其连接物质躯体的银线而非造成伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "吉斯洋基人施展以下一道法术，无需法术成分并使用智力作为施法属性（法术豁免DC13）： 随意： 法师之手Mage Hand（手是隐形的） 每项2/日： 回避侦测Nondetection（仅自身）、 巧言术Tongues 每项1/日： 位面转移Plane Shift、 心灵遥控Telekinesis"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "迷踪步",
+      "description": "吉斯洋基人施展迷踪步Misty Step，无需法术成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Githyanki Knight\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\吉斯人\\吉斯洋基骑士.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

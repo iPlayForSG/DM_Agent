@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-bandit-deceiver",
+  "name": "匪帮欺诈师",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "7",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 130,
+  "initiative_bonus": 6,
+  "speed": 30,
+  "stats": {
+    "strength": 8,
+    "dexterity": 16,
+    "constitution": 14,
+    "intelligence": 17,
+    "wisdom": 12,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": 6,
+    "constitution": 2,
+    "intelligence": 6,
+    "wisdom": 1,
+    "charisma": 3
+  },
+  "skills": {
+    "特技": 6,
+    "perception": 4,
+    "stealth": 9
+  },
+  "senses": [
+    "被动察觉14"
+  ],
+  "languages": [
+    "通用语",
+    "盗贼黑话"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "匪帮欺诈师发动三次匕首攻击。"
+    },
+    {
+      "name": "匕首",
+      "description": "近战或远程攻击检定：+6，触及5尺或射程20/60尺。命中：8（2d4+3）穿刺伤害外加10（3d6）毒素伤害"
+    },
+    {
+      "name": "致盲闪",
+      "description": "体质豁免检定：DC14，以120尺内匪帮欺诈师可见一点为中心，半径10尺的球状区域内的每名生物。失败：13（3d6+3）光耀伤害，且目标陷入目盲状态直至匪帮欺诈师的下个回合开始。成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "匪帮欺诈师施展以下一道法术，使用智力作为施法属性（法术豁免DC14）： 随意：易容术Disguise Self，法师之手Mage Hand，次级幻象Minor Illusion 每项1/日： 定身类人Hold Person（四环版本）， 法师护甲Mage Armor（已计入AC）， 高级幻影Major Image"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Bandit Deceiver\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\匪徒\\匪帮欺诈师.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

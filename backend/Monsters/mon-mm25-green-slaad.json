@@ -1,0 +1,82 @@
+{
+  "monster_id": "mon-mm25-green-slaad",
+  "name": "史拉绿蟾",
+  "size": "大型",
+  "creature_type": "异怪",
+  "alignment": "混乱中立",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 144,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 15,
+    "constitution": 16,
+    "intelligence": 11,
+    "wisdom": 8,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 2,
+    "constitution": 3,
+    "intelligence": 0,
+    "wisdom": -1,
+    "charisma": 4
+  },
+  "skills": {
+    "arcana": 3,
+    "perception": 2
+  },
+  "senses": [
+    "盲视30尺",
+    "黑暗视觉60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语",
+    "史拉蟾语",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "寒冷",
+    "火焰",
+    "闪电",
+    "雷鸣"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "再生",
+      "description": "若史拉蟾至少拥有1生命值，则其在自己回合开始时回复10生命值。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "史拉蟾发动三次混沌法杖攻击。"
+    },
+    {
+      "name": "混沌法杖",
+      "description": "近战或远程攻击检定：+7，触及10尺或射程60尺。命中：8（1d8+4）力场伤害。目标陷入某种状态直至史拉蟾的下个回合开始，掷1d4决定：1，魅惑；2，恐慌；3，中毒；4，失能。"
+    },
+    {
+      "name": "施法",
+      "description": "史拉蟾施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC14，法术攻击命中+6）： （译注：应为DC15，命中+7，但原文如此） 随意：侦测魔法Detect Magic，侦测思想Detect Thoughts，法师之手Mage Hand 每项1/日：火球术Fireball，隐形术Invisibility（仅自身）"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "史拉蟾变形为小型或中型的类人生物，或变回其真实形态。除体型以外，其各形态下游戏数据均相同。史拉蟾着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Green Slaad\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\史拉蟾\\史拉绿蟾.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

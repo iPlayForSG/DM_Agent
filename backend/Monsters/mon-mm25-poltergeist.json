@@ -1,0 +1,92 @@
+{
+  "monster_id": "mon-mm25-poltergeist",
+  "name": "骚灵",
+  "size": "中型或小型",
+  "creature_type": "亡灵",
+  "alignment": "混乱中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 22,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 1,
+    "dexterity": 14,
+    "constitution": 11,
+    "intelligence": 10,
+    "wisdom": 10,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "钝击",
+    "寒冷",
+    "火焰",
+    "闪电",
+    "穿刺",
+    "挥砍",
+    "雷鸣"
+  ],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "昏迷"
+  ],
+  "traits": [
+    {
+      "name": "虚体移动",
+      "description": "骚灵可以移动穿过其他生物或物件，如同穿过困难地形一般。在其回合结束时，若骚灵还处于物件内，其受到5（1d10）力场伤害"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "骚灵发动一次掷物猛击攻击，并使用一次念力猛推。"
+    },
+    {
+      "name": "掷物猛击",
+      "description": "近战或远程攻击检定：+4，触及5尺或射程30尺。命中：7（2d4+2）钝击伤害。"
+    },
+    {
+      "name": "念力猛推",
+      "description": "力量豁免：DC12，单一30尺内骚灵可见的生物。失败：9（2d6+2）力场伤害，且骚灵将目标推离至多30尺。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "消失",
+      "description": "骚灵获得隐形状态，或将之解除。"
+    }
+  ],
+  "notes": "英文名：Poltergeist\n速度：5尺，飞行50尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\骚灵.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

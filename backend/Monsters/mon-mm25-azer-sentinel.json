@@ -1,0 +1,65 @@
+{
+  "monster_id": "mon-mm25-azer-sentinel",
+  "name": "火矮人哨兵",
+  "size": "中型",
+  "creature_type": "元素",
+  "alignment": "守序中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 17,
+  "hp_max": 39,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 12,
+    "constitution": 15,
+    "intelligence": 12,
+    "wisdom": 13,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 4,
+    "intelligence": 1,
+    "wisdom": 1,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉11"
+  ],
+  "languages": [
+    "原初语（火族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "炽焰灵光",
+      "description": "火矮人回合结束时，除非其陷入失能状态，否则位于源自火矮人的5尺光环区域内的每名生物受到5（1d10）火焰伤害。"
+    },
+    {
+      "name": "照明",
+      "description": "火矮人散发出半径10尺的明亮光照以及额外10尺的微光光照。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "燃烧之锤",
+      "description": "近战攻击检定：+5，触及5尺。命中：8（1d10+3）钝击伤害外加3（1d6）火焰伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Azer Sentinel\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\火矮人\\火矮人哨兵.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

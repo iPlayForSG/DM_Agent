@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-gargoyle",
+  "name": "石像鬼",
+  "size": "中型",
+  "creature_type": "元素",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 67,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 15,
+    "dexterity": 11,
+    "constitution": 16,
+    "intelligence": 6,
+    "wisdom": 11,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 0,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": -2
+  },
+  "skills": {
+    "stealth": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "原初语（土族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "石化",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "飞掠",
+      "description": "石像鬼飞行离开敌人的触及范围时不会引发借机攻击。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "石像鬼发动两次爪击攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+4，触及5尺。命中：7（2d4+2）挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Gargoyle\n速度：30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\石像鬼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

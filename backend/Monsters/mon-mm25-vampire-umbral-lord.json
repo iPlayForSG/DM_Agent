@@ -1,0 +1,92 @@
+{
+  "monster_id": "mon-mm25-vampire-umbral-lord",
+  "name": "吸血鬼暗影尊主",
+  "size": "中型或小型",
+  "creature_type": "亡灵",
+  "alignment": "守序邪恶",
+  "challenge_rating": "15",
+  "proficiency_bonus": 5,
+  "ac": 16,
+  "hp_max": 187,
+  "initiative_bonus": 14,
+  "speed": 40,
+  "stats": {
+    "strength": 20,
+    "dexterity": 18,
+    "constitution": 18,
+    "intelligence": 19,
+    "wisdom": 16,
+    "charisma": 21
+  },
+  "saving_throws": {
+    "strength": 10,
+    "dexterity": 9,
+    "constitution": 4,
+    "intelligence": 4,
+    "wisdom": 8,
+    "charisma": 10
+  },
+  "skills": {
+    "arcana": 9,
+    "perception": 13,
+    "stealth": 9
+  },
+  "senses": [
+    "盲视120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "通用语以及三门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "寒冷",
+    "暗蚀"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "吸血鬼豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "幽影遁行",
+      "description": "若吸血鬼在其休眠地之外生命值降至0，其立即传送回其休眠地；但若此时吸血鬼身处阳光光下或流水中，则其将被摧毁。吸血鬼一旦返回其休眠地，其陷入麻痹状态，持续1小时，其在此后恢复1生命值。"
+    },
+    {
+      "name": "吸血鬼弱点",
+      "description": "吸血鬼拥有以下弱点： 禁入Forbiddance。吸血鬼未得到一位居住者的邀请时无法进入相应的民宅。 流水Running Water。 若吸血鬼在流水中结束回合，其受到20强酸伤害。 桩刺Stake to the Heart。 吸血鬼位于其休眠地且陷入失能状态期间，若用一把造成穿刺伤害的武器钉入其心脏，其陷入麻痹状态直至该武器被移除。 日照Sunlight。若吸血鬼在阳光下开始其回合，其受到20光耀伤害。若其身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "吸血鬼使用葬送打击或灾疫射线发动共计两次攻击。"
+    },
+    {
+      "name": "葬送打击",
+      "description": "近战攻击检定：+10，触及5尺。命中：9（1d8+5）挥砍伤害外加13（3d8）暗蚀伤害。"
+    },
+    {
+      "name": "灾疫射线",
+      "description": "远程攻击检定：+10，射程120尺。命中：16（2d10+5）暗蚀伤害，且目标陷入中毒状态直至吸血鬼的下个回合开始。"
+    },
+    {
+      "name": "哈达之欲",
+      "description": "吸血鬼施展哈达之欲Hunger of Hadar（五环版本） ，无需法术成分并使用魅力作为施法属性（法术豁免DC18）。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "猩红征收",
+      "description": "体质豁免检定：DC18，单一30尺内吸血鬼可见的非构装非亡灵生物。失败：14（4d6）暗蚀伤害。目标的生命值上限减少等于其受到暗蚀伤害的数值，且吸血鬼恢复等量生命值。"
+    }
+  ],
+  "notes": "英文名：Vampire Umbral Lord\n速度：40尺，攀爬40尺，飞行40尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\吸血鬼\\吸血鬼暗影尊主.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

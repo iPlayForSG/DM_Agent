@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-ghast",
+  "name": "妖鬼",
+  "size": "中型",
+  "creature_type": "亡灵",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 36,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 17,
+    "constitution": 10,
+    "intelligence": 11,
+    "wisdom": 10,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 3,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": -1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [
+    "暗蚀"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶臭",
+      "description": "体质豁免检定：DC10，在源自妖鬼的5尺光环区域内开始其回合的每名生物。失败：目标陷入中毒状态，直至其下个回合开始。成功：目标在24小时内免疫此妖鬼的恶臭。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5，触及5尺。命中：7（1d8+3）穿刺伤害外加9（2d8）暗蚀伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+5，触及5尺。命中：10（2d6+3）挥砍伤害。若目标为非亡灵生物，承受以下效应。体质豁免检定：DC10。失败：目标陷入麻痹状态，直至其下个回合结束。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ghast\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\妖鬼\\妖鬼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

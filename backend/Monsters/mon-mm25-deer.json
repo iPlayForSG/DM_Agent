@@ -1,0 +1,57 @@
+{
+  "monster_id": "mon-mm25-deer",
+  "name": "鹿",
+  "size": "中型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 4,
+  "initiative_bonus": 3,
+  "speed": 50,
+  "stats": {
+    "strength": 11,
+    "dexterity": 16,
+    "constitution": 11,
+    "intelligence": 2,
+    "wisdom": 14,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 3,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": 2,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "机敏",
+      "description": "鹿离开敌人的触及范围时不会引发借机攻击。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "冲撞",
+      "description": "近战攻击检定：+2，触及5尺。命中：2（1d4）钝击伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Deer\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\鹿.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-death-cultist",
+  "name": "死亡邪教徒",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 127,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 12,
+    "constitution": 18,
+    "intelligence": 12,
+    "wisdom": 16,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 1,
+    "constitution": 7,
+    "intelligence": 1,
+    "wisdom": 6,
+    "charisma": 2
+  },
+  "skills": {
+    "insight": 6,
+    "perception": 6,
+    "religion": 4
+  },
+  "senses": [
+    "被动察觉16"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "邪教徒使用惊怖巨镰或亡命射线发动共计三次攻击。"
+    },
+    {
+      "name": "惊怖巨镰",
+      "description": "近战攻击检定：+7，触及10尺。命中：9（1d10+4）挥砍伤害外加11（2d10）暗蚀伤害，且目标将无法回复生命值，直至其下一回合结束。"
+    },
+    {
+      "name": "亡命射线",
+      "description": "远程攻击检定：+6，射程120尺。命中：22（4d10）暗蚀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "邪教徒施展以下一道法术，使用感知作为施法属性（法术豁免DC14）： 随意：死者交谈Speak with Dead，奇术Thaumaturgy"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "魂灵惊嚎",
+      "description": "感知豁免检定：DC14，源自邪教徒的20尺光环区域内的所有生物。失败：14（4d6）心灵伤害，且目标陷入恐慌状态直至其下个回合结束。成功：仅半伤。"
+    }
+  ],
+  "notes": "英文名：Death Cultist\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\邪教徒\\死亡邪教徒.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

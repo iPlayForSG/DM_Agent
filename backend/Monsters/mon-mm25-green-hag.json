@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-green-hag",
+  "name": "绿鬼婆",
+  "size": "中型",
+  "creature_type": "妖精",
+  "alignment": "中立邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 17,
+  "hp_max": 82,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 12,
+    "constitution": 16,
+    "intelligence": 13,
+    "wisdom": 14,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 2
+  },
+  "skills": {
+    "arcana": 5,
+    "deception": 4,
+    "perception": 4,
+    "stealth": 3
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "通用语",
+    "精灵语",
+    "木族语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "鬼婆可以在空气和水中呼吸。"
+    },
+    {
+      "name": "集会魔法",
+      "description": "在30尺内有至少两个鬼婆盟友的情况下，鬼婆可以施展以下一道法术，无需材料成分，使用法术的原本施法时间，并使用智力作为施法属性（法术豁免DC11）：卜筮术Augury，寻获魔宠Find Familiar，鉴定术Identify，物件定位术Locate Object，探知术Scrying或隐形仆役Unseen Servant。 鬼婆必须完成一次长休后才能再次用此特质施展其所选的法术。"
+    },
+    {
+      "name": "拟声",
+      "description": "鬼婆可以模仿动物的声音和类人生物的语音。听到该声音的生物可以成功通过一次DC14的感知（洞悉 ）检定来发现其是模仿。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鬼婆发动两次爪击攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+6，触及5尺。命中：8（1d8+4）挥砍伤害外加3（1d6）毒素伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "鬼婆施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC12，法术攻击命中+4）： 随意： 舞光术Dancing Lights，易容术Disguise Seelf（持续24小时）， 隐身术Invisiblity（仅自身，并且鬼婆在隐形期间不会留下任何踪迹）， 次级幻象Minor Illusion， 致病射线Ray of Sickness（三环版本）"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Green Hag\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\鬼婆\\绿鬼婆.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,59 @@
+{
+  "monster_id": "mon-ftod-liondrake",
+  "name": "狮龙兽",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "一般而言绝对中立",
+  "challenge_rating": "7",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 119,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 19,
+    "dexterity": 15,
+    "constitution": 17,
+    "intelligence": 6,
+    "wisdom": 12,
+    "charisma": 12
+  },
+  "saving_throws": {},
+  "skills": {
+    "perception": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "狮龙兽进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+7，触及5尺，单一目标。 命中： 15（2d10+4）穿刺伤害。如果目标为中型或更小的生物，则需成功通过DC15的力量豁免否则应击倒地。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+7，触及5尺，单一目标。 命中： 11（2d6+4）挥砍伤害。"
+    },
+    {
+      "name": "破胆咆哮",
+      "description": "狮龙兽发出300尺内都能听到的可怖咆哮。任何狮龙兽周围30尺内能听到声音的生物都必须成功通过DC14的感知豁免否则在1分钟陷入对狮龙兽的恐慌。若豁免失败且差值为5或更高，则生物还会陷入同样时长的麻痹。一个生物能够在其回合结束时重复豁免，成功则结束身上的效应。如果目标通过豁免或效应结束，则其在接下来24小时内免疫狮龙兽的破胆咆哮。 Copyright © 2019. All rights reserved. (To change the copyright info, just edit it in template.)"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Liondrake\n速度：40尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\狮龙兽.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

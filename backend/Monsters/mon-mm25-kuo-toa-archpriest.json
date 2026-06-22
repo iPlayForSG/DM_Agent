@@ -1,0 +1,78 @@
+{
+  "monster_id": "mon-mm25-kuo-toa-archpriest",
+  "name": "寇涛大祭司",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "中立邪恶",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 13,
+  "hp_max": 105,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 14,
+    "constitution": 16,
+    "intelligence": 13,
+    "wisdom": 16,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 2,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 3,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 9,
+    "religion": 4
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "真实视觉30尺",
+    "被动察觉19"
+  ],
+  "languages": [
+    "地底通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "寇涛可以在空气和水中呼吸。"
+    },
+    {
+      "name": "日照敏感",
+      "description": "若寇涛身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "寇涛发动三次怪异圣杖攻击。"
+    },
+    {
+      "name": "怪异圣杖",
+      "description": "近战或远程攻击检定：+6，触及5尺或射程120尺。命中：20（5d6+3）闪电伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "寇涛施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC14）： 随意：侦测魔法Detect Magic，奇术Thaumaturgy 每项1/日：湮灭波Destructive Wave，预言术Divination，定身怪物Hold Monster（六环版本）， 探知Scrying，巧言术Tongues"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "虔诚护盾",
+      "description": "寇涛施展虔诚护盾Shield of Faith ，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Kuo-toa Archpriest\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\寇涛\\寇涛大祭司.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

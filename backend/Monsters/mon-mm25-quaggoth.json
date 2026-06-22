@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-quaggoth",
+  "name": "幽邃熊怪",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 45,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 12,
+    "constitution": 16,
+    "intelligence": 6,
+    "wisdom": 12,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "athletics": 5
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "地底通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "浴血狂怒",
+      "description": "幽邃熊怪在浴血期间进行的攻击检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "幽邃熊怪发动两次爪击攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+5，触及5尺。命中：6（1d6+3）挥砍伤害，若幽邃熊怪处于浴血则改为13（3d6+3）挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Quaggoth\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\幽邃熊怪\\幽邃熊怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

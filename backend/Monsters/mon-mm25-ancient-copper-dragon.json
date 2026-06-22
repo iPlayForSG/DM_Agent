@@ -1,0 +1,81 @@
+{
+  "monster_id": "mon-mm25-ancient-copper-dragon",
+  "name": "远古赤铜龙",
+  "size": "超巨型",
+  "creature_type": "龙类（金属龙）",
+  "alignment": "混乱善良",
+  "challenge_rating": "21",
+  "proficiency_bonus": 7,
+  "ac": 21,
+  "hp_max": 367,
+  "initiative_bonus": 15,
+  "speed": 40,
+  "stats": {
+    "strength": 27,
+    "dexterity": 12,
+    "constitution": 25,
+    "intelligence": 20,
+    "wisdom": 17,
+    "charisma": 22
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 8,
+    "constitution": 7,
+    "intelligence": 5,
+    "wisdom": 10,
+    "charisma": 6
+  },
+  "skills": {
+    "deception": 13,
+    "perception": 17,
+    "stealth": 8
+  },
+  "senses": [
+    "盲视60尺",
+    "黑暗视觉120尺",
+    "被动察觉27"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "强酸"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "赤铜龙豁免失败时，可以将其改为豁免成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "赤铜龙发动三次撕裂攻击。其可以将其中一次攻击替换为使用（A）缓速吐息或（B）施法施展心灵尖刺Mind Spike （五环版本）。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+15，触及15尺。命中：19（2d10+8）挥砍伤害外加9（2d8）强酸伤害。"
+    },
+    {
+      "name": "强酸吐息",
+      "description": "敏捷豁免检定：DC22，90尺长、10尺宽的线状区域内的每名生物。失败：63（14d8）强酸伤害。成功：半伤。"
+    },
+    {
+      "name": "缓速吐息",
+      "description": "体质豁免检定：DC22，90尺锥状区域内的每名生物。失败：直至目标的下个回合结束，目标速度减半，无法执行反应，且目标在其回合中仅可以执行一个动作或一个附赠动作，但不能同时执行二者。"
+    },
+    {
+      "name": "施法",
+      "description": "赤铜龙施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC21）： 随意： 侦测魔法Detect Magic，心灵尖刺Mind Spike（五环版本）， 次级幻象Minor Illusion，形体变化Shapechange（仅野兽与类人形态，不会因此法术获得临时生命值，但无需为维持此法术而保有临时生命值或维持专注） 每项1/日：高等复原术Greater Restoration，高级幻影Major Image，投影术Project Image"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ancient Copper Dragon\n速度：40尺，攀爬40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\赤铜龙\\远古赤铜龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

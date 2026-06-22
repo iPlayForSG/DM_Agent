@@ -1,0 +1,57 @@
+{
+  "monster_id": "mon-mm25-giant-hyena",
+  "name": "巨鬣狗",
+  "size": "大型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 45,
+  "initiative_bonus": 2,
+  "speed": 50,
+  "stats": {
+    "strength": 16,
+    "dexterity": 14,
+    "constitution": 14,
+    "intelligence": 2,
+    "wisdom": 12,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 2,
+    "constitution": 2,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 3
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5，触及5尺。命中：10（2d6+3）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "横行",
+      "description": "巨鬣狗在对一名已浴血的生物造成伤害后，可以立即移动至多等于其速度一半的距离并发动一次啃咬攻击。"
+    }
+  ],
+  "notes": "英文名：Giant Hyena\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\巨鬣狗.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

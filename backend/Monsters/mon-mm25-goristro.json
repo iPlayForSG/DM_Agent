@@ -1,0 +1,89 @@
+{
+  "monster_id": "mon-mm25-goristro",
+  "name": "巨牛魔",
+  "size": "巨型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "17",
+  "proficiency_bonus": 6,
+  "ac": 19,
+  "hp_max": 310,
+  "initiative_bonus": 6,
+  "speed": 50,
+  "stats": {
+    "strength": 25,
+    "dexterity": 11,
+    "constitution": 25,
+    "intelligence": 6,
+    "wisdom": 13,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 13,
+    "dexterity": 6,
+    "constitution": 13,
+    "intelligence": -2,
+    "wisdom": 7,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 7,
+    "survival": 7
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "深渊语"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若巨牛魔于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "巨牛魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "攻城巨兽",
+      "description": "巨牛魔对物件和建筑造成双倍伤害。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "巨牛魔发动一次凶蛮犄角攻击和两次猛击。"
+    },
+    {
+      "name": "凶蛮犄角",
+      "description": "近战攻击检定：+13，触及10尺。命中：40（6d10+7）穿刺伤害。若目标生物体型不超过巨型，其被直线推离至多20尺并陷入倒地状态。"
+    },
+    {
+      "name": "猛击",
+      "description": "近战攻击检定：+13，触及10尺。命中：29（4d10+7）钝击伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "冲锋",
+      "description": "巨牛魔向一名其可见的敌人直线移动至多等于其速度一半的距离。"
+    }
+  ],
+  "notes": "英文名：Goristro\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\巨牛魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

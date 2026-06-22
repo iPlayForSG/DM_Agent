@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-lemure",
+  "name": "劣魔",
+  "size": "中型",
+  "creature_type": "邪魔（魔鬼）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 9,
+  "hp_max": 9,
+  "initiative_bonus": -3,
+  "speed": 20,
+  "stats": {
+    "strength": 10,
+    "dexterity": 5,
+    "constitution": 11,
+    "intelligence": 1,
+    "wisdom": 10,
+    "charisma": 3
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": -3,
+    "constitution": 0,
+    "intelligence": -5,
+    "wisdom": 0,
+    "charisma": -4
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺（不受魔法黑暗阻碍）",
+    "被动察觉10"
+  ],
+  "languages": [
+    "理解炼狱语",
+    "但不会说"
+  ],
+  "damage_resistances": [
+    "寒冷"
+  ],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "地狱复苏",
+      "description": "若劣魔于九层地狱中死去，除非其是被一名处于祝福术Bless效应下的生物杀死或是其尸体被泼洒了圣水，否则其将在1d10天后以满生命值复活。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "肮脏软泥",
+      "description": "近战攻击检定：+2，触及5尺。命中：2（1d4）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Lemure\n速度：20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\魔鬼\\劣魔\\劣魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

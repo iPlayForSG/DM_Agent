@@ -1,0 +1,75 @@
+{
+  "monster_id": "mon-mm25-sea-hag",
+  "name": "海鬼婆",
+  "size": "中型",
+  "creature_type": "妖精",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 52,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 13,
+    "constitution": 16,
+    "intelligence": 12,
+    "wisdom": 12,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 1,
+    "charisma": 1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "通用语",
+    "巨人语",
+    "原初语（水族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "鬼婆可以在空气和水中呼吸。"
+    },
+    {
+      "name": "集会魔法",
+      "description": "若30尺内有至少两名鬼婆盟友，鬼婆可以施展以下法术之一，无需材料成分，使用法术的原本施法时间，并使用智力作为施法属性（法术豁免DC11）：卜筮术Augury，寻获魔宠Find Familiar，鉴定术Identify，物件定位术Locate Object，探知术Scrying或隐形仆役Unseen Servant。 鬼婆必须完成一次长休后才能再次用此特质施展其所选的法术。"
+    },
+    {
+      "name": "丑恶容貌",
+      "description": "感知豁免检定：DC11，任何在鬼婆30尺内开始其回合，并且能够看到海鬼婆的真实形态的野兽和类人生物。失败：目标陷入恐慌状态，直至其下个回合开始。成功：目标在24小时内免疫此鬼婆的丑恶容貌特质。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+5，触及5尺。命中：10（2d6+3）挥砍伤害。"
+    },
+    {
+      "name": "死亡凝视",
+      "description": "感知豁免检定：DC11，单一30尺内鬼婆可见的恐慌生物。失败：若目标的生命值为20及以下，其生命值降至0。否则，目标受到13（3d8）心灵伤害。"
+    },
+    {
+      "name": "幻形",
+      "description": "鬼婆施展易容术Disguise Self，并使用体质作为施法属性（法术豁免DC13）。该法术的持续时间为24小时。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Sea Hag\n速度：30尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\鬼婆\\海鬼婆.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

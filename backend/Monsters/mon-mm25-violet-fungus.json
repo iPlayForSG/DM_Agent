@@ -1,0 +1,59 @@
+{
+  "monster_id": "mon-mm25-violet-fungus",
+  "name": "紫腐菌",
+  "size": "中型",
+  "creature_type": "植物",
+  "alignment": "无阵营",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 5,
+  "hp_max": 18,
+  "initiative_bonus": -5,
+  "speed": 5,
+  "stats": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 10,
+    "intelligence": 1,
+    "wisdom": 3,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": -4,
+    "dexterity": -5,
+    "constitution": 0,
+    "intelligence": -5,
+    "wisdom": -4,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "盲视30尺",
+    "被动察觉6"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "目盲",
+    "魅惑",
+    "耳聋",
+    "恐慌"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "紫腐菌发动两次腐烂触碰攻击。"
+    },
+    {
+      "name": "腐烂触碰",
+      "description": "近战攻击检定：+2，触及10尺。 命中：4（1d8）暗蚀伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Violet Fungus\n速度：5尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\植物\\真菌\\紫腐菌.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

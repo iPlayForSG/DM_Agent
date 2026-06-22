@@ -1,0 +1,70 @@
+{
+  "monster_id": "mon-mm25-pseudodragon",
+  "name": "伪龙",
+  "size": "微型",
+  "creature_type": "龙类",
+  "alignment": "中立善良",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 10,
+  "initiative_bonus": 2,
+  "speed": 15,
+  "stats": {
+    "strength": 6,
+    "dexterity": 15,
+    "constitution": 13,
+    "intelligence": 10,
+    "wisdom": 12,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 1,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 5,
+    "stealth": 4
+  },
+  "senses": [
+    "盲视10尺",
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "理解通用语和龙语",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "伪龙对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "伪龙发动两次啃咬攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：4（1d4+2）穿刺伤害。"
+    },
+    {
+      "name": "蛰刺",
+      "description": "体质豁免检定：DC12，单一5尺内伪龙可见的生物。失败：5（2d4）毒素伤害，且目标陷入中毒状态，持续1小时。失败差值5或更多：目标在中毒期间还会陷入昏迷状态，昏迷在其受到伤害或被目标5尺内的一名生物用一个动作摇醒时提前结束。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Pseudodragon\n速度：15尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\伪龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

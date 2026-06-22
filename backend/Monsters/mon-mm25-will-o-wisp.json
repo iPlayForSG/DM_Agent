@@ -1,0 +1,94 @@
+{
+  "monster_id": "mon-mm25-will-o-wisp",
+  "name": "鬼火",
+  "size": "微型",
+  "creature_type": "亡灵",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 19,
+  "hp_max": 27,
+  "initiative_bonus": 9,
+  "speed": 5,
+  "stats": {
+    "strength": 1,
+    "dexterity": 28,
+    "constitution": 10,
+    "intelligence": 13,
+    "wisdom": 14,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 9,
+    "constitution": 0,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "钝击",
+    "寒冷",
+    "火焰",
+    "暗蚀",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "闪电",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "昏迷"
+  ],
+  "traits": [
+    {
+      "name": "转瞬即逝",
+      "description": "鬼火无法着装或携带任何东西。"
+    },
+    {
+      "name": "照明",
+      "description": "鬼火散发出半径20尺明亮光照以及额外20尺的微光光照。"
+    },
+    {
+      "name": "虚体移动",
+      "description": "鬼火可以移动穿过其他生物或物件，如同穿过困难地形一般。在其回合结束时，若鬼火还处于物件内，其受到5（1d10）力场伤害"
+    }
+  ],
+  "actions": [
+    {
+      "name": "电击",
+      "description": "近战攻击检定：+4，触及5尺。命中：11（2d8+2）闪电伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "摄食生命",
+      "description": "体质豁免：DC10，单一5尺内鬼火可见的生命值为0的生物。 失败：目标死亡，鬼火恢复10（3d6）生命值。"
+    },
+    {
+      "name": "消失",
+      "description": "鬼火及其光照获得隐形状态，持续至其专注终止。隐形状态在鬼火发动攻击或使用摄食生命后立即结束。"
+    }
+  ],
+  "notes": "英文名：Will-o’-Wisp\n速度：5尺，飞行50尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\鬼火.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

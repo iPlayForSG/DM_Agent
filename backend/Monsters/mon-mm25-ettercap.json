@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-ettercap",
+  "name": "伊特怪",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "中立邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 44,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 15,
+    "constitution": 13,
+    "intelligence": 7,
+    "wisdom": 12,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": -2,
+    "wisdom": 1,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 3,
+    "stealth": 4,
+    "survival": 3
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "蛛行",
+      "description": "伊特怪可以在难以攀爬的表面上攀爬，包括沿着天花板移动，且不需要为此进行属性检定。"
+    },
+    {
+      "name": "蛛网行者",
+      "description": "伊特怪在蛛网上移动时无视蛛网造成的移动限制，且与蛛网接触期间，伊特怪可以知道其他与该蛛网接触生物的准确位置。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "伊特怪发动一次啃咬攻击和一次爪击攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）穿刺伤害外加2（1d4）毒素伤害，且目标陷入中毒状态，持续至伊特怪的下个回合开始。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+4，触及5尺。 命中：7（2d4+2）挥砍伤害。"
+    },
+    {
+      "name": "绞网",
+      "description": "敏捷豁免检定：DC12，30尺内伊特怪可见的不超过大型的生物。 失败：目标陷入束缚状态，持续至蛛网被摧毁（AC10；HP5；对火焰伤害具有易伤；免疫钝击、毒素、心灵伤害）。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "收网",
+      "description": "伊特怪将30尺内因其绞网动作陷入束缚的一名生物向直线拉近至多25尺。"
+    }
+  ],
+  "notes": "英文名：Ettercap\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\伊特怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

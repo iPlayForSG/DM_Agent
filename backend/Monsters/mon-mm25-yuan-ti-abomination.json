@@ -1,0 +1,87 @@
+{
+  "monster_id": "mon-mm25-yuan-ti-abomination",
+  "name": "憎恶蛇人",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "中立邪恶",
+  "challenge_rating": "7",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 127,
+  "initiative_bonus": 6,
+  "speed": 40,
+  "stats": {
+    "strength": 19,
+    "dexterity": 16,
+    "constitution": 17,
+    "intelligence": 17,
+    "wisdom": 18,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 3,
+    "constitution": 3,
+    "intelligence": 3,
+    "wisdom": 4,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 7,
+    "stealth": 6
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "蛇人对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蛇人发动两次啃咬攻击，并使用施法施展暗示术Suggestion（若条件允许）。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。命中：11（2d6+4）穿刺伤害加10（3d6）毒素伤害。"
+    },
+    {
+      "name": "绞缠",
+      "description": "力量豁免检定：DC15，单一5尺内不超过大型的生物。失败：28（7d6+4）钝击伤害。目标陷入受擒状态（逃脱DC14），且目标陷入束缚状态直至擒抱结束。成功：仅半伤。"
+    },
+    {
+      "name": "毒气喷涌",
+      "description": "体质豁免检定：DC14，30尺锥状区域内的每名生物。失败：21（6d6）毒素伤害，且目标陷入中毒状态直至蛇人的下个回合结束。中毒期间，目标陷入目盲状态。成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "该人施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC15）： 随意：化兽为友Animal Friendship（仅蛇） 每项3/日：暗示术Suggestion"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "蛇人变形为大型的蛇，或变回其真实形态。若其死亡，则其保持在当前的形态不变。除注明部分外，其各形态下游戏数据均相同。蛇人着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Yuan-ti Abomination\n速度：40尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\蛇人\\憎恶蛇人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

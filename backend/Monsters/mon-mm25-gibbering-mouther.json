@@ -1,0 +1,65 @@
+{
+  "monster_id": "mon-mm25-gibbering-mouther",
+  "name": "呓语之口",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "混乱中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 9,
+  "hp_max": 52,
+  "initiative_bonus": -1,
+  "speed": 20,
+  "stats": {
+    "strength": 10,
+    "dexterity": 8,
+    "constitution": 16,
+    "intelligence": 3,
+    "wisdom": 10,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": -1,
+    "constitution": 3,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "倒地"
+  ],
+  "traits": [
+    {
+      "name": "异变丛生",
+      "description": "源自呓语之口的10尺光环区域内的地面视为困难地形。"
+    },
+    {
+      "name": "呓语",
+      "description": "只要未陷入失能状态，呓语之口会喋喋不休无序之词。 感知豁免检定：DC10，呓语之口胡言期间，在其20尺内开始自己的回合的任意生物。 失败：目标掷1d8以决定当前回合其执行什么行动： 1~4。目标什么都不做。 5~6。目标无法执行动作或附赠动作，并消耗其全部移动力向一个随机方向移动。 7~8。 目标随机选择其触及范围内一名的生物，对其发动一次近战攻击。若其无法发动此攻击，则什么都不做。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+2，触及5尺。命中：7（2d6）穿刺伤害。若目标生物体型不超过中型，则其陷入倒地状态。若目标因此伤害生命值降至0，目标死亡。然后其肉体被呓语之口吸收，仅留下装备。"
+    },
+    {
+      "name": "致盲唾液",
+      "description": "敏捷豁免检定：DC10，以30尺内一点为中心，半径10尺球状区域内的每名生物。失败：7（2d6）光耀伤害，且目标陷入目盲状态直至呓语之口的下个回合结束。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Gibbering Mouther\n速度：20尺，游泳20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\呓语之口.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

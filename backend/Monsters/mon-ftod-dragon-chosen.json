@@ -1,0 +1,49 @@
+{
+  "monster_id": "mon-ftod-dragon-chosen",
+  "name": "龙选勇士",
+  "size": "中型",
+  "creature_type": "类人",
+  "alignment": "任意阵营",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 17,
+  "hp_max": 45,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 18,
+    "constitution": 14,
+    "intelligence": 10,
+    "wisdom": 13,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 6,
+    "constitution": 4
+  },
+  "skills": {
+    "athletics": 6,
+    "perception": 3
+  },
+  "senses": [
+    "被动察觉 13"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌"
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Dragon Chosen\n速度：30尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\龙之信徒.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

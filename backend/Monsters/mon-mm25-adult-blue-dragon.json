@@ -1,0 +1,76 @@
+{
+  "monster_id": "mon-mm25-adult-blue-dragon",
+  "name": "成年蓝龙",
+  "size": "巨型",
+  "creature_type": "龙类（色彩龙）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "16",
+  "proficiency_bonus": 5,
+  "ac": 19,
+  "hp_max": 212,
+  "initiative_bonus": 10,
+  "speed": 40,
+  "stats": {
+    "strength": 25,
+    "dexterity": 10,
+    "constitution": 23,
+    "intelligence": 16,
+    "wisdom": 15,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 5,
+    "constitution": 6,
+    "intelligence": 3,
+    "wisdom": 7,
+    "charisma": 5
+  },
+  "skills": {
+    "perception": 12,
+    "stealth": 5
+  },
+  "senses": [
+    "盲视60尺",
+    "黑暗视觉120尺",
+    "被动察觉22"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "闪电"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "蓝龙豁免失败时，可以将其改为豁免成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蓝龙发动三次撕裂攻击，其可以将其中一次攻击替换为使用施法施展粉碎音波Shatter。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+12，触及10尺。命中：16（2d8+7）挥砍伤害外加5（1d10）闪电伤害。"
+    },
+    {
+      "name": "闪电吐息",
+      "description": "敏捷豁免检定：DC19，90尺长、5尺宽的线状区域内的每名生物。失败：60（11d10）闪电伤害。成功：半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "蓝龙施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC18）： 随意：侦测魔法Detect Magic，隐形术Invisibility，法师之手Mage Hand，粉碎音波Shatter 每项1/日：探知Scrying，短讯术Sending"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Blue Dragon\n速度：40尺，掘穴30尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\蓝龙\\成年蓝龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,82 @@
+{
+  "monster_id": "mon-mm25-death-slaad",
+  "name": "史拉亡蟾",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 18,
+  "hp_max": 178,
+  "initiative_bonus": 10,
+  "speed": 40,
+  "stats": {
+    "strength": 20,
+    "dexterity": 15,
+    "constitution": 19,
+    "intelligence": 15,
+    "wisdom": 10,
+    "charisma": 19
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 2,
+    "constitution": 4,
+    "intelligence": 2,
+    "wisdom": 0,
+    "charisma": 4
+  },
+  "skills": {
+    "arcana": 6,
+    "perception": 8
+  },
+  "senses": [
+    "盲视60尺",
+    "黑暗视觉60尺",
+    "被动察觉18"
+  ],
+  "languages": [
+    "通用语",
+    "史拉蟾语",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "寒冷",
+    "火焰",
+    "闪电",
+    "雷鸣"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "再生",
+      "description": "若史拉蟾至少拥有1生命值，则其在自己回合开始时回复10生命值。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "史拉蟾发动两次混沌刃锋攻击。"
+    },
+    {
+      "name": "混沌刃锋",
+      "description": "近战攻击检定：+9，触及10尺。命中：11（1d12+5）挥砍伤害外加10（3d6）暗蚀伤害。目标陷入某种状态直至史拉蟾的下个回合开始，掷1d4决定：1，魅惑；2，恐慌；3，中毒；4，失能。"
+    },
+    {
+      "name": "施法",
+      "description": "史拉蟾施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC16）： 随意： 侦测魔法Detect Magic，侦测思想Detect Thoughts，隐形术Invisibility（仅自身）， 法师之手Mage Hand，高级幻影Major Image 每项1/日： 枯萎术Blight（八环版本）， 死云术Cloudkill（八环版本），飞行术Fly，位面转移Plane Shift，巧言术Tongues"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "史拉蟾变形为小型或中型的类人生物，或变回其真实形态。除体型以外，其各形态下游戏数据均相同。史拉蟾着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Death Slaad\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\史拉蟾\\史拉亡蟾.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

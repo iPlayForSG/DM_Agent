@@ -1,0 +1,78 @@
+{
+  "monster_id": "mon-mm25-flaming-skeleton",
+  "name": "燃火骷髅",
+  "size": "中型",
+  "creature_type": "亡灵",
+  "alignment": "守序邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 65,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 14,
+    "constitution": 15,
+    "intelligence": 10,
+    "wisdom": 15,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 2,
+    "constitution": 2,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": -1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "理解通用语以及一门其他语言",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [
+    "钝击"
+  ],
+  "condition_immunities": [
+    "力竭",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "自爆",
+      "description": "骷髅在死亡时爆炸。敏捷豁免：DC12，源自骷髅的10尺光环区域内的每名生物。失败：14（4d6）火焰伤害。成功：半伤。"
+    },
+    {
+      "name": "照明",
+      "description": "骷髅散发出半径15尺明亮光照以及额外15尺的微光光照。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "骷髅使用火焰节杖或投掷烈焰发动共计两次攻击。"
+    },
+    {
+      "name": "火焰节杖",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）钝击伤害外加3（1d6）火焰伤害。"
+    },
+    {
+      "name": "投掷烈焰",
+      "description": "远程攻击检定：+4，射程60尺。命中：7（1d10+2）火焰伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Flaming Skeleton\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\骷髅\\燃火骷髅.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

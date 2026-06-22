@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-lizardfolk-geomancer",
+  "name": "蜥蜴人地脉术师",
+  "size": "中型",
+  "creature_type": "元素",
+  "alignment": "中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 33,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 15,
+    "dexterity": 10,
+    "constitution": 13,
+    "intelligence": 10,
+    "wisdom": 15,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 0,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": -1
+  },
+  "skills": {
+    "nature": 2,
+    "perception": 4,
+    "stealth": 4
+  },
+  "senses": [
+    "被动察觉14"
+  ],
+  "languages": [
+    "龙语",
+    "原初语（土族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蜥蜴人发动两次地脉迸发攻击。"
+    },
+    {
+      "name": "地脉迸发",
+      "description": "近战或远程攻击检定：+4，触及5尺或射程60尺。命中：9（2d6+2）钝击伤害。"
+    },
+    {
+      "name": "土石洪流",
+      "description": "体质豁免检定：DC12，以60尺内蜥蜴人可见一点为中心，半径20尺、高40尺的柱状区域内的每名生物。失败：15（6d4）钝击伤害，且目标陷入倒地状态。成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "蜥蜴人施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC12）： 随意：四象法门Elementalism 每项1/日：融身入石Meld into Stone，植物交谈Speak with Plants，荆棘丛生Spike Growth"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Lizardfolk Geomancer\n速度：30尺，掘穴20尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\蜥蜴人\\蜥蜴人地脉术师.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

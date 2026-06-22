@@ -1,0 +1,75 @@
+{
+  "monster_id": "mon-mm25-aberrant-cultist",
+  "name": "异怪邪教徒",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 14,
+  "hp_max": 137,
+  "initiative_bonus": 7,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 19,
+    "constitution": 12,
+    "intelligence": 16,
+    "wisdom": 18,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 4,
+    "constitution": 1,
+    "intelligence": 6,
+    "wisdom": 7,
+    "charisma": 2
+  },
+  "skills": {
+    "arcana": 6,
+    "perception": 7,
+    "religion": 6
+  },
+  "senses": [
+    "黑暗视觉90尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "通用语",
+    "深潜语",
+    "心灵感应30尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "邪教徒发动两次触手鞭笞攻击。其可以将其中一次攻击替换为使用心智腐坏。"
+    },
+    {
+      "name": "触手鞭笞",
+      "description": "近战攻击检定：+7，触及10尺。命中：7（1d6+4）挥砍伤害外加14（4d6）心灵伤害。若目标生物体型不超过大型，则其被两条触手之一擒抱，陷入受擒状态（逃脱DC14），且目标陷入束缚状态直至擒抱结束。"
+    },
+    {
+      "name": "心智腐坏",
+      "description": "感知豁免检定：DC15，单一90尺内邪教徒可见的生物。失败：27（6d8）心灵伤害，且目标陷入中毒状态直至邪教徒的下个回合开始。成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "邪教徒施展以下一道法术，使用感知作为施法属性（法术豁免DC15）： 随意：侦测思想Detect Thoughts，次级幻象Minor Illusion"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "法术反制",
+      "description": "邪教徒施展法术反制Counterspell（触发条件见该法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Aberrant Cultist\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\邪教徒\\异怪邪教徒.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

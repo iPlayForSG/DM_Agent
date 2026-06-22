@@ -1,0 +1,70 @@
+{
+  "monster_id": "mon-mm25-swarm-of-larvae",
+  "name": "幼虫魔集群",
+  "size": "中型",
+  "creature_type": "邪魔的大型集群",
+  "alignment": "中立邪恶",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 22,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 11,
+    "constitution": 14,
+    "intelligence": 6,
+    "wisdom": 12,
+    "charisma": 2
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 0,
+    "constitution": 2,
+    "intelligence": -2,
+    "wisdom": 1,
+    "charisma": -4
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "理解所有语言但不会说"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "倒地",
+    "束缚",
+    "震慑"
+  ],
+  "traits": [
+    {
+      "name": "集群",
+      "description": "集群可以进驻另一生物身处的空间，反之亦然。而且集群可以通过任何足够一只中型幼虫魔通过的通道。集群不能恢复生命值也不能获得临时生命值 。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啮咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：9（2d6+2）暗蚀伤害，若集群浴血则为7（2d4+2）暗蚀伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Swarm of Larvae\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\幼虫魔\\幼虫魔集群.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

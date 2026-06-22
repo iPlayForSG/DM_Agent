@@ -1,0 +1,103 @@
+{
+  "monster_id": "mon-mm25-arch-hag",
+  "name": "大鬼婆",
+  "size": "大型",
+  "creature_type": "妖精",
+  "alignment": "中立邪恶",
+  "challenge_rating": "21",
+  "proficiency_bonus": 7,
+  "ac": 20,
+  "hp_max": 333,
+  "initiative_bonus": 16,
+  "speed": 40,
+  "stats": {
+    "strength": 24,
+    "dexterity": 15,
+    "constitution": 23,
+    "intelligence": 19,
+    "wisdom": 19,
+    "charisma": 25
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 9,
+    "constitution": 6,
+    "intelligence": 4,
+    "wisdom": 11,
+    "charisma": 7
+  },
+  "skills": {
+    "deception": 14,
+    "perception": 11,
+    "游说": 21
+  },
+  "senses": [
+    "真实视觉60尺",
+    "被动察觉21"
+  ],
+  "languages": [
+    "所有"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "集会魔法",
+      "description": "在30尺内有至少两个鬼婆盟友的情况下，鬼婆可以施展以下一道法术，无需材料成分，使用法术的原本施法时间，并使用智力作为施法属性（法术豁免DC19）：卜筮术Augury，寻获魔宠Find Familiar，鉴定术Identify，物件定位术Locate Object，探知术Scrying或隐形仆役Unseen Servant。 鬼婆必须完成一次长休后才能再次用此特质施展其所选的法术。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "鬼婆豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "鬼婆对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "改日算账",
+      "description": "当鬼婆的生命值降至0时，只有在其位于自己的克星（一件鬼婆最厌恶的事物，由DM选择）30尺内时才会死亡。否则，鬼婆的生命值会改为降至1并传送到一个无害的半位面，并且在2d6日内无法回到自己离开的位面。当鬼婆传送离开时，位于它离开空间60尺内的每名生物都会被诅咒。被诅咒的生物进行的属性检定和豁免检定具有劣势，并且鬼婆总会知晓其在多元宇宙中的位置，直至此诅咒结束。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鬼婆发动两次幽魂利爪攻击并使用巫咒霹雳。"
+    },
+    {
+      "name": "幽魂利爪",
+      "description": "近战或远程攻击检定：+14，触及10尺或射程60尺。命中：17（3d6+7）力场伤害。如果目标生物体型不超过大型，则其陷入倒地状态。"
+    },
+    {
+      "name": "巫咒霹雳",
+      "description": "敏捷豁免检定：DC22， 60尺锥状区域内的每名生物。失败：32（5d12）闪电伤害。成功：半伤。 失败或成功：目标被诅咒，持续至鬼婆的下个回合结束。目标无法执行反应，直至此诅咒结束。"
+    },
+    {
+      "name": "施法",
+      "description": "鬼婆施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC22）： 随意：侦测思想Detect Thoughts，任意门Dimension Door，解除魔法Dispel Magic，催眠图纹Hypnotic Pattern 每项2/日：群体暗示术Mass Suggestion，纂改记忆Modify Memory，位面转移Plane Shift"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "扭曲言语",
+      "description": "鬼婆施展法术反制Counterspell（触发条件见该法术），使用与施法动作相同的施法属性。若目标豁免失败，直至其下个回合结束，其会被诅咒。目标无法施展具有言语成分的法术，并且当其说话时，会说出和想要表达的意思相反的话，直至此诅咒结束。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "巫术雷击",
+      "description": "位于鬼婆60尺内的被鬼婆诅咒的每名生物受到14（4d6）闪电伤害。"
+    }
+  ],
+  "notes": "英文名：Arch-hag\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\鬼婆\\大鬼婆.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

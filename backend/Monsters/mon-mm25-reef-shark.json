@@ -1,0 +1,61 @@
+{
+  "monster_id": "mon-mm25-reef-shark",
+  "name": "礁鲨",
+  "size": "中型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 22,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 14,
+    "dexterity": 15,
+    "constitution": 13,
+    "intelligence": 1,
+    "wisdom": 10,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": -5,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 2
+  },
+  "senses": [
+    "盲视30尺",
+    "被动察觉12"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "集群战术",
+      "description": "若礁鲨的攻击目标生物5尺内存在有至少一名礁鲨未失能的盟友，则礁鲨对该生物进行的攻击检定具有优势。"
+    },
+    {
+      "name": "水下呼吸",
+      "description": "礁鲨只能在水下呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：7（2d4+2）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Reef Shark\n速度：5尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\礁鲨.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

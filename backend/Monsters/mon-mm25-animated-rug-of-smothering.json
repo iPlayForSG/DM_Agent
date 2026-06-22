@@ -1,0 +1,61 @@
+{
+  "monster_id": "mon-mm25-animated-rug-of-smothering",
+  "name": "活化闷人毯",
+  "size": "大型",
+  "creature_type": "构装",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 27,
+  "initiative_bonus": 4,
+  "speed": 10,
+  "stats": {
+    "strength": 17,
+    "dexterity": 14,
+    "constitution": 10,
+    "intelligence": 1,
+    "wisdom": 3,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -5,
+    "wisdom": -4,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "盲视60尺",
+    "被动察觉6"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素",
+    "心灵"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "石化",
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "卷紧",
+      "description": "近战攻击检定：+5，触及5尺。 命中：10（2d6+3）钝击伤害。若目标生物体型不超过中型，地毯可使其陷入受擒状态（逃脱DC13）替代造成伤害。直至擒抱结束，目标陷入目盲和束缚状态，且窒息，并在其回合开始时受到10（2d6+3）钝击伤害。地毯同时能卷紧的生物数上限为一。 擒抱目标期间，地毯无法执行此动作；地毯受到伤害时，其受到的伤害减半（向下取整），而受擒目标将受到相同数值的伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Animated Rug of Smothering\n速度：10尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\构装\\活化物件\\活化闷人毯.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

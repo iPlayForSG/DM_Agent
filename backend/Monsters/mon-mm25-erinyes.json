@@ -1,0 +1,47 @@
+{
+  "monster_id": "mon-mm25-erinyes",
+  "name": "罪魔",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "未注明",
+  "challenge_rating": "12",
+  "proficiency_bonus": 4,
+  "ac": 15,
+  "hp_max": 222,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 14,
+    "constitution": 16,
+    "intelligence": 15,
+    "wisdom": 13,
+    "charisma": 15
+  },
+  "saving_throws": {},
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "索引基础模板",
+      "description": "此模板由速查索引生成，仅包含名称、体型、类型、挑战等级与估算战斗数值；详细能力以原始怪物条目为准。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "基础攻击",
+      "description": "近战或远程攻击：+7，触及5尺或射程30尺。命中：7d6+3钝击伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Erinyes\n来源文件：Documents\\DND5e 2024\\速查\\5E万兽大全.md\n由本地速查索引估算生成。",
+  "source": "MM25"
+}

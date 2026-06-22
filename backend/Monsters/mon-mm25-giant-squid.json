@@ -1,0 +1,70 @@
+{
+  "monster_id": "mon-mm25-giant-squid",
+  "name": "巨乌贼",
+  "size": "巨型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 12,
+  "hp_max": 120,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 23,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 5,
+    "wisdom": 11,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": 9,
+    "dexterity": 5,
+    "constitution": 1,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 6
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉16"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水下呼吸",
+      "description": "巨乌贼只能在水下呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "巨乌贼发动一次啃咬攻击和一次触手攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+9，触及5尺。命中：28（4d10+6）穿刺伤害。"
+    },
+    {
+      "name": "触手",
+      "description": "近战攻击检定：+9，触及15尺。命中：19（3d8+6）钝击伤害。若目标生物体型不超过巨型，则其被两条触手之一擒抱，陷入受擒状态（逃脱DC16），且巨乌贼可以将目标直线拉近至多10尺。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "墨云",
+      "description": "触发：巨乌贼在水下受到伤害。响应：巨乌贼释放出墨水覆盖以自己为中心的15尺立方区域，且巨乌贼移动至多等于其游泳速度的距离。该立方区域在1分钟内变为重度遮蔽，当有强劲水流或类似效应将墨水击散时，该效应提前结束。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Giant Squid\n速度：5尺，游泳80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\巨乌贼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

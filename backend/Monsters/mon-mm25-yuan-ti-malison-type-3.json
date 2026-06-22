@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-yuan-ti-malison-type-3",
+  "name": "恶咒蛇人（3型）",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "中立邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 66,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 14,
+    "constitution": 13,
+    "intelligence": 14,
+    "wisdom": 16,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": 2,
+    "wisdom": 3,
+    "charisma": 1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉13"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "蛇人对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蛇人发动两次毒素迸发攻击，并使用施法施展暗示术Suggestion（若条件允许）。"
+    },
+    {
+      "name": "毒素迸发",
+      "description": "近战或远程攻击检定：+5，触及5尺或射程120尺。命中：12（2d8+3）毒素伤害。"
+    },
+    {
+      "name": "绞缠",
+      "description": "力量豁免检定：DC13，单一5尺内不超过中型的生物。失败：21（4d8+3）钝击伤害。目标陷入受擒状态（逃脱DC13），且目标陷入束缚状态直至擒抱结束。"
+    },
+    {
+      "name": "施法",
+      "description": "该蛇人施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC13）： 随意：化兽为友Animal Friendship（仅蛇） 每项2/日：暗示术Suggestion"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "蛇人变形为中型的蛇，或变回其真实形态。若其死亡，则其保持在当前的形态不变。除注明部分外，其各形态下游戏数据均相同。蛇人着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Yuan-ti Malison (Type 3)\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\蛇人\\恶咒蛇人（3型）.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

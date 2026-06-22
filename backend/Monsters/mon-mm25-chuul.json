@@ -1,0 +1,76 @@
+{
+  "monster_id": "mon-mm25-chuul",
+  "name": "甲伏怪",
+  "size": "大型",
+  "creature_type": "异怪",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 76,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 10,
+    "constitution": 16,
+    "intelligence": 5,
+    "wisdom": 11,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 0,
+    "constitution": 3,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "理解深潜语",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "甲伏怪可以在空气和水中呼吸。"
+    },
+    {
+      "name": "感知魔法",
+      "description": "甲伏怪可以探知120尺内的魔法。此特质如同法术侦测魔法detect magic ，但本身不是魔法。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "甲伏怪发动两次钳击攻击并使用麻痹触须。"
+    },
+    {
+      "name": "钳击",
+      "description": "近战攻击检定：+6，触及10尺。命中：9（1d10+4）钝击伤害。若目标生物体型不超过大型，则其被两个巨钳之一擒抱，陷入受擒状态。"
+    },
+    {
+      "name": "麻痹触须",
+      "description": "体质豁免检定：DC13，单一受擒于甲伏怪的生物。失败：目标陷入中毒状态并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。 中毒期间，目标陷入麻痹状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Chuul\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\甲伏怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

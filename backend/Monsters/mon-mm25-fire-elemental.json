@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-fire-elemental",
+  "name": "火元素",
+  "size": "大型",
+  "creature_type": "元素",
+  "alignment": "中立",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 13,
+  "hp_max": 93,
+  "initiative_bonus": 3,
+  "speed": 50,
+  "stats": {
+    "strength": 10,
+    "dexterity": 17,
+    "constitution": 16,
+    "intelligence": 6,
+    "wisdom": 10,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 3,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": -2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "原初语（火族语）"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "昏迷"
+  ],
+  "traits": [
+    {
+      "name": "火焰灵光",
+      "description": "火元素回合结束时位于源自火元素的10尺光环区域内的每名生物受到5（1d10）点火焰伤害。光环内的生物和易燃物件开始燃烧。"
+    },
+    {
+      "name": "火焰形态",
+      "description": "火元素可以移动穿过最窄1寸宽的空间而无需消耗额外的移动力，且其可以进入并停留在一名生物所处的空间。当火元素在某个回合中首次进入某生物所处的空间时，该生物受到5（1d10）火焰伤害。"
+    },
+    {
+      "name": "照明",
+      "description": "火元素散发出半径30尺的明亮光照以及额外30尺的微光光照。 水体易感 Water Susceptibility。每在水中移动5尺或每被泼一加仑水，火元素受到3（1d6）寒冷伤害。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "火元素发动两次燃烧攻击。"
+    },
+    {
+      "name": "燃烧",
+      "description": "近战攻击检定：+6，触及5尺。命中：10（2d6+3）火焰伤害。若目标为生物或易燃物件，则其开始燃烧。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Fire Elemental\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\四元素\\火元素.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

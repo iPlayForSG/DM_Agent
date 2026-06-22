@@ -1,0 +1,59 @@
+{
+  "monster_id": "mon-mm25-tyrannosaurus-rex",
+  "name": "霸王龙",
+  "size": "巨型",
+  "creature_type": "野兽（恐龙）",
+  "alignment": "无阵营",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 13,
+  "hp_max": 136,
+  "initiative_bonus": 3,
+  "speed": 50,
+  "stats": {
+    "strength": 25,
+    "dexterity": 10,
+    "constitution": 19,
+    "intelligence": 2,
+    "wisdom": 12,
+    "charisma": 9
+  },
+  "saving_throws": {
+    "strength": 10,
+    "dexterity": 0,
+    "constitution": 4,
+    "intelligence": -4,
+    "wisdom": 4,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 4
+  },
+  "senses": [
+    "被动察觉14"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "霸王龙发动一次啃咬攻击和一次尾击攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+10，触及10尺。命中：33（4d12+7）穿刺伤害，若目标生物体型不超过大型，则其陷入受擒状态（逃脱DC17）。受擒期间，目标还会陷入束缚状态且不能成为霸王龙尾击的目标。"
+    },
+    {
+      "name": "尾击",
+      "description": "近战攻击检定：+10，触及15尺。命中：25（4d8+7）钝击伤害，且若目标生物体型不超过巨型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Tyrannosaurus Rex\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\恐龙\\霸王龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -32,6 +32,7 @@ TOOL_NAME_ALIASES = {
     "use_item": {"use_item", "inventory.use_item"},
     "roll_skill_check": {"roll_skill_check", "check.skill"},
     "roll_saving_throw": {"roll_saving_throw", "check.saving_throw"},
+    "save_monster_template": {"save_monster_template", "monster.save_template", "monster.save_game_template"},
     "attack_target": {"attack_target", "combat.attack_target"},
     "end_encounter": {"end_encounter", "encounter.end", "encounter.end_encounter"},
     "encounter.end_encounter": {"end_encounter", "encounter.end", "encounter.end_encounter"},

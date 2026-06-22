@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-bullywug-warrior",
+  "name": "啵灵蛙武者",
+  "size": "中型",
+  "creature_type": "妖精",
+  "alignment": "中立",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 11,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 12,
+    "dexterity": 14,
+    "constitution": 13,
+    "intelligence": 7,
+    "wisdom": 10,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": -2
+  },
+  "skills": {
+    "stealth": 4
+  },
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [
+    "啵灵蛙语",
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "啵灵蛙可以在空气和水中呼吸。"
+    },
+    {
+      "name": "蛙类交谈",
+      "description": "啵灵蛙可以使用啵灵蛙语来与蛙和蟾蜍进行简单交流。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "虫刺",
+      "description": "近战攻击：+4，触及5尺。命中：6（1d8+2）穿刺伤害外加2（1d4）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "跳跃",
+      "description": "啵灵蛙消耗10尺移动力跳跃至多30尺。"
+    }
+  ],
+  "notes": "英文名：Bullywug Warrior\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\啵灵蛙\\啵灵蛙武者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

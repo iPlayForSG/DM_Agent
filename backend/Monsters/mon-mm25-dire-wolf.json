@@ -1,0 +1,58 @@
+{
+  "monster_id": "mon-mm25-dire-wolf",
+  "name": "恐狼",
+  "size": "大型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 22,
+  "initiative_bonus": 2,
+  "speed": 50,
+  "stats": {
+    "strength": 17,
+    "dexterity": 14,
+    "constitution": 15,
+    "intelligence": 3,
+    "wisdom": 12,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 2,
+    "constitution": 2,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 5,
+    "stealth": 4
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "集群战术",
+      "description": "若恐狼的攻击目标生物5尺内存在有至少一名恐狼未失能的盟友，则恐狼对该生物进行的攻击检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5，触及5尺。命中：8（1d10+3）穿刺伤害。若目标生物体型不超过大型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Dire Wolf\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\恐狼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

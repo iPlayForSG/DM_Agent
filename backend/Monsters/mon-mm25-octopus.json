@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-octopus",
+  "name": "章鱼",
+  "size": "小型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 3,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 4,
+    "dexterity": 15,
+    "constitution": 11,
+    "intelligence": 3,
+    "wisdom": 10,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": -3,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 2,
+    "stealth": 6
+  },
+  "senses": [
+    "黑暗视觉30尺",
+    "被动察觉12"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "柔韧躯体",
+      "description": "章鱼可以移动穿过最窄1寸宽的空间而无需消耗额外的移动力。"
+    },
+    {
+      "name": "水下呼吸",
+      "description": "章鱼只能在水下呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "触须",
+      "description": "近战攻击检定：+4，触及5尺。命中：1钝击伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "墨水云",
+      "description": "触发：一名处于水下的生物在章鱼5尺内结束其回合。 响应：章鱼释放出墨水覆盖以自己为中心的5尺立方区域，且章鱼移动至多等于其游泳速度的距离。该立方区域在1分钟内变为重度遮蔽，当有强劲水流或类似效应将墨水击散时，该效应提前结束。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Octopus\n速度：5尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\章鱼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

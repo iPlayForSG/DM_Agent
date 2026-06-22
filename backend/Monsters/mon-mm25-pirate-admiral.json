@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-pirate-admiral",
+  "name": "海盗将军",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "12",
+  "proficiency_bonus": 4,
+  "ac": 20,
+  "hp_max": 182,
+  "initiative_bonus": 10,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 22,
+    "constitution": 14,
+    "intelligence": 12,
+    "wisdom": 14,
+    "charisma": 19
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 10,
+    "constitution": 2,
+    "intelligence": 1,
+    "wisdom": 6,
+    "charisma": 8
+  },
+  "skills": {
+    "特技": 10,
+    "athletics": 6,
+    "perception": 6
+  },
+  "senses": [
+    "被动察觉16"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "海盗将军使用弯刀或手铳发动共计三次攻击。"
+    },
+    {
+      "name": "弯刀",
+      "description": "近战攻击检定：+10，触及5尺。命中：16（3d6+6）挥砍伤害外加7（2d6）毒素伤害，且目标承受以下效应之一（由海盗将军选择）： 敬惧Awestruck。目标陷入魅惑状态直至海盗将军的下个回合开始。 毒杀Poison。目标陷入中毒状态直至海盗将军的下个回合开始。"
+    },
+    {
+      "name": "手铳",
+      "description": "远程攻击检定：+10，射程30/90尺。命中：28（4d10+6）穿刺伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "防守架势",
+      "description": "触发：海盗将军在持握武器期间因近战攻击检定被命中。响应：直至海盗将军的下个回合开始，海盗将军令其对抗近战攻击检定（包括触发攻击）的AC+4，可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "给我上！",
+      "description": "海盗将军选择30尺内至多三名其他生物。目标的攻击检定和豁免检定具有优势，直至海盗将军的下个回合开始。"
+    }
+  ],
+  "notes": "英文名：Pirate Admiral\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\海盗\\海盗将军.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

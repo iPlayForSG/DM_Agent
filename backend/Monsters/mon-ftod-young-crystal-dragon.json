@@ -1,0 +1,55 @@
+{
+  "monster_id": "mon-ftod-young-crystal-dragon",
+  "name": "青年水晶龙",
+  "size": "大型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言混乱中立",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 95,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 17,
+    "dexterity": 12,
+    "constitution": 18,
+    "intelligence": 16,
+    "wisdom": 14,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "dexterity": 4,
+    "constitution": 7,
+    "wisdom": 5,
+    "charisma": 6
+  },
+  "skills": {
+    "perception": 8,
+    "stealth": 7,
+    "survival": 5
+  },
+  "senses": [
+    "盲视 30尺",
+    "黑暗视觉120尺",
+    "被动察觉18"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "光耀"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Crystal Dragon\n速度：40尺，掘穴20尺，攀爬40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\水晶龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

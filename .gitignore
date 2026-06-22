@@ -23,7 +23,6 @@ frontend/.env.development.local
 # Local runtime saves and generated content
 backend/Game/
 backend/Characters/
-backend/Monsters/
 LOCAL_FRAMEWORK_DECISION.md
 BACKEND_API_DESIGN.md
 FRONTEND_API_DESIGN.md

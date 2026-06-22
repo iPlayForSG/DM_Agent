@@ -1,0 +1,58 @@
+{
+  "monster_id": "mon-mm25-killer-whale",
+  "name": "虎鲸",
+  "size": "巨型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 90,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 19,
+    "dexterity": 14,
+    "constitution": 13,
+    "intelligence": 3,
+    "wisdom": 12,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 3,
+    "stealth": 4
+  },
+  "senses": [
+    "盲视120尺",
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "屏息",
+      "description": "虎鲸可以屏息30分钟。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+6，触及5尺。命中：21（5d6+4）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Killer Whale\n速度：5尺，游泳60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\虎鲸.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

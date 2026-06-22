@@ -1,0 +1,62 @@
+{
+  "monster_id": "mon-mm25-frog",
+  "name": "蛙",
+  "size": "微型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 1,
+  "initiative_bonus": 1,
+  "speed": 20,
+  "stats": {
+    "strength": 1,
+    "dexterity": 13,
+    "constitution": 8,
+    "intelligence": 1,
+    "wisdom": 8,
+    "charisma": 3
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 1,
+    "constitution": -1,
+    "intelligence": -5,
+    "wisdom": -1,
+    "charisma": -4
+  },
+  "skills": {
+    "perception": 1,
+    "stealth": 3
+  },
+  "senses": [
+    "黑暗视觉30尺",
+    "被动察觉11"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "蛙可以在空气和水中呼吸。"
+    },
+    {
+      "name": "立定起跳",
+      "description": "不论是否助跑，蛙都能跳远至多10尺或跳高至高5尺。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+3，触及5尺。命中：1穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Frog\n速度：20尺，游泳20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\蛙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

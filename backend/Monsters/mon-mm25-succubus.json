@@ -1,0 +1,88 @@
+{
+  "monster_id": "mon-mm25-succubus",
+  "name": "魅魔",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "中立邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 71,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 8,
+    "dexterity": 17,
+    "constitution": 13,
+    "intelligence": 15,
+    "wisdom": 12,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": 3,
+    "constitution": 1,
+    "intelligence": 2,
+    "wisdom": 1,
+    "charisma": 5
+  },
+  "skills": {
+    "deception": 9,
+    "insight": 5,
+    "perception": 5,
+    "游说": 9,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "炼狱语",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "毒素",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "化身梦魔",
+      "description": "魅魔在完成一次长休时可以变形为梦魔Incubus，并使用梦魔的游戏数据替代其原来的数据。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "魅魔发动一次魔性之触攻击并使用魅惑或汲命之吻。"
+    },
+    {
+      "name": "魔性之触",
+      "description": "近战攻击：+7，触及5尺。命中：16（2d10+5）心灵伤害。"
+    },
+    {
+      "name": "魅惑",
+      "description": "魅魔施展支配类人Dominate Person （八环版本），无需法术成分并使用魅力作为施法属性（法术豁免DC15）。"
+    },
+    {
+      "name": "汲命之吻",
+      "description": "体质豁免：DC15，单一5尺内魅惑于魅魔的生物。失败：13（3d8）心灵伤害。成功：半伤。失败或成功：目标的生命值上限减少等于其受到伤害的数值"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "魅魔变形为小型或中型的类人生物，或变回其真实形态。除飞行速度仅其真实形态可用以外，其各形态下游戏数据均相同。魅魔着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Succubus\n速度：30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\魅魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

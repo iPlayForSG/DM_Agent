@@ -127,6 +127,15 @@ class AgentToolService:
                 normalized.append(MonsterTextEntry(name=f"Entry {index}", description=text))
         return normalized
 
+    def _load_monster_template(self, state: GameState, monster_ref: str) -> Optional[MonsterTemplate]:
+        monster = state.monster_templates.get(monster_ref)
+        if monster:
+            return monster
+        for template in state.monster_templates.values():
+            if template.name == monster_ref:
+                return template
+        return self.monster_storage.load_monster(monster_ref)
+
     def lookup_rules(self, state: GameState, query: str, n_results: int = 3) -> AgentToolExecution:
         normalized_query = (query or "").strip()
         if not normalized_query:
@@ -596,20 +605,23 @@ class AgentToolService:
             actions=self._normalize_text_entries(actions),
             reactions=self._normalize_text_entries(reactions),
             bonus_actions=self._normalize_text_entries(bonus_actions),
+            source="game-authored",
         )
-        self.monster_storage.save_monster(monster)
+        state.monster_templates[monster.monster_id] = monster
 
         payload = {
             "monster_id": monster.monster_id,
             "name": monster.name,
             "creature_type": monster.creature_type,
             "challenge_rating": monster.challenge_rating,
+            "scope": "game",
         }
         return self._success(
-            tool_name="monster.save_template",
-            summary=f"Monster template saved: {monster.name}",
+            tool_name="monster.save_game_template",
+            summary=f"本局怪物模板已保存：{monster.name}",
             payload=payload,
             event_type="monster_template_saved",
+            state_patch={"monster_templates": {monster.monster_id: monster.model_dump(mode="json")}},
         )
 
     def spawn_monster_from_template(
@@ -623,7 +635,7 @@ class AgentToolService:
         auto_roll_initiative: bool = True,
     ) -> AgentToolExecution:
         logic = GameLogic(state)
-        monster = self.monster_storage.load_monster(monster_ref)
+        monster = self._load_monster_template(state, monster_ref)
         if not monster:
             return self._error(f"Monster template not found: {monster_ref}")
 

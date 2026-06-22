@@ -1,0 +1,84 @@
+{
+  "monster_id": "mon-mm25-sahuagin-priest",
+  "name": "鲨华祭司",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "守序邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 38,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 13,
+    "dexterity": 11,
+    "constitution": 12,
+    "intelligence": 12,
+    "wisdom": 14,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 0,
+    "constitution": 1,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 1
+  },
+  "skills": {
+    "perception": 6,
+    "religion": 3
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉16"
+  ],
+  "languages": [
+    "鲨华鱼人语"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "寒冷"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "血腥狂怒",
+      "description": "鲨华鱼人对生命值未满的生物进行攻击检定时具有优势。"
+    },
+    {
+      "name": "有限两栖",
+      "description": "鲨华鱼人可以在空气和水中呼吸，但必须至少每4小时浸入水中一次，以避免离开水后窒息。"
+    },
+    {
+      "name": "鲨心感应",
+      "description": "鲨华鱼人能使用一种特殊的心灵感应，魔法性地控制其120尺内的鲨鱼。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鲨华鱼人发动两次灵体鲨颚攻击。"
+    },
+    {
+      "name": "灵体鲨颚",
+      "description": "近战或远程攻击检定：+4，触及5尺或射程120尺。命中：11（2d8 + 2）力场伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "鲨华鱼人施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC12）： 随意：奇术Thaumaturgy 每项2/日：定身类人Hold Person，巧言术Tongues"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "邪魔支援",
+      "description": "鲨华鱼人施展祝福术Bless或治愈真言Healing Word，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Sahuagin Priest\n速度：30尺，游泳40尺。\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\鲨华鱼人\\鲨华祭司.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

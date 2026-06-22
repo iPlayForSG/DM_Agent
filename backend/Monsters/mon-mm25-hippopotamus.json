@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-mm25-hippopotamus",
+  "name": "河马",
+  "size": "大型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 82,
+  "initiative_bonus": -2,
+  "speed": 30,
+  "stats": {
+    "strength": 21,
+    "dexterity": 7,
+    "constitution": 15,
+    "intelligence": 2,
+    "wisdom": 12,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": -2,
+    "constitution": 2,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 3
+  },
+  "senses": [
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "屏息",
+      "description": "河马可以屏息10分钟。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "河马发动两次啃咬攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。命中：16（2d10+5）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Hippopotamus\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\河马.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

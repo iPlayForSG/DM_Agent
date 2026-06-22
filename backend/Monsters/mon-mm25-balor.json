@@ -1,0 +1,87 @@
+{
+  "monster_id": "mon-mm25-balor",
+  "name": "炎魔",
+  "size": "巨型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "19",
+  "proficiency_bonus": 6,
+  "ac": 19,
+  "hp_max": 287,
+  "initiative_bonus": 14,
+  "speed": 40,
+  "stats": {
+    "strength": 26,
+    "dexterity": 15,
+    "constitution": 22,
+    "intelligence": 16,
+    "wisdom": 16,
+    "charisma": 22
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 2,
+    "constitution": 12,
+    "intelligence": 9,
+    "wisdom": 9,
+    "charisma": 6
+  },
+  "skills": {
+    "perception": 9
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉19"
+  ],
+  "languages": [
+    "深渊语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "焚身爆",
+      "description": "炎魔在死亡时爆炸。敏捷豁免：DC20，源自炎魔的30尺光环区域内的每名生物。失败：31（9d6）火焰伤害外加31（9d6）力场伤害。成功：半伤。失败或成功：若炎魔于无底深渊之外死去，其立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "火焰灵光",
+      "description": "炎魔回合结束时位于源自炎魔5尺光环区域内的每名生物受到13（3d8）火焰伤害。 传奇抗性Legendary Resistance（3/日）。炎魔豁免失败时，可以将其改为豁免成功。 魔法抗性Magic Resistance。炎魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "炎魔发动一次火舌长鞭攻击与一次闪电剑攻击。"
+    },
+    {
+      "name": "火舌长鞭",
+      "description": "近战攻击检定：+14，触及30尺。命中：18（3d6+8）力场伤害外加17（5d6）火焰伤害。若目标生物体型不超过巨型，炎魔将目标直线拉近至多25尺，且目标陷入倒地状态。"
+    },
+    {
+      "name": "闪电剑",
+      "description": "近战攻击检定：+14，触及10尺。命中：21（3d8+8）力场伤害外加22（4d10）闪电伤害，且目标无法执行反应直至炎魔的下个回合开始。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "传送",
+      "description": "炎魔将其自身或位于其10尺内的一名自愿恶魔传送至多60尺至一处炎魔可见的未占据空间。"
+    }
+  ],
+  "notes": "英文名：Balor\n速度：40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\炎魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

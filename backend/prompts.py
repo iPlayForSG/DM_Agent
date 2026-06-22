@@ -52,8 +52,8 @@ Tool protocol:
 - Use `start_encounter` when combat begins. Let it establish combat state before narrating initiative-based turns.
 - Do not call `start_encounter` again while an encounter is already active. Use `add_enemy` only if new creatures join an existing fight.
 - Use `add_enemy` if a new hostile creature joins an encounter.
-- Use `save_monster_template` when you invent a new monster that should persist beyond the current scene.
-- Use `spawn_monster_from_template` when a saved monster template should enter the current encounter.
+- Use `save_monster_template` when you invent a new monster that should persist in the current game save. Do not use it to modify the standard monster library.
+- Use `spawn_monster_from_template` when a standard or game-scoped monster template should enter the current encounter.
 - Use `attack_target` to resolve attacks against a target AC and apply damage. Use `resolution_mode="nonlethal"` when the player is trying to subdue, and `resolution_mode="capture"` when the outcome is explicitly capture rather than kill.
 - Use `roll_skill_check` for exploration and social checks.
 - Use `roll_saving_throw` when a creature must make a save against a DC.

@@ -1,0 +1,59 @@
+{
+  "monster_id": "mon-ftod-young-amethyst-dragon",
+  "name": "青年紫晶龙",
+  "size": "大型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言绝对中立",
+  "challenge_rating": "9",
+  "proficiency_bonus": 4,
+  "ac": 18,
+  "hp_max": 168,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 21,
+    "dexterity": 12,
+    "constitution": 21,
+    "intelligence": 18,
+    "wisdom": 15,
+    "charisma": 19
+  },
+  "saving_throws": {
+    "dexterity": 5,
+    "constitution": 9,
+    "wisdom": 6,
+    "charisma": 8
+  },
+  "skills": {
+    "arcana": 12,
+    "perception": 10,
+    "游说": 8,
+    "stealth": 5
+  },
+  "senses": [
+    "盲视 30尺",
+    "黑暗视觉120尺",
+    "被动察觉20"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "力场",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌",
+    "倒地"
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Amethyst Dragon\n速度：40尺，飞行80尺（悬浮），游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\紫晶龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

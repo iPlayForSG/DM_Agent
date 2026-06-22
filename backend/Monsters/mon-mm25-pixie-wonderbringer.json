@@ -1,0 +1,75 @@
+{
+  "monster_id": "mon-mm25-pixie-wonderbringer",
+  "name": "皮克妙妙精",
+  "size": "微型",
+  "creature_type": "妖精",
+  "alignment": "中立善良",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 60,
+  "initiative_bonus": 5,
+  "speed": 10,
+  "stats": {
+    "strength": 2,
+    "dexterity": 20,
+    "constitution": 10,
+    "intelligence": 11,
+    "wisdom": 14,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": -4,
+    "dexterity": 5,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": 4
+  },
+  "skills": {
+    "arcana": 3,
+    "perception": 5,
+    "stealth": 8
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [
+    "通用语",
+    "精灵语",
+    "木族语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "皮克精对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "皮克精发动两次妖精尘攻击。"
+    },
+    {
+      "name": "妖精尘",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程60尺。 命中：15（2d10+4）光耀伤害，且目标陷入魅惑或中毒状态（由皮克精选择），持续至皮克精的下个回合开始。"
+    },
+    {
+      "name": "施法",
+      "description": "皮克精施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC15）： 随意：舞光术Dancing Lights、德鲁伊伎俩Druidcraft、隐形术Invisibility（仅自身） 每项1/日：侦测思想Detect Thoughts、飞行术Fly、高级幻影Major Image"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "奇妙尘爆",
+      "description": "皮克精施展纠缠术Entangle、变形术Polymorph或塔莎狂笑术Tasha's Hideous Laughter，无需材料成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Pixie Wonderbringer\n速度：10尺、飞行30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\皮克精\\皮克妙妙精.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

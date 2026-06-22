@@ -1,0 +1,82 @@
+{
+  "monster_id": "mon-mm25-dryad",
+  "name": "树精",
+  "size": "中型",
+  "creature_type": "妖精",
+  "alignment": "中立",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 22,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 12,
+    "constitution": 11,
+    "intelligence": 14,
+    "wisdom": 15,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 1,
+    "constitution": 0,
+    "intelligence": 2,
+    "wisdom": 2,
+    "charisma": 4
+  },
+  "skills": {
+    "perception": 4,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "精灵语",
+    "木族语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "树精对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "动植物交谈",
+      "description": "树精可以与野兽和植物进行交流，如同共享同一门语言。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "树精发动一次藤鞭抽击或荆棘迸裂攻击，并使用施法施展魅惑怪物Charm Monster 。"
+    },
+    {
+      "name": "藤鞭抽击",
+      "description": "近战攻击检定：+6，触及10尺。命中：8（1d8+4）挥砍伤害"
+    },
+    {
+      "name": "荆棘迸裂",
+      "description": "远程攻击检定：+6，射程60尺。命中：7（1d6+4）穿刺伤害"
+    },
+    {
+      "name": "施法",
+      "description": "该树精施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC14）： 随意： 化兽为友Animal Friendship， 魅惑怪物Charm Monster（持续24小时；于树精再次释放该法术时提前结束）， 德鲁伊伎俩Druidcraft 每项1/日：纠缠术Entangle，行动无踪Pass Without Trace"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "林间飞跃",
+      "description": "如果树精位于一颗不小于大型的树的5尺内，则可以传送至该树60尺内的，另一颗不小于大型的树的5尺内的未占据空间。"
+    }
+  ],
+  "notes": "英文名：Dryad\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\树精.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

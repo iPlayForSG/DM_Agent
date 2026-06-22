@@ -1,0 +1,90 @@
+{
+  "monster_id": "mon-ftod-adult-emerald-dragon",
+  "name": "成年翡翠龙",
+  "size": "巨型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言守序中立",
+  "challenge_rating": "14",
+  "proficiency_bonus": 5,
+  "ac": 18,
+  "hp_max": 207,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 23,
+    "dexterity": 12,
+    "constitution": 21,
+    "intelligence": 18,
+    "wisdom": 16,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "dexterity": 6,
+    "constitution": 10,
+    "wisdom": 8,
+    "charisma": 9
+  },
+  "skills": {
+    "arcana": 9,
+    "deception": 9,
+    "perception": 13,
+    "stealth": 6
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "火焰",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "若翡翠龙在一次豁免中失败，它可以选择直接成功。"
+    },
+    {
+      "name": "转换知觉",
+      "description": "翡翠龙能施展幻景hallucinatory terrain，无需任何法术成分，并使用智力作为其施法属性（法术豁免DC17）。"
+    },
+    {
+      "name": "掘道者",
+      "description": "翡翠龙能够以其一半的掘穴速度通过坚硬的岩层，并在其身后留下直径15尺的地道。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "翡翠龙进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+11，触及10尺，单一目标。 命中： 17（2d10+6）穿刺伤害，外加7（2d6）心灵伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+11，触及5尺，单一目标。 命中： 10（1d8+6）挥砍伤害。"
+    },
+    {
+      "name": "惑心吐息",
+      "description": "翡翠龙喷出一波不谐的灵能之力，覆盖60尺锥状区域，区域内的所有生物必须进行一次DC 18的智力豁免，豁免失败者将受42（12d6）点心灵伤害，并且直到其下个回合结束，每当该生物进行一次攻击检定或属性检定时，它必须投一枚d6并从检定结果中减去其骰值。豁免成功则伤害减半，并不会受到额外的效应影响。"
+    },
+    {
+      "name": "施法",
+      "description": "翡翠龙施展以下一个法术，无需任何法术成分并使用智力作为其施法属性（法术豁免DC17）： 随意： 法师之手mage hand（手是隐形的），次级幻象minor illusion 1/每日：侦测思想detect thoughts，解除魔法dispel magic，隐形术invisibility，高级幻影major image"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Emerald Dragon\n速度：40尺，掘穴30尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\翡翠龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

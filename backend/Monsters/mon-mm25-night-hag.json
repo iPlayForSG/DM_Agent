@@ -1,0 +1,95 @@
+{
+  "monster_id": "mon-mm25-night-hag",
+  "name": "夜鬼婆",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "中立邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 112,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 15,
+    "constitution": 16,
+    "intelligence": 16,
+    "wisdom": 14,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 3,
+    "intelligence": 3,
+    "wisdom": 2,
+    "charisma": 3
+  },
+  "skills": {
+    "deception": 6,
+    "insight": 5,
+    "perception": 5,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "炼狱语",
+    "原初语"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑"
+  ],
+  "traits": [
+    {
+      "name": "集会魔法",
+      "description": "在30尺内有至少两个鬼婆盟友的情况下，鬼婆可以施展以下一道法术，无需材料成分，使用法术的原本施法时间，并使用智力作为施法属性（法术豁免DC14）：卜筮术Augury，寻获魔宠Find Familiar，鉴定术Identify，物件定位术Locate Object，探知术Scrying或隐形仆役Unseen Servant 。鬼婆必须完成一次长休后才能再次用此特质施展其所选的法术。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "鬼婆对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "灵魂袋",
+      "description": "鬼婆有一只灵魂袋。只要持握或携带灵魂袋，鬼婆就能够使用其噩梦缠身动作。 灵魂袋具有AC15、HP20、具有对所有伤害的抗性。当灵魂袋生命值降至0时，其化作尘埃。若灵魂袋被摧毁，所有被鬼婆装在里面的灵魂都会被释放。鬼婆可以在7日后创造一个新的灵魂袋。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鬼婆发动两次爪击攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+7，触及5尺。命中：13（2d8+4）挥砍伤害。"
+    },
+    {
+      "name": "噩梦缠身",
+      "description": "若鬼婆身处以太位面，其施展托梦术Dream，使用与施法动作相同的施法属性。只有鬼婆能作为法术的信使，并且目标必须是一名鬼婆可见的身处物质位面的生物。若目标处于法术防护善恶Protection from Evil and Good效应下或身处法术防护法阵Magic Circle 中，法术失败并被浪费。 若目标因此次托梦术受到伤害，目标的生命值上限减少等于此次伤害的数值。如果该法术杀死了目标，其灵魂会被困入鬼婆的灵魂袋中，并且直至目标的灵魂被释放，其无法被复活。"
+    },
+    {
+      "name": "施法",
+      "description": "鬼婆施展以下一道法术，无需材料成分并使用智力作为施法属性（法术豁免DC14）： 随意：侦测魔法Detect Magic，以太化Etherealness，魔法飞弹Magic Missile（四环版本） 每项2/日：魅影杀手Phantasmal Killer，位面转移Plane Shift（仅自身）"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "鬼婆变形为小型或中型的类人生物，或变回其真实形态。除体型外，其各形态下游戏数据均相同。鬼婆着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Night Hag\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\鬼婆\\夜鬼婆.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

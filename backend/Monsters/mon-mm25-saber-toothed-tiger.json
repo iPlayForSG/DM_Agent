@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-saber-toothed-tiger",
+  "name": "剑齿虎",
+  "size": "大型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 52,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 18,
+    "dexterity": 16,
+    "constitution": 15,
+    "intelligence": 3,
+    "wisdom": 12,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 5,
+    "constitution": 2,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 5,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "助跑起跳",
+      "description": "剑齿虎在助跑10尺后可以跳远至多25尺。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "剑齿虎发动两次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+6，触及5尺。命中：11（2d6+4）挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "迅捷逃逸",
+      "description": "剑齿虎执行撤离或躲藏动作。"
+    }
+  ],
+  "notes": "英文名：Saber-Toothed Tiger\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\剑齿虎.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,55 @@
+{
+  "monster_id": "mon-mm25-basilisk",
+  "name": "石化蜥蜴",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 52,
+  "initiative_bonus": -1,
+  "speed": 20,
+  "stats": {
+    "strength": 16,
+    "dexterity": 8,
+    "constitution": 15,
+    "intelligence": 2,
+    "wisdom": 8,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": -1,
+    "constitution": 2,
+    "intelligence": -4,
+    "wisdom": -1,
+    "charisma": -2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉9"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5，触及5尺。命中：10（2d6+3）穿刺伤害外加7（2d6）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "石化凝视",
+      "description": "体质豁免检定：DC12，30尺锥状区域内的每名生物。若石化蜥蜴在锥形区域内看到自己的倒影，其也必须进行此豁免。首次失败：目标陷入束缚状态，目标在下个回合结束时仍处于束缚则重复豁免，成功则终止其身上的该效应。再次失败：目标陷入石化状态替代其束缚状态。"
+    }
+  ],
+  "notes": "英文名：Basilisk\n速度：20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\石化蜥蜴.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

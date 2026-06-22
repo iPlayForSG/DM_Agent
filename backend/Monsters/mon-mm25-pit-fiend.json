@@ -1,0 +1,96 @@
+{
+  "monster_id": "mon-mm25-pit-fiend",
+  "name": "深狱炼魔",
+  "size": "大型",
+  "creature_type": "邪魔（魔鬼）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "20",
+  "proficiency_bonus": 6,
+  "ac": 21,
+  "hp_max": 337,
+  "initiative_bonus": 14,
+  "speed": 30,
+  "stats": {
+    "strength": 26,
+    "dexterity": 14,
+    "constitution": 24,
+    "intelligence": 22,
+    "wisdom": 18,
+    "charisma": 24
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 8,
+    "constitution": 7,
+    "intelligence": 6,
+    "wisdom": 10,
+    "charisma": 7
+  },
+  "skills": {
+    "perception": 10,
+    "游说": 19
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉20"
+  ],
+  "languages": [
+    "炼狱语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷"
+  ],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔鬼复苏",
+      "description": "若深狱炼魔于九层地狱之外死去，其身躯会化为硫磺烟雾消失，并立即在九层地狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "恐惧灵光",
+      "description": "只要未陷入失能状态，深狱炼魔在20尺光环区域内散发灵光。感知豁免检定：DC21，在光环区域内开始其回合的任意敌人。失败：目标陷入恐慌状态直至其下个回合开始。成功：目标在24小时内免疫此深狱炼魔的恐惧灵光。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "深狱炼魔豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "深狱炼魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "深狱炼魔发动一次啃咬攻击，两次魔鬼之爪攻击以及一次烈焰重锤攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+14，触及10尺。命中：18（3d6+8）穿刺伤害。若目标为生物，则其必须进行以下豁免：体质豁免检定：DC21。失败：目标陷入中毒状态。中毒期间，目标无法恢复生命值，且在其回合开始时受到21（6d6）毒素伤害。陷入中毒的目标在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。"
+    },
+    {
+      "name": "魔鬼之爪",
+      "description": "近战攻击检定：+14，触及10尺。命中：26（4d8+8）暗蚀伤害。"
+    },
+    {
+      "name": "烈焰重锤",
+      "description": "近战攻击检定：+14，触及10尺。命中：22（3d8+8）力场伤害外加21（6d6）火焰伤害。"
+    },
+    {
+      "name": "狱火施法",
+      "description": "深狱炼魔施展两次火球术Fireball（五环版本），无需材料成分并使用魅力作为施法属性（法术豁免DC21）。其可以将其中一次火球术替换为定身怪物Hold Monster（七环版本）或火墙术Wall of Fire。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Pit Fiend\n速度：30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\魔鬼\\深狱炼魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

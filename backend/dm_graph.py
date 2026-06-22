@@ -284,7 +284,7 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "save_monster_template",
-        "description": "Persist a reusable monster template designed during play.",
+        "description": "Persist a game-scoped monster template designed during play. Standard monster templates are read-only.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -308,7 +308,7 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "spawn_monster_from_template",
-        "description": "Spawn one or more combatants from a saved monster template.",
+        "description": "Spawn one or more combatants from a standard or game-scoped monster template.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -727,7 +727,7 @@ TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
     "set_active_character": {"set_active_character", "character.set_active"},
     "start_encounter": {"start_encounter", "encounter.start"},
     "add_enemy": {"add_enemy", "encounter.add_enemy"},
-    "save_monster_template": {"save_monster_template", "monster.save_template"},
+    "save_monster_template": {"save_monster_template", "monster.save_template", "monster.save_game_template"},
     "spawn_monster_from_template": {"spawn_monster_from_template", "monster.spawn_from_template"},
     "attack_target": {"attack_target", "combat.attack_target"},
     "roll_skill_check": {"roll_skill_check", "check.skill"},

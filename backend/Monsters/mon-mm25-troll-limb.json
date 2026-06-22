@@ -1,0 +1,55 @@
+{
+  "monster_id": "mon-mm25-troll-limb",
+  "name": "巨魔断肢",
+  "size": "小型",
+  "creature_type": "巨人",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 14,
+  "initiative_bonus": 1,
+  "speed": 20,
+  "stats": {
+    "strength": 18,
+    "dexterity": 12,
+    "constitution": 10,
+    "intelligence": 1,
+    "wisdom": 9,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 1,
+    "constitution": 0,
+    "intelligence": -5,
+    "wisdom": -1,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉9"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "再生",
+      "description": "断肢在其回合开始时恢复15生命值。若断肢受到强酸或火焰伤害，则该特质在其下个回合开始时无法生效。断肢只有以0生命值开始其回合且无法再生时，才会死亡。 巨魔孽生Troll Spawn。断肢不可思议地有着如同整只巨魔的感官。若断肢未在24小时内被摧毁，掷1d12。骰值为12时，断肢长成一头巨魔Troll。否则，断肢萎缩死去。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+6，触及5尺。命中：9（2d4+4）挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Troll Limb\n速度：20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\巨人\\巨魔\\巨魔断肢.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

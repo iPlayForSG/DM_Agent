@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-swarm-of-ravens",
+  "name": "渡鸦集群",
+  "size": "微型",
+  "creature_type": "野兽的中型集群",
+  "alignment": "无阵营",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 11,
+  "initiative_bonus": 2,
+  "speed": 10,
+  "stats": {
+    "strength": 6,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 5,
+    "wisdom": 12,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": -3,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 5
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "倒地",
+    "束缚",
+    "震慑"
+  ],
+  "traits": [
+    {
+      "name": "集群",
+      "description": "渡鸦集群可以进驻另一生物身处的空间，反之亦然。而且渡鸦集群可以通过任何足够一只微型渡鸦通过的通道。渡鸦集群不能恢复生命值也不能获得临时生命值 。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "喙啄",
+      "description": "近战攻击检定：+4，触及5尺。 命中：5（1d6+2）穿刺伤害，若渡鸦集群处于浴血则改为2（1d4）穿刺伤害。"
+    },
+    {
+      "name": "不谐和音",
+      "description": "感知豁免检定：DC10，单一位于渡鸦集群空间内的生物。 失败：目标陷入耳聋状态，持续至渡鸦集群下个回合开始。耳聋期间，目标进行的属性检定和攻击检定还会具有劣势。 她的目光无处不在——如黑钻的碎片，似午夜的深渊。渡鸦女王注视一切。 ——永夜城的涂鸦"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Swarm of Ravens\n速度：10尺，飞行50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\集群\\渡鸦集群.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

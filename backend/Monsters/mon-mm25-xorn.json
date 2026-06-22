@@ -1,0 +1,84 @@
+{
+  "monster_id": "mon-mm25-xorn",
+  "name": "石鼎兽",
+  "size": "中型",
+  "creature_type": "元素生物",
+  "alignment": "中立",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 19,
+  "hp_max": 84,
+  "initiative_bonus": 0,
+  "speed": 20,
+  "stats": {
+    "strength": 17,
+    "dexterity": 10,
+    "constitution": 22,
+    "intelligence": 11,
+    "wisdom": 10,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 0,
+    "constitution": 6,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 6,
+    "stealth": 6
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "震颤感知60尺",
+    "被动察觉16"
+  ],
+  "languages": [
+    "原初语（土族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "麻痹",
+    "石化",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "遁地",
+      "description": "石鼎兽可以掘穴穿过非魔法且未经加工的泥土及岩石。遁地期间，石鼎兽不会破坏其穿过的任何材质。"
+    },
+    {
+      "name": "财宝感知",
+      "description": "石鼎兽可以定位其60尺内贵金属与贵重岩石的位置。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "石鼎兽发动一次啃咬攻击与三次爪攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+6，触及5尺。命中：17（4d6+3）点穿刺伤害。"
+    },
+    {
+      "name": "爪",
+      "description": "近战攻击检定：+6，触及5尺。命中：8（1d10+3）点挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "冲锋",
+      "description": "石鼎兽向一名其可以感知的敌人直线移动至多等于其速度或掘穴速度的距离。"
+    }
+  ],
+  "notes": "英文名：Xorn\n速度：20尺、掘穴20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\石鼎兽.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

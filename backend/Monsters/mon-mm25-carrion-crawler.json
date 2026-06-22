@@ -1,0 +1,65 @@
+{
+  "monster_id": "mon-mm25-carrion-crawler",
+  "name": "食腐虫",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 51,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 13,
+    "constitution": 16,
+    "intelligence": 1,
+    "wisdom": 12,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": -5,
+    "wisdom": 1,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "蛛行",
+      "description": "食腐虫可以在难以攀爬的表面上攀爬，包括沿着天花板移动，且不需要为此进行属性检定。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "食腐虫使用麻痹触须并发动一次啃咬攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。命中：7（2d4+2）穿刺伤害，外加3（1d6）毒素伤害。"
+    },
+    {
+      "name": "麻痹触须",
+      "description": "体质豁免检定：DC12，单一10尺内食腐虫可见的生物。 失败：目标陷入中毒状态，并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。 中毒期间，目标陷入麻痹状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Carrion Crawler\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\食腐虫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

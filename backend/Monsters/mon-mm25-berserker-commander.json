@@ -1,0 +1,75 @@
+{
+  "monster_id": "mon-mm25-berserker-commander",
+  "name": "狂战将",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 136,
+  "initiative_bonus": 5,
+  "speed": 40,
+  "stats": {
+    "strength": 19,
+    "dexterity": 14,
+    "constitution": 19,
+    "intelligence": 10,
+    "wisdom": 14,
+    "charisma": 9
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 2,
+    "constitution": 7,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": -1
+  },
+  "skills": {
+    "athletics": 7,
+    "perception": 5
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "浴血狂怒",
+      "description": "狂战将在浴血期间进行的攻击检定与豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "狂战将使用巨斧或标枪发动共计三次攻击。"
+    },
+    {
+      "name": "巨斧",
+      "description": "近战攻击检定：+7，触及5尺。命中：10（1d12+4）挥砍伤害，且目标或其5尺内的另一生物受到10（3d6）雷鸣伤害。"
+    },
+    {
+      "name": "标枪",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程30/120尺。命中：18（4d6+4）穿刺伤害，且目标速度降低5尺直至狂战将的下个回合开始。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "狂怒冲杀",
+      "description": "狂战将30尺内的每名盟友都能够以其反应移动至多等于其自身速度一半的距离，且不会引发借机攻击。同时，狂战将也可以移动至多等于自身速度一半的距离，且不会引发借机攻击。"
+    }
+  ],
+  "notes": "英文名：Berserker Commander\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\狂战士\\狂战将.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

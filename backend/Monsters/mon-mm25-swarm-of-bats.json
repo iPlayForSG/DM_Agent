@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-swarm-of-bats",
+  "name": "蝙蝠集群",
+  "size": "微型",
+  "creature_type": "野兽的大型集群",
+  "alignment": "无阵营",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 11,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 5,
+    "dexterity": 15,
+    "constitution": 10,
+    "intelligence": 2,
+    "wisdom": 12,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": -3,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "盲视60尺",
+    "被动察觉11"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "倒地",
+    "束缚",
+    "震慑"
+  ],
+  "traits": [
+    {
+      "name": "集群",
+      "description": "蝙蝠集群可以进驻另一生物身处的空间，反之亦然。而且蝙蝠集群可以通过任何足够一只微型蝙蝠通过的通道。蝙蝠集群不能恢复生命值也不能获得临时生命值 。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。 命中：5（2d4）穿刺伤害，若蝙蝠集群处于浴血则改为2（1d4）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Swarm of Bats\n速度：5尺，飞行30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\集群\\蝙蝠集群.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

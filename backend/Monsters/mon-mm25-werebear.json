@@ -1,0 +1,71 @@
+{
+  "monster_id": "mon-mm25-werebear",
+  "name": "熊人",
+  "size": "中型或小型",
+  "creature_type": "怪兽（兽化人）",
+  "alignment": "中立善良",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 135,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 10,
+    "constitution": 17,
+    "intelligence": 11,
+    "wisdom": 12,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 0,
+    "constitution": 3,
+    "intelligence": 0,
+    "wisdom": 1,
+    "charisma": 1
+  },
+  "skills": {
+    "perception": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "通用语（熊形态不能说话）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "熊人使用撕裂或手斧发动共计两次攻击。其可以将其中一次攻击替换为一次啃咬攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。命中：17（2d12+4）穿刺伤害。若目标是类人生物，则其承受以下效应。 体质豁免检定：DC14。失败：目标被诅咒。若被诅咒目标的生命值降至0，作为代替，目标变成受DM控制的一只具有10生命值的熊人Werebear。成功：目标在24小时内免疫此熊人的诅咒。"
+    },
+    {
+      "name": "手斧",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程20/60尺。命中：14（3d6+4）挥砍伤害。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+7，触及5尺。命中：13（2d8+4）挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "熊人变形为类人与熊的混合形态（大型），或熊形态（大型），或变回其真实的人形态。除体型以外，其各形态下游戏数据均相同。熊人着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Werebear\n速度：30尺，40尺（仅熊形态），攀爬30尺（仅熊形态）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\兽化人\\熊人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-githzerai-zerth",
+  "name": "吉斯泽莱泽锡修士",
+  "size": "中型",
+  "creature_type": "异怪（吉斯人）",
+  "alignment": "守序中立",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 84,
+  "initiative_bonus": 7,
+  "speed": 40,
+  "stats": {
+    "strength": 13,
+    "dexterity": 18,
+    "constitution": 15,
+    "intelligence": 16,
+    "wisdom": 17,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 7,
+    "constitution": 2,
+    "intelligence": 6,
+    "wisdom": 6,
+    "charisma": 1
+  },
+  "skills": {
+    "arcana": 6,
+    "insight": 6,
+    "perception": 6
+  },
+  "senses": [
+    "被动察觉16"
+  ],
+  "languages": [
+    "通用语",
+    "吉斯语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "吉斯泽莱人发动两次灵能打击攻击。"
+    },
+    {
+      "name": "灵能打击",
+      "description": "近战攻击检定：+7，触及5尺。命中：11（2d6+4）钝击伤害外加13（3d8）心灵伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "吉斯泽莱人施展以下一道法术，无需法术成分并使用感知作为施法属性（法术豁免DC14）： 随意：法师之手Mage Hand（手是隐形的） 每项1/日： 幻影杀手Phantasmal Killer（六环版本）， 位面转移Plane Shift， 识破隐形See Invisibility"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "灵能防御",
+      "description": "吉斯泽莱人施展羽落术Feather Fall或护盾术Shield（触发条件见这些法术），无需法术成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "灵能跃迁",
+      "description": "吉斯泽莱人施展跳跃术Jump，无需法术成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Githzerai Zerth\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\吉斯人\\吉斯泽莱泽锡修士.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -367,5 +367,25 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(payload["probe_url"], "https://example.test/v1/models")
 
 
+class MonsterActionParsingTests(unittest.TestCase):
+    def test_parse_2024_chinese_attack_action(self) -> None:
+        parsed = api_main._parse_monster_action(
+            "近战或远程攻击：+6，触及5尺或射程120尺。命中：16（3d8+3）力场伤害。"
+        )
+
+        self.assertEqual(parsed["attack_bonus"], 6)
+        self.assertEqual(parsed["damage_expression"], "3d8+3")
+        self.assertEqual(parsed["damage_type"], "force")
+
+    def test_parse_2024_chinese_attack_check_action(self) -> None:
+        parsed = api_main._parse_monster_action(
+            "近战攻击检定：+11，触及10尺。命中：13（2d6+6）挥砍伤害外加4（1d8）强酸伤害。"
+        )
+
+        self.assertEqual(parsed["attack_bonus"], 11)
+        self.assertEqual(parsed["damage_expression"], "2d6+6")
+        self.assertEqual(parsed["damage_type"], "slashing")
+
+
 if __name__ == "__main__":
     unittest.main()

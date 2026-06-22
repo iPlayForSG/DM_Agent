@@ -1,0 +1,64 @@
+{
+  "monster_id": "mon-mm25-cultist-fanatic",
+  "name": "邪教狂信者",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 44,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 11,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 10,
+    "wisdom": 14,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 4,
+    "charisma": 1
+  },
+  "skills": {
+    "deception": 3,
+    "游说": 3,
+    "religion": 2
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "契约魔刃",
+      "description": "近战攻击：+4，触及5尺。命中：6（1d8+2）挥砍伤害外加7（2d6）暗蚀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "邪教狂信者施展以下一道法术，使用感知作为施法属性（法术豁免DC12，法术攻击命中+4）： 随意：光亮术Light，奇术Thaumaturgy 2/日：命令术Command 1/日：定身类人Hold Person"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "灵体武器",
+      "description": "邪教狂信者施展法术灵体武器Spiritual Weapon，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Cultist Fanatic\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\邪教徒\\邪教狂信者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

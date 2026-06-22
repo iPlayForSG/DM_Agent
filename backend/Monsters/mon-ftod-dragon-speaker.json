@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-ftod-dragon-speaker",
+  "name": "龙言使节",
+  "size": "小型",
+  "creature_type": "类人",
+  "alignment": "任意阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 36,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 13,
+    "wisdom": 11,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "dexterity": 4,
+    "charisma": 5
+  },
+  "skills": {
+    "游说": 5,
+    "religion": 3
+  },
+  "senses": [
+    "黑暗视觉 60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "以及任意两门语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "龙言使节发动两次雷音箭攻击。"
+    },
+    {
+      "name": "雷音箭",
+      "description": "近战或远程法术攻击：命中+5，触及5尺或射程60尺，单一目标。 命中： 13（3d8）雷鸣伤害，并且目标被水平推离龙言使节10尺。"
+    },
+    {
+      "name": "施法",
+      "description": "龙言使节施展以下一个法术，使用魅力作为其施法属性（法术豁免DC13）： 随意： 舞光术dancing light 1/每日：安定心神calm emotion，魅惑类人charm person，命令术command，通晓语言comprehend languages"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "止戈之言",
+      "description": "当一个龙言使节能看到的60尺内的生物造成伤害时，龙言使节能够投掷一枚d6并从伤害中减去其骰值。 Copyright ? 2019. All rights reserved. (To change the copyright info, just edit it in template.)"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Dragon Speaker\n速度：30尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\龙之信徒.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

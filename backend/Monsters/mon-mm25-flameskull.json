@@ -1,0 +1,87 @@
+{
+  "monster_id": "mon-mm25-flameskull",
+  "name": "燃焰之颅",
+  "size": "微型",
+  "creature_type": "亡灵",
+  "alignment": "中立邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 40,
+  "initiative_bonus": 3,
+  "speed": 5,
+  "stats": {
+    "strength": 1,
+    "dexterity": 17,
+    "constitution": 14,
+    "intelligence": 16,
+    "wisdom": 10,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 3,
+    "constitution": 2,
+    "intelligence": 3,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "arcana": 5,
+    "perception": 2
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰",
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "中毒",
+    "倒地"
+  ],
+  "traits": [
+    {
+      "name": "照明",
+      "description": "燃焰之颅散发出半径15尺明亮光照以及额外15尺的微光光照。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "燃焰之颅对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "不死再造",
+      "description": "若燃焰之颅被摧毁，其在1小时后恢复所有生命值，除非对其残骸泼洒圣水或施展驱逐善恶Dispel Evil and Good。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "燃焰之颅发动两次火焰射线攻击。"
+    },
+    {
+      "name": "火焰射线",
+      "description": "近战或远程攻击检定：+5，触及5尺，或射程60尺。命中：13（3d6+3）火焰伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "燃焰之颅施展以下一道法术，无需姿势或材料成分并使用智力作为施法属性（法术豁免DC13）： 随意：法师之手Mage Hand 每项2/日：魔法飞弹Magic Missile（二环版本） 每项1/日：火球术Fireball"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Flameskull\n速度：5尺，飞行40尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\燃焰之颅.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

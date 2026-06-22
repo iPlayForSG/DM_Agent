@@ -1,0 +1,49 @@
+{
+  "monster_id": "mon-mm25-axe-beak",
+  "name": "斧嘴鸟",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 19,
+  "initiative_bonus": 1,
+  "speed": 50,
+  "stats": {
+    "strength": 14,
+    "dexterity": 12,
+    "constitution": 12,
+    "intelligence": 2,
+    "wisdom": 10,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "喙击",
+      "description": "近战攻击检定：+4，触及5尺。命中：6（1d8+2）挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Axe Beak\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\斧嘴鸟\\斧嘴鸟.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

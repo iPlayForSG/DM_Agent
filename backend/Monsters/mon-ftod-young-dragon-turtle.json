@@ -1,0 +1,47 @@
+{
+  "monster_id": "mon-ftod-young-dragon-turtle",
+  "name": "青年龙龟",
+  "size": "巨型",
+  "creature_type": "龙类",
+  "alignment": "一般而言绝对中立",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 19,
+  "hp_max": 178,
+  "initiative_bonus": 0,
+  "speed": 20,
+  "stats": {
+    "strength": 21,
+    "dexterity": 10,
+    "constitution": 19,
+    "intelligence": 10,
+    "wisdom": 12,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "dexterity": 4,
+    "constitution": 8,
+    "wisdom": 5
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉 120尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "水族语",
+    "龙语"
+  ],
+  "damage_resistances": [
+    "火焰"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Dragon Turtle\n速度：20尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\龙龟.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

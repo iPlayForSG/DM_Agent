@@ -602,6 +602,7 @@ class GameState(BaseModel):
     updated_at: Optional[str] = None
 
     characters: Dict[str, Character] = Field(default_factory=dict)
+    monster_templates: Dict[str, MonsterTemplate] = Field(default_factory=dict)
     active_character_id: Optional[str] = None
 
     scene: str = "setup"
@@ -645,6 +646,17 @@ class GameState(BaseModel):
                 normalized_characters[char.character_id] = char
 
         data["characters"] = normalized_characters
+        normalized_monster_templates: Dict[str, MonsterTemplate] = {}
+        raw_monster_templates = data.get("monster_templates") or {}
+        if isinstance(raw_monster_templates, dict):
+            for key, raw_monster in raw_monster_templates.items():
+                payload = raw_monster if isinstance(raw_monster, MonsterTemplate) else MonsterTemplate.model_validate(raw_monster)
+                normalized_monster_templates[payload.monster_id or str(key)] = payload
+        elif isinstance(raw_monster_templates, list):
+            for raw_monster in raw_monster_templates:
+                payload = MonsterTemplate.model_validate(raw_monster)
+                normalized_monster_templates[payload.monster_id] = payload
+        data["monster_templates"] = normalized_monster_templates
         data["game_id"] = data.get("game_id", "")
         if not data.get("title"):
             data["title"] = data["game_id"]

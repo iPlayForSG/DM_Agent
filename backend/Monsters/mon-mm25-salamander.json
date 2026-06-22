@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-salamander",
+  "name": "火蜥蜴",
+  "size": "大型",
+  "creature_type": "元素",
+  "alignment": "中立邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 90,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 14,
+    "constitution": 15,
+    "intelligence": 11,
+    "wisdom": 10,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 2,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "原初语（火族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰"
+  ],
+  "damage_vulnerabilities": [
+    "寒冷"
+  ],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "火焰灵光",
+      "description": "火蜥蜴回合结束时位于源自火蜥蜴的5尺光环区域内的由其选择的每名生物受到7（2d6）火焰伤害。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "火蜥蜴发动两次烈焰长矛攻击。其可以将其中一次攻击替换为使用绞缠。"
+    },
+    {
+      "name": "烈焰长矛",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程20/60尺。命中：13（2d8+4）穿刺伤害，外加7（2d6）火焰伤害。 命中或失手：长矛会在被用于一次远程攻击后立即魔法性地回到火蜥蜴手中。"
+    },
+    {
+      "name": "绞缠",
+      "description": "力量豁免检定：DC15，单一10尺内火蜥蜴可见的不超过大型的生物。失败：11（2d6+4）钝击伤害外加7（2d6）火焰伤害。目标陷入受擒状态（逃脱DC14），且目标陷入束缚状态直至擒抱结束。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Salamander\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\火蜥蜴\\火蜥蜴.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

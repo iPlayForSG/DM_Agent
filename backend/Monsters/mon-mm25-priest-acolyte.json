@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-priest-acolyte",
+  "name": "侍祭僧侣",
+  "size": "中型或小型",
+  "creature_type": "类人（牧师）",
+  "alignment": "中立",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 11,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 10,
+    "constitution": 12,
+    "intelligence": 10,
+    "wisdom": 14,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 0,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {
+    "medicine": 4,
+    "religion": 2
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "硬头锤",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）钝击伤害外加2（1d4）光耀伤害。"
+    },
+    {
+      "name": "光焰",
+      "description": "远程攻击检定：+4，射程60尺。命中：7（2d6）光耀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "侍祭僧侣施展以下一道法术，使用感知作为施法属性： 随意：光亮术Light，奇术Thaumanturgy"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "至圣援护",
+      "description": "侍祭僧侣施展祝福术Bless、治愈真言Healing Word或庇护术Sanctuary，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Priest Acolyte\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\祭司\\侍祭僧侣.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

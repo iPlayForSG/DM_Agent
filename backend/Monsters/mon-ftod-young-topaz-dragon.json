@@ -1,0 +1,55 @@
+{
+  "monster_id": "mon-ftod-young-topaz-dragon",
+  "name": "青年黄玉龙",
+  "size": "大型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言混乱中立",
+  "challenge_rating": "7",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 127,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 17,
+    "dexterity": 12,
+    "constitution": 15,
+    "intelligence": 16,
+    "wisdom": 15,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "dexterity": 4,
+    "constitution": 5,
+    "wisdom": 5,
+    "charisma": 6
+  },
+  "skills": {
+    "intimidation": 9,
+    "perception": 8,
+    "stealth": 4
+  },
+  "senses": [
+    "盲视 30尺",
+    "黑暗视觉120尺",
+    "被动察觉18"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "暗蚀"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Topaz Dragon\n速度：40尺，飞行80尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\黄玉龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

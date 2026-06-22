@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-goblin-hexer",
+  "name": "地精咒术师",
+  "size": "小型",
+  "creature_type": "妖精（类地精）",
+  "alignment": "混乱中立",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 45,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 8,
+    "dexterity": 16,
+    "constitution": 12,
+    "intelligence": 16,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": 3,
+    "constitution": 1,
+    "intelligence": 3,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "sleight_of_hand": 5,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语",
+    "地精语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "地精发动两次咒术棍攻击。其可以将其中一次攻击替换为使用施法。"
+    },
+    {
+      "name": "咒术棍",
+      "description": "近战或远程攻击检定：+5，触及5尺或射程60尺。命中：12（2d8+3）心灵伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "地精施展以下一道法术，使用智力作为施法属性（法术豁免DC13）： 随意：次级幻象Minor Illusion 每项1/日：目盲术/耳聋术Blindness/Deafness，妖火Faerie Fire，油腻术Grease"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "倒霉",
+      "description": "触发：一名地精可见的生物对其进行攻击检定并命中。响应-感知豁免检定：DC13。失败：此次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Goblin Hexer\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\地精\\地精咒术师.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-bearded-devil",
+  "name": "须魔",
+  "size": "中型",
+  "creature_type": "邪魔（魔鬼）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 58,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 15,
+    "constitution": 15,
+    "intelligence": 9,
+    "wisdom": 11,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 2,
+    "constitution": 4,
+    "intelligence": -1,
+    "wisdom": 0,
+    "charisma": 4
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺（不受魔法黑暗阻碍）",
+    "被动察觉10"
+  ],
+  "languages": [
+    "炼狱语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷"
+  ],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "须魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "须魔发动一次须刺攻击和一次长柄刀攻击。"
+    },
+    {
+      "name": "须刺",
+      "description": "近战攻击检定：+5，触及5尺。命中：7（1d8+3）穿刺伤害，且目标陷入中毒状态，直至须魔的下个回合开始。以此法中毒的生物在中毒期间无法恢复生命值。"
+    },
+    {
+      "name": "地狱砍刀",
+      "description": "近战攻击检定：+5，触及10尺。命中：8（1d10+3）挥砍伤害。若目标是生物且其未获得地狱创口，承受以下效应。体质豁免检定：DC12。失败：目标获得地狱创口。具有地狱创口期间，目标在其回合开始时失去5（1d10）生命值。地狱创口在1分钟后合拢或在目标被法术恢复后提前合拢。目标或其5尺内的生物可以用动作来尝试缝合创口，这么做需要成功通过一次DC12的感知（医药）检定。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Bearded Devil\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\魔鬼\\须魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

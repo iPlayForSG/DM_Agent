@@ -1,0 +1,53 @@
+{
+  "monster_id": "mon-mm25-triceratops",
+  "name": "三角龙",
+  "size": "巨型",
+  "creature_type": "野兽（恐龙）",
+  "alignment": "无阵营",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 14,
+  "hp_max": 114,
+  "initiative_bonus": -1,
+  "speed": 50,
+  "stats": {
+    "strength": 22,
+    "dexterity": 9,
+    "constitution": 17,
+    "intelligence": 2,
+    "wisdom": 11,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": -1,
+    "constitution": 3,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "三角龙发动两次顶撞攻击。"
+    },
+    {
+      "name": "顶撞",
+      "description": "近战攻击检定：+9，触及5尺。命中：19（2d12+6）穿刺伤害，若三角龙在此次攻击前立即向着目标直线移动了20+尺且目标生物体型不超过巨型，则目标额外受到9（2d8）穿刺伤害并陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Triceratops\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\恐龙\\三角龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,89 @@
+{
+  "monster_id": "mon-ftod-adult-deep-dragon",
+  "name": "成年深龙",
+  "size": "巨型",
+  "creature_type": "龙类",
+  "alignment": "一般而言中立邪恶",
+  "challenge_rating": "11",
+  "proficiency_bonus": 4,
+  "ac": 17,
+  "hp_max": 147,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 20,
+    "dexterity": 14,
+    "constitution": 18,
+    "intelligence": 16,
+    "wisdom": 16,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "dexterity": 6,
+    "constitution": 8,
+    "wisdom": 7,
+    "charisma": 8
+  },
+  "skills": {
+    "perception": 7,
+    "游说": 12,
+    "stealth": 10
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉150尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "地底通用语"
+  ],
+  "damage_resistances": [
+    "毒素",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "若深龙在一次豁免中失败，它可以选择直接成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "深龙进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+9，触及15尺，单一目标。 命中： 16（2d10+5）穿刺伤害，外加5（1d10）毒素伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+9，触及10尺，单一目标。 命中： 8（1d6+5）挥砍伤害。"
+    },
+    {
+      "name": "尾击",
+      "description": "近战武器攻击：命中+9，触及10尺，单一目标。 命中： 9（1d8+5）钝击伤害。如果目标为一个生物，其必须成功通过DC17的力量豁免否则应击倒地。"
+    },
+    {
+      "name": "变形",
+      "description": "深龙魔法地将自己化为任何中型或小型生物，它保留其游戏数据（除了体型以外）。在巨龙的生命值降低至0或它使用一个附赠动作结束变形时，变形效果终止。"
+    },
+    {
+      "name": "噩梦吐息",
+      "description": "深龙喷出一股60尺锥状的孢子云，区域内的所有生物必须进行一次DC 16的感知豁免，豁免失败者将受33（6d10）点心灵伤害并对龙陷入恐慌一分钟，豁免成功则伤害减半并没有额外效应。恐慌的生物能够在其每个回合结束时进行重复豁免，成功则结束自己身上的效应。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Deep Dragon\n速度：40尺，掘穴40尺，飞行80尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\深龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

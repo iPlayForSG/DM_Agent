@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-priest",
+  "name": "祭司",
+  "size": "中型或小型",
+  "creature_type": "类人（牧师）",
+  "alignment": "中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 38,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 10,
+    "constitution": 12,
+    "intelligence": 13,
+    "wisdom": 16,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 0,
+    "constitution": 1,
+    "intelligence": 1,
+    "wisdom": 3,
+    "charisma": 1
+  },
+  "skills": {
+    "medicine": 7,
+    "perception": 5,
+    "religion": 5
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "祭司使用硬头锤或光焰发动共计两次攻击。"
+    },
+    {
+      "name": "硬头锤",
+      "description": "近战攻击检定：+5，触及5尺。命中：6（1d6+3）钝击伤害外加5（2d4）光耀伤害。"
+    },
+    {
+      "name": "光焰",
+      "description": "远程攻击检定：+5，射程60尺。命中：11（2d10）光耀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "祭司施展以下一道法术，使用感知作为施法属性： 随意：光亮术Light，奇术Thaumanturgy 1/日：灵体卫士Spirit Guardians"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "至圣援护",
+      "description": "祭司施展祝福术Bless、解除魔法Dispel Magic、治愈真言Healing Word或次等复原术Lesser Restoration，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Priest\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\祭司\\祭司.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

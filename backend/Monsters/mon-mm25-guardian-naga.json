@@ -1,0 +1,81 @@
+{
+  "monster_id": "mon-mm25-guardian-naga",
+  "name": "守秘纳迦",
+  "size": "大型",
+  "creature_type": "天族",
+  "alignment": "守序善良",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 18,
+  "hp_max": 136,
+  "initiative_bonus": 4,
+  "speed": 40,
+  "stats": {
+    "strength": 19,
+    "dexterity": 18,
+    "constitution": 16,
+    "intelligence": 16,
+    "wisdom": 19,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 8,
+    "constitution": 7,
+    "intelligence": 7,
+    "wisdom": 8,
+    "charisma": 8
+  },
+  "skills": {
+    "arcana": 11,
+    "history": 11,
+    "religion": 11
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "天界语",
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "麻痹",
+    "中毒",
+    "束缚"
+  ],
+  "traits": [
+    {
+      "name": "天界复苏",
+      "description": "若纳迦死亡，则除非其遗骸被施展驱逐善恶Dispel Evil and Good ，其在1d6天后重获生命并恢复全部生命值。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "该纳迦发动两次啃咬攻击。其可以将其中一次攻击替换为使用剧毒蛇涎。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+8，触及10尺。命中：17（2d12+4）穿刺伤害加22（4d10）毒素伤害。"
+    },
+    {
+      "name": "剧毒蛇涎",
+      "description": "体质豁免检定：DC16，单一60尺内纳迦可见的生物。失败：31（7d8）毒素伤害，且目标陷入目盲状态直至纳迦的下个回合开始。成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "该纳迦施展以下一道法术，无需姿势或材料成分并使感知作为施法属性（法术豁免DC16）： 随意：奇术Thaumaturgy 每项1/日： 鹰眼术Clairvoyance，疗伤术Cure Wounds（六环版本）， 焰击术Flame Strike（六环版本）， 指使术Geas，真知术True Seeing"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Guardian Naga\n速度：40尺，攀爬40尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\纳迦\\守秘纳迦.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

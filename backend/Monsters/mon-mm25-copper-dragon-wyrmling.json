@@ -1,0 +1,66 @@
+{
+  "monster_id": "mon-mm25-copper-dragon-wyrmling",
+  "name": "赤铜龙雏龙",
+  "size": "中型",
+  "creature_type": "龙类（金属龙）",
+  "alignment": "混乱善良",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 22,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 15,
+    "dexterity": 12,
+    "constitution": 13,
+    "intelligence": 14,
+    "wisdom": 11,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 3,
+    "constitution": 1,
+    "intelligence": 2,
+    "wisdom": 2,
+    "charisma": 1
+  },
+  "skills": {
+    "perception": 4,
+    "stealth": 3
+  },
+  "senses": [
+    "盲视10尺",
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "强酸"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+4，触及5尺。命中：7（1d10+2）挥砍伤害。"
+    },
+    {
+      "name": "强酸吐息",
+      "description": "敏捷豁免检定：DC11，20尺长、5尺宽的线状区域内的每名生物。失败：18（4d8）强酸伤害。成功：半伤。"
+    },
+    {
+      "name": "缓速吐息",
+      "description": "体质豁免检定：DC11，15尺锥状区域内的每名生物。失败：直至目标的下个回合结束，目标速度减半，无法执行反应，且目标在其回合中仅可以执行一个动作或一个附赠动作，但不能同时执行二者。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Copper Dragon Wyrmling\n速度：30尺，攀爬30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\赤铜龙\\赤铜龙雏龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

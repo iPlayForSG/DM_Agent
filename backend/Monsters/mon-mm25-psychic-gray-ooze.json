@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-psychic-gray-ooze",
+  "name": "心能灰泥怪",
+  "size": "中型",
+  "creature_type": "泥怪",
+  "alignment": "无阵营",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 9,
+  "hp_max": 37,
+  "initiative_bonus": -1,
+  "speed": 10,
+  "stats": {
+    "strength": 12,
+    "dexterity": 8,
+    "constitution": 16,
+    "intelligence": 10,
+    "wisdom": 6,
+    "charisma": 2
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": -1,
+    "constitution": 3,
+    "intelligence": 0,
+    "wisdom": -2,
+    "charisma": -4
+  },
+  "skills": {
+    "stealth": 3
+  },
+  "senses": [
+    "盲视60尺",
+    "被动察觉8"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "强酸",
+    "寒冷",
+    "火焰",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "目盲",
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "倒地",
+    "束缚"
+  ],
+  "traits": [
+    {
+      "name": "无定形",
+      "description": "灰泥怪可以移动穿过最窄1寸宽的空间而无需消耗额外的移动力。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "伪肢",
+      "description": "近战攻击检定：+3，触及5尺。命中：11（3d6+1）点强酸伤害，且目标的智力豁免具有劣势直至灰泥怪的下个回合结束。"
+    },
+    {
+      "name": "心能粉碎",
+      "description": "智力豁免检定：DC10，单一60尺内泥怪可见的生物。失败：13（3d8）点心灵伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "心灵反侵",
+      "description": "触发：灰泥怪对抗生物的法术和其他魔法效应时进行的豁免失败。 响应：触发生物受到3（1d6）心灵伤害。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Psychic Gray Ooze\n速度：10尺，攀爬10尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\泥怪\\灰泥怪\\心能灰泥怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-frost-giant",
+  "name": "霜巨人",
+  "size": "巨型",
+  "creature_type": "巨人",
+  "alignment": "中立邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 149,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 23,
+    "dexterity": 9,
+    "constitution": 21,
+    "intelligence": 9,
+    "wisdom": 10,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": -1,
+    "constitution": 8,
+    "intelligence": -1,
+    "wisdom": 3,
+    "charisma": 4
+  },
+  "skills": {
+    "athletics": 9,
+    "perception": 3
+  },
+  "senses": [
+    "被动察觉13"
+  ],
+  "languages": [
+    "巨人语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "寒冷"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "霜巨人使用寒霜之斧或巨弓发动共计两次攻击。"
+    },
+    {
+      "name": "寒霜之斧",
+      "description": "近战攻击检定：+9，触及10尺。命中：19（2d12 + 6）挥砍伤害外加9（2d8）寒冷伤害。"
+    },
+    {
+      "name": "巨弓",
+      "description": "远程攻击检定：+9，射程150/600尺。命中：17（2d10 + 6）穿刺伤害外加7（2d6）寒冷伤害，且目标的速度降低10尺直至其下个回合结束。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "战吼",
+      "description": "霜巨人或其选择的一名可以看见或听见其的生物获得16（2d10 + 5）临时生命值，且目标进行攻击检定时具有优势，直至霜巨人的下个回合开始。"
+    }
+  ],
+  "notes": "英文名：Frost Giant\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\巨人\\序位巨人\\霜巨人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

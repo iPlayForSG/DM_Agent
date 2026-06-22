@@ -1,0 +1,86 @@
+{
+  "monster_id": "mon-mm25-death-knight-aspirant",
+  "name": "死亡骑士志从",
+  "size": "中型或小型",
+  "creature_type": "亡灵",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "11",
+  "proficiency_bonus": 4,
+  "ac": 20,
+  "hp_max": 178,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 20,
+    "dexterity": 10,
+    "constitution": 18,
+    "intelligence": 10,
+    "wisdom": 12,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 4,
+    "constitution": 4,
+    "intelligence": 0,
+    "wisdom": 5,
+    "charisma": 3
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "死亡骑士志从对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "不死统帅",
+      "description": "只要死亡骑士志从未陷入失能状态，位于源自死亡骑士志从的60尺光环区域内的由其选择的（除其自身外的）任意亡灵进行攻击检定和豁免检定时具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "死亡骑士志从发动三次恐怖之刃攻击。"
+    },
+    {
+      "name": "恐怖之刃",
+      "description": "近战攻击检定：+9，触及5尺。命中：14（2d8+5）挥砍伤害外加10（3d6）暗蚀伤害。"
+    },
+    {
+      "name": "地狱火珠",
+      "description": "敏捷豁免检定：DC15，以120尺内死亡骑士志从可见一点为中心，半径20尺球状区域内的每名生物。失败：21（6d6）火焰伤害外加21（6d6）的暗蚀伤害。成功：半伤"
+    },
+    {
+      "name": "施法",
+      "description": "死亡骑士志从施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC15）： 随意：魅影驹Phantom Steed 每项1/日：湮灭波Destructive Wave（暗蚀），解除魔法Dispel Magic"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "格挡",
+      "description": "死亡骑士在持握武器期间因近战攻击检定被命中。响应：死亡骑士令其对抗那次攻击的AC+4，可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Death Knight Aspirant\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\死亡骑士\\死亡骑士志从.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,86 @@
+{
+  "monster_id": "mon-mm25-sphinx-of-valor",
+  "name": "勇气斯芬克斯",
+  "size": "大型",
+  "creature_type": "天族",
+  "alignment": "守序中立",
+  "challenge_rating": "17",
+  "proficiency_bonus": 6,
+  "ac": 17,
+  "hp_max": 199,
+  "initiative_bonus": 12,
+  "speed": 40,
+  "stats": {
+    "strength": 22,
+    "dexterity": 10,
+    "constitution": 20,
+    "intelligence": 16,
+    "wisdom": 23,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 6,
+    "constitution": 11,
+    "intelligence": 9,
+    "wisdom": 12,
+    "charisma": 4
+  },
+  "skills": {
+    "arcana": 9,
+    "perception": 12,
+    "religion": 15
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉22"
+  ],
+  "languages": [
+    "天界语",
+    "通用语"
+  ],
+  "damage_resistances": [
+    "暗蚀",
+    "光耀"
+  ],
+  "damage_immunities": [
+    "心灵"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "神秘莫测",
+      "description": "没有魔法可以不经斯芬克斯允许远程探查斯芬克斯或探测其思想。为确定斯芬克斯意图和诚心进行的感知（洞悉）检定具有劣势。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "斯芬克斯豁免失败时，可以将其改为豁免成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "斯芬克斯发动两次利爪攻击并使用咆哮。"
+    },
+    {
+      "name": "利爪",
+      "description": "近战攻击检定：+12，触及5尺。 命中：20（4d6+6）挥砍伤害。"
+    },
+    {
+      "name": "咆哮",
+      "description": "斯芬克斯发出魔法咆哮。每当其咆哮时，咆哮具有不同的效应，详述见下（当斯芬克斯完成长休时，咆哮顺序重置）： 第一吼First Roar。感知豁免检定：DC20，源自斯芬克斯的500尺光环区域内的每名敌人。 失败：目标陷入恐慌状态，持续一分钟。 第二吼Second Roar。感知豁免检定：DC20，源自斯芬克斯的500尺光环区域内的每名敌人。 失败：目标陷入麻痹状态，并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。 第三吼Third Roar。体质豁免检定：DC20，源自斯芬克斯的500尺光环区域内的每名敌人。 失败：44（8d10）雷鸣伤害，目标陷入倒地状态。 成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "斯芬克斯施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC20）： 随意：侦测善恶Detect Evil and Good，奇术Thaumaturgy 每项1/日：侦测魔法Detect Magic，解除魔法Dispel Magic，高等复原术Greater Restoration，英雄宴Heroes' Feast，诚实之域Zone of Truth"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Sphinx of Valor\n速度：40尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\天族\\斯芬克斯\\勇气斯芬克斯.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

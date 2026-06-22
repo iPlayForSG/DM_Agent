@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-quasit",
+  "name": "小恶魔",
+  "size": "微型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 25,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 5,
+    "dexterity": 17,
+    "constitution": 10,
+    "intelligence": 7,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": -3,
+    "dexterity": 3,
+    "constitution": 0,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "小恶魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+5，触及5尺。命中：5（1d4+3）挥砍伤害，且目标陷入中毒状态直至小恶魔的下个回合开始。"
+    },
+    {
+      "name": "隐形",
+      "description": "小恶魔对自身施展隐形术Invisbility，无需法术成分，并使用魅力作为施法属性。"
+    },
+    {
+      "name": "惊吓",
+      "description": "感知豁免：DC10，单一20尺内的生物。失败：目标陷入恐慌状态。目标在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。"
+    },
+    {
+      "name": "变形",
+      "description": "小恶魔变形为蝙蝠（速度10尺，飞行40尺）、蜈蚣（40尺，攀爬40尺）、蟾蜍（40尺，游泳40尺）的形态，或变回其真实形态。除速度外，其各形态下游戏数据均相同。小恶魔着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Quasit\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\小恶魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-shambling-mound",
+  "name": "蔓生怪",
+  "size": "大型",
+  "creature_type": "植物",
+  "alignment": "无阵营",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 110,
+  "initiative_bonus": -1,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 8,
+    "constitution": 16,
+    "intelligence": 5,
+    "wisdom": 10,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": -1,
+    "constitution": 3,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "stealth": 3
+  },
+  "senses": [
+    "盲视60尺",
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "寒冷",
+    "火焰"
+  ],
+  "damage_immunities": [
+    "闪电"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "耳聋",
+    "力竭"
+  ],
+  "traits": [
+    {
+      "name": "闪电吸收",
+      "description": "每当蔓生怪将受闪电伤害时，其恢复等于闪电伤害数值的生命值。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蔓生怪发动三次带电卷须攻击。其可以将其中一次攻击替换为使用吞没。"
+    },
+    {
+      "name": "带电卷须",
+      "description": "近战攻击检定：+7，触及10尺。 命中：7（1d6+4）钝击伤害外加5（2d4）闪电伤害。若目标生物体型不超过中型，则蔓生怪将目标直线拉近5尺。"
+    },
+    {
+      "name": "吞没",
+      "description": "力量豁免检定：DC15，单一5尺内不超过中型的生物。 失败：目标被拉入蔓生怪所在空间并陷入受擒状态（逃脱DC14）。且目标陷入目盲和束缚状态，并在其回合开始时受到10（3d6）闪电伤害，直至擒抱解除。当蔓生怪移动时，受擒目标也会随之移动，且蔓生怪无需额外消耗移动力。蔓生怪以此动作同时令其陷入受擒状态的生物数上限为一。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Shambling Mound\n速度：30尺，游泳20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\植物\\蔓生怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

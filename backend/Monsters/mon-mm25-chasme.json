@@ -1,0 +1,82 @@
+{
+  "monster_id": "mon-mm25-chasme",
+  "name": "喀嘶魔",
+  "size": "大型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 78,
+  "initiative_bonus": 5,
+  "speed": 20,
+  "stats": {
+    "strength": 15,
+    "dexterity": 15,
+    "constitution": 12,
+    "intelligence": 11,
+    "wisdom": 14,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 5,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 5,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 5
+  },
+  "senses": [
+    "盲视10尺",
+    "黑暗视觉120尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "深渊语",
+    "心灵感应120尺。"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若喀嘶魔于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "喀嘶魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "蛛行",
+      "description": "喀嘶魔可以在难以攀爬的表面上攀爬，包括沿着天花板移动，且无需为此进行属性检定。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "刺喙",
+      "description": "近战攻击检定：+5，触及5尺。命中：16（4d6+2）穿刺伤害外加21（6d6）暗蚀伤害。若目标为生物，其生命值上限减少等于其受到暗蚀伤害的数值。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "嗡鸣",
+      "description": "体质豁免：DC12，源自喀嘶魔的30尺光环区域内的每名生物（此豁免恶魔自动成功）。失败：目标陷入昏迷状态，并在其回合结束时重复豁免。10分钟后，目标受到伤害时或其5尺内的生物以动作向目标泼洒一瓶圣水时，其豁免自动成功。成功：目标在24小时内免疫此喀嘶魔的嗡鸣。"
+    }
+  ],
+  "notes": "英文名：Chasme\n速度：20尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\喀嘶魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,94 @@
+{
+  "monster_id": "mon-mm25-elemental-cataclysm",
+  "name": "元初天劫",
+  "size": "超巨型",
+  "creature_type": "元素（泰坦）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "22",
+  "proficiency_bonus": 7,
+  "ac": 20,
+  "hp_max": 370,
+  "initiative_bonus": 18,
+  "speed": 60,
+  "stats": {
+    "strength": 26,
+    "dexterity": 19,
+    "constitution": 27,
+    "intelligence": 9,
+    "wisdom": 14,
+    "charisma": 9
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 11,
+    "constitution": 15,
+    "intelligence": -1,
+    "wisdom": 9,
+    "charisma": 6
+  },
+  "skills": {},
+  "senses": [
+    "真实视觉150尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "原初语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "强酸",
+    "寒冷",
+    "火焰",
+    "闪电",
+    "毒素",
+    "雷鸣"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "目盲",
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "震慑",
+    "昏迷"
+  ],
+  "traits": [
+    {
+      "name": "遁地",
+      "description": "天劫可以掘穴穿过非魔法且未经加工的泥土及岩石。遁地期间，天劫不会破坏其穿过的任何材质。 传奇抗性Legendary Resistance（4/日）。天劫豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "攻城怪物",
+      "description": "天劫对物件和建筑造成双倍伤害。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "天劫发动两次元能爆发攻击。"
+    },
+    {
+      "name": "元能爆发",
+      "description": "近战或远程攻击检定：+15，触及30尺或射程150尺。命中：25（5d6+8）点伤害，伤害类型由天劫从下列选项中选择一种：强酸、寒冷、火焰、闪电、雷鸣。"
+    },
+    {
+      "name": "操控天气",
+      "description": "天劫施展法术操控天气Control Weather，无需法术成分并使用体质作为施法属性。"
+    },
+    {
+      "name": "大灾变",
+      "description": "元初天劫从下列效应中随机制造一种（掷1d4）： 1. 焚天业火Clinging Flames。 敏捷豁免检定：DC23，以150尺内天劫可见一点为中心，半径60尺球状区域内的每名生物。失败：45（13d6）火焰伤害。成功：半伤。失败或成功：目标开始燃烧。 2. 封冻寒潮Freezing Waves。力量豁免检定：DC23，90尺锥状区域内的每名生物。失败：22（5d8）钝击伤害外加22（5d8）寒冷伤害，且目标陷入倒地状态。成功：仅半伤。失败或成功：目标的速度降至0，直至其下个回合结束。 3. 呼啸飓风Raging Storm。一道暴风云覆盖以150尺内天劫可见一点为中心，半径60尺球状区域。暴风云持续1分钟，或在天劫再次使用大灾变时提前结束。完全位于风暴云内的生物陷入目盲和耳聋状态且无法施展具有言语成分的法术。敏捷豁免检定：DC23，在某个回合中首次进入暴风云或是在其中开始回合的每名生物。失败：18（4d8）闪电伤害外加18（4d8）雷鸣伤害。成功：半伤。 4. 大地巨口Swalling Earth。力量豁免检定：DC23，以150尺内地面上一点为源点，90尺立方区域内的每名生物。失败：18（4d8）钝击伤害外加18（4d8）强酸伤害，且目标陷入倒地状态并被碎石埋藏之中。被埋藏生物陷入束缚状态，具有全身掩护，并窒息。以一个动作，被埋藏生物或是其5尺内的另一名生物可以进行一次DC18的力量（运动）检定。检定成功则该生物不再被埋藏。成功：仅半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Elemental Cataclysm\n速度：60尺，掘穴60尺，飞行80尺（悬浮），游泳80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\泰坦\\元初天劫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,56 @@
+{
+  "monster_id": "mon-mm25-griffon",
+  "name": "狮鹫",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 59,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 15,
+    "constitution": 16,
+    "intelligence": 2,
+    "wisdom": 13,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 3,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "狮鹫发动两次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+6，触及5尺。 命中：8（1d8+4）穿刺伤害，若目标生物体型不大于中型，则其被狮鹫的两只前爪擒抱，陷入受擒状态（逃脱DC14）。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Griffon\n速度：30尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\狮鹫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,82 @@
+{
+  "monster_id": "mon-mm25-air-elemental",
+  "name": "气元素",
+  "size": "大型",
+  "creature_type": "元素",
+  "alignment": "中立",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 90,
+  "initiative_bonus": 5,
+  "speed": 10,
+  "stats": {
+    "strength": 14,
+    "dexterity": 20,
+    "constitution": 14,
+    "intelligence": 6,
+    "wisdom": 10,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 5,
+    "constitution": 2,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": -2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "原初语（气族语）"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "闪电",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "毒素",
+    "雷鸣",
+    "昏迷。"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚"
+  ],
+  "traits": [
+    {
+      "name": "空气形态",
+      "description": "气元素可以进入并停留在一名生物所处的空间。其可以移动穿过最窄1寸宽的空间而无需消耗额外的移动力。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "气元素发动两次雷鸣猛击攻击。"
+    },
+    {
+      "name": "雷鸣猛击",
+      "description": "近战攻击检定：+8，触及10尺。命中：14（2d8+5）雷鸣伤害。"
+    },
+    {
+      "name": "旋风",
+      "description": "力量豁免检定：DC13，单一位于气元素空间的不超过中型的生物。失败：24（4d10+2）雷鸣伤害，且目标被气元素直线推离至多20尺，并陷入倒地状态。成功：仅半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Air Elemental\n速度：10尺，飞行90尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\四元素\\气元素.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

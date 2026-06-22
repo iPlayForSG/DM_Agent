@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-kenku",
+  "name": "天狗",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "中立",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 13,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 16,
+    "constitution": 10,
+    "intelligence": 11,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 3,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "deception": 4,
+    "perception": 2,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语",
+    "原初语（气族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "拟声",
+      "description": "天狗可以模仿其听过的任何声音，包括声线。听到该声音的生物可以成功通过一次DC14的感知（洞悉）检定来发现其是模仿。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "影之刃",
+      "description": "近战或远程攻击检定：+5，触及5尺或射程60尺。命中：6（1d6+3）暗蚀伤害。命中或失手：影之刃会在被用于一次远程攻击后立即魔法性地回到天狗手中。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "魔能提灯",
+      "description": "天狗施展妖火Faerie Fire，并使用智力作为施法属性（法术豁免DC10）。"
+    }
+  ],
+  "notes": "英文名：Kenku\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\天狗.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

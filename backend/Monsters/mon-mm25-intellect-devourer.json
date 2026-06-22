@@ -1,0 +1,76 @@
+{
+  "monster_id": "mon-mm25-intellect-devourer",
+  "name": "噬脑怪",
+  "size": "微型",
+  "creature_type": "异怪",
+  "alignment": "守序邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 28,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 6,
+    "dexterity": 14,
+    "constitution": 13,
+    "intelligence": 14,
+    "wisdom": 11,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": 2,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 2,
+    "stealth": 4
+  },
+  "senses": [
+    "盲视60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "理解深潜语",
+    "但不会说",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "侦测智能",
+      "description": "噬脑怪可以魔法性地感知到位于它300尺内任何智力不低于3的生物的位置，无论二者之间有什么障碍。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "噬脑怪发动一次爪击攻击并使用吞食智力。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+4，触及5尺。 命中：7（2d4+2）挥砍伤害。"
+    },
+    {
+      "name": "吞食智力",
+      "description": "智力豁免检定：DC12，单一5尺内噬脑怪可见的生物。 失败：11（2d10）心灵伤害，且目标陷入震慑状态，直至噬脑怪的下个回合结束。"
+    },
+    {
+      "name": "窃取身体",
+      "description": "智力豁免检定：DC12，单一5尺内的陷入失能状态的小型或中型生物，为类人或野兽，且生命值为不高于10。 失败：噬脑怪附身目标，吞食其大脑，并传送进入其头颅内。在噬脑怪位于目标头颅内期间，对宿主体外的攻击和其他效应而言处于全身掩护 。噬脑怪保留其智力、感知和魅力属性值，其仍理解深潜语，并保留其心灵感应和侦测智能特质。噬脑怪的其他部分将继承目标的游戏数据。其将获悉目标所知的一切，包括法术和语言。 若宿主的躯体死亡，噬脑怪就必须离开躯体。如果目标被祈愿术Wish 复原了其被吞噬的大脑，噬脑怪也会被强制逐出躯体。噬脑怪可以消耗5尺移动力，自愿离开躯体，传送至5尺内最近的一处未占据空间。然后躯体立即死亡，除非其大脑在噬脑怪的下个回合结束前被复原。 我了解杜尔甘，那玩意儿不是杜尔甘。那就好像是……某种东西‘穿上’了杜尔甘，就好像皮套一样……一套，杜尔甘的皮套 ——乔哈娜·格蕾特，《风暴港冲击事件》"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Intellect Devourer\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\噬脑怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-dire-worg",
+  "name": "恐座狼",
+  "size": "巨型",
+  "creature_type": "妖精",
+  "alignment": "中立邪恶",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 16,
+  "hp_max": 147,
+  "initiative_bonus": 2,
+  "speed": 50,
+  "stats": {
+    "strength": 22,
+    "dexterity": 14,
+    "constitution": 18,
+    "intelligence": 7,
+    "wisdom": 16,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 6,
+    "constitution": 4,
+    "intelligence": -2,
+    "wisdom": 7,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 11
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉21"
+  ],
+  "languages": [
+    "地精语",
+    "木族语",
+    "座狼语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "座狼对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "座狼发动三次啃咬攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+10，触及5尺。命中：15（2d8+6）穿刺伤害外加7（2d6）毒素伤害，并且目标陷入中毒状态，持续至座狼的下个回合开始。中毒期间，目标无法恢复生命值。"
+    },
+    {
+      "name": "恐惧嚎叫",
+      "description": "感知豁免检定：DC16，30尺内非座狼的每名生物。失败：36（8d8）心灵伤害，并且目标陷入恐慌状态，持续至座狼的下个回合开始。成功：仅半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "扭曲步",
+      "description": "座狼，连同一名其选择的位于其5尺内的自愿生物，传送至多30尺至一处其可见的未占据空间。"
+    }
+  ],
+  "notes": "英文名：Dire Worg\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\座狼\\恐座狼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

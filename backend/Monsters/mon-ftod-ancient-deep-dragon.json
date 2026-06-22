@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-ftod-ancient-deep-dragon",
+  "name": "远古深龙",
+  "size": "超巨型",
+  "creature_type": "龙类",
+  "alignment": "一般而言中立邪恶",
+  "challenge_rating": "18",
+  "proficiency_bonus": 6,
+  "ac": 20,
+  "hp_max": 201,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 23,
+    "dexterity": 16,
+    "constitution": 20,
+    "intelligence": 20,
+    "wisdom": 18,
+    "charisma": 21
+  },
+  "saving_throws": {
+    "dexterity": 9,
+    "constitution": 11,
+    "wisdom": 10,
+    "charisma": 11
+  },
+  "skills": {
+    "perception": 10,
+    "游说": 17,
+    "stealth": 15
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉300尺",
+    "被动察觉20"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "地底通用语"
+  ],
+  "damage_resistances": [
+    "毒素",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "若深龙在一次豁免中失败，它可以选择直接成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "深龙进行一次啃咬和两次爪击。 啃咬 Bite。近战武器攻击：命中+12，触及15尺，单一目标。 命中： 17（2d10+6）穿刺伤害，外加11（2d10）毒素伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+12，触及10尺，单一目标。 命中： 13（2d6+6）挥砍伤害。"
+    },
+    {
+      "name": "尾击",
+      "description": "近战武器攻击：命中+12，触及10尺，单一目标。 命中： 10（1d8+6）钝击伤害。如果目标为一个生物，其必须成功通过DC20的力量豁免否则应击倒地。"
+    },
+    {
+      "name": "变形",
+      "description": "深龙魔法地将自己化为任何中型或小型生物，它保留其游戏数据（除了体型以外）。在巨龙的生命值降低至0或它使用一个附赠动作结束变形时，变形效果终止。"
+    },
+    {
+      "name": "噩梦吐息",
+      "description": "深龙喷出一股90尺锥状的孢子云，区域内的所有生物必须进行一次DC 19的感知豁免，豁免失败者将受49（9d10）点心灵伤害并对龙陷入恐慌一分钟，豁免成功则伤害减半并没有额外效应。恐慌的生物能够在其每个回合结束时进行重复豁免，成功则结束自己身上的效应。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ancient Deep Dragon\n速度：40尺，掘穴40尺，飞行80尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\深龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

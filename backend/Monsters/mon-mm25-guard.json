@@ -1,0 +1,53 @@
+{
+  "monster_id": "mon-mm25-guard",
+  "name": "警卫",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "1/8",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 11,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 13,
+    "dexterity": 12,
+    "constitution": 12,
+    "intelligence": 10,
+    "wisdom": 11,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 2
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "矛",
+      "description": "近战或远程攻击检定：+3，触及5尺或射程20/60尺。命中：4（1d6+1）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Guard\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\警卫\\警卫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

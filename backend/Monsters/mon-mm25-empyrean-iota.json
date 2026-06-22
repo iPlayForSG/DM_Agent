@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-empyrean-iota",
+  "name": "至高天微尘",
+  "size": "中型",
+  "creature_type": "天族或邪魔（泰坦）",
+  "alignment": "中立",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 22,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 1,
+    "dexterity": 14,
+    "constitution": 10,
+    "intelligence": 15,
+    "wisdom": 16,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": 2,
+    "wisdom": 3,
+    "charisma": 3
+  },
+  "skills": {
+    "history": 4,
+    "insight": 5,
+    "perception": 5
+  },
+  "senses": [
+    "真实视觉30尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "全部"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "倒地"
+  ],
+  "traits": [
+    {
+      "name": "虚体移动",
+      "description": "至高天微尘可以移动穿过其他生物或物件，如同穿过困难地形一般。在其回合结束时，若至高天微尘还处于物件内，其受到5（1d10）力场伤害。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "至高天微尘对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "异界打击",
+      "description": "近战或远程攻击检定：+5，触及5尺或射程30尺。 命中：7（1d8+3）暗蚀或光耀伤害（由至高天微尘选择）"
+    },
+    {
+      "name": "施法",
+      "description": "至高天微尘施展以下一道法术，无需材料成分并使用感知作为施法属性： 每项1/日：祝福术Bless，次等复原术Lesser Restoration（以动作施展）"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "治愈真言",
+      "description": "至高天微尘施展治愈真言Healing Word，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Empyrean Iota\n速度：5尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\泰坦\\至高天微尘.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

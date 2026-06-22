@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-myconid-sovereign",
+  "name": "蕈人王",
+  "size": "大型",
+  "creature_type": "植物",
+  "alignment": "守序中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 45,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 12,
+    "dexterity": 10,
+    "constitution": 14,
+    "intelligence": 13,
+    "wisdom": 15,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 0,
+    "constitution": 2,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "心灵感应240尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "厌日症",
+      "description": "Sun Sickness。若蕈人身处阳光下，其D20检定具有劣势。蕈人待在阳光下超过1小时就会死亡。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蕈人发动一次猛击攻击并使用安抚孢子。"
+    },
+    {
+      "name": "猛击",
+      "description": "近战攻击检定：+3，触及5尺。 命中：6（2d4+1）钝击伤害外加5（2d4）毒素伤害。"
+    },
+    {
+      "name": "活化孢子",
+      "description": "蕈人向5尺内一具非构装非亡灵的中型或小型尸体释放孢子。尸体会在24小时后活化为蕈人孢子奴仆Myconid Spore Servant。尸体会保持活化状态1d4+1周或直至被摧毁。曾以此法活化过的尸体无法再次以此法活化。"
+    },
+    {
+      "name": "安抚孢子",
+      "description": "体质豁免检定：DC12，单一10尺内蕈人可见的生物。 失败：目标陷入震慑状态，并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。"
+    },
+    {
+      "name": "通念孢子",
+      "description": "孢子被释放在源自蕈人的30尺光环区域内。区域内任何智力值不低于2且非构装非元素非亡灵的生物获得30尺心灵感应，持续1小时。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Myconid Sovereign\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\植物\\蕈人\\蕈人王.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

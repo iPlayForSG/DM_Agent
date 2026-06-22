@@ -1,0 +1,61 @@
+{
+  "monster_id": "mon-mm25-hill-giant",
+  "name": "山丘巨人",
+  "size": "巨型",
+  "creature_type": "巨人",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 13,
+  "hp_max": 105,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 21,
+    "dexterity": 8,
+    "constitution": 19,
+    "intelligence": 5,
+    "wisdom": 9,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": -1,
+    "constitution": 4,
+    "intelligence": -3,
+    "wisdom": -1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 2
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "巨人语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "山丘巨人使用树棍或投掷垃圾发动共计两次攻击。"
+    },
+    {
+      "name": "树棍",
+      "description": "近战攻击检定：+8，触及10尺。命中：18（3d8 + 5）钝击伤害。若目标生物体型不超过大型，则其陷入倒地状态。"
+    },
+    {
+      "name": "投掷垃圾",
+      "description": "远程攻击检定：+8，射程：60/240 尺。命中：16（2d10 + 5）钝击伤害，目标陷入中毒状态直至其下个回合结束。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Hill Giant\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\巨人\\序位巨人\\山丘巨人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

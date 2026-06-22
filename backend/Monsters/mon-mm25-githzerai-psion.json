@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-githzerai-psion",
+  "name": "吉斯泽莱灵能使",
+  "size": "中型",
+  "creature_type": "异怪（吉斯人）",
+  "alignment": "守序中立",
+  "challenge_rating": "12",
+  "proficiency_bonus": 4,
+  "ac": 18,
+  "hp_max": 169,
+  "initiative_bonus": 8,
+  "speed": 40,
+  "stats": {
+    "strength": 12,
+    "dexterity": 18,
+    "constitution": 15,
+    "intelligence": 19,
+    "wisdom": 18,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 8,
+    "constitution": 2,
+    "intelligence": 8,
+    "wisdom": 8,
+    "charisma": 2
+  },
+  "skills": {
+    "arcana": 8,
+    "insight": 8,
+    "perception": 8
+  },
+  "senses": [
+    "被动察觉18"
+  ],
+  "languages": [
+    "通用语",
+    "吉斯语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "吉斯泽莱人发动三次心灵扭曲攻击。"
+    },
+    {
+      "name": "心灵扭曲",
+      "description": "近战或远程攻击检定：+8，触及5尺或射程120尺。命中：26（4d10+4）心灵伤害，目标陷入某种由吉斯泽莱人选择的状态：(A)目标陷入魅惑状态直至吉斯泽莱人的下个回合开始；(B)若目标生物体型不超过大型，其陷入倒地状态。"
+    },
+    {
+      "name": "施法",
+      "description": "吉斯泽莱人施展以下一道法术，无需法术成分并使用智力作为施法属性（法术豁免DC16）： 随意： 法师之手Mage Hand（手是隐形的） 每项1/日： 位面转移Plane Shift、识破隐形See Invisibility"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "灵能防御",
+      "description": "吉斯泽莱人施展羽落术Feather Fall或护盾术Shield（触发条件见这些法术），无需法术成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Githzerai Psion\n速度：40尺，飞行40尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\吉斯人\\吉斯泽莱灵能使.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

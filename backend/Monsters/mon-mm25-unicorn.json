@@ -1,0 +1,87 @@
+{
+  "monster_id": "mon-mm25-unicorn",
+  "name": "独角兽",
+  "size": "大型",
+  "creature_type": "天族",
+  "alignment": "守序善良",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 12,
+  "hp_max": 97,
+  "initiative_bonus": 8,
+  "speed": 50,
+  "stats": {
+    "strength": 18,
+    "dexterity": 14,
+    "constitution": 15,
+    "intelligence": 11,
+    "wisdom": 17,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 2,
+    "intelligence": 0,
+    "wisdom": 3,
+    "charisma": 3
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉13"
+  ],
+  "languages": [
+    "天界语",
+    "精灵语",
+    "木族语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "麻痹",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "独角兽豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "独角兽对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "独角兽发动一次蹄击攻击和一次光耀角击攻击。"
+    },
+    {
+      "name": "蹄击",
+      "description": "近战攻击检定：+7，触及5尺。命中：11（2d6+4）钝击伤害。"
+    },
+    {
+      "name": "光耀角击",
+      "description": "近战攻击检定：+7，触及5尺。命中：9（1d10+4）光耀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "独角兽施展以下一道法术，无需法术成分并使用魅力作为施法属性（法术豁免DC14）： 随意：侦测善恶Detect Evil and Good，德鲁伊伎俩Druidcraft 每项1/日：安定心神Calm Emotion，驱逐善恶Dispel Evil and Good，纠缠术Entangle，行动无踪Pass without Trace，回返真言Word of Recall"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "独角兽祝福",
+      "description": "独角兽使用其角触碰另一生物并对该生物施展疗伤术Cure Wounds或次等复原术Lesser Restoration，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Unicorn\n速度：50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\天族\\独角兽.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

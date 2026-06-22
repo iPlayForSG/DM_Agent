@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-haunting-revenant",
+  "name": "还魂巨构",
+  "size": "超巨型",
+  "creature_type": "亡灵",
+  "alignment": "中立",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 20,
+  "hp_max": 203,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 20,
+    "dexterity": 12,
+    "constitution": 18,
+    "intelligence": 16,
+    "wisdom": 18,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 1,
+    "constitution": 8,
+    "intelligence": 3,
+    "wisdom": 8,
+    "charisma": 5
+  },
+  "skills": {},
+  "senses": [
+    "真实视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [
+    "暗蚀",
+    "心灵"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "昏迷"
+  ],
+  "traits": [
+    {
+      "name": "缠魂之地",
+      "description": "体质豁免检定：DC17，在还魂巨构的空间中施展法术的每名生物。失败：该法术失败并被浪费。"
+    },
+    {
+      "name": "亡灵复苏",
+      "description": "若还魂巨构死亡，除非对其遗留物施展驱逐善恶Dispel Evil or Good ，否则其在24小时后复生。还魂巨构复生后会活化同一存在位面中的另一个超巨型物件或建筑；这会改变其外形，但不会改变其游戏数据，且归来时还魂巨构具有全部生命值。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "还魂巨构发动两次物件猛袭攻击并使用请君入瓮。"
+    },
+    {
+      "name": "物件猛袭",
+      "description": "近战或远程攻击检定：+9（若目标位于还魂巨构所处的空间内则具有优势），触及10尺或射程30/90尺。命中：27（5d8+5）钝击伤害。"
+    },
+    {
+      "name": "请君入瓮",
+      "description": "魅力豁免检定：DC17，60尺锥状区域内的每名生物。失败：目标被传送至还魂巨构所处的空间内并被吞下。被吞下生物对还魂巨构体外的攻击或其他效应而言处于全身掩护。 只要还魂巨构仍具有生命值，被吞下的生物就不能离开还魂巨构所处的空间，除非其使用能够在位面之间旅行的魔法，例如法术位面转移Plane Shift 。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Haunting Revenant\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\还魂鬼\\还魂巨构.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

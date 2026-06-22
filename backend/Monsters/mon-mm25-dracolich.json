@@ -1,0 +1,95 @@
+{
+  "monster_id": "mon-mm25-dracolich",
+  "name": "龙巫妖",
+  "size": "巨型",
+  "creature_type": "或超巨型亡灵",
+  "alignment": "守序邪恶",
+  "challenge_rating": "17",
+  "proficiency_bonus": 6,
+  "ac": 20,
+  "hp_max": 225,
+  "initiative_bonus": 12,
+  "speed": 40,
+  "stats": {
+    "strength": 25,
+    "dexterity": 10,
+    "constitution": 23,
+    "intelligence": 19,
+    "wisdom": 15,
+    "charisma": 21
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 6,
+    "constitution": 6,
+    "intelligence": 4,
+    "wisdom": 8,
+    "charisma": 5
+  },
+  "skills": {
+    "perception": 14,
+    "stealth": 6
+  },
+  "senses": [
+    "盲视60尺",
+    "黑暗视觉120尺",
+    "被动察觉24"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "龙巫妖豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "生机抑止",
+      "description": "位于龙巫妖60尺内的生物无法恢复生命值。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "龙巫妖对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "灵魂宝石",
+      "description": "龙巫妖拥有一颗魔法宝石。若龙巫妖被摧毁时，这颗宝石与其位于同一存在位面，则龙巫妖在1d20日内获得一具新的身体，恢复其全部生命值并出现在宝石5尺内。 宝石是一个微型物件，AC 20，HP 50；免疫暗蚀，毒素和心灵伤害。宝石在每个回合结束时恢复全部生命值，若宝石生命值降至0，其化为飞灰。若宝石被摧毁，则龙巫妖可以用一颗价值1000+ GP的宝石进行8小时仪式来创造一颗新的灵魂宝石。此仪式同时需要花费5000 GP作为仪式的耗材。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "龙巫妖发动三次撕裂攻击。其可以将其中一次攻击替换为使用施法施展致病射线Ray of Sickness （二环版本）。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+13，触及10尺。命中：18（2d10+7）挥砍伤害外加4（1d8）暗蚀伤害。"
+    },
+    {
+      "name": "暗蚀吐息",
+      "description": "体质豁免检定：DC20，60尺锥状区域内的每名生物。失败：52（8d12）暗蚀伤害。成功：半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "龙巫妖施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC19，法术攻击命中+11）： 随意：侦测魔法Detect Magic，致病射线Ray of Sickness（二环版本） 每项1/日： 唤起亡灵Create Undead（八环版本）， 死亡一指Finger of Death"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Dracolich\n速度：40尺，掘穴30尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\龙巫妖.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

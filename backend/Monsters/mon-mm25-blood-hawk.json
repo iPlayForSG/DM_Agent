@@ -1,0 +1,56 @@
+{
+  "monster_id": "mon-mm25-blood-hawk",
+  "name": "血鹰",
+  "size": "小型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/8",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 7,
+  "initiative_bonus": 2,
+  "speed": 10,
+  "stats": {
+    "strength": 6,
+    "dexterity": 14,
+    "constitution": 10,
+    "intelligence": 3,
+    "wisdom": 14,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": 2,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 6
+  },
+  "senses": [
+    "被动察觉16"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "集群战术",
+      "description": "若血鹰的攻击目标生物5尺内存在有至少一名血鹰未失能的盟友，则血鹰对该生物进行的攻击检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "喙啄",
+      "description": "近战攻击检定：+4，触及5尺。命中：4（1d4+2）穿刺伤害，若目标处于浴血则改为6（1d8+2）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Blood Hawk\n速度：10尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\血鹰.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

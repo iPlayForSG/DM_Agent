@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-brazen-gorgon",
+  "name": "焚化铜牛",
+  "size": "大型",
+  "creature_type": "构装",
+  "alignment": "无阵营",
+  "challenge_rating": "9",
+  "proficiency_bonus": 4,
+  "ac": 19,
+  "hp_max": 161,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 18,
+    "dexterity": 14,
+    "constitution": 19,
+    "intelligence": 2,
+    "wisdom": 14,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 4,
+    "constitution": 4,
+    "intelligence": -4,
+    "wisdom": 2,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 10
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉20"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "石化"
+  ],
+  "traits": [
+    {
+      "name": "烈火灵光",
+      "description": "铜牛回合结束时位于源自铜牛的5尺光环区域内的每名生物受到13（3d8）火焰伤害。"
+    },
+    {
+      "name": "照明",
+      "description": "铜牛散发出半径10尺的明亮光照以及额外10尺的微光光照。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "铜牛发动两次顶撞攻击。"
+    },
+    {
+      "name": "顶撞",
+      "description": "近战攻击检定：+8，触及5尺。命中：11（2d6+4）穿刺伤害，外加10（3d6）火焰伤害。"
+    },
+    {
+      "name": "熔焰冲锋",
+      "description": "铜牛移动至多等于其速度的距离且不会引发借机攻击，并且可以移动穿过中型或小型生物所处的空间。所处空间被铜牛进入的每名生物都会被选为一次以下效应的目标。敏捷豁免检定：DC16。失败：13（2d8+4）穿刺伤害外加13（3d8）火焰伤害，且目标被拖入铜牛所处空间并陷入受擒状态（逃脱DC14）。若铜牛已经令一名生物陷入受擒，目标改为陷入倒地状态。目标陷入束缚状态直至擒抱结束。当铜牛移动时，受擒目标也将一并移动，且铜牛无需额外消耗移动力。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Brazen Gorgon\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\构装\\石化铁牛\\焚化铜牛.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-aarakocra-aeromancer",
+  "name": "鸟羽人风舞术师",
+  "size": "中型",
+  "creature_type": "元素",
+  "alignment": "中立",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 66,
+  "initiative_bonus": 3,
+  "speed": 20,
+  "stats": {
+    "strength": 10,
+    "dexterity": 16,
+    "constitution": 12,
+    "intelligence": 13,
+    "wisdom": 17,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 5,
+    "constitution": 1,
+    "intelligence": 1,
+    "wisdom": 5,
+    "charisma": 1
+  },
+  "skills": {
+    "arcana": 3,
+    "nature": 5,
+    "perception": 7
+  },
+  "senses": [
+    "被动察觉17"
+  ],
+  "languages": [
+    "鸟羽人语",
+    "原初语（气族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鸟羽人发动两次风之法杖攻击，并使用施法施展造风术Gust of Wind 。"
+    },
+    {
+      "name": "风之法杖",
+      "description": "近战或远程攻击：+5，触及5尺或射程120尺。命中：7（1d8+3）钝击伤害外加11（2d10）闪电伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "鸟羽人施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC13）： 随意：四象法门Elementalism，造风术Gust of Wind，法师之手Mage Hand，传讯术Message 1/日：闪电束Lightning Bolt"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "羽落术",
+      "description": "鸟羽人施展羽落术Feather Fall（触发条件见该法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Aarakocra Aeromancer\n速度：20尺，飞行50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\鸟羽人\\鸟羽人风舞术士.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

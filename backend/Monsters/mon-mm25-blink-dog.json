@@ -1,0 +1,62 @@
+{
+  "monster_id": "mon-mm25-blink-dog",
+  "name": "闪现犬",
+  "size": "中型",
+  "creature_type": "妖精",
+  "alignment": "守序善良",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 22,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 12,
+    "dexterity": 17,
+    "constitution": 12,
+    "intelligence": 10,
+    "wisdom": 13,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 3,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 1,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 5,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "闪现犬语",
+    "理解精灵语和木族语",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5，触及5尺。命中：5（1d4+3）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "传送",
+      "description": "闪现犬传送至多40尺至一处其可见的未占据空间中。"
+    }
+  ],
+  "notes": "英文名：Blink Dog\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\闪现犬.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

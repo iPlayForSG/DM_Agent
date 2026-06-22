@@ -1,0 +1,78 @@
+{
+  "monster_id": "mon-mm25-couatl",
+  "name": "羽蛇",
+  "size": "中型",
+  "creature_type": "天族",
+  "alignment": "守序善良",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 19,
+  "hp_max": 60,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 20,
+    "constitution": 17,
+    "intelligence": 18,
+    "wisdom": 20,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 5,
+    "constitution": 5,
+    "intelligence": 4,
+    "wisdom": 7,
+    "charisma": 4
+  },
+  "skills": {},
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "全部",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "心灵",
+    "光耀"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "心灵防护",
+      "description": "羽蛇的思想无法以任何方式被探测，并且其他生物仅有在羽蛇允许的情况下才能通过心灵感应与其交流。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。 命中：11（1d12+5）穿刺伤害，且目标陷入中毒状态，持续至羽蛇的下个回合结束。"
+    },
+    {
+      "name": "绞缠",
+      "description": "力量豁免检定：DC15，单一5尺内羽蛇可见的不超过中型的生物。 失败： 8（1d6+5）钝击伤害。目标陷入受擒状态（逃脱DC13），且目标陷入束缚状态直至擒抱结束。"
+    },
+    {
+      "name": "施法",
+      "description": "羽蛇施展以下一道法术，无需法术成分并使用感知作为施法属性（法术豁免DC15）： 随意：侦测善恶Detect Evil and Good，侦测魔法Detect Magic，侦测思想Detect Thoughts，形体变化Shapechange（仅野兽与类人形态，不会因此法术获得临时生命值，但无需为维持此法术而保有临时生命值或维持专注） 每项1/日：造粮术Create Food and Water，托梦术Dream，高等复原术Greater Restoration，探知Scrying，睡眠术Sleep"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "至圣援护",
+      "description": "羽蛇施展祝福术Bless，次等复原术Lesser Restoration或庇护术Sanctuary，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Couatl\n速度：30尺，飞行90尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\天族\\羽蛇.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

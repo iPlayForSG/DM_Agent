@@ -1,0 +1,77 @@
+{
+  "monster_id": "mon-mm25-ghast-gravecaller",
+  "name": "妖鬼坟语者",
+  "size": "中型",
+  "creature_type": "亡灵",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 97,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 17,
+    "constitution": 14,
+    "intelligence": 18,
+    "wisdom": 14,
+    "charisma": 8
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 3,
+    "constitution": 5,
+    "intelligence": 4,
+    "wisdom": 5,
+    "charisma": -1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶臭",
+      "description": "体质豁免检定：DC10，在源自妖鬼的5尺光环区域内开始其回合的每名生物。失败：目标陷入中毒状态，直至其下个回合开始。成功：目标在24小时内免疫此妖鬼的恶臭。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "妖鬼发动两次骇怖坏灭攻击，其可以将其中一次攻击替换为爪击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+6，触及5尺。命中：13（3d6+3）挥砍伤害。若目标为非亡灵生物，则其陷入麻痹状态，直至其下个回合结束。"
+    },
+    {
+      "name": "骇怖坏灭",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程120尺。命中：15（2d10+4）暗蚀伤害，且目标陷入恐慌状态，直至其下个回合结束。"
+    },
+    {
+      "name": "施法",
+      "description": "妖鬼施展以下一道法术，无需材料成分并使用智力作为施法属性： 随意：死者交谈Speak with Dead，奇术Thaumaturgy"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ghast Gravecaller\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\妖鬼\\妖鬼坟语者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

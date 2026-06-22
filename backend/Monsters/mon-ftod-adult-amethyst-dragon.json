@@ -1,0 +1,89 @@
+{
+  "monster_id": "mon-ftod-adult-amethyst-dragon",
+  "name": "成年紫晶龙",
+  "size": "巨型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言绝对中立",
+  "challenge_rating": "16",
+  "proficiency_bonus": 5,
+  "ac": 19,
+  "hp_max": 229,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 25,
+    "dexterity": 14,
+    "constitution": 25,
+    "intelligence": 20,
+    "wisdom": 17,
+    "charisma": 21
+  },
+  "saving_throws": {
+    "dexterity": 7,
+    "constitution": 12,
+    "wisdom": 8,
+    "charisma": 10
+  },
+  "skills": {
+    "arcana": 15,
+    "perception": 13,
+    "游说": 10,
+    "stealth": 7
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "力场",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌",
+    "倒地"
+  ],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "紫晶龙可以在空气和水中呼吸。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "若紫晶龙在一次豁免中失败，它可以选择直接成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "紫晶龙进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+12，触及10尺，单一目标。 命中： 18（2d10+7）穿刺伤害，外加9（2d8）力场伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+12，触及10尺，单一目标。 命中： 11（1d8+7）挥砍伤害。"
+    },
+    {
+      "name": "奇点吐息",
+      "description": "紫晶龙在嘴中凝起一团闪亮的引力珠，然后将能量释放到60尺的锥状区域中，区域内的所有生物必须进行一次DC 20的力量豁免，豁免失败者将受45（10d8）的力场伤害，并且直到紫晶龙下个回合开始速度降低为0，豁免成功则伤害减半，速度也不会降低。"
+    },
+    {
+      "name": "施法",
+      "description": "紫晶龙施展以下一个法术，无需任何法术成分并使用智力作为其施法属性（法术豁免DC18）： 1/每日：闪现术blink，操控水体control water，解除魔法dispel magic，防护善恶 protection from good and evil，短讯术sending"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Amethyst Dragon\n速度：40尺，飞行80尺（悬浮），游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\紫晶龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

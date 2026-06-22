@@ -1,0 +1,89 @@
+{
+  "monster_id": "mon-mm25-barbed-devil",
+  "name": "猬魔",
+  "size": "中型",
+  "creature_type": "邪魔（魔鬼）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 110,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 17,
+    "constitution": 18,
+    "intelligence": 12,
+    "wisdom": 14,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 3,
+    "constitution": 7,
+    "intelligence": 1,
+    "wisdom": 5,
+    "charisma": 5
+  },
+  "skills": {
+    "deception": 5,
+    "insight": 5,
+    "perception": 8
+  },
+  "senses": [
+    "黑暗视觉120尺（不受魔法黑暗阻碍）",
+    "被动察觉18"
+  ],
+  "languages": [
+    "炼狱语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷"
+  ],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "猬皮",
+      "description": "在猬魔的回合开始时，其对擒抱自己的生物或被其擒抱的生物造成5（1d10）穿刺伤害。"
+    },
+    {
+      "name": "魔鬼复苏",
+      "description": "若猬魔于九层地狱之外死去，其身躯会化为硫磺烟雾消失，并立即在九层地狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "猬魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "猬魔发动一次爪击攻击和一次尾击攻击，或者发动两次投掷烈焰攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+6，触及5尺。命中：10（2d6+3）穿刺伤害，如果目标生物体型不超过大型，则其被双爪擒抱，陷入受擒状态（逃脱DC13）。"
+    },
+    {
+      "name": "尾击",
+      "description": "近战攻击检定：+6，触及10尺。命中：14（2d10+3）挥砍伤害。"
+    },
+    {
+      "name": "投掷烈焰",
+      "description": "远程攻击检定：+6，射程150尺。命中：17（5d6）火焰伤害，若目标为未被着装或携带的可燃物件，则目标开始燃烧。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Barbed Devil\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\魔鬼\\猬魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

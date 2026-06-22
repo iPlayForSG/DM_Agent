@@ -1,0 +1,84 @@
+{
+  "monster_id": "mon-mm25-ice-devil",
+  "name": "冰魔",
+  "size": "大型",
+  "creature_type": "邪魔（魔鬼）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "14",
+  "proficiency_bonus": 5,
+  "ac": 18,
+  "hp_max": 228,
+  "initiative_bonus": 7,
+  "speed": 40,
+  "stats": {
+    "strength": 21,
+    "dexterity": 14,
+    "constitution": 18,
+    "intelligence": 18,
+    "wisdom": 15,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 7,
+    "constitution": 9,
+    "intelligence": 4,
+    "wisdom": 7,
+    "charisma": 9
+  },
+  "skills": {
+    "insight": 7,
+    "perception": 7,
+    "游说": 9
+  },
+  "senses": [
+    "盲视120尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "炼狱语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "寒冷",
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "魔鬼复苏",
+      "description": "若冰魔于九层地狱之外死去，其身躯会化为硫磺烟雾消失，并立即在九层地狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "冰魔在对抗法术和其他魔法效应的豁免中具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "冰魔发动三次冰矛攻击。其可以将其中一次攻击替换为一次尾击攻击。"
+    },
+    {
+      "name": "冰矛",
+      "description": "近战或远程攻击检定：+10，触及5尺或射程30/120尺。命中：14（2d8+5）穿刺伤害外加10（3d6）寒冷伤害。直至目标的下个回合结束，其无法执行附赠动作或反应，其速度降低10尺，且目标在其回合中仅可以执行一个动作或移动，但不能同时执行二者。 命中或失手：冰矛在远程攻击后立即魔法性地回到冰魔手中。"
+    },
+    {
+      "name": "尾击",
+      "description": "近战攻击检定：+10，触及10尺。命中：15（3d6+5）钝击伤害外加18（4d8）寒冷伤害。"
+    },
+    {
+      "name": "冰墙",
+      "description": "冰魔施展冰墙术Ice Wall（八环版本），无需法术成分并使用智力作为施法属性（法术豁免DC17）。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ice Devil\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\魔鬼\\冰魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

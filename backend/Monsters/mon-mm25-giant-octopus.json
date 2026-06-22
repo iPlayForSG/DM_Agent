@@ -1,0 +1,63 @@
+{
+  "monster_id": "mon-mm25-giant-octopus",
+  "name": "巨章鱼",
+  "size": "大型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 45,
+  "initiative_bonus": 1,
+  "speed": 10,
+  "stats": {
+    "strength": 17,
+    "dexterity": 13,
+    "constitution": 13,
+    "intelligence": 5,
+    "wisdom": 10,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 4,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水下呼吸",
+      "description": "巨章鱼只能在水下呼吸。其可以在空气中屏息一小时。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "触须",
+      "description": "近战攻击检定：+5，触及10尺。命中：10（2d6+3）钝击伤害。若目标生物体型不超过中型，则其被全部八条触手擒抱，陷入受擒状态（逃脱DC13）。受擒期间，目标还会陷入束缚状态。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "墨水云",
+      "description": "触发：巨章鱼在水下受到伤害。响应：巨章鱼释放出墨水覆盖以自己为中心的10尺立方区域，且巨章鱼移动至多等于其游泳速度的距离。该立方区域在1分钟内变为重度遮蔽，当有强劲水流或类似效应将墨水击散时，该效应提前结束。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Giant Octopus\n速度：10尺，游泳60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\巨章鱼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

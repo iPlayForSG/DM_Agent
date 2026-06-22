@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-druid",
+  "name": "德鲁伊",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 44,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 12,
+    "constitution": 13,
+    "intelligence": 12,
+    "wisdom": 16,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": 1,
+    "wisdom": 3,
+    "charisma": 0
+  },
+  "skills": {
+    "medicine": 5,
+    "nature": 3,
+    "perception": 5
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [
+    "通用语",
+    "德鲁伊语",
+    "木族语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "德鲁伊使用荆藤法杖或苍翠之力发动共计两次攻击。"
+    },
+    {
+      "name": "荆藤法杖",
+      "description": "近战攻击检定：+5，触及5尺。命中：7（1d8+3）钝击伤害外加2（1d4）毒素伤害。"
+    },
+    {
+      "name": "苍翠之力",
+      "description": "远程攻击检定：+5，射程90尺。命中：10（3d6）光耀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "德鲁伊施展以下一道法术，使用感知作为施法属性（法术豁免DC13）： 随意：德鲁伊伎俩Druidcraft，动物交谈Speak with Animal 每项2/日：纠缠术Entangle，雷鸣波Thunderwave 每项1/日：动物信使Animal Messenger，大步奔行Longstrider，月华之光Moonbeam"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Druid\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\德鲁伊.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

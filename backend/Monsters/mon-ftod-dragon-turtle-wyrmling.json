@@ -1,0 +1,61 @@
+{
+  "monster_id": "mon-ftod-dragon-turtle-wyrmling",
+  "name": "龙龟雏龙",
+  "size": "大型",
+  "creature_type": "龙类",
+  "alignment": "一般而言绝对中立",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 18,
+  "hp_max": 90,
+  "initiative_bonus": 0,
+  "speed": 20,
+  "stats": {
+    "strength": 17,
+    "dexterity": 10,
+    "constitution": 15,
+    "intelligence": 8,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "dexterity": 2,
+    "constitution": 4,
+    "wisdom": 2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉 120尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "水族语",
+    "龙语"
+  ],
+  "damage_resistances": [
+    "火焰"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "龙龟可以在空气和水中呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+5，触及10尺，单一目标。 命中： 9（1d12+3）穿刺伤害。"
+    },
+    {
+      "name": "蒸汽吐息",
+      "description": "龙龟呼出一道灼热的蒸汽覆盖一处15尺的锥状区域，区域内的所有生物必须进行一次DC 12的敏捷豁免，豁免失败者将受17（5d6）的火焰伤害，豁免成功则伤害减半。目标生物无法因藏身水下而对该伤害具有抗性。 Copyright © 2019. All rights reserved. (To change the copyright info, just edit it in template.)"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Dragon Turtle Wyrmling\n速度：20尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\龙龟.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

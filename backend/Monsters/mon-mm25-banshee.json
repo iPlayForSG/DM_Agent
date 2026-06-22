@@ -1,0 +1,96 @@
+{
+  "monster_id": "mon-mm25-banshee",
+  "name": "报丧妖",
+  "size": "中型",
+  "creature_type": "亡灵",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 54,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 1,
+    "dexterity": 14,
+    "constitution": 10,
+    "intelligence": 12,
+    "wisdom": 11,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 3
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语",
+    "精灵语"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "钝击",
+    "火焰",
+    "闪电",
+    "穿刺",
+    "挥砍",
+    "雷鸣"
+  ],
+  "damage_immunities": [
+    "寒冷",
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚"
+  ],
+  "traits": [
+    {
+      "name": "侦测生命",
+      "description": "报丧妖可以魔法性地感知到其1里之内非亡灵非构装生物的位置。"
+    },
+    {
+      "name": "虚体移动",
+      "description": "报丧妖可以移动穿过其他生物或物件，如同穿过困难地形一般。在其回合结束时，若报丧妖还处于物件内，其受到5（1d10）力场伤害"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "报丧妖发动两次腐化触击攻击。"
+    },
+    {
+      "name": "腐化触击",
+      "description": "近战攻击检定：+5，触及5尺。命中：7（1d8+3）暗蚀伤害。"
+    },
+    {
+      "name": "恐惧",
+      "description": "感知豁免检定：DC13，单一60尺内报丧妖可见且能看见其的生物。失败：目标陷入恐慌状态，直至报丧妖的下个回合开始。成功：目标在24小时内免疫此报丧妖的恐惧。"
+    },
+    {
+      "name": "死亡哀嚎",
+      "description": "若报丧妖未身处阳光下，其发出一阵悲恸的哀嚎。体质豁免检定：DC13，30尺内能听到哀嚎的非亡灵且非构装的每名生物。失败：若目标的生命值为25或更低，其生命值降至0；否则，目标受到10（3d6）心灵伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Banshee\n速度：5尺，飞行40尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\报丧妖.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

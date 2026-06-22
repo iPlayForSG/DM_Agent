@@ -1,0 +1,77 @@
+{
+  "monster_id": "mon-mm25-young-bronze-dragon",
+  "name": "青年青铜龙",
+  "size": "大型",
+  "creature_type": "龙类（金属龙）",
+  "alignment": "守序善良",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 142,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 21,
+    "dexterity": 10,
+    "constitution": 19,
+    "intelligence": 14,
+    "wisdom": 13,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 3,
+    "constitution": 4,
+    "intelligence": 2,
+    "wisdom": 4,
+    "charisma": 3
+  },
+  "skills": {
+    "insight": 4,
+    "perception": 7,
+    "stealth": 3
+  },
+  "senses": [
+    "盲视30尺",
+    "黑暗视觉120尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "闪电"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "青铜龙可以在空气和水中呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "青铜龙发动三次撕裂攻击。其可以将其中一次攻击替换为使用斥力吐息。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+8，触及10尺。命中：16（2d10+5）挥砍伤害。"
+    },
+    {
+      "name": "闪电吐息",
+      "description": "敏捷豁免检定：DC15，60尺长、5尺宽的线状区域内的每个生物。失败：49（9d10）闪电伤害。成功：半伤。"
+    },
+    {
+      "name": "斥力吐息",
+      "description": "力量豁免检定：DC15，30尺锥状区域内的每个生物。失败：目标被青铜龙直线推离至多40尺并陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Bronze Dragon\n速度：40尺，飞行80尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\青铜龙\\青年青铜龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

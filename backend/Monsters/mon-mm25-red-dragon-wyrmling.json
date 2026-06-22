@@ -1,0 +1,66 @@
+{
+  "monster_id": "mon-mm25-red-dragon-wyrmling",
+  "name": "红龙雏龙",
+  "size": "中型",
+  "creature_type": "龙类（色彩龙）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 17,
+  "hp_max": 75,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 10,
+    "constitution": 17,
+    "intelligence": 12,
+    "wisdom": 11,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 4,
+    "stealth": 2
+  },
+  "senses": [
+    "盲视10尺",
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "红龙发动两次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+6，触及5尺。命中：9（1d10+4）挥砍伤害外加3（1d6）火焰伤害。"
+    },
+    {
+      "name": "火焰吐息",
+      "description": "敏捷豁免检定：DC13，15尺锥状区域内的每名生物。失败：24（7d6）火焰伤害。成功：半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Red Dragon Wyrmling\n速度：30尺，攀爬30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\红龙\\红龙雏龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

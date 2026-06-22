@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-medusa",
+  "name": "美杜莎",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "守序邪恶",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 127,
+  "initiative_bonus": 6,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 17,
+    "constitution": 16,
+    "intelligence": 12,
+    "wisdom": 13,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 3,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 4,
+    "charisma": 2
+  },
+  "skills": {
+    "deception": 5,
+    "perception": 4,
+    "stealth": 6
+  },
+  "senses": [
+    "黑暗视觉150尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "美杜莎发动两次爪击和一次蛇发攻击，或是发动三次毒素射线攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+6，触及5尺。命中：10（2d6+3）挥砍伤害。"
+    },
+    {
+      "name": "蛇发",
+      "description": "近战攻击检定：+6，触及5尺。命中：5（1d4+3）穿刺伤害外加14（4d6）毒素伤害。"
+    },
+    {
+      "name": "毒素射线",
+      "description": "远程攻击检定：+5，射程150尺。命中：11（2d8+2）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "石化凝视",
+      "description": "体质豁免检定：DC13，30尺锥状区域内的每名生物。若美杜莎在锥形区域内看到自己的倒影，其也必须进行此豁免。首次失败：目标陷入束缚状态，目标在下个回合结束时仍处于束缚则重复豁免，成功则终止其身上的该效应。再次失败：目标陷入石化状态替代其束缚状态。"
+    }
+  ],
+  "notes": "英文名：Medusa\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\美杜莎.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,83 @@
+{
+  "monster_id": "mon-mm25-hezrou",
+  "name": "狂蟾魔",
+  "size": "大型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 18,
+  "hp_max": 157,
+  "initiative_bonus": 6,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 17,
+    "constitution": 20,
+    "intelligence": 5,
+    "wisdom": 12,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 3,
+    "constitution": 8,
+    "intelligence": -3,
+    "wisdom": 4,
+    "charisma": 1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "深渊语",
+    "心灵感应120尺。"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若狂蟾魔于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "狂蟾魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "恶臭",
+      "description": "体质豁免：DC16，任何在源自狂蟾魔的10尺光环区域内开始其回合的生物。失败：目标陷入中毒状态，持续至下个回合开始。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "狂蟾魔发动三次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+7，触及5尺。命中：6（1d4+4）挥砍伤害外加9（2d8）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "跳跃",
+      "description": "狂蟾魔消耗10尺移动力跳跃至多30尺。"
+    }
+  ],
+  "notes": "英文名：Hezrou\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\狂蟾魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

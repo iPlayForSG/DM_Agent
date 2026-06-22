@@ -1,0 +1,84 @@
+{
+  "monster_id": "mon-mm25-incubus",
+  "name": "梦魔",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "中立邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 66,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 8,
+    "dexterity": 17,
+    "constitution": 13,
+    "intelligence": 15,
+    "wisdom": 12,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": 3,
+    "constitution": 1,
+    "intelligence": 2,
+    "wisdom": 1,
+    "charisma": 5
+  },
+  "skills": {
+    "deception": 9,
+    "insight": 5,
+    "perception": 5,
+    "游说": 9,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "炼狱语",
+    "心灵感应60尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "毒素",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "化身魅魔",
+      "description": "梦魔在完成一次长休时可以变形为魅魔Succubus，并使用魅魔的游戏数据替代其原来的数据。梦魔着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "梦魔发动两次毁梦之触攻击。"
+    },
+    {
+      "name": "毁梦之触",
+      "description": "近战攻击：+7，触及5尺。命中：15（3d6+5）心灵伤害，且目标被诅咒，持续24小时或在梦魔死亡时提前结束。受诅咒期间，目标无法从完成短休中获益。。"
+    },
+    {
+      "name": "施法",
+      "description": "梦魔施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC15）： 随意：易容术Disguise Self，以太化Etherealness 每项1/日：托梦术Dream，催眠图纹Hypnotic"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "噩梦",
+      "description": "感知豁免检定：DC15，单一60尺内梦魔可见的生物。失败：若目标的生命值为20或更低，则其陷入昏迷状态，持续1小时并在其受到伤害或被目标5尺内的另一生物用一个动作摇醒时提前结束；否则，目标受到18（4d8）心灵伤害。"
+    }
+  ],
+  "notes": "英文名：Incubus\n速度：30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\梦魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

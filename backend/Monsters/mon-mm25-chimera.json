@@ -1,0 +1,47 @@
+{
+  "monster_id": "mon-mm25-chimera",
+  "name": "奇美拉",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "未注明",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 13,
+  "hp_max": 158,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 13,
+    "constitution": 15,
+    "intelligence": 10,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {},
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "索引基础模板",
+      "description": "此模板由速查索引生成，仅包含名称、体型、类型、挑战等级与估算战斗数值；详细能力以原始怪物条目为准。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "基础攻击",
+      "description": "近战或远程攻击：+6，触及5尺或射程30尺。命中：4d6+3钝击伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Chimera\n来源文件：Documents\\DND5e 2024\\速查\\5E万兽大全.md\n由本地速查索引估算生成。",
+  "source": "MM25"
+}

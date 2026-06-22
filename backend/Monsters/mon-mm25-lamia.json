@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-lamia",
+  "name": "拉迷亚",
+  "size": "大型",
+  "creature_type": "邪魔",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 97,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 16,
+    "dexterity": 13,
+    "constitution": 15,
+    "intelligence": 14,
+    "wisdom": 15,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 2,
+    "intelligence": 2,
+    "wisdom": 2,
+    "charisma": 3
+  },
+  "skills": {
+    "deception": 7,
+    "insight": 4,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "拉迷亚发动两次爪击攻击。其可以将其中一次攻击替换为使用腐败之触。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+5，触及5尺。命中：7（1d8+3）挥砍伤害，外加7（2d6）心灵伤害。"
+    },
+    {
+      "name": "腐败之触",
+      "description": "感知豁免检定：DC13，单一5尺内拉迷亚可见的生物。失败：13（3d8）心灵伤害，且目标被诅咒，持续1小时。目标陷入魅惑和中毒状态，直至诅咒结束。"
+    },
+    {
+      "name": "施法",
+      "description": "拉迷亚施展以下一道法术，无需任材料成分并使用魅力作为施法属性（法术豁免DC13）： 随意： 易容术Disguise Self（可易容为大型或中型两足动物）， 次级幻象Minor Illusion 每项1/日：指使术Geas，高级幻影Major Image，探知Scrying"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "跳跃",
+      "description": "拉迷亚消耗10尺移动力跳跃至多30尺。"
+    }
+  ],
+  "notes": "英文名：Lamia\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\拉迷亚.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

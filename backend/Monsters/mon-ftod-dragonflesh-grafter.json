@@ -1,0 +1,43 @@
+{
+  "monster_id": "mon-ftod-dragonflesh-grafter",
+  "name": "龙肉接殖者",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "一般而言中立邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 52,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 11,
+    "constitution": 14,
+    "intelligence": 10,
+    "wisdom": 10,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 5,
+    "constitution": 4
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Dragonflesh Grafter\n速度：30尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\龙肉接殖者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

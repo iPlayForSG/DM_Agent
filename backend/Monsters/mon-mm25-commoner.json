@@ -1,0 +1,56 @@
+{
+  "monster_id": "mon-mm25-commoner",
+  "name": "平民",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 10,
+  "hp_max": 4,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 10,
+    "constitution": 10,
+    "intelligence": 10,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 0,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "技艺受训",
+      "description": "平民具有某项技能熟练（由DM选择），且在进行使用该技能的属性检定时具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "短棒",
+      "description": "近战攻击检定：+2，触及5尺。命中：2（1d4）钝击伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Commoner\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\平民.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

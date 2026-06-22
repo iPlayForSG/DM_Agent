@@ -1,0 +1,71 @@
+{
+  "monster_id": "mon-mm25-hobgoblin-warlord",
+  "name": "大地精军阀",
+  "size": "中型",
+  "creature_type": "妖精（类地精）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 20,
+  "hp_max": 112,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 14,
+    "constitution": 16,
+    "intelligence": 14,
+    "wisdom": 11,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 5,
+    "constitution": 3,
+    "intelligence": 5,
+    "wisdom": 3,
+    "charisma": 5
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语",
+    "地精语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "威权灵光",
+      "description": "只要大地精未陷入失能状态，则其与其身处源自大地精的10尺光环区域内的盟友进行攻击检定与豁免时具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "大地精使用标枪或长剑发动共计三次攻击。"
+    },
+    {
+      "name": "标枪",
+      "description": "近战或远程攻击检定：+6，触及5尺或射程30/120尺。 命中：11（2d6+4）穿刺伤害，且直至大地精的下个回合开始，目标速度降低10尺。"
+    },
+    {
+      "name": "长剑",
+      "description": "近战攻击检定：+6，触及5尺。 命中：12（2d8+3）挥砍伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "格挡",
+      "description": "触发：大地精在持握武器期间因近战攻击检定被命中。 响应：大地精令其对抗那次攻击的AC+3，可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Hobgoblin Warlord\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\大地精\\大地精军阀.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

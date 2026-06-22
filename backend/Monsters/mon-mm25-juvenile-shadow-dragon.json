@@ -1,0 +1,83 @@
+{
+  "monster_id": "mon-mm25-juvenile-shadow-dragon",
+  "name": "少年幽影龙",
+  "size": "中型",
+  "creature_type": "龙类",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 45,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 14,
+    "constitution": 17,
+    "intelligence": 12,
+    "wisdom": 11,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 4,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 0,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 4,
+    "stealth": 6
+  },
+  "senses": [
+    "盲视10尺",
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [
+    "见活体幽影特质"
+  ],
+  "damage_immunities": [
+    "暗蚀"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "活体幽影",
+      "description": "若幽影龙身处微光光照或黑暗中，其具有对除力场、心灵、光耀外所有伤害的抗性。"
+    },
+    {
+      "name": "日照敏感",
+      "description": "若幽影龙身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "幽影龙发动两次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+5，触及10尺。命中：7（1d8+3）挥砍伤害外加3（1d6）暗蚀伤害。"
+    },
+    {
+      "name": "幽影吐息",
+      "description": "敏捷豁免检定：DC13，30尺锥状区域内的每名生物。失败：17（5d6）暗蚀伤害。成功：半伤。失败或成功：因此伤害生命值降至0的类人生物死亡，且从其尸体中浮现一只幽影Shadow。该幽影受幽影龙控制，使用与幽影龙一样的先攻并在其回合结束后立即执行回合。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "幽影隐匿",
+      "description": "若幽影龙身处微光光照或黑暗，其执行躲藏动作。"
+    }
+  ],
+  "notes": "英文名：Juvenile Shadow Dragon\n速度：30尺，攀爬30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\幽影龙\\少年幽影龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

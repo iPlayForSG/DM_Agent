@@ -1,0 +1,100 @@
+{
+  "monster_id": "mon-mm25-yochlol",
+  "name": "蜡融妖",
+  "size": "中型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 15,
+  "hp_max": 153,
+  "initiative_bonus": 8,
+  "speed": 30,
+  "stats": {
+    "strength": 15,
+    "dexterity": 19,
+    "constitution": 18,
+    "intelligence": 13,
+    "wisdom": 15,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 8,
+    "constitution": 4,
+    "intelligence": 5,
+    "wisdom": 6,
+    "charisma": 7
+  },
+  "skills": {
+    "deception": 11,
+    "insight": 6
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "深渊语",
+    "精灵语",
+    "地底通用语"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若蜡融妖于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "蜡融妖对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "蛛行",
+      "description": "蜡融妖可以在难以攀爬的表面上攀爬，包括沿着天花板移动，且无需为此进行属性检定。"
+    },
+    {
+      "name": "蛛网行者",
+      "description": "蜡融妖在蛛网上移动时无视蛛网造成的移动限制。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蜡融妖发动两次苛性鞭笞攻击，并使用施法施展蛛网术Web或支配类人Dominate Person（若条件允许）。"
+    },
+    {
+      "name": "苛性鞭笞",
+      "description": "近战或远程攻击检定：+8，触及10尺或射程120尺。命中：25（6d6+4）强酸伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "蜡融妖施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC15）： 随意： 侦测思想Detect Thoughts， 气化形体Gaseous Form（仅自身）， 蛛网术Web 1/日：支配类人Dominate Person"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "毒性逃脱",
+      "description": "触发：蜡融妖被一次攻击检定命中。响应：蜡融妖令此次攻击对其造成的伤害减半（向下取整），并传送至30尺内一处其可见的未占据空间。体质豁免：DC15，蜡融妖目标空间5尺内的每名生物。失败：目标陷入中毒状态，持续至其下个回合结束。中毒期间，目标陷入失能状态。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "变形",
+      "description": "蜡融妖变形为中型类人生物或中型蜘蛛，或变回其真实形态。其各形态下游戏数据均相同，且其着装或携带的任何装备都不会随之变化。"
+    }
+  ],
+  "notes": "英文名：Yochlol\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\蜡融妖.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

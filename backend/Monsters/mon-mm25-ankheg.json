@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-mm25-ankheg",
+  "name": "掘地虫",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 45,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 11,
+    "constitution": 14,
+    "intelligence": 1,
+    "wisdom": 13,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 0,
+    "constitution": 2,
+    "intelligence": -5,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "震颤感知60尺",
+    "被动察觉11"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "掘道者",
+      "description": "掘地虫能够以其一半的掘穴速度掘穴通过坚硬的岩石，并在其身后留下直径10尺的地道。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5（若目标受擒于掘地虫则具有优势），触及5尺。命中：10（2d6+3）挥砍伤害，外加3（1d6）强酸伤害。若目标生物体型不超过大型，则其陷入受擒状态（逃脱DC13）。"
+    },
+    {
+      "name": "酸液喷射",
+      "description": "敏捷豁免检定：DC12，30尺长，5尺宽的线状区域内的每名生物。失败：14（4d6）强酸伤害。成功：半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ankheg\n速度：30尺，掘穴10尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\掘地虫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

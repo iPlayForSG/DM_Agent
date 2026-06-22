@@ -1,0 +1,54 @@
+{
+  "monster_id": "mon-mm25-grimlock",
+  "name": "幽邃盲族",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "中立邪恶",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 11,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 12,
+    "constitution": 12,
+    "intelligence": 9,
+    "wisdom": 8,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -1,
+    "wisdom": -1,
+    "charisma": -2
+  },
+  "skills": {
+    "athletics": 5,
+    "perception": 3,
+    "stealth": 5
+  },
+  "senses": [
+    "盲视30尺",
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "骨棒",
+      "description": "近战攻击检定：+5，触及5尺。命中：6（1d6+3）钝击伤害，外加2（1d4）心灵伤害。 我们还以为，我们发现了一支居住在远超已知深度的地底新种族。结果事实远比那糟糕。 ——阿加耶拉，幽暗地域先知"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Grimlock\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\幽邃盲族.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

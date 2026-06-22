@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -309,6 +309,33 @@ def monsters_payload():
     }
 
 
+def _load_monster_template_for_state(state: GameState, identifier: str) -> Optional[MonsterTemplate]:
+    monster = state.monster_templates.get(identifier)
+    if monster:
+        return monster
+    for template in state.monster_templates.values():
+        if template.name == identifier:
+            return template
+    return monster_storage.load_monster(identifier)
+
+
+def game_monsters_payload(state: GameState):
+    standard = [summary.model_dump(mode="json") for summary in monster_storage.list_monster_summaries()]
+    game_specific = [monster.to_summary().model_dump(mode="json") for monster in state.monster_templates.values()]
+    for summary in standard:
+        summary["scope"] = "standard"
+    for summary in game_specific:
+        summary["scope"] = "game"
+    combined = [_add_display_fields(summary) for summary in [*standard, *game_specific]]
+    combined.sort(key=lambda item: (item.get("scope") != "standard", item["name"]))
+    return {
+        "monsters": combined,
+        "standard_count": len(standard),
+        "game_count": len(game_specific),
+        "names": [summary["name"] for summary in combined],
+    }
+
+
 def games_payload():
     summaries = [summary.model_dump(mode="json") for summary in game_storage.list_game_summaries()]
     return {
@@ -510,8 +537,29 @@ def _build_spell_options(character: Character):
     return sorted(options, key=lambda item: (item["level"], item["name"]))
 
 
+_CHINESE_DAMAGE_TYPES = {
+    "钝击": "bludgeoning",
+    "穿刺": "piercing",
+    "挥砍": "slashing",
+    "火焰": "fire",
+    "寒冷": "cold",
+    "闪电": "lightning",
+    "雷鸣": "thunder",
+    "强酸": "acid",
+    "酸": "acid",
+    "毒素": "poison",
+    "毒性": "poison",
+    "黯蚀": "necrotic",
+    "坏死": "necrotic",
+    "光耀": "radiant",
+    "力场": "force",
+    "心灵": "psychic",
+    "精神": "psychic",
+}
+
+
 def _parse_monster_action(text: str):
-    normalized = text.strip()
+    normalized = re.sub(r"\s+", " ", text.strip())
     if not normalized:
         return None
 
@@ -520,6 +568,13 @@ def _parse_monster_action(text: str):
     damage_type = ""
 
     match_bonus = re.search(r"([+-]\d+)\s*to hit", normalized, re.IGNORECASE)
+    if not match_bonus:
+        match_bonus = re.search(
+            r"(?:攻击检定|武器攻击|法术攻击|近战或远程攻击|近战攻击|远程攻击)[^。；;]*?([+-]\d+)",
+            normalized,
+        )
+    if not match_bonus:
+        match_bonus = re.search(r"命中\s*([+-]\d+)", normalized)
     if match_bonus:
         attack_bonus = int(match_bonus.group(1))
 
@@ -530,6 +585,11 @@ def _parse_monster_action(text: str):
     match_type = re.search(r"(slashing|piercing|bludgeoning|fire|cold|lightning|thunder|acid|poison|necrotic|radiant|force|psychic)", normalized, re.IGNORECASE)
     if match_type:
         damage_type = match_type.group(1).lower()
+    else:
+        chinese_types = "|".join(re.escape(item) for item in sorted(_CHINESE_DAMAGE_TYPES, key=len, reverse=True))
+        match_chinese_type = re.search(rf"({chinese_types})\s*伤害", normalized)
+        if match_chinese_type:
+            damage_type = _CHINESE_DAMAGE_TYPES[match_chinese_type.group(1)]
 
     if attack_bonus is None or not damage_expression:
         return None
@@ -627,7 +687,7 @@ def action_options_payload(state: GameState):
             )
 
             if combatant.monster_template_id:
-                monster = monster_storage.load_monster(combatant.monster_template_id)
+                monster = _load_monster_template_for_state(state, combatant.monster_template_id)
                 if monster:
                     actors[-1]["attacks"] = _derive_monster_attack_options(monster)
                     actors[-1]["features"] = _derive_monster_feature_options(monster)
@@ -740,8 +800,10 @@ async def list_monsters():
 
 @app.post("/api/v1/monsters")
 async def create_monster(monster: MonsterTemplate):
-    monster_storage.save_monster(monster)
-    return {"status": "saved", "monster": monster.to_summary().model_dump(mode="json")}
+    raise HTTPException(
+        status_code=405,
+        detail="Standard monster templates are read-only. Save game-specific monsters in the game state.",
+    )
 
 
 @app.get("/api/v1/monsters/{identifier}")
@@ -797,6 +859,25 @@ async def get_game_state(game_id: str) -> GameState:
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
     return state
+
+
+@app.get("/api/v1/games/{game_id}/monsters")
+async def list_game_monsters(game_id: str):
+    state = game_storage.load_game(game_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return game_monsters_payload(state)
+
+
+@app.get("/api/v1/games/{game_id}/monsters/{identifier}")
+async def get_game_monster(game_id: str, identifier: str):
+    state = game_storage.load_game(game_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Game not found")
+    monster = _load_monster_template_for_state(state, identifier)
+    if not monster:
+        raise HTTPException(status_code=404, detail="Monster not found")
+    return monster
 
 
 @app.get("/api/v1/games/{game_id}/action-options")
@@ -868,7 +949,7 @@ async def add_enemy_to_encounter(game_id: str, req: AddEnemyEncounterRequest):
 @app.post("/api/v1/games/{game_id}/encounters/spawn-template")
 async def spawn_template_into_encounter(game_id: str, req: SpawnMonsterEncounterRequest):
     state = _load_game_or_404(game_id)
-    monster = monster_storage.load_monster(req.monster_id)
+    monster = _load_monster_template_for_state(state, req.monster_id)
     if not monster:
         raise HTTPException(status_code=404, detail="Monster template not found")
 

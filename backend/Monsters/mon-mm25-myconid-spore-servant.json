@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-mm25-myconid-spore-servant",
+  "name": "蕈人孢子奴仆",
+  "size": "中型或小型",
+  "creature_type": "植物",
+  "alignment": "无阵营",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 37,
+  "initiative_bonus": 1,
+  "speed": 20,
+  "stats": {
+    "strength": 16,
+    "dexterity": 12,
+    "constitution": 16,
+    "intelligence": 2,
+    "wisdom": 6,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": -4,
+    "wisdom": -2,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "盲视30尺",
+    "被动察觉8"
+  ],
+  "languages": [
+    "心灵感应30尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "目盲",
+    "魅惑",
+    "恐慌",
+    "麻痹",
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "猛击",
+      "description": "近战攻击检定：+5，触及5尺。 命中：6（1d6+3）钝击伤害外加2（1d4）毒素伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Myconid Spore Servant\n速度：20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\植物\\蕈人\\蕈人孢子奴仆.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

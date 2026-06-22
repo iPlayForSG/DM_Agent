@@ -1,0 +1,50 @@
+{
+  "monster_id": "mon-ftod-draconian-infiltrator",
+  "name": "龙人渗透者",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "任意阵营",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 39,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 11,
+    "dexterity": 17,
+    "constitution": 14,
+    "intelligence": 9,
+    "wisdom": 13,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "dexterity": 5
+  },
+  "skills": {
+    "perception": 3,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉 60尺",
+    "被动察觉13"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Draconian Infiltrator\n速度：40尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\龙人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

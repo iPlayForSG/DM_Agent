@@ -1,0 +1,81 @@
+{
+  "monster_id": "mon-mm25-azer-pyromancer",
+  "name": "火矮人烈炎术师",
+  "size": "中型",
+  "creature_type": "元素",
+  "alignment": "守序中立",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 18,
+  "hp_max": 97,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 15,
+    "dexterity": 14,
+    "constitution": 16,
+    "intelligence": 12,
+    "wisdom": 18,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 2,
+    "constitution": 6,
+    "intelligence": 1,
+    "wisdom": 7,
+    "charisma": 1
+  },
+  "skills": {
+    "arcana": 4,
+    "perception": 7
+  },
+  "senses": [
+    "被动察觉17"
+  ],
+  "languages": [
+    "原初语（火族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "炽焰灵光",
+      "description": "火矮人回合结束时，除非其陷入失能状态，否则位于源自火矮人的5尺光环区域内的每名生物受到11（2d10）火焰伤害。"
+    },
+    {
+      "name": "照明",
+      "description": "火矮人散发出半径10尺的明亮光照以及额外10尺的微光光照。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "火矮人发动两次炎爆攻击。"
+    },
+    {
+      "name": "炎爆",
+      "description": "近战或远程攻击检定：+7，触及5尺或射程120尺。命中：15（2d10+4）火焰伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "火矮人施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC15）： 随意：四象法门Elementalism，法师之手Mage Hand 1/日：火球术Fireball"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "炼狱叱喝",
+      "description": "火矮人施展炼狱叱喝Hellish Rebuke （触发条件见该法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Azer Pyromancer\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\火矮人\\火矮人烈炎术士.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

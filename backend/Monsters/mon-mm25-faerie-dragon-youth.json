@@ -1,0 +1,76 @@
+{
+  "monster_id": "mon-mm25-faerie-dragon-youth",
+  "name": "妖精龙青年体",
+  "size": "微型",
+  "creature_type": "龙类",
+  "alignment": "混乱善良",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 21,
+  "initiative_bonus": 3,
+  "speed": 10,
+  "stats": {
+    "strength": 3,
+    "dexterity": 16,
+    "constitution": 12,
+    "intelligence": 12,
+    "wisdom": 12,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": -4,
+    "dexterity": 3,
+    "constitution": 1,
+    "intelligence": 1,
+    "wisdom": 1,
+    "charisma": 2
+  },
+  "skills": {
+    "arcana": 3,
+    "perception": 3,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉13"
+  ],
+  "languages": [
+    "龙语",
+    "木族语",
+    "心灵感应60尺（仅妖精龙）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "妖精龙对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+5，触及5尺。命中：5（1d4+3）穿刺伤害外加2（1d4）心灵伤害。"
+    },
+    {
+      "name": "欢愉吐息",
+      "description": "感知豁免检定：DC12，15尺锥状区域内的每名生物。失败：目标陷入失能状态直至其下个回合结束，且目标在那个回合必须消耗其全部移动力向一个随机方向移动。"
+    },
+    {
+      "name": "施法",
+      "description": "妖精龙施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC12）： 随意：舞光术Dancing Lights，法师之手Mage Hand，次级幻象Minor Illusion"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "进阶隐形",
+      "description": "妖精龙对自身施展高等隐形术Greater Invisibility，无需法术成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Faerie Dragon Youth\n速度：10尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\妖精龙\\妖精龙青年体.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

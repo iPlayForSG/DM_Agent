@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-modron-quadrone",
+  "name": "魔冢·五元冢",
+  "size": "大型",
+  "creature_type": "构装",
+  "alignment": "守序中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 32,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 15,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 10,
+    "wisdom": 10,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 1
+  },
+  "skills": {
+    "perception": 4
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "魔冢语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑"
+  ],
+  "traits": [
+    {
+      "name": "解体",
+      "description": "若魔冢死亡，其解体为尘埃，留下其着装或携带的任何东西。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "魔冢发动五次猛击攻击或五次电能释放攻击。"
+    },
+    {
+      "name": "猛击",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）力场伤害。"
+    },
+    {
+      "name": "电能释放",
+      "description": "远程攻击检定：+4，射程120尺。命中：5（1d6+2）闪电伤害。"
+    },
+    {
+      "name": "麻痹气体",
+      "description": "体质豁免检定：DC11，30尺锥状区域内的每名生物。失败：目标陷入麻痹状态，并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Modron Quadrone\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\构装\\魔冢\\魔冢·五元冢.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

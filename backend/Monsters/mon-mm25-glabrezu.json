@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-glabrezu",
+  "name": "迷诱魔",
+  "size": "大型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "9",
+  "proficiency_bonus": 4,
+  "ac": 17,
+  "hp_max": 189,
+  "initiative_bonus": 6,
+  "speed": 40,
+  "stats": {
+    "strength": 20,
+    "dexterity": 15,
+    "constitution": 21,
+    "intelligence": 19,
+    "wisdom": 17,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 9,
+    "dexterity": 2,
+    "constitution": 9,
+    "intelligence": 4,
+    "wisdom": 7,
+    "charisma": 7
+  },
+  "skills": {
+    "deception": 7,
+    "perception": 7
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "深渊语",
+    "心灵感应120尺。"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若迷诱魔于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "迷诱魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "迷诱魔发动两次巨钳攻击，并使用猛砸或施法。"
+    },
+    {
+      "name": "巨钳",
+      "description": "近战攻击检定：+9，触及10尺。命中：16（2d10+5）挥砍伤害。若目标生物体型不超过中型，则其将被双钳之一擒抱，陷入受擒状态（逃脱DC15）。"
+    },
+    {
+      "name": "猛砸",
+      "description": "敏捷豁免：DC17，单一正受擒于迷诱魔的生物。失败：15（3d6+5）钝击伤害。成功：半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "迷诱魔施展以下一道法术，无需材料成分并使用智力作为施法属性（法术豁免DC16）： 随意：黑暗术Darkness，侦测魔法Detect Magic，解除魔法Dispel Magic 每项1/日：困惑术Confusion，飞行术Fly，律令震慑Power Word Stun"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Glabrezu\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\迷诱魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

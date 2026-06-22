@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-ftod-moonstone-dragon-wyrmling",
+  "name": "月石龙雏龙",
+  "size": "中型",
+  "creature_type": "龙类",
+  "alignment": "一般而言绝对中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 17,
+  "hp_max": 39,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 14,
+    "constitution": 14,
+    "intelligence": 16,
+    "wisdom": 14,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "intelligence": 5,
+    "wisdom": 4,
+    "charisma": 5
+  },
+  "skills": {
+    "perception": 4,
+    "游说": 5,
+    "stealth": 4
+  },
+  "senses": [
+    "盲视 10尺",
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+5，触及10尺，单一目标。 命中： 12（2d8+3）穿刺伤害，外加3（1d6）光耀伤害。"
+    },
+    {
+      "name": "吐息武器",
+      "description": "巨龙使用它的一种喷吐武器： 入梦吐息 Dream Breath：巨龙喷发出一阵覆盖90尺锥形范围的迷雾。任何位于此区域中的生物必须通过DC12体质豁免，否则就会陷入持续十分钟的昏迷。当一个受到影响的生物受到伤害或有人以一个动作摇醒他时，吐息对他的效应便结束。 月光吐息 Moonlight Breath：巨龙释放出一道长30尺，宽5尺的月光束。任何位于此区域中的生物必须通过DC12敏捷豁免，否则就会受到14（4d6）点光耀伤害，豁免成功则伤害减半。 Copyright 2019. All rights reserved. (To change the copyright info, just edit it in template.)"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Moonstone Dragon Wyrmling\n速度：30尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\月石龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

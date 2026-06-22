@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-rust-monster",
+  "name": "锈蚀怪",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 33,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 13,
+    "dexterity": 12,
+    "constitution": 13,
+    "intelligence": 2,
+    "wisdom": 13,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉11"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "嗅铁",
+      "description": "锈蚀怪可以精准定位30尺内的含铁金属。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "锈蚀怪发动一次啃咬攻击并使用两次触角。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+3，触及5尺。 命中：5（1d8+1）穿刺伤害。"
+    },
+    {
+      "name": "触角",
+      "description": "锈蚀怪从位于其5尺内的一名生物身上，选择一件其着装或携带的非魔法金属物件（护甲或武器）为目标。 敏捷豁免检定：DC11，着装或携带此物件的生物。 失败：物件提供的AC（护甲）或进行的攻击检定（武器）获得-1减值。护甲AC降至10、武器减值达到-5时，物件被摧毁。对护甲和武器施展法术修复术Mending可以移除该减值。"
+    },
+    {
+      "name": "摧毁金属",
+      "description": "锈蚀怪触碰一件位于其5尺内的未被着装或携带的非魔法金属物件。此触碰将摧毁该物件上一处1尺立方区域内的部分。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "自发触角",
+      "description": "触发：锈蚀怪被一次攻击检定命中。 响应：锈蚀怪使用触角。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Rust Monster\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\锈蚀怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

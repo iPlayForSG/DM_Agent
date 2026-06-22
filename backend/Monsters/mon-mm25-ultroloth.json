@@ -1,0 +1,95 @@
+{
+  "monster_id": "mon-mm25-ultroloth",
+  "name": "超等罗斯魔",
+  "size": "中型",
+  "creature_type": "邪魔（尤格罗斯魔）",
+  "alignment": "中立邪恶",
+  "challenge_rating": "13",
+  "proficiency_bonus": 5,
+  "ac": 19,
+  "hp_max": 221,
+  "initiative_bonus": 8,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 16,
+    "constitution": 18,
+    "intelligence": 19,
+    "wisdom": 15,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 3,
+    "constitution": 4,
+    "intelligence": 4,
+    "wisdom": 2,
+    "charisma": 4
+  },
+  "skills": {
+    "deception": 9,
+    "perception": 7,
+    "stealth": 8
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "深渊语",
+    "炼狱语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "强酸",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "邪魔复苏",
+      "description": "若超等罗斯魔于焦炎火狱之外死去，其身躯将会溶解成脓水，并立即在焦炎火狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "超等罗斯魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "超等罗斯魔使用催眠凝视并发动两次变幻长鞭攻击。"
+    },
+    {
+      "name": "变幻长鞭",
+      "description": "近战攻击检定：+9，触及15尺。命中：25（6d6+4）力场伤害，并且超等罗斯魔可以将目标传送至多10尺至一处超等罗斯魔可见且不在空中的未占据空间。"
+    },
+    {
+      "name": "催眠凝视",
+      "description": "感知豁免检定：DC17，30尺锥状区域内的每名生物。失败： 10（3d6）心灵伤害，且目标陷入震慑状态直至超等罗斯魔的下个回合开始。成功：目标在24小时内免疫此超等罗斯魔的催眠凝视。"
+    },
+    {
+      "name": "施法",
+      "description": "超等罗斯魔施展以下一道法术，无需材料成分并使用智力作为施法属性（法术豁免DC17）： 随意：变身术Alter Self，鹰眼术Clairvoyance，侦测魔法Detect Magic 每项1/日： 任意门Dimension Door，火球术Fireball（五环版本）， 火墙术Wall of Fire"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "邪魔诡计",
+      "description": "超等罗斯魔施展解除魔法Dispel Magic，隐形术Invisibility（仅自身），迷踪步Misty Step或暗示术Suggestion，无需材料成分且使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Ultroloth\n速度：30尺，飞行速度60尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\尤格罗斯魔\\超等罗斯魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

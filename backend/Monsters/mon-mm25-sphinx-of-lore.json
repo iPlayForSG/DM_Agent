@@ -1,0 +1,87 @@
+{
+  "monster_id": "mon-mm25-sphinx-of-lore",
+  "name": "晓谕斯芬克斯",
+  "size": "大型",
+  "creature_type": "天族",
+  "alignment": "守序中立",
+  "challenge_rating": "11",
+  "proficiency_bonus": 4,
+  "ac": 17,
+  "hp_max": 170,
+  "initiative_bonus": 10,
+  "speed": 40,
+  "stats": {
+    "strength": 18,
+    "dexterity": 15,
+    "constitution": 16,
+    "intelligence": 18,
+    "wisdom": 18,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 3,
+    "intelligence": 4,
+    "wisdom": 4,
+    "charisma": 4
+  },
+  "skills": {
+    "arcana": 12,
+    "history": 12,
+    "perception": 8,
+    "religion": 12
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉18"
+  ],
+  "languages": [
+    "天界语",
+    "通用语"
+  ],
+  "damage_resistances": [
+    "暗蚀",
+    "光耀"
+  ],
+  "damage_immunities": [
+    "心灵"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "神秘莫测",
+      "description": "没有魔法可以不经斯芬克斯允许远程探查斯芬克斯或探测其思想。为确定斯芬克斯意图和诚心进行的感知（洞悉）检定具有劣势。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "斯芬克斯豁免失败时，可以将其改为豁免成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "斯芬克斯发动三次利爪攻击。"
+    },
+    {
+      "name": "利爪",
+      "description": "近战攻击检定：+8，触及5尺。 命中：14（3d6+4）挥砍伤害。"
+    },
+    {
+      "name": "碎心咆哮",
+      "description": "感知豁免检定：DC16，源自斯芬克斯的300尺光环区域内的每名敌人。 失败：35（10d6）心灵伤害，并且目标陷入失能直至斯芬克斯下个回合开始。"
+    },
+    {
+      "name": "施法",
+      "description": "斯芬克斯施展以下一道法术，无需材料成分并使用智力作为施法属性（法术豁免DC16）： 随意：侦测魔法Detect Magic，鉴定术Identify，法师之手Mage Hand，次级幻象Minor Illusion，魔法伎俩Prestidigitation 每项1/日：解除魔法Dispel Magic，通晓传奇Legend Lore，物件定位术Locate Object，位面转移Plane Shift，解除诅咒Remove Curse，巧言术Tongues"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Sphinx of Lore\n速度：40尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\天族\\斯芬克斯\\晓谕斯芬克斯.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

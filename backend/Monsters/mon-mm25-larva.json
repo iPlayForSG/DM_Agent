@@ -1,0 +1,53 @@
+{
+  "monster_id": "mon-mm25-larva",
+  "name": "幼虫魔",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "中立邪恶",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 9,
+  "hp_max": 9,
+  "initiative_bonus": -1,
+  "speed": 20,
+  "stats": {
+    "strength": 9,
+    "dexterity": 9,
+    "constitution": 10,
+    "intelligence": 6,
+    "wisdom": 10,
+    "charisma": 2
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": -1,
+    "constitution": 0,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": -4
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "理解通用语以及一门其他语言",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "啮咬",
+      "description": "近战攻击检定：+1，触及5尺。命中：1（1d4-1）暗蚀伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Larva\n速度：20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\幼虫魔\\幼虫魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

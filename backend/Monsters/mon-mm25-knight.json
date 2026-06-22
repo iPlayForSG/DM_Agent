@@ -1,0 +1,61 @@
+{
+  "monster_id": "mon-mm25-knight",
+  "name": "骑士",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 18,
+  "hp_max": 52,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 11,
+    "constitution": 14,
+    "intelligence": 11,
+    "wisdom": 11,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 0,
+    "constitution": 4,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": 2
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "骑士使用巨剑或重弩发动共计两次攻击。"
+    },
+    {
+      "name": "巨剑",
+      "description": "近战攻击：+5，触及5尺。命中：10（2d6+3）挥砍伤害外加4（1d8）光耀伤害。"
+    },
+    {
+      "name": "重弩",
+      "description": "远程攻击：+2，射程100/400尺。命中：11（2d10）穿刺伤害外加4（1d8）光耀伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Knight\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\骑士\\骑士.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

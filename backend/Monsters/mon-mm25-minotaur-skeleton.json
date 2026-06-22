@@ -1,0 +1,64 @@
+{
+  "monster_id": "mon-mm25-minotaur-skeleton",
+  "name": "骷髅牛头人",
+  "size": "大型",
+  "creature_type": "亡灵",
+  "alignment": "守序邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 45,
+  "initiative_bonus": 0,
+  "speed": 40,
+  "stats": {
+    "strength": 18,
+    "dexterity": 11,
+    "constitution": 15,
+    "intelligence": 6,
+    "wisdom": 8,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 0,
+    "constitution": 2,
+    "intelligence": -2,
+    "wisdom": -1,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉9"
+  ],
+  "languages": [
+    "理解深渊语",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [
+    "钝击"
+  ],
+  "condition_immunities": [
+    "力竭",
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "顶撞",
+      "description": "近战攻击检定：+6，触及5尺。命中：11（2d6+4）穿刺伤害。如果骷髅在此次攻击前立即向着目标直线移动了20+尺，且目标生物体型不超过大型，则目标额外受到9（2d8）穿刺伤害陷入倒地状态。"
+    },
+    {
+      "name": "猛击",
+      "description": "近战攻击检定：+6，触及5尺。命中：15（2d10+4）钝击伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Minotaur Skeleton\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\骷髅\\骷髅牛头人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

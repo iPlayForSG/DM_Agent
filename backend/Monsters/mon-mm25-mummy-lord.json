@@ -1,0 +1,102 @@
+{
+  "monster_id": "mon-mm25-mummy-lord",
+  "name": "木乃伊领主",
+  "size": "中型或小型",
+  "creature_type": "亡灵（牧师）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "15",
+  "proficiency_bonus": 5,
+  "ac": 17,
+  "hp_max": 187,
+  "initiative_bonus": 10,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 10,
+    "constitution": 17,
+    "intelligence": 11,
+    "wisdom": 19,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 0,
+    "constitution": 3,
+    "intelligence": 5,
+    "wisdom": 9,
+    "charisma": 3
+  },
+  "skills": {
+    "history": 5,
+    "perception": 9,
+    "religion": 5
+  },
+  "senses": [
+    "真实视觉60尺",
+    "被动察觉19"
+  ],
+  "languages": [
+    "通用语",
+    "外加三门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [
+    "火焰"
+  ],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "木乃伊的豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "木乃伊对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "不死再造",
+      "description": "若木乃伊被摧毁且其心脏完好无损，则在24小时后获得一副新的身体并恢复全部生命值。新身体会出现在木乃伊巢穴内一处未占据空间。心脏是一个AC17，HP10且免疫所有非火焰伤害的物件。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "木乃伊发动一次腐朽拳击或引导负能量攻击，并使用恐怖怒视。"
+    },
+    {
+      "name": "腐朽拳击",
+      "description": "近战攻击检定：+9，触及5尺。命中：15（2d10+4）钝击伤害，外加10（3d6）暗蚀伤害。若目标为生物，则其被诅咒。目标无法恢复生命值，也无法在完成长休时恢复生命值上限，并且诅咒每持续24小时，其生命值上限降低10（3d6）。若生物因此攻击生命值降至0，则其立即死亡并化为尘土。"
+    },
+    {
+      "name": "引导负能量",
+      "description": "远程攻击检定：+9，射程60尺。命中：25（6d6+4）暗蚀伤害。"
+    },
+    {
+      "name": "恐怖怒视",
+      "description": "感知豁免：DC17，单一60尺内木乃伊可见的生物。失败：25（6d6+4）心灵伤害，且目标陷入麻痹状态，直至木乃伊的下个回合结束。"
+    },
+    {
+      "name": "施法",
+      "description": "木乃伊施展以下一道法术，无需材料成分并使用感知作为施法属性（法术豁免DC17，法术攻击检定+9）： 随意：解除魔法Dispel Magic，奇术Thaumaturgy 每项1/日：活化死尸Animate Dead，重伤术Harm，疫病虫群Insect Plague（7环版本）"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "沙旋风",
+      "description": "触发：木乃伊被一次攻击检定命中。 响应：木乃伊令其对抗那次攻击的AC+2，可能令那次攻击改为失手。 并且木乃伊传送至多60尺至一处其可见的未占据空间。目标空间5尺内的其选择的每名生物陷入目盲状态，直至木乃伊的下个回合结束。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Mummy Lord\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\木乃伊\\木乃伊领主.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-mm25-giant-constrictor-snake",
+  "name": "巨蟒蛇",
+  "size": "巨型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 60,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 1,
+    "wisdom": 10,
+    "charisma": 3
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": -5,
+    "wisdom": 0,
+    "charisma": -4
+  },
+  "skills": {
+    "perception": 2
+  },
+  "senses": [
+    "盲视10尺",
+    "被动察觉12"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "巨蟒蛇发动一次啃咬攻击并使用绞缠。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+6，触及10尺。命中：11（2d6+4）穿刺伤害。"
+    },
+    {
+      "name": "绞缠",
+      "description": "力量豁免检定：DC14，单一10尺内体型不超过大型且巨蟒蛇可见的生物。失败：13（2d8+4）钝击伤害，且目标陷入受擒状态（逃脱DC14）。 我们绕过了几个岛屿的海岸线，朝西南航行，直至抵达一个小半岛，这一半岛被一座巨大的石墙与主岛隔开。我们受到了塔纳罗亚村民的热情接待，这个村庄守卫着这座石墙。村民们除了称呼这座大岛屿为‘恐怖岛’以外，没有其他名字。 ——罗瑞·巴巴罗萨，记录于《游志》"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Giant Constrictor Snake\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\巨蟒蛇.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

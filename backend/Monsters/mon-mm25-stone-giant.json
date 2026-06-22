@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-stone-giant",
+  "name": "石巨人",
+  "size": "巨型",
+  "creature_type": "巨人",
+  "alignment": "中立",
+  "challenge_rating": "7",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 126,
+  "initiative_bonus": 5,
+  "speed": 40,
+  "stats": {
+    "strength": 23,
+    "dexterity": 15,
+    "constitution": 20,
+    "intelligence": 10,
+    "wisdom": 12,
+    "charisma": 9
+  },
+  "saving_throws": {
+    "strength": 6,
+    "dexterity": 5,
+    "constitution": 8,
+    "intelligence": 0,
+    "wisdom": 4,
+    "charisma": -1
+  },
+  "skills": {
+    "athletics": 12,
+    "perception": 4,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "巨人语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "石巨人使用石棒或投石发动共计两次攻击。"
+    },
+    {
+      "name": "石棒",
+      "description": "近战攻击检定：+9，触及15尺。命中：22 （3d10 + 6）钝击伤害。"
+    },
+    {
+      "name": "投石",
+      "description": "远程攻击检定：+9，射程：60/240 尺。命中：15 （2d8 + 6）钝击伤害，若目标生物体型不超过大型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "偏转飞弹",
+      "description": "触发：石巨人因远程攻击检定被命中，并因此受到钝击、穿刺或挥砍伤害时。响应：石巨人受到的此次攻击的伤害减少11（1d10 + 6）。若该伤害因此降至0，石巨人可以重定向此次攻击的部分力量。敏捷豁免检定： DC17，单一60尺内石巨人可见的生物。失败：11（1d10 + 6）力场伤害。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Stone Giant\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\巨人\\序位巨人\\石巨人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

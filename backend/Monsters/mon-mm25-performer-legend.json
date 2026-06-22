@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-performer-legend",
+  "name": "演艺传奇",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "10",
+  "proficiency_bonus": 4,
+  "ac": 20,
+  "hp_max": 162,
+  "initiative_bonus": 9,
+  "speed": 30,
+  "stats": {
+    "strength": 12,
+    "dexterity": 20,
+    "constitution": 14,
+    "intelligence": 15,
+    "wisdom": 16,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 9,
+    "constitution": 2,
+    "intelligence": 6,
+    "wisdom": 7,
+    "charisma": 9
+  },
+  "skills": {
+    "特技": 13,
+    "athletics": 5,
+    "perception": 7,
+    "performance": 13,
+    "stealth": 9
+  },
+  "senses": [
+    "被动察觉17"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "演艺传奇发动三次镶玉指挥杖攻击。"
+    },
+    {
+      "name": "镶玉指挥杖",
+      "description": "近战攻击检定：+9，触及5尺。命中：10（2d4+5）钝击伤害外加10（3d6）心灵伤害。"
+    },
+    {
+      "name": "庄严之歌",
+      "description": "感知豁免检定：DC17，以120尺内一点为中心半径20尺的球状区域内的每个生物。失败：22（4d8+4）心灵伤害，且目标陷入魅惑或恐慌状态（由演艺传奇选择），直至演艺传奇的下个回合结束。成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "演艺传奇施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC17）： 随意：法师之手Mage Hand，次级幻象Minor Illusion，魔法伎俩Prestidigitation 每项1/日：高级幻影Major Image，投影术Project Image"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "魅力之佑",
+      "description": "触发：一名生物对演艺者进行攻击检定并命中。响应-感知豁免检定：DC17，触发生物。失败：此次攻击检定改为失手，且目标陷入魅惑状态直至演艺传奇的下个回合结束。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Performer Legend\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\演艺者\\演艺传奇.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

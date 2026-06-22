@@ -1,0 +1,59 @@
+{
+  "monster_id": "mon-mm25-minotaur-of-baphomet",
+  "name": "巴弗灭的牛头人",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 85,
+  "initiative_bonus": 0,
+  "speed": 40,
+  "stats": {
+    "strength": 18,
+    "dexterity": 11,
+    "constitution": 16,
+    "intelligence": 6,
+    "wisdom": 16,
+    "charisma": 9
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 0,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 3,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 7,
+    "survival": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "深渊语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "深渊长柄刀",
+      "description": "近战攻击检定：+6，触及10尺。命中：10（1d12+4）挥砍伤害外加10（3d6）暗蚀伤害。"
+    },
+    {
+      "name": "顶撞",
+      "description": "近战攻击检定：+6，触及5尺。命中：18（4d6+4）穿刺伤害。若牛头人在此次攻击前立即向着目标直线移动了10+尺，且目标生物体型不超过大型，则目标额外受到10（3d6）穿刺伤害并陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Minotaur of Baphomet\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\巴弗灭的牛头人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

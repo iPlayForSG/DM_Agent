@@ -1,0 +1,66 @@
+{
+  "monster_id": "mon-mm25-bulette",
+  "name": "鲨蜥",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 94,
+  "initiative_bonus": 0,
+  "speed": 40,
+  "stats": {
+    "strength": 19,
+    "dexterity": 11,
+    "constitution": 21,
+    "intelligence": 2,
+    "wisdom": 10,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 0,
+    "constitution": 5,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 6
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "震颤感知120尺",
+    "被动察觉16"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鲨蜥发动两次啃咬攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。命中：17（2d12+4）穿刺伤害。"
+    },
+    {
+      "name": "鲨戮强跃",
+      "description": "鲨蜥消耗5尺移动力跳跃至15尺内的一处空间，空间内需包含至少一名体型不超过大型的生物。敏捷豁免检定：DC15，鲨蜥目标空间内的每名生物。失败：19（3d12）钝击伤害，目标陷入倒地状态。成功：半伤，目标被推离鲨蜥5尺。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "强跃",
+      "description": "鲨蜥消耗10尺移动力跳跃至多30尺。"
+    }
+  ],
+  "notes": "英文名：Bulette\n速度：40尺，掘地40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\鲨蜥\\鲨蜥.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

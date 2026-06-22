@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-archpriest",
+  "name": "大祭司",
+  "size": "中型或小型",
+  "creature_type": "类人（牧师）",
+  "alignment": "中立",
+  "challenge_rating": "12",
+  "proficiency_bonus": 4,
+  "ac": 16,
+  "hp_max": 240,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 12,
+    "constitution": 17,
+    "intelligence": 14,
+    "wisdom": 21,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": 1,
+    "constitution": 7,
+    "intelligence": 6,
+    "wisdom": 9,
+    "charisma": 2
+  },
+  "skills": {
+    "insight": 9,
+    "medicine": 9,
+    "perception": 9,
+    "religion": 10
+  },
+  "senses": [
+    "被动察觉19"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "大祭司发动三次圣光惩灭攻击。"
+    },
+    {
+      "name": "圣光惩灭",
+      "description": "近战或远程攻击检定：+9，触及5尺或射程60尺。命中：27（4d10+5）光耀伤害。"
+    },
+    {
+      "name": "至圣真言",
+      "description": "感知豁免检定：DC17，源自大祭司的20尺光环区域内的所有敌人。失败：21（6d6）光耀伤害，且目标陷入震慑状态直至大祭司的下个回合结束。成功：仅半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "祭司施展以下一道法术，无需任何材料成分并使用感知作为施法属性： 随意：光亮术Light，奇术Thaumanturgy 每项1/日： 焰击术Flame Strike（六环版本）， 高等复原术Greater Restoration，死者复活Raise Dead，诚实之域Zone of Truth"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "至圣援护",
+      "description": "大祭司施展祝福术Bless、解除魔法Dispel Magic、治愈真言Healing Word或次等复原术Lesser Restoration，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Archpriest\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\祭司\\大祭司.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

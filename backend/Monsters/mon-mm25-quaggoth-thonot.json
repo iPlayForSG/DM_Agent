@@ -1,0 +1,76 @@
+{
+  "monster_id": "mon-mm25-quaggoth-thonot",
+  "name": "幽邃熊怪脑头",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 67,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 12,
+    "constitution": 16,
+    "intelligence": 6,
+    "wisdom": 14,
+    "charisma": 7
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 2,
+    "charisma": -2
+  },
+  "skills": {
+    "athletics": 5
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉12"
+  ],
+  "languages": [
+    "地底通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "浴血狂怒",
+      "description": "幽邃熊怪在浴血期间进行的攻击检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "幽邃熊怪发动两次爪击攻击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+5，触及5尺。命中：6（1d6+3）挥砍伤害外加5（2d4）心灵伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "幽邃熊怪施展以下一道法术，无需法术成分并使用感知作为施法属性（法术豁免DC12）： 随意： 法师之手Mage Hand（手是隐形的）， 次级幻象Minor Illusion 2/日：心灵尖刺Mind Spike"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "灵能防守（3/日）",
+      "description": "幽邃熊怪施展羽落术Feather 或护盾术Shield（触发条件见这些法术），无需任术成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Quaggoth Thonot\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\幽邃熊怪\\幽邃熊怪脑头.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

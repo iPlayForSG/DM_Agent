@@ -1,0 +1,76 @@
+{
+  "monster_id": "mon-ftod-dragonflesh-abomination",
+  "name": "龙肉憎恶兽",
+  "size": "巨型",
+  "creature_type": "怪兽",
+  "alignment": "一般而言中立邪恶",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 66,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 14,
+    "constitution": 17,
+    "intelligence": 5,
+    "wisdom": 12,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 7,
+    "constitution": 6
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉 11"
+  ],
+  "languages": [
+    "理解通用语和龙语但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "反胃恶臭",
+      "description": "憎恶兽被有毒的恶臭所环绕。在每个憎恶兽的回合开始时，每个位于其5尺内的生物必须成功通过DC14的体质豁免，否则直到憎恶兽的下个回合开始陷入中毒。"
+    },
+    {
+      "name": "再生",
+      "description": "如果憎恶兽具有至少1生命值，则它在自己回合开始时恢复10生命值。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "憎恶兽使用爪击、强酸唾液或两者混合进行三次攻击。它也能将其中一次替换为尾击。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+7，触及10尺，单一目标。 命中： 7（1d8+4）挥砍伤害，外加5（1d10）毒素伤害。"
+    },
+    {
+      "name": "尾击",
+      "description": "近战武器攻击：命中+7，触及15尺，单一目标。 命中： 10（1d12+4）钝击伤害。如果目标为中型或更小的生物，则需成功通过DC15的力量豁免否则应击倒地。"
+    },
+    {
+      "name": "强酸唾液",
+      "description": "远程武器攻击：命中+5，射程60尺，单一目标。 命中： 10（3d6）强酸伤害。"
+    },
+    {
+      "name": "呕酸",
+      "description": "憎恶兽吐出一团30尺锥状的强酸胆汁。每个区域内的生物必须进行DC14的体质豁免。失败的情况下，生物受到28（8d6）点强酸伤害。成功的情况下，生物受到一半伤害。 Copyright © 2019. All rights reserved. (To change the copyright info, just edit it in template.)"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Dragonflesh Abomination\n速度：30尺，飞行40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\龙肉接殖者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

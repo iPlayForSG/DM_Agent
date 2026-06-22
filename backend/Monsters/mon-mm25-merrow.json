@@ -1,0 +1,70 @@
+{
+  "monster_id": "mon-mm25-merrow",
+  "name": "梅洛人鱼",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 45,
+  "initiative_bonus": 2,
+  "speed": 10,
+  "stats": {
+    "strength": 18,
+    "dexterity": 15,
+    "constitution": 15,
+    "intelligence": 8,
+    "wisdom": 10,
+    "charisma": 9
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 2,
+    "intelligence": -1,
+    "wisdom": 0,
+    "charisma": -1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "深渊语",
+    "原初语（水族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "梅洛人鱼可以在空气和水中呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "梅洛人鱼使用啃咬、爪击或鱼叉发动共计两次攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+6，触及5尺。命中：6（1d4+4）穿刺伤害，并且目标陷入中毒状态，持续至梅洛人鱼的下个回合结束。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+6，触及5尺。命中：9（2d4+4）挥砍伤害。"
+    },
+    {
+      "name": "鱼叉",
+      "description": "近战或远程攻击检定：+6，触及5尺或射程20/60尺。命中：11（2d6+4）穿刺伤害。若目标生物体型不超过大型，则梅洛人鱼将目标直线拉近至多15尺。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Merrow\n速度：10尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\梅洛人鱼.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

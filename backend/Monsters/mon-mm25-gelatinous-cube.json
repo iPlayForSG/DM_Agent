@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-gelatinous-cube",
+  "name": "凝胶方块",
+  "size": "大型",
+  "creature_type": "泥怪",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 6,
+  "hp_max": 63,
+  "initiative_bonus": -4,
+  "speed": 15,
+  "stats": {
+    "strength": 14,
+    "dexterity": 3,
+    "constitution": 20,
+    "intelligence": 1,
+    "wisdom": 10,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": -4,
+    "constitution": 5,
+    "intelligence": -5,
+    "wisdom": 0,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "盲视60尺",
+    "被动察觉8"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "强酸"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "目盲",
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "倒地"
+  ],
+  "traits": [
+    {
+      "name": "泥怪方块",
+      "description": "方块会占满所处的整个空间且完全透明。其他生物可以进入此空间，但如此做的生物会承受方块的吞没影响，且其因此进行的豁免具有劣势。 方块同时至多容纳的大型生物数上限为一，若生物为中型或小型则上限为四。在方块体内的生物对外而言处于全身掩护。 以一个动作，方块5尺内的生物可以通过一次成功的DC12的力量（运动）检定将方块内的一名生物或一个物件拖拽出来，但拖拽者受到10（3d6）点强酸伤害。"
+    },
+    {
+      "name": "透明",
+      "description": "即使凝胶方块处于生物的视野中，只要该生物未曾见到此方块的移动或其他行动，该生物必须成功通过一次DC 15的感知（察觉）检定来察觉到凝胶方块。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "伪肢",
+      "description": "近战攻击检定：+4，触及5尺。命中：12（3d6+2）强酸伤害。"
+    },
+    {
+      "name": "吞没",
+      "description": "凝胶方块移动至多等于其速度的距离且不会引发借机攻击。若方块体内有空间足以承载其（见泥怪方块特质），方块可以移动进入体型不超过大型的其他生物所处的空间。 敏捷豁免检定：DC12，在方块移动过程中，所处空间首次被方块经过的每名生物。 失败：10（3d6）强酸伤害，且目标被方块吞没。被吞没生物窒息，无法施展需要言语成分的法术，陷入束缚状态，并在方块的回合开始时受到10（3d6）强酸伤害。当方块移动时，被吞没目标也将一并移动。被吞没目标可以用动作进行一次DC12的力量（运动）检定来尝试脱离方块。检定成功则生物脱离并进入最近的未占据空间中。 成功：半伤，且目标被移动至5尺内的一处未占据空间中。若5尺内没有未占据空间，则目标的此次豁免改为失败。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Gelatinous Cube\n速度：15尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\泥怪\\凝胶方块.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

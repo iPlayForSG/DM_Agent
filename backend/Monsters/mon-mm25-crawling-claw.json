@@ -1,0 +1,62 @@
+{
+  "monster_id": "mon-mm25-crawling-claw",
+  "name": "蠕行之爪",
+  "size": "微型",
+  "creature_type": "亡灵",
+  "alignment": "中立邪恶",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 2,
+  "initiative_bonus": 2,
+  "speed": 20,
+  "stats": {
+    "strength": 13,
+    "dexterity": 14,
+    "constitution": 11,
+    "intelligence": 5,
+    "wisdom": 10,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "盲视30尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "理解通用语",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "失能",
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "猛击",
+      "description": "近战攻击检定：+3，触及5尺。命中：2暗蚀伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Crawling Claw\n速度：20尺，攀爬20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\蠕行之爪\\蠕行之爪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

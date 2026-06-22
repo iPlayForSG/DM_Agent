@@ -1,0 +1,69 @@
+{
+  "monster_id": "mon-mm25-kuo-toa-monitor",
+  "name": "寇涛监察者",
+  "size": "中型",
+  "creature_type": "异怪",
+  "alignment": "中立邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 65,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 10,
+    "constitution": 14,
+    "intelligence": 12,
+    "wisdom": 14,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 0,
+    "constitution": 2,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 6,
+    "religion": 3
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "真实视觉30尺",
+    "被动察觉16"
+  ],
+  "languages": [
+    "地底通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "寇涛可以在空气和水中呼吸。"
+    },
+    {
+      "name": "日照敏感",
+      "description": "若寇涛身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "寇涛发动两次骨鞭攻击。"
+    },
+    {
+      "name": "骨鞭",
+      "description": "近战攻击检定：+5，触及10尺。命中：6（1d6+3）挥砍伤害外加7（2d6）闪电伤害，且直至寇涛的下个回合开始，目标无法发动借机攻击。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Kuo-toa Monitor\n速度：30尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\寇涛\\寇涛监察者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,56 @@
+{
+  "monster_id": "mon-mm25-raven",
+  "name": "渡鸦",
+  "size": "微型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "0",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 2,
+  "initiative_bonus": 2,
+  "speed": 10,
+  "stats": {
+    "strength": 2,
+    "dexterity": 14,
+    "constitution": 10,
+    "intelligence": 5,
+    "wisdom": 13,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": -4,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -3,
+    "wisdom": 1,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 3
+  },
+  "senses": [
+    "被动察觉13"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "拟声",
+      "description": "渡鸦可以模仿曾听过的简单声音，如低语声或鸟鸣声。听到该声音的生物可以成功通过一次DC10的感知（洞悉）检定来发现其是模仿。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "喙啄",
+      "description": "近战攻击检定：+4，触及5尺。命中：1穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Raven\n速度：10尺，飞行50尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\渡鸦.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

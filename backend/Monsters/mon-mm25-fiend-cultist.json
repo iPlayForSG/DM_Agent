@@ -1,0 +1,70 @@
+{
+  "monster_id": "mon-mm25-fiend-cultist",
+  "name": "邪魔邪教徒",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 127,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 19,
+    "dexterity": 15,
+    "constitution": 16,
+    "intelligence": 12,
+    "wisdom": 18,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 2,
+    "constitution": 6,
+    "intelligence": 1,
+    "wisdom": 7,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 7,
+    "religion": 4
+  },
+  "senses": [
+    "黑暗视觉90尺（无视魔法黑暗）",
+    "被动察觉17"
+  ],
+  "languages": [
+    "深渊语",
+    "通用语",
+    "炼狱语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "邪教徒发动三次契约魔斧攻击。"
+    },
+    {
+      "name": "契约魔斧",
+      "description": "近战攻击检定：+7，触及5尺。命中：10（1d12+4）挥砍伤害外加13（3d8）火焰伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "邪教徒施展以下一道法术，使用感知作为施法属性（法术豁免DC15，法术攻击命中+7）： 随意：灼热射线Scorching（五环版本），奇术Thaumatutgy 2/日：火球术Fireball（六环版本）"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "炼狱叱喝",
+      "description": "邪教徒施展炼狱叱喝Hellish Rebuke（触发条件见该法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Fiend Cultist\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\邪教徒\\邪魔邪教徒.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

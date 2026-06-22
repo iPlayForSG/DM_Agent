@@ -1,0 +1,76 @@
+{
+  "monster_id": "mon-mm25-adult-red-dragon",
+  "name": "成年红龙",
+  "size": "巨型",
+  "creature_type": "龙类（色彩龙）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "17",
+  "proficiency_bonus": 6,
+  "ac": 19,
+  "hp_max": 256,
+  "initiative_bonus": 12,
+  "speed": 40,
+  "stats": {
+    "strength": 27,
+    "dexterity": 10,
+    "constitution": 25,
+    "intelligence": 16,
+    "wisdom": 13,
+    "charisma": 23
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 6,
+    "constitution": 7,
+    "intelligence": 3,
+    "wisdom": 7,
+    "charisma": 6
+  },
+  "skills": {
+    "perception": 13,
+    "stealth": 6
+  },
+  "senses": [
+    "盲视60尺",
+    "黑暗视觉120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "红龙豁免失败时，可以将其改为豁免成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "红龙发动三次撕裂攻击，其可以将其中一次攻击替换为使用施法施展灼热射线Scorching Ray 。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+14，触及10尺。命中：13（1d10+8）挥砍伤害外加5（2d4）火焰伤害。"
+    },
+    {
+      "name": "火焰吐息",
+      "description": "敏捷豁免检定：DC21，60尺锥状区域内的每名生物。失败：59（17d6）火焰伤害。成功：半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "红龙施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC20，法术攻击命中+12）： 随意： 命令术Command（二环版本），侦测魔法Detect Magic，灼热射线Scorching Ray 1/日：火球术Fireball"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Red Dragon\n速度：40尺，攀爬40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\红龙\\成年红龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-goblin-boss",
+  "name": "地精老大",
+  "size": "小型",
+  "creature_type": "妖精（类地精）",
+  "alignment": "混乱中立",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 17,
+  "hp_max": 21,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 15,
+    "constitution": 10,
+    "intelligence": 10,
+    "wisdom": 8,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": -1,
+    "charisma": 0
+  },
+  "skills": {
+    "stealth": 6
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉9"
+  ],
+  "languages": [
+    "通用语",
+    "地精语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "地精使用弯刀或短弓发动共计两次攻击。"
+    },
+    {
+      "name": "弯刀",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）挥砍伤害，若本次攻击具有优势，则再加2（1d4）挥砍伤害。"
+    },
+    {
+      "name": "短弓",
+      "description": "远程攻击检定：+4，射程80/320尺。命中：5（1d6+2）穿刺伤害，若本次攻击具有优势，则再加2（1d4）穿刺伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "挡刀",
+      "description": "触发：一名地精可见的生物对其进行攻击检定。响应：地精选择一名位于其5尺内的小型或中型盟友。地精和该盟友交换位置，并且盟友成为这次攻击的目标。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "迅捷逃逸",
+      "description": "地精执行撤离或躲藏动作。"
+    }
+  ],
+  "notes": "英文名：Goblin Boss\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\地精\\地精老大.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

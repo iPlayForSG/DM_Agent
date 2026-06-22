@@ -1,0 +1,77 @@
+{
+  "monster_id": "mon-mm25-ochre-jelly",
+  "name": "赭果冻",
+  "size": "大型",
+  "creature_type": "泥怪",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 8,
+  "hp_max": 52,
+  "initiative_bonus": -2,
+  "speed": 20,
+  "stats": {
+    "strength": 15,
+    "dexterity": 6,
+    "constitution": 14,
+    "intelligence": 2,
+    "wisdom": 6,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": -2,
+    "constitution": 2,
+    "intelligence": -4,
+    "wisdom": -2,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "盲视60尺",
+    "被动察觉8"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "强酸"
+  ],
+  "damage_immunities": [
+    "闪电",
+    "挥砍"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "倒地",
+    "束缚"
+  ],
+  "traits": [
+    {
+      "name": "无定形",
+      "description": "果冻可以移动穿过最窄1寸宽的空间而无需消耗额外的移动力。"
+    },
+    {
+      "name": "蛛行",
+      "description": "果冻可以在难以攀爬的表面上攀爬，包括沿着天花板移动，且无需为此进行属性检定。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "伪肢",
+      "description": "近战攻击检定：+4，触及5尺。命中：12（3d6+2）强酸伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "分裂",
+      "description": "触发：若果冻体型为大型或中型且具有10+生命值，当果冻进入浴血或其受闪电伤害或挥砍伤害时。响应：果冻分裂为两个全新的赭果冻Ochre Jelly。每个新的果冻的体型都比原先的果冻小一级，且使用原果冻的先攻行动。原果冻的生命值将平均分配给新的果冻（向下取整）。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Ochre Jelly\n速度：20尺、攀爬20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\泥怪\\赭果冻.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

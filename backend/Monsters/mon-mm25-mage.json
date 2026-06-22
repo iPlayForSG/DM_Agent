@@ -1,0 +1,73 @@
+{
+  "monster_id": "mon-mm25-mage",
+  "name": "魔法师",
+  "size": "中型或小型",
+  "creature_type": "类人（法师）",
+  "alignment": "中立",
+  "challenge_rating": "6",
+  "proficiency_bonus": 3,
+  "ac": 15,
+  "hp_max": 81,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 9,
+    "dexterity": 14,
+    "constitution": 11,
+    "intelligence": 17,
+    "wisdom": 12,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": 6,
+    "wisdom": 4,
+    "charisma": 0
+  },
+  "skills": {
+    "arcana": 6,
+    "history": 6,
+    "perception": 4
+  },
+  "senses": [
+    "被动察觉14"
+  ],
+  "languages": [
+    "通用语以及三门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "魔法师发动三次奥能爆发攻击。"
+    },
+    {
+      "name": "奥能爆发",
+      "description": "近战或远程攻击：+6，触及5尺或射程120尺。命中：16（3d8+3）力场伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "魔法师施展以下一道法术，使用智力作为施法属性（法术豁免DC14）： 随意： 侦测魔法Detect Magic，光亮术Light，法师护甲Mage Armor（已计入AC）， 法师之手Mage Hand，魔法伎俩Prestidigitation 每项2/日：火球术Fireball（四环版本），隐形术Invisibility 每项1/日：寒冰锥Cone of Cold，飞行术Fly"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "护身魔法",
+      "description": "魔法师施展法术反制Counterspell或护盾术Shield（触发条件见这些法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "迷踪步",
+      "description": "魔法师施展迷踪步Misty Step，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Mage\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\魔法师\\魔法师.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

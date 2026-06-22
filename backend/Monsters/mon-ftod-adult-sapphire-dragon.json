@@ -1,0 +1,92 @@
+{
+  "monster_id": "mon-ftod-adult-sapphire-dragon",
+  "name": "成年蓝宝石龙",
+  "size": "巨型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言守序中立",
+  "challenge_rating": "15",
+  "proficiency_bonus": 5,
+  "ac": 18,
+  "hp_max": 225,
+  "initiative_bonus": 2,
+  "speed": 40,
+  "stats": {
+    "strength": 23,
+    "dexterity": 14,
+    "constitution": 22,
+    "intelligence": 18,
+    "wisdom": 17,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "dexterity": 7,
+    "constitution": 11,
+    "wisdom": 8,
+    "charisma": 9
+  },
+  "skills": {
+    "history": 9,
+    "perception": 13,
+    "游说": 14,
+    "stealth": 7
+  },
+  "senses": [
+    "盲视 30尺",
+    "黑暗视觉120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "闪电",
+    "雷鸣"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "若蓝宝石龙在一次豁免中失败，它可以选择直接成功。"
+    },
+    {
+      "name": "蛛行",
+      "description": "蓝宝石龙可以攀爬在难以攀爬的表面上，包括倒吊在天花板上，且不需要进行属性检定。"
+    },
+    {
+      "name": "掘道者",
+      "description": "蓝宝石龙能够以其一半的掘穴速度通过坚硬的岩层，并在其身后留下直径10尺的地道。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "蓝宝石龙进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+11，触及10尺，单一目标。 命中： 17（2d10+6）穿刺伤害，外加5（1d10）雷鸣伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+11，触及5尺，单一目标。 命中： 10（1d8+6）挥砍伤害。"
+    },
+    {
+      "name": "衰弱吐息",
+      "description": "蓝宝石龙发出一阵几乎听不见的高音脉冲，覆盖60尺锥状区域，区域内的所有生物必须进行一次DC 19的体质豁免，豁免失败者将受44（8d10）点雷鸣伤害，并且直到其下个回合结束陷入失能，豁免成功则伤害减半，并不会失能。"
+    },
+    {
+      "name": "施法",
+      "description": "蓝宝石龙施展以下一个法术，无需任何法术成分并使用智力作为其施法属性（法术豁免DC17）： 1/每日：不谐低语dissonant whispers，定身怪物hold monster，融身入石meld into stone，心灵遥控telekiness"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Sapphire Dragon\n速度：40尺，掘穴30尺，攀爬40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\蓝宝石龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

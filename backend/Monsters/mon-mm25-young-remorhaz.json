@@ -1,0 +1,59 @@
+{
+  "monster_id": "mon-mm25-young-remorhaz",
+  "name": "青年百足魔兽",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 14,
+  "hp_max": 93,
+  "initiative_bonus": 1,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 13,
+    "constitution": 17,
+    "intelligence": 3,
+    "wisdom": 10,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "震颤感知60尺",
+    "被动察觉10"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "寒冷",
+    "火焰"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "炽热灵光",
+      "description": "百足魔兽回合结束时，位于源自百足魔兽5尺光环区域内的每名生物均受到11（2d10）火焰伤害。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。命中：15（2d10+4）穿刺伤害外加13（3d8）火焰伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Young Remorhaz\n速度：30尺，掘穴20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\百足魔兽\\青年百足魔兽.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

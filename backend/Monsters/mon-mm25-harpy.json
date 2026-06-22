@@ -1,0 +1,55 @@
+{
+  "monster_id": "mon-mm25-harpy",
+  "name": "鸟妖",
+  "size": "中型",
+  "creature_type": "怪兽",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 38,
+  "initiative_bonus": 1,
+  "speed": 20,
+  "stats": {
+    "strength": 12,
+    "dexterity": 13,
+    "constitution": 12,
+    "intelligence": 7,
+    "wisdom": 10,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": 1
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉10"
+  ],
+  "languages": [
+    "通用语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "利爪",
+      "description": "近战攻击检定：+3，触及5尺。命中：6（2d4+1）点挥砍伤害。"
+    },
+    {
+      "name": "诱惑之歌",
+      "description": "鸟妖唱出一段魔法的旋律，歌声持续至鸟妖对其的专注终止。感知豁免检定：DC11，歌声开始时位于源自鸟妖的300尺光环区域内的每名类人生物与巨人生物。 失败：目标陷入魅惑状态，直至歌声结束。目标在其回合结束时重复豁免。魅惑期间，目标陷入失能状态并无视其他鸟妖的诱惑之歌动作。若目标与鸟妖之间的距离大于5尺，其会在自己回合中以最直接的路径向鸟妖移动，尝试到达鸟妖5尺内。此移动不会避免借机攻击；不过每当其将要移动到伤害性地形（例如岩浆或坑陷），或是每当其受到来源于魅惑其的鸟妖以外的伤害时，其都能重复豁免。 成功：目标在24小时内免疫此鸟妖的诱惑之歌。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Harpy\n速度：20尺、飞行40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\鸟妖.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

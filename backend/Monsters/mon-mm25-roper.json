@@ -1,0 +1,70 @@
+{
+  "monster_id": "mon-mm25-roper",
+  "name": "石绳怪",
+  "size": "大型",
+  "creature_type": "异怪",
+  "alignment": "中立邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 20,
+  "hp_max": 93,
+  "initiative_bonus": 5,
+  "speed": 10,
+  "stats": {
+    "strength": 18,
+    "dexterity": 8,
+    "constitution": 17,
+    "intelligence": 7,
+    "wisdom": 16,
+    "charisma": 6
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": -1,
+    "constitution": 3,
+    "intelligence": -2,
+    "wisdom": 3,
+    "charisma": -2
+  },
+  "skills": {
+    "perception": 6,
+    "stealth": 5
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉16"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "蛛行",
+      "description": "石绳怪可以在难以攀爬的表面上攀爬，包括沿着天花板移动，且无需为此进行属性检定。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "石绳怪发动两次触须攻击，使用拖拽，并发动两次啃咬攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。 命中：17（3d8+4）穿刺伤害。"
+    },
+    {
+      "name": "触须",
+      "description": "近战攻击检定：+7，触及60尺。命中：目标被六条触须之一擒抱，陷入受擒状态（逃脱DC14），且目标陷入中毒状态直至擒抱结束。 触须可被伤害（AC20，HP10，免疫毒素和心灵伤害），当触须被摧毁时，受擒于该触须的生物被释放。伤害触须不会对石绳怪造成伤害，且被摧毁的触须将在石绳怪的下个回合开始时重新长出来。"
+    },
+    {
+      "name": "拖拽",
+      "description": "石绳怪将受擒于其的每名生物直线拉近至多30尺。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Roper\n速度：10尺，攀爬20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\石绳怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

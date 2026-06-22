@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-steam-mephit",
+  "name": "蒸汽魔蝠",
+  "size": "小型",
+  "creature_type": "元素",
+  "alignment": "中立邪恶",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 10,
+  "hp_max": 17,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 5,
+    "dexterity": 11,
+    "constitution": 10,
+    "intelligence": 11,
+    "wisdom": 10,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": -3,
+    "dexterity": 0,
+    "constitution": 0,
+    "intelligence": 0,
+    "wisdom": 0,
+    "charisma": 1
+  },
+  "skills": {
+    "stealth": 2
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "原初语（水族语",
+    "火族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "朦胧形态",
+      "description": "除非魔蝠陷入失能状态，否则对其进行的攻击检定具有劣势。"
+    },
+    {
+      "name": "自爆",
+      "description": "魔蝠在死亡时爆炸。体质豁免检定：DC10，源自魔蝠的5尺光环区域内的每名生物。 失败：5（2d4）火焰伤害。 成功：半伤。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+2，触及5尺。 命中：2（1d4）挥砍伤害外加2（1d4）火焰伤害。"
+    },
+    {
+      "name": "蒸汽吐息",
+      "description": "体质豁免检定：DC10，15尺锥状区域内的每名生物。 失败：5（2d4）火焰伤害，且目标的速度降低10尺，持续至魔蝠的下个回合结束。 成功：仅半伤。 失败或成功：无法因身处水下获得对此火焰伤害的抗性。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Steam Mephit\n速度：30尺，飞行30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\魔蝠\\蒸汽魔蝠.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

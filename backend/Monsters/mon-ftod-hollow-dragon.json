@@ -1,0 +1,93 @@
+{
+  "monster_id": "mon-ftod-hollow-dragon",
+  "name": "空骸龙",
+  "size": "巨型",
+  "creature_type": "亡灵",
+  "alignment": "任意阵营",
+  "challenge_rating": "18",
+  "proficiency_bonus": 6,
+  "ac": 19,
+  "hp_max": 241,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 23,
+    "dexterity": 12,
+    "constitution": 21,
+    "intelligence": 16,
+    "wisdom": 13,
+    "charisma": 21
+  },
+  "saving_throws": {
+    "constitution": 11,
+    "intelligence": 9,
+    "wisdom": 7,
+    "charisma": 11
+  },
+  "skills": {
+    "arcana": 9,
+    "history": 15,
+    "perception": 13
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [
+    "暗蚀"
+  ],
+  "damage_immunities": [
+    "毒素",
+    "光耀"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "若空骸龙在一次豁免中失败，它可以选择直接成功。"
+    },
+    {
+      "name": "重组",
+      "description": "当空骸龙的生命值降低到0时，它的身躯会碎成九块：两条前腿、两条后腿、两只翅膀、一条尾巴、躯干和脑袋。每一块碎片都是一个大型物件，具有19AC，27生命值，并且免疫心灵和毒素伤害。在1d6天后，如果所有的碎片仍然在彼此的60里内，它们会传送到头部碎片的位置并合体，空骸龙会重获所有生命值并再度获得行动能力。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "空骸龙进行一次啃咬攻击和两次爪击，它还能使用削弱威仪。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+12，触及10尺，单一目标。 命中： 17（2d10+6）穿刺伤害，外加9（2d8）光耀伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+12，触及15尺，单一目标。 命中： 13（2d6+6）挥砍伤害。"
+    },
+    {
+      "name": "削弱威仪",
+      "description": "60尺内每个空骸龙所选择的生物必须进行一次DC19的感知豁免。失败的情况下，直到其下个回合结束，该生物的速度减半，攻击检定具有劣势。成功的情况下，该生物在24小时内免疫空骸龙的削弱威仪。"
+    },
+    {
+      "name": "光耀吐息",
+      "description": "空骸龙喷出一道60尺的锥状光焰，区域内的所有生物必须进行一次DC 19的敏捷豁免，豁免失败者将受54（12d8）的光耀伤害，豁免成功则伤害减半。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Hollow Dragon\n速度：40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\空骸龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

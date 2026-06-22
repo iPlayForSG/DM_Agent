@@ -1,0 +1,66 @@
+{
+  "monster_id": "mon-mm25-satyr",
+  "name": "半羊人",
+  "size": "中型",
+  "creature_type": "妖精",
+  "alignment": "混乱中立",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 31,
+  "initiative_bonus": 3,
+  "speed": 40,
+  "stats": {
+    "strength": 12,
+    "dexterity": 16,
+    "constitution": 11,
+    "intelligence": 12,
+    "wisdom": 10,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 3,
+    "constitution": 0,
+    "intelligence": 1,
+    "wisdom": 0,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 2,
+    "performance": 6,
+    "stealth": 5
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语",
+    "精灵语",
+    "木族语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "魔法抗性",
+      "description": "半羊人对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "蹄",
+      "description": "近战攻击检定：+5，触及5尺。 命中：5（1d4+3）钝击伤害。若目标生物体型不超过中型，半羊人还能将其直线推离至多10尺距离。"
+    },
+    {
+      "name": "嘲讽",
+      "description": "感知豁免检定：DC12，单一90尺内半羊人可见的生物。 失败：5（1d6+2）心灵伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Satyr\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\半羊人\\半羊人.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,52 @@
+{
+  "monster_id": "mon-mm25-cockatrice",
+  "name": "蛇鸡",
+  "size": "小型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 22,
+  "initiative_bonus": 1,
+  "speed": 20,
+  "stats": {
+    "strength": 6,
+    "dexterity": 12,
+    "constitution": 12,
+    "intelligence": 2,
+    "wisdom": 13,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": -2,
+    "dexterity": 1,
+    "constitution": 1,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉11"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "石化"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "石化啄咬",
+      "description": "近战攻击检定：+3，触及5尺 命中：3（1d4+1）穿刺伤害，若目标为生物，承受以下效应。 体质豁免检定：DC11。 首次失败：目标陷入束缚状态，在其下个回合结束时目标若仍处于束缚则重复豁免，成功则终止其身上的该效应。 再次失败：目标陷入石化状态替代其束缚状态，持续24小时。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Cockatrice\n速度：20尺，飞行40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\蛇鸡\\蛇鸡.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

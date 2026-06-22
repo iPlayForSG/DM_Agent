@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-githyanki-dracomancer",
+  "name": "吉斯洋基龙巫",
+  "size": "中型",
+  "creature_type": "异怪（吉斯人）",
+  "alignment": "守序邪恶",
+  "challenge_rating": "16",
+  "proficiency_bonus": 5,
+  "ac": 18,
+  "hp_max": 255,
+  "initiative_bonus": 8,
+  "speed": 30,
+  "stats": {
+    "strength": 10,
+    "dexterity": 16,
+    "constitution": 18,
+    "intelligence": 20,
+    "wisdom": 16,
+    "charisma": 18
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 8,
+    "constitution": 9,
+    "intelligence": 10,
+    "wisdom": 8,
+    "charisma": 4
+  },
+  "skills": {
+    "arcana": 10,
+    "perception": 8
+  },
+  "senses": [
+    "盲视30尺",
+    "被动察觉18"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "吉斯语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "吉斯洋基人发动三次拟龙炎袭攻击。"
+    },
+    {
+      "name": "拟龙炎袭",
+      "description": "近战或远程攻击检定：+10，触及10尺或射程120尺。命中：12（2d6+5）挥砍伤害外加17（5d6）火焰伤害，目标陷入恐慌状态直至吉斯洋基人的下个回合开始。"
+    },
+    {
+      "name": "咒唤龙息",
+      "description": "敏捷豁免检定：DC18，90尺锥状区域内的每名生物。失败：27（6d8）火焰伤害外加27（6d8）力场伤害。成功：半伤。"
+    },
+    {
+      "name": "施法",
+      "description": "吉斯洋基人施展以下一道法术，无需法术成分并使用智力作为施法属性（法术豁免DC18，法术攻击命中+10）： 随意： 法师之手 Mage Hand（手是隐形的） 每项2/日： 回避侦测 Nondetection（仅自身）， 位面转移 Plane Shift， 巧言术 Tongues"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "迷踪步",
+      "description": "吉斯洋基人施展迷踪步Misty Step ，无需法术成分并使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Githyanki Dracomancer\n速度：30尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\异怪\\吉斯人\\吉斯洋基龙巫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

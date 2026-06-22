@@ -15,7 +15,7 @@ from action_service import GameActionService
 from campaign_memory import compile_campaign_memory
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
-from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, ResourcePool, SearchRecord, SpellSlot
+from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, MonsterTemplate, ResourcePool, SearchRecord, SpellSlot
 from agent import DMAgent, normalize_openai_base_url
 from agent_tools import AgentToolExecution, AgentToolService
 from langchain_core.messages import AIMessage
@@ -1068,6 +1068,62 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertFalse(execution.payload["concentration_check"]["broken"])
         self.assertIn("专注豁免", execution.tool_result.summary)
         self.assertIn("维持专注", execution.tool_result.summary)
+
+    def test_save_monster_template_stores_template_in_game_state(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        with patch.object(service.monster_storage, "save_monster") as save_monster:
+            execution = service.save_monster_template(
+                state,
+                name="影沼猎手",
+                creature_type="怪兽",
+                challenge_rating="2",
+                hp_max=45,
+                ac=14,
+                actions=["近战攻击检定：+5，触及5尺。命中：8（1d8+4）穿刺伤害。"],
+            )
+
+        self.assertTrue(execution.ok, execution.response())
+        save_monster.assert_not_called()
+        monster_id = execution.payload["monster_id"]
+        self.assertIn(monster_id, state.monster_templates)
+        self.assertEqual(state.monster_templates[monster_id].source, "game-authored")
+        self.assertIn(monster_id, execution.state_patch["monster_templates"])
+
+    def test_spawn_monster_from_game_scoped_template(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        state.monster_templates["mon-shadow-marsh-stalker"] = MonsterTemplate(
+            monster_id="mon-shadow-marsh-stalker",
+            name="影沼猎手",
+            creature_type="怪兽",
+            hp_max=45,
+            ac=14,
+            initiative_bonus=2,
+            source="game-authored",
+        )
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        execution = service.spawn_monster_from_template(
+            state,
+            monster_ref="影沼猎手",
+            auto_roll_initiative=False,
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        combatant_id = execution.payload["combatant_ids"][0]
+        combatant = state.encounter.combatants[combatant_id]
+        self.assertEqual(combatant.name, "影沼猎手")
+        self.assertEqual(combatant.monster_template_id, "mon-shadow-marsh-stalker")
+        self.assertEqual(combatant.hp_max, 45)
 
     def test_completed_turn_records_node_traces(self) -> None:
         if not self.runner.is_available:

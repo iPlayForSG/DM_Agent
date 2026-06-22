@@ -1,0 +1,68 @@
+{
+  "monster_id": "mon-mm25-sprite",
+  "name": "小仙灵",
+  "size": "微型",
+  "creature_type": "妖精",
+  "alignment": "中立善良",
+  "challenge_rating": "1/4",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 10,
+  "initiative_bonus": 4,
+  "speed": 10,
+  "stats": {
+    "strength": 3,
+    "dexterity": 18,
+    "constitution": 10,
+    "intelligence": 14,
+    "wisdom": 13,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": -4,
+    "dexterity": 4,
+    "constitution": 0,
+    "intelligence": 2,
+    "wisdom": 1,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 3,
+    "stealth": 8
+  },
+  "senses": [
+    "被动察觉13"
+  ],
+  "languages": [
+    "通用语",
+    "精灵语",
+    "木族语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "针剑",
+      "description": "近战攻击检定：+6，触及5尺。 命中：6（1d4+4）点穿刺伤害。"
+    },
+    {
+      "name": "惑控之弓",
+      "description": "远程攻击检定：+6，射程40/160尺。 命中：1穿刺伤害，且目标陷入魅惑状态，直至小仙灵的下个回合开始。"
+    },
+    {
+      "name": "真心视界",
+      "description": "魅力豁免检定：DC10，单一5尺内小仙灵可见的生物（此豁免天族、邪魔、亡灵自动失败）。 失败：小仙灵获悉目标的情绪与阵营。"
+    },
+    {
+      "name": "隐形",
+      "description": "小仙灵对自身施展隐形术Invisibility，无需法术成分并使用魅力作为施法属性。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Sprite\n速度：10尺、飞行40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\妖精\\小仙灵.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

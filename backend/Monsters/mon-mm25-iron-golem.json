@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-iron-golem",
+  "name": "铁魔像",
+  "size": "大型",
+  "creature_type": "构装",
+  "alignment": "无阵营",
+  "challenge_rating": "16",
+  "proficiency_bonus": 5,
+  "ac": 20,
+  "hp_max": 252,
+  "initiative_bonus": 9,
+  "speed": 30,
+  "stats": {
+    "strength": 24,
+    "dexterity": 9,
+    "constitution": 20,
+    "intelligence": 3,
+    "wisdom": 11,
+    "charisma": 1
+  },
+  "saving_throws": {
+    "strength": 7,
+    "dexterity": -1,
+    "constitution": 5,
+    "intelligence": -4,
+    "wisdom": 0,
+    "charisma": -5
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "理解通用语以及两门其他语言",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "火焰",
+    "毒素",
+    "心灵"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "石化",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "火焰吸收",
+      "description": "每当魔像将受火焰伤害时，其恢复等于火焰伤害数值的生命值。 不变形态Immutable Form。魔像无法变形 。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "魔像对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "魔像使用利刃铁臂或火炎箭发动共计两次攻击。"
+    },
+    {
+      "name": "利刃铁臂",
+      "description": "近战攻击检定：+12，触及10尺。 命中：20（3d8+7）挥砍伤害外加10（3d6）火焰伤害。"
+    },
+    {
+      "name": "火炎箭",
+      "description": "远程攻击检定：+10，射程120尺。 命中：36（8d8）火焰伤害。"
+    },
+    {
+      "name": "毒素吐息",
+      "description": "体质豁免检定：DC18，60尺锥状区域内的每名生物。 失败：55（10d10）毒素伤害。 成功：半伤。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Iron Golem\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\构装\\魔像\\铁魔像.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,97 @@
+{
+  "monster_id": "mon-mm25-solar",
+  "name": "炽天神使",
+  "size": "大型",
+  "creature_type": "天族（天使）",
+  "alignment": "守序善良",
+  "challenge_rating": "21",
+  "proficiency_bonus": 7,
+  "ac": 21,
+  "hp_max": 297,
+  "initiative_bonus": 20,
+  "speed": 50,
+  "stats": {
+    "strength": 26,
+    "dexterity": 22,
+    "constitution": 26,
+    "intelligence": 25,
+    "wisdom": 25,
+    "charisma": 30
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 6,
+    "constitution": 8,
+    "intelligence": 7,
+    "wisdom": 7,
+    "charisma": 10
+  },
+  "skills": {
+    "perception": 14
+  },
+  "senses": [
+    "真实视觉120",
+    "被动察觉24"
+  ],
+  "languages": [
+    "全部",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素",
+    "光耀"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "神性警觉",
+      "description": "炽天神使可以辨别听见的谎言。"
+    },
+    {
+      "name": "圣灵复苏",
+      "description": "若炽天神使于天界山之外死去，其身体会消失，并立即在天界山处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "炽天神使豁免失败时，可以将其改为豁免成功。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "炽天神使对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "炽天神使发动两次翔天神剑攻击。其可以将其中一次攻击替换为使用杀戮神弓。"
+    },
+    {
+      "name": "翔天神剑",
+      "description": "近战或远程攻击检定：+15，触及10尺或射程120尺。命中：22（4d6+8）挥砍伤害外加36（8d8）光耀伤害。命中或失手：翔天神剑会在被用于一次远程攻击后立即魔法性地回到炽天神使手中或悬浮在其5尺内。"
+    },
+    {
+      "name": "杀戮神弓",
+      "description": "敏捷豁免检定：DC21，单一600尺内炽天神使可见的生物。失败：若该生物的生命值为100或更低，则其立即死亡；否则，该生物受到24（4d8+6）穿刺伤害外加36（8d8）光耀伤害。"
+    },
+    {
+      "name": "施法",
+      "description": "炽天神使施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC25）： 随意：侦测善恶Detect Evil and Good 每项1/日：通神术Commune，操控天气Control Weather，驱逐善恶Dispel Evil and Good，复生术Resurrection"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "至圣援护",
+      "description": "炽天神使施展疗伤术Cure Wound（二环版本）、次等复原术Lesser Restoration或移除诅咒Remove Curse ，使用与施法动作相同的施法属性。"
+    }
+  ],
+  "notes": "英文名：Solar\n速度：50尺，飞行150尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\天族\\天使\\炽天神使.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

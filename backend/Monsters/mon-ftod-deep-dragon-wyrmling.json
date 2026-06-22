@@ -1,0 +1,66 @@
+{
+  "monster_id": "mon-ftod-deep-dragon-wyrmling",
+  "name": "深龙雏龙",
+  "size": "中型",
+  "creature_type": "龙类",
+  "alignment": "一般而言中立邪恶",
+  "challenge_rating": "1",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 27,
+  "initiative_bonus": 0,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 11,
+    "constitution": 12,
+    "intelligence": 11,
+    "wisdom": 12,
+    "charisma": 13
+  },
+  "saving_throws": {
+    "dexterity": 2,
+    "constitution": 3,
+    "wisdom": 3,
+    "charisma": 3
+  },
+  "skills": {
+    "perception": 3,
+    "游说": 3,
+    "stealth": 4
+  },
+  "senses": [
+    "盲视 10尺",
+    "黑暗视觉90尺",
+    "被动察觉13"
+  ],
+  "languages": [
+    "龙语"
+  ],
+  "damage_resistances": [
+    "毒素",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌",
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+4，触及5尺，单一目标。 命中： 7（1d10+2）穿刺伤害。"
+    },
+    {
+      "name": "噩梦吐息",
+      "description": "深龙喷出一股15尺锥状的孢子云，区域内的所有生物必须进行一次DC 11的感知豁免，豁免失败者将受5（d10）点心灵伤害并对龙陷入恐慌一分钟，豁免成功则伤害减半并没有额外效应。恐慌的生物能够在其每个回合结束时进行重复豁免，成功则结束自己身上的效应。 Copyright ? 2019. All rights reserved. (To change the copyright info, just edit it in template.)"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Deep Dragon Wyrmling\n速度：30尺，掘穴15尺，飞行60尺，游泳30尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\深龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

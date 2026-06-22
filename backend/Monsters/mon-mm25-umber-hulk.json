@@ -1,0 +1,67 @@
+{
+  "monster_id": "mon-mm25-umber-hulk",
+  "name": "掘土巨怪",
+  "size": "大型",
+  "creature_type": "怪兽",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 18,
+  "hp_max": 93,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 20,
+    "dexterity": 13,
+    "constitution": 16,
+    "intelligence": 9,
+    "wisdom": 10,
+    "charisma": 10
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": -1,
+    "wisdom": 0,
+    "charisma": 0
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉120尺",
+    "震颤感知60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "掘土巨怪语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "掘道者",
+      "description": "掘土巨怪能够以其一半的掘穴速度掘穴通过坚硬的岩石，并在其身后留下直径10尺的地道。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "掘土巨怪发动三次撕裂攻击。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+8，触及10尺。命中：12（2d6+5）挥砍伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "困惑凝视",
+      "description": "感知豁免检定：DC14，30尺锥状区域内的每名生物。失败：目标无法使用反应直至掘土巨怪的下个回合结束。此外，目标的下个回合中，其投掷1d8来决定自己执行什么行动： 1~4。目标什么都不做。 5~6。目标无法执行动作或附赠动作，并消耗其全部移动力向一个随机方向移动。 7~8。 目标对其触及范围内随机一名生物发动一次近战攻击。若其无法发动此攻击，则什么都不做。"
+    }
+  ],
+  "notes": "英文名：Umber Hulk\n速度：30尺，掘穴20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\掘土巨怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

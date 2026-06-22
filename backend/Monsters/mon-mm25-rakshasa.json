@@ -1,0 +1,83 @@
+{
+  "monster_id": "mon-mm25-rakshasa",
+  "name": "罗刹",
+  "size": "中型",
+  "creature_type": "邪魔",
+  "alignment": "守序邪恶",
+  "challenge_rating": "13",
+  "proficiency_bonus": 5,
+  "ac": 17,
+  "hp_max": 221,
+  "initiative_bonus": 8,
+  "speed": 40,
+  "stats": {
+    "strength": 14,
+    "dexterity": 17,
+    "constitution": 18,
+    "intelligence": 13,
+    "wisdom": 16,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 3,
+    "constitution": 4,
+    "intelligence": 1,
+    "wisdom": 3,
+    "charisma": 5
+  },
+  "skills": {
+    "deception": 10,
+    "insight": 8,
+    "perception": 8
+  },
+  "senses": [
+    "真实视觉60尺",
+    "被动察觉18"
+  ],
+  "languages": [
+    "通用语",
+    "炼狱语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [
+    "受法术祝福术Bless效应影响的生物所持握的武器造成的穿刺伤害"
+  ],
+  "condition_immunities": [
+    "魅惑",
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "高等魔法抗性",
+      "description": "罗刹对抗法术和其他魔法效应时进行的豁免检定自动成功，且法术的攻击检定对其自动失手。没有罗刹的允许，任何法术都无法远程探查罗刹或是侦测其思想、生物类型或阵营。"
+    },
+    {
+      "name": "邪魔复苏",
+      "description": "若罗刹于九层地狱之外死去，其身躯会化为脓水，并立即在九层地狱某处获得一具新的身体，以满生命值复活。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "罗刹发动三次诅咒之触攻击。"
+    },
+    {
+      "name": "诅咒之触",
+      "description": "近战攻击检定：+10，触及5尺。命中：12（2d6+5）挥砍伤害外加19（3d12）暗蚀伤害。若目标为生物，则其被诅咒。被诅咒期间，目标无法从完成短休或长休中获益。"
+    },
+    {
+      "name": "恶毒命令",
+      "description": "感知豁免检定：DC18，源自罗刹的30尺光环区域内的每名敌人。失败： 28（8d6）心灵伤害，且目标陷入恐慌与失能状态，持续至罗刹的下个回合开始。"
+    },
+    {
+      "name": "施法",
+      "description": "罗刹施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC18）： 随意：侦测魔法Detect Magic，侦测思想Detect Thoughts，易容术Disguise Self，法师之手Mage Hand，次级幻象Minor Illusion 每项1/日：飞行术Fly，隐形术Invisibility，高级幻影Major Image，位面转移Plane Shift"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Rakshasa\n速度：40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\罗刹.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

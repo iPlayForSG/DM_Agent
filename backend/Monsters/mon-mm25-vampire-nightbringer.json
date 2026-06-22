@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-vampire-nightbringer",
+  "name": "吸血夜魇",
+  "size": "中型或小型",
+  "creature_type": "亡灵",
+  "alignment": "中立邪恶",
+  "challenge_rating": "8",
+  "proficiency_bonus": 3,
+  "ac": 16,
+  "hp_max": 142,
+  "initiative_bonus": 4,
+  "speed": 30,
+  "stats": {
+    "strength": 16,
+    "dexterity": 18,
+    "constitution": 16,
+    "intelligence": 13,
+    "wisdom": 14,
+    "charisma": 15
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 7,
+    "constitution": 3,
+    "intelligence": 1,
+    "wisdom": 5,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 5,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "寒冷"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌"
+  ],
+  "traits": [
+    {
+      "name": "日照超敏",
+      "description": "若吸血夜魇在阳光下开始其回合，其受到10光耀伤害。若其身处阳光下，其进行的属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "吸血夜魇发动一次啃咬攻击和一次幽影袭攻击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+7，触及5尺。命中：7（1d6+4）穿刺伤害外加10（3d6）暗蚀伤害。目标的生命值上限减少等于其受到暗蚀伤害的数值，且吸血夜魇恢复等量生命值。"
+    },
+    {
+      "name": "幽影袭",
+      "description": "近战攻击检定：+7，触及5尺。命中：7（1d6+4）挥砍伤害外加14（4d6）寒冷伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "幽影隐匿",
+      "description": "若吸血夜魇身处微光光照或黑暗中，其执行躲藏动作。"
+    }
+  ],
+  "notes": "英文名：Vampire Nightbringer\n速度：30尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\吸血鬼\\吸血夜魇.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

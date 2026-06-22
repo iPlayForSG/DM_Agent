@@ -1,0 +1,81 @@
+{
+  "monster_id": "mon-mm25-adult-silver-dragon",
+  "name": "成年银龙",
+  "size": "巨型",
+  "creature_type": "龙类（金属龙）",
+  "alignment": "守序善良",
+  "challenge_rating": "16",
+  "proficiency_bonus": 5,
+  "ac": 19,
+  "hp_max": 216,
+  "initiative_bonus": 10,
+  "speed": 40,
+  "stats": {
+    "strength": 27,
+    "dexterity": 10,
+    "constitution": 25,
+    "intelligence": 16,
+    "wisdom": 13,
+    "charisma": 22
+  },
+  "saving_throws": {
+    "strength": 8,
+    "dexterity": 5,
+    "constitution": 7,
+    "intelligence": 3,
+    "wisdom": 6,
+    "charisma": 6
+  },
+  "skills": {
+    "history": 8,
+    "perception": 11,
+    "stealth": 5
+  },
+  "senses": [
+    "盲视60尺",
+    "黑暗视觉120尺",
+    "被动察觉21"
+  ],
+  "languages": [
+    "通用语",
+    "龙语"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "寒冷"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "银龙豁免失败时，可以将其改为豁免成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "银龙发动三次撕裂攻击。其可以将其中一次攻击替换为使用（A）麻痹吐息或（B）施法施展冰刃Ice Knife。"
+    },
+    {
+      "name": "撕裂",
+      "description": "近战攻击检定：+13，触及10尺。命中：17（2d8+8）挥砍伤害外加4（1d8）寒冷伤害。"
+    },
+    {
+      "name": "寒冷吐息",
+      "description": "体质豁免检定：DC20，60尺锥状区域内的每名生物。失败：54（12d8）寒冷伤害。成功：半伤。"
+    },
+    {
+      "name": "麻痹吐息",
+      "description": "体质豁免检定：DC20，60尺锥状区域内的每名生物。首次失败：目标陷入失能状态直至其下个回合结束，此时目标重复豁免。再次失败：目标陷入麻痹状态，并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，其豁免自动成功。"
+    },
+    {
+      "name": "施法",
+      "description": "银龙施展以下一道法术，无需材料成分并使用魅力作为施法属性（法术豁免DC19，法术攻击命中+11）： 随意：侦测魔法Detect Magic，定身怪物Hold Monster，冰刃Ice Knife，形体变化Shapechange（仅野兽与类人形态，不会因此法术获得临时生命值，但无需为维持此法术而保有临时生命值或维持专注） 每项1/日： 冰风暴Ice Storm（五环版本）， 诚实之域Zone of Truth"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Silver Dragon\n速度：40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\龙类\\银龙\\成年银龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

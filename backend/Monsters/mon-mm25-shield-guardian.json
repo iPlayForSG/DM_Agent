@@ -1,0 +1,85 @@
+{
+  "monster_id": "mon-mm25-shield-guardian",
+  "name": "盾卫",
+  "size": "大型",
+  "creature_type": "构装",
+  "alignment": "无阵营",
+  "challenge_rating": "7",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 142,
+  "initiative_bonus": -1,
+  "speed": 30,
+  "stats": {
+    "strength": 18,
+    "dexterity": 8,
+    "constitution": 18,
+    "intelligence": 7,
+    "wisdom": 10,
+    "charisma": 3
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": -1,
+    "constitution": 4,
+    "intelligence": -2,
+    "wisdom": 0,
+    "charisma": -4
+  },
+  "skills": {},
+  "senses": [
+    "盲视10尺",
+    "黑暗视觉60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "理解用任何语言下达的命令",
+    "但不会说"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "石化",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "连接",
+      "description": "盾卫与一个命令护符魔法性地相连。在盾卫和其命令护符位于同一存在位面期间，命令护符的佩戴者可以心灵感应般的呼唤盾卫来到自己的位置，并且盾卫知晓自己与命令护符的距离及其位置。如果盾卫位于命令护符佩戴者60尺范围内，佩戴者所承受到的任何伤害的一半（向上取整）都会转移给盾卫。"
+    },
+    {
+      "name": "再生",
+      "description": "若盾卫至少拥有1生命值，则其在自己回合开始时回复10生命值。"
+    },
+    {
+      "name": "法术储存",
+      "description": "一名携带着盾卫命令护符的施法者可以让盾卫储存一道四环及以下的法术。为此，护符携带者必须在盾卫5尺内施展那道法术。此时该法术不会产生任何效应，而是被储存在盾卫之中。新法术储存时先前储存的旧法术将会消失。盾卫可以在法术储存者预先设定的条件满足时将其施展，无需法术成分并使用法术储存者的施法属性。储存其内的法术随后消失。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "盾卫发动两次拳击攻击。"
+    },
+    {
+      "name": "拳击",
+      "description": "近战攻击检定：+7，触及10尺。命中：11（2d6+4）钝击伤害外加7（2d6）力场伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "守护",
+      "description": "触发：盾卫的护符携带者在盾卫的5尺内被一次攻击检定命中。响应：携带者的AC获得+5的加值，持续至盾卫的下个回合开始，这包括了对抗触发攻击的AC，并可能令那次攻击改为失手。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Shield Guardian\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\构装\\盾卫.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

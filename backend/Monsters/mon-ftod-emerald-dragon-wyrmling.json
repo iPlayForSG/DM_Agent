@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-ftod-emerald-dragon-wyrmling",
+  "name": "翡翠龙雏龙",
+  "size": "中型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言守序中立",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 16,
+  "hp_max": 39,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 15,
+    "dexterity": 12,
+    "constitution": 15,
+    "intelligence": 14,
+    "wisdom": 12,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "dexterity": 3,
+    "constitution": 4,
+    "wisdom": 3,
+    "charisma": 4
+  },
+  "skills": {
+    "arcana": 4,
+    "deception": 4,
+    "perception": 5,
+    "stealth": 3
+  },
+  "senses": [
+    "盲视 10尺",
+    "黑暗视觉60尺",
+    "被动察觉15"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "火焰",
+    "心灵"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "掘道者",
+      "description": "翡翠龙能够以其一半的掘穴速度通过坚硬的岩层，并在其身后留下直径5尺的地道。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+4，触及10尺，单一目标。 命中： 7（1d10+2）穿刺伤害，外加3（1d6）心灵伤害。"
+    },
+    {
+      "name": "惑心吐息",
+      "description": "翡翠龙喷出一波不谐的灵能之力，覆盖15尺锥状区域，区域内的所有生物必须进行一次DC 12的智力豁免，豁免失败者将受17（5d6）点心灵伤害，并且直到其下个回合结束，每当该生物进行一次攻击检定或属性检定时，它必须投一枚d4并从检定结果中减去其骰值。豁免成功则伤害减半，并不会受到额外的效应影响。"
+    },
+    {
+      "name": "施法",
+      "description": "翡翠龙施展以下一个法术，无需任何法术成分并使用智力作为其施法属性（法术豁免DC12）： 随意： 法师之手mage hand（手是隐形的），次级幻象minor illusion Copyright ? 2019. All rights reserved. (To change the copyright info, just edit it in template.)"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Emerald Dragon Wyrmling\n速度：40尺，掘穴20尺，飞行60尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\翡翠龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

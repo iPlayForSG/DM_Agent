@@ -1,0 +1,81 @@
+{
+  "monster_id": "mon-ftod-adult-crystal-dragon",
+  "name": "成年水晶龙",
+  "size": "巨型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言混乱中立",
+  "challenge_rating": "12",
+  "proficiency_bonus": 5,
+  "ac": 16,
+  "hp_max": 172,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 21,
+    "dexterity": 12,
+    "constitution": 21,
+    "intelligence": 18,
+    "wisdom": 15,
+    "charisma": 19
+  },
+  "saving_throws": {
+    "dexterity": 5,
+    "constitution": 9,
+    "wisdom": 6,
+    "charisma": 8
+  },
+  "skills": {
+    "perception": 10,
+    "stealth": 9,
+    "survival": 6
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉120尺",
+    "被动察觉23"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "光耀"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "传奇抗性",
+      "description": "若水晶龙在一次豁免中失败，它可以选择直接成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "水晶龙进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+9，触及10尺，单一目标。 命中： 16（2d10+5）穿刺伤害，外加4（1d8）光耀伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+9，触及5尺，单一目标。 命中： 9（1d8+5）挥砍伤害。"
+    },
+    {
+      "name": "辉光吐息",
+      "description": "水晶龙喷出一束60尺锥状的闪耀辉光，区域内的所有生物必须进行一次DC 17的体质豁免，豁免失败者将受40（9d8）点光耀伤害，豁免成功则伤害减半。然后，水晶龙通过吸收一部分光能获得15点临时生命值。"
+    },
+    {
+      "name": "施法",
+      "description": "水晶龙施展以下一个法术，无需任何法术成分并使用智力作为其施法属性（法术豁免DC16）： 随意： 舞光术dancing light，神导术guidance 1/每日：命令术command，预言术divination，催眠图纹hypnotic pattern，次等复原术lesser restoration"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Adult Crystal Dragon\n速度：40尺，掘穴40尺，攀爬40尺，飞行80尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\水晶龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

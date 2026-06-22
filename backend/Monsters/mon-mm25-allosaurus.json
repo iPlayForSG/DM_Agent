@@ -1,0 +1,55 @@
+{
+  "monster_id": "mon-mm25-allosaurus",
+  "name": "异特龙",
+  "size": "大型",
+  "creature_type": "野兽（恐龙）",
+  "alignment": "无阵营",
+  "challenge_rating": "2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 51,
+  "initiative_bonus": 1,
+  "speed": 60,
+  "stats": {
+    "strength": 19,
+    "dexterity": 13,
+    "constitution": 17,
+    "intelligence": 2,
+    "wisdom": 12,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 4,
+    "dexterity": 1,
+    "constitution": 3,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -3
+  },
+  "skills": {
+    "perception": 5
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+6，触及5尺。命中：15（2d10+4）穿刺伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战攻击检定：+6，触及5尺。命中：8（1d8+4）挥砍伤害。若异特龙在此次攻击前立即向着目标直线移动了30+尺，且目标生物体型不超过大型，则目标陷入倒地状态，同时异特龙可以对其发动一次啃咬攻击。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Allosaurus\n速度：60尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\恐龙\\异特龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

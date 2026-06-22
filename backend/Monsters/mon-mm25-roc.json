@@ -1,0 +1,64 @@
+{
+  "monster_id": "mon-mm25-roc",
+  "name": "鹏鸟",
+  "size": "超巨型",
+  "creature_type": "怪兽",
+  "alignment": "无阵营",
+  "challenge_rating": "11",
+  "proficiency_bonus": 4,
+  "ac": 15,
+  "hp_max": 248,
+  "initiative_bonus": 8,
+  "speed": 20,
+  "stats": {
+    "strength": 28,
+    "dexterity": 10,
+    "constitution": 20,
+    "intelligence": 3,
+    "wisdom": 10,
+    "charisma": 9
+  },
+  "saving_throws": {
+    "strength": 9,
+    "dexterity": 4,
+    "constitution": 5,
+    "intelligence": -4,
+    "wisdom": 4,
+    "charisma": -1
+  },
+  "skills": {
+    "perception": 8
+  },
+  "senses": [
+    "被动察觉18"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "鹏鸟发动两次喙啄攻击。其可以将其中一次攻击替换为禽爪攻击。"
+    },
+    {
+      "name": "喙啄",
+      "description": "近战攻击检定：+13，触及10尺 。命中：28（3d12+9）穿刺伤害。"
+    },
+    {
+      "name": "禽爪",
+      "description": "近战攻击检定：+13，触及5尺。 命中：24（4d6+9）挥砍伤害，若目标生物体型不超过巨型，其被鹏鸟的两只禽爪擒抱，陷入受擒状态（逃脱DC19），且其受擒期间陷入束缚状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "鹏落",
+      "description": "若鹏鸟已令一名生物陷入受擒，鹏鸟飞行至多等于其飞行速度一半的距离并丢下此生物，此移动不会引发借机攻击。"
+    }
+  ],
+  "notes": "英文名：Roc\n速度：20尺，飞行120尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\怪兽\\鹏鸟.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

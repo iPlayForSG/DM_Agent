@@ -1,0 +1,80 @@
+{
+  "monster_id": "mon-mm25-earth-elemental",
+  "name": "土元素",
+  "size": "大型",
+  "creature_type": "元素",
+  "alignment": "中立",
+  "challenge_rating": "5",
+  "proficiency_bonus": 3,
+  "ac": 17,
+  "hp_max": 147,
+  "initiative_bonus": -1,
+  "speed": 30,
+  "stats": {
+    "strength": 20,
+    "dexterity": 8,
+    "constitution": 20,
+    "intelligence": 5,
+    "wisdom": 10,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 5,
+    "dexterity": -1,
+    "constitution": 5,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "震颤感知60尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "原初语（土族语）"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "毒素",
+    "昏迷。"
+  ],
+  "damage_vulnerabilities": [
+    "雷鸣。"
+  ],
+  "condition_immunities": [
+    "力竭",
+    "麻痹",
+    "石化",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "遁地",
+      "description": "土元素可以掘穴穿过非魔法且未经加工的泥土及岩石。遁地期间，土元素不会破坏其穿过的任何材质。"
+    },
+    {
+      "name": "攻城怪物",
+      "description": "土元素对物件和建筑造成双倍伤害。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "土元素使用猛击或岩石射击发动共计两次攻击。"
+    },
+    {
+      "name": "猛击",
+      "description": "近战攻击检定：+8，触及10尺。命中：14（2d8+5）钝击伤害。"
+    },
+    {
+      "name": "岩石射击",
+      "description": "远程攻击检定：+8，射程60尺。命中：8（1d6+5）钝击伤害。若目标生物体型不超过大型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Earth Elemental\n速度：30尺，掘穴30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\元素\\四元素\\土元素.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,103 @@
+{
+  "monster_id": "mon-mm25-arcanaloth",
+  "name": "奥法罗斯魔",
+  "size": "中型",
+  "creature_type": "邪魔（尤格罗斯魔）",
+  "alignment": "中立邪恶",
+  "challenge_rating": "12",
+  "proficiency_bonus": 4,
+  "ac": 18,
+  "hp_max": 175,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 12,
+    "constitution": 14,
+    "intelligence": 20,
+    "wisdom": 16,
+    "charisma": 17
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 5,
+    "constitution": 6,
+    "intelligence": 9,
+    "wisdom": 7,
+    "charisma": 3
+  },
+  "skills": {
+    "arcana": 9,
+    "deception": 7,
+    "insight": 7,
+    "perception": 7
+  },
+  "senses": [
+    "真实视觉120尺",
+    "被动察觉17"
+  ],
+  "languages": [
+    "所有",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "火焰",
+    "闪电"
+  ],
+  "damage_immunities": [
+    "强酸",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "中毒"
+  ],
+  "traits": [
+    {
+      "name": "邪魔复苏",
+      "description": "若奥法罗斯魔于焦炎火狱之外死去，其身躯将会溶解成脓水，并立即在焦炎火狱某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "魔法抗性",
+      "description": "奥法罗斯魔对抗法术和其他魔法效应时进行的豁免检定具有优势。"
+    },
+    {
+      "name": "灵魂秘典",
+      "description": "奥法罗斯魔持有一本魔法秘典。持有或携带此秘典期间，奥法罗斯魔可以使用其放逐利爪动作。 秘典具有AC17，HP35；免疫暗蚀、毒素和心灵伤害。秘典在每个回合结束时恢复全部生命值，若其生命值降至0或是奥法罗斯魔死亡，秘典化作尘埃。若秘典被摧毁，奥法罗斯魔可以在完成短休或长休时创造一本新的秘典。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "奥法罗斯魔发动三次邪能爆攻击。其可以将一次攻击替换为放逐利爪攻击。"
+    },
+    {
+      "name": "邪能爆",
+      "description": "近战或远程攻击检定：+9，触及5尺或射程120尺。命中：31（4d12+5）暗蚀伤害。"
+    },
+    {
+      "name": "放逐利爪（需灵魂秘典）",
+      "description": "近战攻击检定：+9，触及5尺。命中：10（2d4+5）点挥砍伤害外加19（3d12）点心灵伤害。若目标为生物，则目标承受以下效应。魅力豁免检定：DC17。失败：目标被困在灵魂秘典内的半位面中。受困期间，目标陷入失能状态。目标在其回合结束时重复豁免，成功则逃出秘典。当目标逃出时，目标出现在其消失的空间。若该空间被占据，则其将出现在最近的未占据空间。 若目标在半位面中豁免失败三次，则目标会与秘典绑定，只能在秘典生命值降为0时才可以逃出。"
+    },
+    {
+      "name": "施法",
+      "description": "奥法罗斯魔施展以下一道法术，无需材料成分并使用智力作为施法属性（法术豁免DC17）： 随意：变身术Alter Self，侦测魔法Detect Magic，鉴定术Identify，法师之手Mage Hand，魔法伎俩Prestidigitation 每项1/日：异界探知Contact Other Plane，侦测思想Detect Thoughts，任意门Dimension Door，心灵屏障Mind Blank"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "法术反制",
+      "description": "奥法罗斯魔施展法术反制Counterspell（触发条件见该法术），使用与施法动作相同的施法属性。"
+    }
+  ],
+  "bonus_actions": [
+    {
+      "name": "传送",
+      "description": "奥法罗斯魔传送至多30尺至一处其可见的未占据空间。"
+    }
+  ],
+  "notes": "英文名：Arcanaloth\n速度：30尺，飞行速度60尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\尤格罗斯魔\\奥法罗斯魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

@@ -1,0 +1,77 @@
+{
+  "monster_id": "mon-mm25-swarm-of-crawling-claw",
+  "name": "蠕行之爪集群",
+  "size": "微型",
+  "creature_type": "亡灵的中型集群",
+  "alignment": "中立邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 12,
+  "hp_max": 49,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 14,
+    "dexterity": 14,
+    "constitution": 11,
+    "intelligence": 5,
+    "wisdom": 10,
+    "charisma": 4
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 2,
+    "constitution": 0,
+    "intelligence": -3,
+    "wisdom": 0,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "盲视30尺",
+    "被动察觉10"
+  ],
+  "languages": [
+    "理解通用语",
+    "但不会说"
+  ],
+  "damage_resistances": [
+    "钝击",
+    "穿刺",
+    "挥砍"
+  ],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "失能",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚",
+    "震慑"
+  ],
+  "traits": [
+    {
+      "name": "集群",
+      "description": "集群可以进驻另一生物身处的空间，反之亦然。而且集群可以通过任何足够一只微型生物通过的通道。集群不能恢复生命值也不能获得临时生命值 。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "集群擒拿手",
+      "description": "近战攻击检定：+4，触及5尺。 命中：20（4d8+2）暗蚀伤害。若集群处于浴血则改为11（2d8+2）暗蚀伤害。若目标生物体型不超过中型，则其陷入倒地状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Swarm of Crawling Claw\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\蠕行之爪\\蠕行之爪集群.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

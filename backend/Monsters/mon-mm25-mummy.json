@@ -1,0 +1,71 @@
+{
+  "monster_id": "mon-mm25-mummy",
+  "name": "木乃伊",
+  "size": "中型或小型",
+  "creature_type": "亡灵",
+  "alignment": "守序邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 11,
+  "hp_max": 58,
+  "initiative_bonus": -1,
+  "speed": 20,
+  "stats": {
+    "strength": 16,
+    "dexterity": 8,
+    "constitution": 15,
+    "intelligence": 6,
+    "wisdom": 12,
+    "charisma": 12
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": -1,
+    "constitution": 2,
+    "intelligence": -2,
+    "wisdom": 3,
+    "charisma": 1
+  },
+  "skills": {},
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "通用语以及两门任意语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [
+    "火焰"
+  ],
+  "condition_immunities": [
+    "魅惑",
+    "力竭",
+    "恐慌",
+    "麻痹",
+    "中毒"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "木乃伊发动两次腐朽拳击攻击，并使用恐怖怒视。"
+    },
+    {
+      "name": "腐朽拳击",
+      "description": "近战攻击检定：+5，触及5尺。命中：8（1d10+3）钝击伤害，外加10（3d6）暗蚀伤害。若目标为生物，则其被诅咒。受诅咒期间，目标无法恢复生命值，也无法在完成长休时恢复生命值上限，并且诅咒每持续24小时，其生命值上限降低10（3d6）。若生物因此攻击生命值降至0，则其立即死亡并化为尘土。"
+    },
+    {
+      "name": "恐怖怒视",
+      "description": "感知豁免：DC11，单一60尺内木乃伊可见的生物。失败：目标陷入恐慌状态，直至木乃伊的下个回合结束。成功：目标在24小时内免疫此木乃伊的恐怖怒视。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Mummy\n速度：20尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\亡灵\\木乃伊\\木乃伊.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

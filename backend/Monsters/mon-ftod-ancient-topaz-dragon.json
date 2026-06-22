@@ -1,0 +1,89 @@
+{
+  "monster_id": "mon-ftod-ancient-topaz-dragon",
+  "name": "远古黄玉龙",
+  "size": "超巨型",
+  "creature_type": "龙类（宝石龙）",
+  "alignment": "一般而言混乱中立",
+  "challenge_rating": "20",
+  "proficiency_bonus": 7,
+  "ac": 20,
+  "hp_max": 280,
+  "initiative_bonus": 1,
+  "speed": 40,
+  "stats": {
+    "strength": 23,
+    "dexterity": 12,
+    "constitution": 23,
+    "intelligence": 20,
+    "wisdom": 19,
+    "charisma": 20
+  },
+  "saving_throws": {
+    "dexterity": 7,
+    "constitution": 12,
+    "wisdom": 10,
+    "charisma": 11
+  },
+  "skills": {
+    "intimidation": 17,
+    "perception": 16,
+    "stealth": 7
+  },
+  "senses": [
+    "盲视 60尺",
+    "黑暗视觉120尺",
+    "被动察觉26"
+  ],
+  "languages": [
+    "通用语",
+    "龙语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [
+    "寒冷",
+    "暗蚀"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水陆两栖",
+      "description": "黄玉龙可以在空气和水中呼吸。"
+    },
+    {
+      "name": "鬼斧神工",
+      "description": "黄玉龙能施展鬼斧神工fabricate，无需任何法术成分，并使用智力作为其施法属性。"
+    },
+    {
+      "name": "传奇抗性",
+      "description": "若黄玉龙在一次豁免中失败，它可以选择直接成功。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "黄玉龙进行一次啃咬和两次爪击。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战武器攻击：命中+12，触及15尺，单一目标。 命中： 17（2d10+6）穿刺伤害，外加10（3d6）暗蚀伤害。"
+    },
+    {
+      "name": "爪击",
+      "description": "近战武器攻击：命中+12，触及10尺，单一目标。 命中： 13（2d6+6）挥砍伤害。"
+    },
+    {
+      "name": "干枯吐息",
+      "description": "黄玉龙喷出一波淡黄色的暗蚀能量，覆盖90尺锥状区域，区域内的所有生物必须进行一次DC 20的体质豁免，豁免失败者将受49（14d6）点暗蚀伤害，并且直到其下个回合结束前被弱化，被弱化的生物基于力量的属性检定和力量豁免具有劣势，并且该生物依靠力量的攻击造成一半伤害。豁免成功则伤害减半，并不会受到弱化。"
+    },
+    {
+      "name": "施法",
+      "description": "黄玉龙施展以下一个法术，无需任何法术成分并使用智力作为其施法属性（法术豁免DC19）： 1/每日： 防活物护罩antilife shell，灾祸术bane，操控水体control water，造水/枯水术create or destroy water"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Ancient Topaz Dragon\n速度：40尺，飞行80尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\战役设定\\费资本的巨龙宝库\\怪物图鉴\\黄玉龙.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "费资本的巨龙宝库"
+}

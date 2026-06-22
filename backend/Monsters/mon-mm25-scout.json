@@ -1,0 +1,64 @@
+{
+  "monster_id": "mon-mm25-scout",
+  "name": "斥候",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 16,
+  "initiative_bonus": 2,
+  "speed": 30,
+  "stats": {
+    "strength": 11,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 11,
+    "wisdom": 13,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": 0,
+    "dexterity": 2,
+    "constitution": 1,
+    "intelligence": 0,
+    "wisdom": 1,
+    "charisma": 0
+  },
+  "skills": {
+    "nature": 4,
+    "perception": 5,
+    "stealth": 6,
+    "survival": 5
+  },
+  "senses": [
+    "被动察觉15"
+  ],
+  "languages": [
+    "通用语以及两门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "斥候使用短剑或长弓发动共计两次攻击。"
+    },
+    {
+      "name": "短剑",
+      "description": "近战攻击检定：+4，触及5尺。命中：5（1d6+2）穿刺伤害。"
+    },
+    {
+      "name": "长弓",
+      "description": "远程攻击检定：+4，射程150/600尺。命中：6（1d8+2）穿刺伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Scout\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\斥候\\斥候.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

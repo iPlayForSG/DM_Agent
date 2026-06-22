@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-vampire-familiar",
+  "name": "血仆",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立邪恶",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 15,
+  "hp_max": 65,
+  "initiative_bonus": 5,
+  "speed": 30,
+  "stats": {
+    "strength": 17,
+    "dexterity": 16,
+    "constitution": 15,
+    "intelligence": 10,
+    "wisdom": 10,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": 3,
+    "dexterity": 5,
+    "constitution": 2,
+    "intelligence": 0,
+    "wisdom": 2,
+    "charisma": 2
+  },
+  "skills": {
+    "perception": 4,
+    "游说": 4,
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉60尺",
+    "被动察觉14"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [
+    "暗蚀"
+  ],
+  "damage_immunities": [
+    "魅惑（对其吸血鬼尊长无效）"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "血裔连结",
+      "description": "若血仆与其吸血鬼尊长身处同一位面，该吸血鬼就能用心灵感应与血仆交流，亦能用血仆的感官感知事物。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "血仆发动两次暗影匕首攻击。"
+    },
+    {
+      "name": "暗影匕首",
+      "description": "近战或远程攻击检定：+5，触及5尺或射程20/60尺命中：5（1d4+3）穿刺伤害外加7（3d4）暗蚀伤害。若目标因该攻击生命值降至0，则目标伤势稳定但陷入中毒状态1小时。以此法中毒期间，目标还会陷入麻痹状态。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "不死者机敏",
+      "description": "血仆执行疾走或撤离动作。"
+    }
+  ],
+  "notes": "英文名：Vampire Familiar\n速度：30尺，攀爬30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\吸血鬼\\血仆.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

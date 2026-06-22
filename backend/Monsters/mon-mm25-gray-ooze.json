@@ -1,0 +1,74 @@
+{
+  "monster_id": "mon-mm25-gray-ooze",
+  "name": "灰泥怪",
+  "size": "中型",
+  "creature_type": "泥怪",
+  "alignment": "无阵营",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 9,
+  "hp_max": 22,
+  "initiative_bonus": -2,
+  "speed": 10,
+  "stats": {
+    "strength": 12,
+    "dexterity": 6,
+    "constitution": 16,
+    "intelligence": 1,
+    "wisdom": 6,
+    "charisma": 2
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": -2,
+    "constitution": 3,
+    "intelligence": -5,
+    "wisdom": -2,
+    "charisma": -4
+  },
+  "skills": {
+    "stealth": 2
+  },
+  "senses": [
+    "盲视60尺",
+    "被动察觉8"
+  ],
+  "languages": [],
+  "damage_resistances": [
+    "强酸",
+    "寒冷",
+    "火焰"
+  ],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "目盲",
+    "魅惑",
+    "耳聋",
+    "力竭",
+    "恐慌",
+    "受擒",
+    "倒地",
+    "束缚"
+  ],
+  "traits": [
+    {
+      "name": "无定形",
+      "description": "灰泥怪可以移动穿过最窄1寸宽的空间而无需消耗额外的移动力。"
+    },
+    {
+      "name": "腐蚀形态",
+      "description": "非魔法弹药在命中灰泥怪并造成伤害后立即被摧毁。非魔法武器在对灰泥怪造成任意伤害后将积累-1的攻击检定减值。若武器的减值累计达到-5则其被摧毁。对武器施展修复术Mending可以移除这一减值。 此外，灰泥怪可以在1轮内吃穿2寸厚的非魔法金属或木材。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "伪肢",
+      "description": "近战攻击检定：+3，触及5尺。命中：10（2d8+1）点强酸伤害。目标着装的非魔法护甲提供的AC将承受-1的减值。若护甲的AC因减值降至10则其被摧毁。对护甲施展修复术Mending可以移除这一减值。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [],
+  "notes": "英文名：Gray Ooze\n速度：10尺，攀爬10尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\泥怪\\灰泥怪\\灰泥怪.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

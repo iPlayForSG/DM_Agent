@@ -1,0 +1,72 @@
+{
+  "monster_id": "mon-mm25-spectator",
+  "name": "观察者眼魔",
+  "size": "中型",
+  "creature_type": "异怪（眼魔）",
+  "alignment": "守序中立",
+  "challenge_rating": "3",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 45,
+  "initiative_bonus": 2,
+  "speed": 5,
+  "stats": {
+    "strength": 8,
+    "dexterity": 14,
+    "constitution": 14,
+    "intelligence": 13,
+    "wisdom": 14,
+    "charisma": 11
+  },
+  "saving_throws": {
+    "strength": -1,
+    "dexterity": 2,
+    "constitution": 2,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 0
+  },
+  "skills": {
+    "perception": 6
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉16"
+  ],
+  "languages": [
+    "深潜语",
+    "地底通用语",
+    "心灵感应120尺"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [
+    "力竭",
+    "倒地"
+  ],
+  "traits": [],
+  "actions": [
+    {
+      "name": "多重攻击",
+      "description": "观察者眼魔发动两次眼波射线。"
+    },
+    {
+      "name": "啃咬",
+      "description": "近战攻击检定：+4，触及5尺。 命中：5（1d6+2）穿刺伤害。"
+    },
+    {
+      "name": "眼波射线",
+      "description": "观察者眼魔向一名位于其90尺内的其可见的目标从下列魔法射线中随机射出一道（掷1d4，如果观察者眼魔在本回合已经使用过该射线则重新掷骰）： 1. 困惑射线Confusion Ray。感知豁免检定：DC12。 失败：5（2d4）心灵伤害，目标无法执行反应直至其下个回合结束。目标在其下个回合内无法移动，并使用动作对一名射程内的随机生物发动一次近战或远程攻击。若目标无法攻击，则其在该回合什么也不做。 成功：仅半伤。 2. 麻痹射线Paralyzing Ray。体质豁免检定：DC12。 失败：目标陷入麻痹状态，并在其回合结束时重复豁免，成功则终止其身上的该效应。1分钟后，豁免自动成功。 3. 恐惧射线Fear Ray。感知豁免检定：DC12。 失败：5（2d4）心灵伤害，且目标陷入恐慌状态直至其下个回合结束。 4. 致伤射线Wounding Ray。体质豁免检定：DC12。 失败：16（3d10）暗蚀伤害。 成功： 半伤。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "法术反射",
+      "description": "触发：观察者眼魔对抗法术时进行的豁免检定成功或法术的攻击检定对观察者眼魔失手。 响应-敏捷豁免检定：DC12，单一120尺内观察者眼魔可见的生物。 失败：10（3d6）力场伤害。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Spectator\n速度：5尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\多类型\\眼魔\\观察者眼魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

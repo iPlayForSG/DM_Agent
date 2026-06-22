@@ -1,0 +1,95 @@
+{
+  "monster_id": "mon-mm25-shadow-demon",
+  "name": "幽影恶魔",
+  "size": "中型",
+  "creature_type": "邪魔（恶魔）",
+  "alignment": "混乱邪恶",
+  "challenge_rating": "4",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 66,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 1,
+    "dexterity": 17,
+    "constitution": 12,
+    "intelligence": 14,
+    "wisdom": 13,
+    "charisma": 14
+  },
+  "saving_throws": {
+    "strength": -5,
+    "dexterity": 5,
+    "constitution": 1,
+    "intelligence": 2,
+    "wisdom": 1,
+    "charisma": 4
+  },
+  "skills": {
+    "stealth": 7
+  },
+  "senses": [
+    "黑暗视觉120尺",
+    "被动察觉11"
+  ],
+  "languages": [
+    "深渊语",
+    "心灵感应120尺。"
+  ],
+  "damage_resistances": [
+    "强酸",
+    "钝击",
+    "寒冷",
+    "火焰",
+    "闪电",
+    "穿刺",
+    "挥砍",
+    "雷鸣"
+  ],
+  "damage_immunities": [
+    "暗蚀",
+    "毒素"
+  ],
+  "damage_vulnerabilities": [
+    "光耀"
+  ],
+  "condition_immunities": [
+    "力竭",
+    "受擒",
+    "麻痹",
+    "石化",
+    "中毒",
+    "倒地",
+    "束缚"
+  ],
+  "traits": [
+    {
+      "name": "恶魔复苏",
+      "description": "若恶魔于无底深渊之外死去，其身躯会化为灰烬，并立即在无底深渊某处获得一具新的身体，以满生命值复活。"
+    },
+    {
+      "name": "虚体移动",
+      "description": "恶魔可以移动穿过其他生物或物件，如同穿过困难地形一般。在其回合结束时，若恶魔还处于物件内，其受到5（1d10）力场伤害"
+    },
+    {
+      "name": "光照敏感",
+      "description": "若恶魔身处明亮光照，其属性检定和攻击检定具有劣势。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "暗影之爪",
+      "description": "近战攻击检定：+5，触及5尺。命中：16（3d8+3）心灵伤害。"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "幽影隐匿",
+      "description": "若恶魔身处微光光照或黑暗中，其执行躲藏动作。"
+    }
+  ],
+  "notes": "英文名：Shadow Demon\n速度：30尺，飞行30尺（悬浮）\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\邪魔\\恶魔\\幽影恶魔.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

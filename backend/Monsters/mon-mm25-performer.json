@@ -1,0 +1,60 @@
+{
+  "monster_id": "mon-mm25-performer",
+  "name": "演艺者",
+  "size": "中型或小型",
+  "creature_type": "类人",
+  "alignment": "中立",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 13,
+  "hp_max": 27,
+  "initiative_bonus": 3,
+  "speed": 30,
+  "stats": {
+    "strength": 12,
+    "dexterity": 16,
+    "constitution": 12,
+    "intelligence": 13,
+    "wisdom": 14,
+    "charisma": 16
+  },
+  "saving_throws": {
+    "strength": 1,
+    "dexterity": 5,
+    "constitution": 1,
+    "intelligence": 1,
+    "wisdom": 2,
+    "charisma": 5
+  },
+  "skills": {
+    "特技": 5,
+    "athletics": 3,
+    "performance": 7
+  },
+  "senses": [
+    "被动察觉12"
+  ],
+  "languages": [
+    "通用语以及一门其他语言"
+  ],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [],
+  "actions": [
+    {
+      "name": "短剑",
+      "description": "近战攻击检定：+5，触及5尺。命中：6（1d6+3）穿刺伤害。"
+    }
+  ],
+  "reactions": [
+    {
+      "name": "直觉闪避",
+      "description": "触发：演艺者被一次攻击检定命中。响应：演艺者因此次攻击受到的伤害减半（向下取整）。"
+    }
+  ],
+  "bonus_actions": [],
+  "notes": "英文名：Performer\n速度：30尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\类人\\演艺者\\演艺者.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}

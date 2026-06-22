@@ -1,0 +1,59 @@
+{
+  "monster_id": "mon-mm25-giant-seahorse",
+  "name": "巨海马",
+  "size": "大型",
+  "creature_type": "野兽",
+  "alignment": "无阵营",
+  "challenge_rating": "1/2",
+  "proficiency_bonus": 2,
+  "ac": 14,
+  "hp_max": 16,
+  "initiative_bonus": 1,
+  "speed": 5,
+  "stats": {
+    "strength": 15,
+    "dexterity": 12,
+    "constitution": 11,
+    "intelligence": 2,
+    "wisdom": 12,
+    "charisma": 5
+  },
+  "saving_throws": {
+    "strength": 2,
+    "dexterity": 1,
+    "constitution": 0,
+    "intelligence": -4,
+    "wisdom": 1,
+    "charisma": -3
+  },
+  "skills": {},
+  "senses": [
+    "被动察觉11"
+  ],
+  "languages": [],
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "traits": [
+    {
+      "name": "水下呼吸",
+      "description": "巨海马只能在水下呼吸。"
+    }
+  ],
+  "actions": [
+    {
+      "name": "冲撞",
+      "description": "近战攻击检定：+4，触及5尺。命中：9（2d6+2）钝击伤害。若巨海马在此次攻击前立即向着目标直线移动了20+尺，则改为11（2d8+2）钝击伤害"
+    }
+  ],
+  "reactions": [],
+  "bonus_actions": [
+    {
+      "name": "泡泡急行",
+      "description": "若巨海马身处水下，其移动至多等于其游泳速度一半的距离且不会引发借机攻击。"
+    }
+  ],
+  "notes": "英文名：Giant Seahorse\n速度：5尺，游泳40尺\n来源文件：Documents\\DND5e 2024\\核心规则\\怪物图鉴2025\\附录A\\巨海马.md\n由本地 DND5e 2024 怪物图鉴条目抽取生成。",
+  "source": "MM25"
+}
