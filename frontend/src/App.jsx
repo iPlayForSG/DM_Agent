@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -25,7 +25,7 @@ import {
   startEncounter,
   setEncounterInitiative,
   streamTurn,
-  useItemAction,
+  useItemAction as itemActionRequest,
 } from "./api";
 import "./index.css";
 
@@ -119,7 +119,15 @@ const STAT_ABBREVIATION_TO_KEY = {
   wis: "wisdom",
   cha: "charisma",
 };
-const SCENE_LABELS = { setup: "准备", exploration: "探索", combat: "战斗", encounter: "遭遇" };
+const SCENE_LABELS = {
+  adventure_selection: "冒险选择",
+  setup: "准备",
+  preparation: "准备",
+  exploration: "探索",
+  social: "社交",
+  combat: "战斗",
+  encounter: "遭遇",
+};
 const SIZE_LABELS = { tiny: "微型", small: "小型", medium: "中型", large: "大型", huge: "超大型", gargantuan: "巨型" };
 const CREATURE_TYPE_LABELS = {
   aberration: "异怪",
@@ -199,8 +207,44 @@ const EMPTY_ENCOUNTER_DRAFT = { enemy_names: "", enemy_hp: 10, enemy_ac: 10, mon
 
 const parseEntries = (text, prefix) => text.split("\n").map((x) => x.trim()).filter(Boolean).map((description, i) => ({ name: `${prefix} ${i + 1}`, description }));
 const entriesToText = (entries = []) => entries.map((x) => x.description).join("\n");
-const mapMessages = (history = []) => history.map((m) => ({ sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system", text: m.content }));
-const eventLabel = (t) => ({ player_action: "玩家", assistant_response: "主持", dice_result: "骰点", hp_changed: "生命", attack_resolved: "攻击", skill_check: "技能", saving_throw: "豁免", spell_cast: "施法", item_used: "物品", turn_advanced: "回合", encounter_started: "遭遇", monster_template_saved: "怪物模板", monster_spawned: "怪物生成" }[t] || t);
+const localizeSceneText = (text = "") => text.replace(/\b(adventure_selection|preparation|setup|exploration|social|combat|encounter)\b/g, (value) => SCENE_LABELS[value] || value);
+const mapMessages = (history = []) => history.map((m) => ({
+  sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
+  text: m.role === "system" ? localizeSceneText(m.content) : m.content,
+}));
+const EVENT_LABELS = {
+  player_action: "玩家",
+  assistant_response: "主持",
+  scene_changed: "场景",
+  chapter_recorded: "章节",
+  dice_result: "骰点",
+  hp_changed: "生命",
+  attack_resolved: "攻击",
+  skill_check: "技能",
+  saving_throw: "豁免",
+  spell_cast: "施法",
+  item_used: "物品",
+  turn_advanced: "回合",
+  encounter_started: "遭遇",
+  monster_template_saved: "模板记录",
+  monster_spawned: "遭遇生成",
+};
+const SHOW_DM_ENCOUNTER_TEMPLATE_TOOLS = false;
+const EVENT_SUMMARY_LABELS = {
+  "Player action": "玩家行动",
+  "DM response": "主持人叙事",
+  SCENE_CHANGED: "场景切换",
+  CHAPTER_RECORDED: "章节记录",
+};
+const eventLabel = (t) => EVENT_LABELS[t] || "记录";
+const eventSummary = (event) => {
+  const summary = EVENT_SUMMARY_LABELS[event?.summary] || event?.summary || eventLabel(event?.type);
+  return event?.type === "scene_changed" ? localizeSceneText(summary) : summary;
+};
+const eventContent = (event) => {
+  const content = event?.content || "";
+  return event?.type === "scene_changed" ? localizeSceneText(content) : content;
+};
 const WORKFLOW_NODE_LABELS = {
   turn_started: "启动",
   prepare_turn: "准备",
@@ -316,6 +360,13 @@ const formatMonsterSummary = (monster) => `${localizeCreatureType(monster.creatu
 const formatMonsterPreviewLine = (monster) => `${localizeCreatureType(monster.creature_type)} · 挑战等级 ${monster.challenge_rating} · 护甲 ${monster.ac} · 生命 ${monster.hp_max}`;
 const formatCombatantStateLine = (combatant) => `生命 ${combatant.hp_current}/${combatant.hp_max} · 护甲 ${combatant.ac} · 先攻 ${combatant.initiative ?? "?"}`;
 const formatHpBarLabel = (current, max) => `${current}/${max} 生命`;
+const choiceClassName = (base, selected, disabled, extra = "") => [base, selected ? "selected" : "", disabled ? "is-disabled" : "", extra].filter(Boolean).join(" ");
+function ChoiceButton({ selected = false, disabled = false, className = "", children, ...props }) {
+  return <button type="button" className={choiceClassName("class-card", selected, disabled, className)} aria-pressed={selected} disabled={disabled} {...props}>{children}</button>;
+}
+function SpellChoiceButton({ selected = false, disabled = false, className = "", children, ...props }) {
+  return <button type="button" className={choiceClassName("spell-card", selected, disabled, className)} aria-pressed={selected} disabled={disabled} {...props}>{children}</button>;
+}
 const resolveStarterPreviewItems = (starterOption, starterChoiceIds = {}) => {
   if (!starterOption) return [];
   const resolved = [...(starterOption.items || [])];
@@ -397,7 +448,6 @@ export default function App() {
   const pendingCustomTouched = Boolean(charDraft.custom_pending_item?.notes?.trim())
     || Number(charDraft.custom_pending_item?.reserved_cost_gp || 0) !== 0
     || Number(charDraft.custom_pending_item?.quantity || 1) !== 1;
-  const builderSelectionComplete = starterChoicesComplete && cantripSelectionComplete && spellSelectionComplete;
   const customPurchasePreviewItems = customPurchaseEntries
     .map(([itemId, quantity]) => ({ ...equipmentShopById[itemId], purchase_quantity: Number(quantity || 0) }))
     .filter((item) => item?.id);
@@ -547,7 +597,7 @@ export default function App() {
     setCreatorStep(0);
     setSpellList([]);
     setView("creator");
-    if (!builderReady && !isBuilderLoading) {
+    if (!builderReady) {
       await loadBuilderCatalog(false);
     }
   }
@@ -1090,13 +1140,13 @@ export default function App() {
       let result;
       if (kind === "advance") result = await advanceTurn(activeGameId);
       if (kind === "attack") {
-        const { attack_name, ...payload } = actionDraft.attack;
+        const { attack_name: _attackName, ...payload } = actionDraft.attack;
         result = await attackAction(activeGameId, { ...payload, attack_bonus: Number(payload.attack_bonus) });
       }
       if (kind === "spell") result = await castSpellAction(activeGameId, { ...actionDraft.spell, slot_level: Number(actionDraft.spell.slot_level || 0) });
       if (kind === "skill") result = await skillCheckAction(activeGameId, { ...actionDraft.skill, dc: Number(actionDraft.skill.dc || 0), modifier: actionDraft.skill.modifier === "" ? null : Number(actionDraft.skill.modifier) });
       if (kind === "save") result = await savingThrowAction(activeGameId, { ...actionDraft.save, dc: Number(actionDraft.save.dc || 0), modifier: actionDraft.save.modifier === "" ? null : Number(actionDraft.save.modifier) });
-      if (kind === "item") result = await useItemAction(activeGameId, { ...actionDraft.item, quantity: Number(actionDraft.item.quantity || 1) });
+      if (kind === "item") result = await itemActionRequest(activeGameId, { ...actionDraft.item, quantity: Number(actionDraft.item.quantity || 1) });
       if (result?.game_state) await syncGame(activeGameId, result.game_state);
     } catch (err) { setError(err.message || "执行动作失败。"); }
   }
@@ -1107,11 +1157,84 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {!["home", "new_game", "creator", "monsters"].includes(view) && <div className="sidebar"><div className="brand">DM_Agent</div><div className="menu-items"><div className="menu-active-info">当前游戏：{activeGameId}</div><button onClick={() => setView("chat")} className={view === "chat" ? "active" : ""}>对话</button><button onClick={() => setView("status")} className={view === "status" ? "active" : ""}>状态</button><button className="btn-danger" onClick={() => { setActiveGameId(null); setGameState(null); setMessages([]); setView("home"); }}>返回主页</button></div></div>}
+      {!["home", "new_game", "creator", "monsters"].includes(view) && (
+        <aside className="sidebar">
+          <div className="brand">
+            <span className="brand-mark">DM</span>
+            <span>Agent</span>
+          </div>
+          <div className="menu-items">
+            <div className="menu-active-info">当前游戏：{activeGameId}</div>
+            <button onClick={() => setView("chat")} className={view === "chat" ? "active" : ""}>对话</button>
+            <button onClick={() => setView("status")} className={view === "status" ? "active" : ""}>状态</button>
+            <button className="btn-danger" onClick={() => { setActiveGameId(null); setGameState(null); setMessages([]); setView("home"); }}>返回主页</button>
+          </div>
+        </aside>
+      )}
       <main className="main-content">
         {error && <div className="list-item error-banner" style={{ margin: 16 }}>{error}</div>}
 
-        {view === "home" && <div className="home-container anime-fade-in"><h1 className="title-hero">D&D 2024 跑团主持台</h1><p className="subtitle">本地规则、状态追踪、战斗工具与 LangGraph DM 编排整合在同一个前端里。</p><div className="card-grid"><div className="bento-card glow-hover" onClick={() => setView("new_game")}><div className="card-icon">局</div><h3>新建游戏</h3><p>创建一局新冒险，并把已保存角色编入队伍。</p></div><div className="bento-card glow-hover" onClick={openCreator}><div className="card-icon">角</div><h3>角色构筑</h3><p>创建并保存角色模板，供建局时直接选入队伍。</p></div><div className="bento-card glow-hover" onClick={() => { setMonsterDraft({ ...EMPTY_MON }); setView("monsters"); }}><div className="card-icon">怪</div><h3>怪物模板</h3><p>保存和复用自定义怪物，快速生成遭遇。</p></div></div><div className="section-divider"></div><h3>已保存游戏</h3><div className="scroll-list">{games.length === 0 && <p className="empty-text">还没有已保存的游戏。</p>}{games.map((game) => <div key={game.game_id} className="list-item" onClick={() => enterGame(game.game_id)}><span className="icon">卷</span><span>{game.title}（{localizeScene(game.scene)}）{game.encounter_active ? " · 战斗中" : ""}</span></div>)}</div><div className="section-divider"></div><h3>怪物模板</h3><div className="scroll-list">{monsters.length === 0 && <p className="empty-text">还没有怪物模板。</p>}{monsters.slice(0, 6).map((monster) => <div key={monster.monster_id} className="list-item" onClick={() => openMonster(monster.monster_id)}><span className="icon">兽</span><span>{monster.name} · {formatMonsterSummary(monster)}</span></div>)}</div></div>}
+        {view === "home" && (
+          <div className="home-container anime-fade-in">
+            <section className="lobby-hero">
+              <div className="lobby-title-block">
+                <div className="eyebrow">DM Agent</div>
+                <h1 className="title-hero">D&D 2024 跑团主持台</h1>
+                <p className="subtitle">今晚的桌面已经铺开。选择一局存档，或先整理自己的角色卡。</p>
+              </div>
+              <div className="card-grid" aria-label="主要操作">
+                <button type="button" className="bento-card glow-hover" onClick={() => setView("new_game")}>
+                  <div className="card-icon">局</div>
+                  <h3>新建游戏</h3>
+                  <p>开一张新桌，并带入队伍角色。</p>
+                </button>
+                <button type="button" className="bento-card glow-hover" onClick={openCreator}>
+                  <div className="card-icon">角</div>
+                  <h3>创建角色卡</h3>
+                  <p>整理角色模板、装备与职业资源。</p>
+                </button>
+                <button type="button" className="bento-card glow-hover" onClick={openCreator}>
+                  <div className="card-icon">卡</div>
+                  <h3>角色卡模板</h3>
+                  <p>查看可带入游戏的玩家角色卡。</p>
+                </button>
+              </div>
+            </section>
+
+            <section className="lobby-grid">
+              <div className="lobby-panel">
+                <div className="panel-heading">
+                  <h3>已保存游戏</h3>
+                  <span>{games.length} 局</span>
+                </div>
+                <div className="scroll-list">
+                  {games.length === 0 && <p className="empty-text">还没有已保存的游戏。</p>}
+                  {games.map((game) => (
+                    <button type="button" key={game.game_id} className="list-item" onClick={() => enterGame(game.game_id)}>
+                      <span className="icon">局</span>
+                      <span>{game.title}（{localizeScene(game.scene)}）{game.encounter_active ? " · 战斗中" : ""}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="lobby-panel">
+                <div className="panel-heading">
+                  <h3>角色卡模板</h3>
+                  <span>{characters.length} 张</span>
+                </div>
+                <div className="scroll-list">
+                  {characters.length === 0 && <p className="empty-text">还没有角色卡。先创建一张角色卡，再开局。</p>}
+                  {characters.slice(0, 8).map((character) => (
+                    <button type="button" key={character.character_id} className="list-item" onClick={openCreator}>
+                      <span className="icon">角</span>
+                      <span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
 
         {view === "creator" && (
           <div className="creator-container anime-slide-up">
@@ -1141,13 +1264,13 @@ export default function App() {
                   <div className="form-group">
                     <label>种族</label>
                     {builder.species.length === 0 ? renderBuilderLoadState("种族目录") : <div className="class-grid">
-                      {builder.species.map((species) => <div key={species.id} className={`class-card ${charDraft.species === species.name ? "selected" : ""}`} onClick={() => setCharDraft((p) => ({ ...p, species: species.name }))}>{species.name_display || localizeSpeciesName(species.name)}</div>)}
+                      {builder.species.map((species) => <ChoiceButton key={species.id} selected={charDraft.species === species.name} onClick={() => setCharDraft((p) => ({ ...p, species: species.name }))}>{species.name_display || localizeSpeciesName(species.name)}</ChoiceButton>)}
                     </div>}
                   </div>
                   <div className="form-group">
                     <label>背景</label>
                     {builder.backgrounds.length === 0 ? renderBuilderLoadState("背景目录") : <div className="class-grid">
-                      {builder.backgrounds.map((bg) => <div key={bg.id} className={`class-card ${charDraft.background_name === bg.name ? "selected" : ""}`} onClick={() => chooseBackground(bg.name)}>{bg.name_display || localizeBackgroundName(bg.name)}</div>)}
+                      {builder.backgrounds.map((bg) => <ChoiceButton key={bg.id} selected={charDraft.background_name === bg.name} onClick={() => chooseBackground(bg.name)}>{bg.name_display || localizeBackgroundName(bg.name)}</ChoiceButton>)}
                     </div>}
                   </div>
                   <div className="form-group">
@@ -1163,7 +1286,7 @@ export default function App() {
                   <div className="form-group">
                     <label>职业</label>
                     {builder.classes.length === 0 ? renderBuilderLoadState("职业目录") : <div className="class-grid">
-                      {builder.classes.map((cls) => <div key={cls.id} className={`class-card ${charDraft.class_name === cls.name ? "selected" : ""}`} onClick={() => chooseClass(cls)}>{cls.name_display || localizeClassName(cls.name)}</div>)}
+                      {builder.classes.map((cls) => <ChoiceButton key={cls.id} selected={charDraft.class_name === cls.name} onClick={() => chooseClass(cls)}>{cls.name_display || localizeClassName(cls.name)}</ChoiceButton>)}
                     </div>}
                   </div>
                   <div className="builder-preview-grid">
@@ -1184,7 +1307,11 @@ export default function App() {
                   <div className="form-group" style={{ marginTop: 24 }}>
                     <label>职业技能</label>
                     {!classDef ? <p className="info-text">先选择职业，才能分配职业技能。</p> : <><p className="spell-meta">需要选择 {classSkillTarget} 项职业技能，当前 {selectedClassSkillCount}/{classSkillTarget}。</p><div className="class-grid">
-                      {(classDef?.skill_choices || []).map((skill) => <div key={skill} className={`class-card ${Number(charDraft.skill_proficiencies[skill] || 0) > 0 ? "selected" : ""}`} onClick={() => toggleSkill(skill)}>{localizeSkill(skill)}</div>)}
+                      {(classDef?.skill_choices || []).map((skill) => {
+                        const providedByBackground = backgroundSkills.has(skill);
+                        const selected = Number(charDraft.skill_proficiencies[skill] || 0) > 0;
+                        return <ChoiceButton key={skill} selected={selected} disabled={providedByBackground} onClick={() => toggleSkill(skill)}>{localizeSkill(skill)}{providedByBackground && <span className="choice-note">背景已提供</span>}</ChoiceButton>;
+                      })}
                     </div></>}
                   </div>
                 </>
@@ -1195,8 +1322,8 @@ export default function App() {
                   <div className="form-group">
                     <label>装备方案</label>
                     {!classDef ? <p className="info-text">先选择职业，才能设置起始装备。</p> : <div className="class-grid">
-                      <div className={`class-card ${charDraft.equipment_mode === "starter_package" ? "selected" : ""}`} onClick={() => setEquipmentMode("starter_package")}><strong>标准套装</strong><p className="spell-meta">按职业起始方案直接发放</p></div>
-                      <div className={`class-card ${charDraft.equipment_mode === "custom_purchase" ? "selected" : ""}`} onClick={() => setEquipmentMode("custom_purchase")}><strong>自定义购买</strong><p className="spell-meta">预算 {formatGoldLine(customPurchaseBudgetGp)}</p></div>
+                      <ChoiceButton selected={charDraft.equipment_mode === "starter_package"} onClick={() => setEquipmentMode("starter_package")}><strong>标准套装</strong><p className="spell-meta">按职业起始方案直接发放</p></ChoiceButton>
+                      <ChoiceButton selected={charDraft.equipment_mode === "custom_purchase"} onClick={() => setEquipmentMode("custom_purchase")}><strong>自定义购买</strong><p className="spell-meta">预算 {formatGoldLine(customPurchaseBudgetGp)}</p></ChoiceButton>
                     </div>}
                   </div>
 
@@ -1205,7 +1332,7 @@ export default function App() {
                       <div className="form-group">
                         <label>起始装备包</label>
                         {starterOptions.length === 0 ? <p className="info-text">当前职业还没有起始装备包元数据。</p> : <div className="class-grid">
-                          {starterOptions.map((option) => <div key={option.id} className={`class-card ${selectedStarterOption?.id === option.id ? "selected" : ""}`} onClick={() => chooseStarterOption(option.id)}><strong>{option.label_display || option.label}</strong><p className="spell-meta">{formatGoldLine(option.gold_gp)}</p></div>)}
+                          {starterOptions.map((option) => <ChoiceButton key={option.id} selected={selectedStarterOption?.id === option.id} onClick={() => chooseStarterOption(option.id)}><strong>{option.label_display || option.label}</strong><p className="spell-meta">{formatGoldLine(option.gold_gp)}</p></ChoiceButton>)}
                         </div>}
                       </div>
                       {starterChoiceGroups.map((group) => (
@@ -1213,7 +1340,7 @@ export default function App() {
                           <label>{group.label_display || group.label}</label>
                           <p className="info-text">{group.description_display || group.description}</p>
                           <div className="class-grid" style={{ marginTop: 12 }}>
-                            {(group.options || []).map((option) => <div key={option.id} className={`class-card ${charDraft.starter_choice_ids[group.id] === option.id ? "selected" : ""}`} onClick={() => chooseStarterChoice(group.id, option.id)}><strong>{option.label_display || option.label}</strong></div>)}
+                            {(group.options || []).map((option) => <ChoiceButton key={option.id} selected={charDraft.starter_choice_ids[group.id] === option.id} onClick={() => chooseStarterChoice(group.id, option.id)}><strong>{option.label_display || option.label}</strong></ChoiceButton>)}
                           </div>
                         </div>
                       ))}
@@ -1298,11 +1425,11 @@ export default function App() {
                   </div>
                   <div className="form-group">
                     <label>戏法</label>
-                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在 1 级时不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <div key={spell.id || spell.name} className={`spell-card ${charDraft.selectedCantrips.includes(spell.name) ? "selected" : ""}`} onClick={() => toggleCantrip(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></div>)}</div>}</div>}
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在 1 级时不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedCantrips.includes(spell.name)} onClick={() => toggleCantrip(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
                   </div>
                   <div className="form-group">
                     <label>已准备法术</label>
-                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在 1 级时没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <div key={spell.id || spell.name} className={`spell-card ${charDraft.selectedSpells.includes(spell.name) ? "selected" : ""}`} onClick={() => togglePreparedSpell(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></div>)}</div>}</div>}
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在 1 级时没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedSpells.includes(spell.name)} onClick={() => togglePreparedSpell(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
                   </div>
                 </>
               )}
@@ -1344,9 +1471,9 @@ export default function App() {
           </div>
         )}
 
-        {view === "monsters" && <div className="creator-container anime-slide-up"><div className="manager-layout"><div className="panel-card"><div className="btn-row" style={{ marginTop: 0, marginBottom: 12 }}><h2 style={{ margin: 0 }}>怪物模板</h2><button className="btn-secondary" onClick={() => setMonsterDraft({ ...EMPTY_MON })}>新建</button></div><div className="timeline-list">{monsters.length === 0 && <p className="empty-text">还没有怪物模板。</p>}{monsters.map((monster) => <div key={monster.monster_id} className="timeline-item" onClick={() => openMonster(monster.monster_id)}><div className="timeline-summary">{monster.name}</div><div className="timeline-content">{formatMonsterSummary(monster)}</div></div>)}</div></div><div className="panel-card"><h2>{monsterDraft.monster_id ? "编辑怪物" : "新建怪物"}</h2><div className="form-group"><label>名称</label><input value={monsterDraft.name} onChange={(e) => setMonsterDraft((p) => ({ ...p, name: e.target.value }))} /></div><div className="dual-grid"><div className="form-group"><label>体型</label><input value={monsterDraft.size} onChange={(e) => setMonsterDraft((p) => ({ ...p, size: e.target.value }))} placeholder={localizeSize(monsterDraft.size)} /></div><div className="form-group"><label>类型</label><input value={monsterDraft.creature_type} onChange={(e) => setMonsterDraft((p) => ({ ...p, creature_type: e.target.value }))} placeholder={localizeCreatureType(monsterDraft.creature_type)} /></div><div className="form-group"><label>阵营</label><input value={monsterDraft.alignment} onChange={(e) => setMonsterDraft((p) => ({ ...p, alignment: e.target.value }))} placeholder={localizeAlignment(monsterDraft.alignment)} /></div><div className="form-group"><label>挑战等级</label><input value={monsterDraft.challenge_rating} onChange={(e) => setMonsterDraft((p) => ({ ...p, challenge_rating: e.target.value }))} /></div><div className="form-group"><label>护甲等级</label><input type="number" value={monsterDraft.ac} onChange={(e) => setMonsterDraft((p) => ({ ...p, ac: Number.parseInt(e.target.value || "0", 10) }))} /></div><div className="form-group"><label>生命值</label><input type="number" value={monsterDraft.hp_max} onChange={(e) => setMonsterDraft((p) => ({ ...p, hp_max: Number.parseInt(e.target.value || "0", 10) }))} /></div></div><div className="form-group"><label>特性</label><textarea className="text-block" value={monsterDraft.traitsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, traitsText: e.target.value }))} /></div><div className="form-group"><label>动作</label><textarea className="text-block" value={monsterDraft.actionsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, actionsText: e.target.value }))} /></div><div className="form-group"><label>备注</label><textarea className="text-block" value={monsterDraft.notes} onChange={(e) => setMonsterDraft((p) => ({ ...p, notes: e.target.value }))} /></div><div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>返回</button><button className="btn-success" onClick={saveMonster} disabled={!monsterDraft.name.trim()}>保存怪物</button></div></div></div></div>}
+        {view === "monsters" && <div className="creator-container anime-slide-up"><div className="manager-layout"><div className="panel-card"><div className="btn-row" style={{ marginTop: 0, marginBottom: 12 }}><h2 style={{ margin: 0 }}>怪物模板</h2><button className="btn-secondary" onClick={() => setMonsterDraft({ ...EMPTY_MON })}>新建</button></div><div className="timeline-list">{monsters.length === 0 && <p className="empty-text">还没有怪物模板。</p>}{monsters.map((monster) => <button type="button" key={monster.monster_id} className="timeline-item timeline-button" onClick={() => openMonster(monster.monster_id)}><div className="timeline-summary">{monster.name}</div><div className="timeline-content">{formatMonsterSummary(monster)}</div></button>)}</div></div><div className="panel-card"><h2>{monsterDraft.monster_id ? "编辑怪物" : "新建怪物"}</h2><div className="form-group"><label>名称</label><input value={monsterDraft.name} onChange={(e) => setMonsterDraft((p) => ({ ...p, name: e.target.value }))} /></div><div className="dual-grid"><div className="form-group"><label>体型</label><input value={monsterDraft.size} onChange={(e) => setMonsterDraft((p) => ({ ...p, size: e.target.value }))} placeholder={localizeSize(monsterDraft.size)} /></div><div className="form-group"><label>类型</label><input value={monsterDraft.creature_type} onChange={(e) => setMonsterDraft((p) => ({ ...p, creature_type: e.target.value }))} placeholder={localizeCreatureType(monsterDraft.creature_type)} /></div><div className="form-group"><label>阵营</label><input value={monsterDraft.alignment} onChange={(e) => setMonsterDraft((p) => ({ ...p, alignment: e.target.value }))} placeholder={localizeAlignment(monsterDraft.alignment)} /></div><div className="form-group"><label>挑战等级</label><input value={monsterDraft.challenge_rating} onChange={(e) => setMonsterDraft((p) => ({ ...p, challenge_rating: e.target.value }))} /></div><div className="form-group"><label>护甲等级</label><input type="number" value={monsterDraft.ac} onChange={(e) => setMonsterDraft((p) => ({ ...p, ac: Number.parseInt(e.target.value || "0", 10) }))} /></div><div className="form-group"><label>生命值</label><input type="number" value={monsterDraft.hp_max} onChange={(e) => setMonsterDraft((p) => ({ ...p, hp_max: Number.parseInt(e.target.value || "0", 10) }))} /></div></div><div className="form-group"><label>特性</label><textarea className="text-block" value={monsterDraft.traitsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, traitsText: e.target.value }))} /></div><div className="form-group"><label>动作</label><textarea className="text-block" value={monsterDraft.actionsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, actionsText: e.target.value }))} /></div><div className="form-group"><label>备注</label><textarea className="text-block" value={monsterDraft.notes} onChange={(e) => setMonsterDraft((p) => ({ ...p, notes: e.target.value }))} /></div><div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>返回</button><button className="btn-success" onClick={saveMonster} disabled={!monsterDraft.name.trim()}>保存怪物</button></div></div></div></div>}
 
-        {view === "new_game" && <div className="modal-overlay"><div className="modal-content anime-pop"><h2>新建游戏</h2><p className="info-text">先输入游戏存档 ID，再从下方选择要带入本局的队伍角色。</p><input className="input-lg" placeholder="例如：第一章-测试局" value={newGameId} onChange={(e) => setNewGameId(e.target.value)} /><h3>队伍角色</h3><p className="info-text">已选择 {selectedGameChars.length} 名角色。这里不是摆设，选中的角色会直接写入新游戏。</p>{characters.length === 0 ? <div className="timeline-item"><div className="timeline-summary">还没有可用角色</div><div className="timeline-content">请先到“角色构筑”里保存至少一名角色，再回来建局。</div></div> : <div className="char-select-list">{characters.map((character) => <div key={character.character_id} className={`char-option ${selectedGameChars.includes(character.character_id) ? "selected" : ""}`} onClick={() => setSelectedGameChars((prev) => prev.includes(character.character_id) ? prev.filter((item) => item !== character.character_id) : [...prev, character.character_id])}><div className="avatar">角</div><span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)}</span></div>)}</div>}<div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>取消</button><button className="btn-primary" onClick={makeGame}>创建并进入</button></div></div></div>}
+        {view === "new_game" && <div className="modal-overlay"><div className="modal-content anime-pop"><h2>新建游戏</h2><p className="info-text">先输入游戏存档 ID，再从下方选择要带入本局的队伍角色。</p><input className="input-lg" placeholder="例如：第一章-测试局" value={newGameId} onChange={(e) => setNewGameId(e.target.value)} /><h3>队伍角色</h3><p className="info-text">已选择 {selectedGameChars.length} 名角色。这里不是摆设，选中的角色会直接写入新游戏。</p>{characters.length === 0 ? <div className="timeline-item"><div className="timeline-summary">还没有可用角色</div><div className="timeline-content">请先到“角色构筑”里保存至少一名角色，再回来建局。</div></div> : <div className="char-select-list">{characters.map((character) => <button type="button" key={character.character_id} className={`char-option ${selectedGameChars.includes(character.character_id) ? "selected" : ""}`} aria-pressed={selectedGameChars.includes(character.character_id)} onClick={() => setSelectedGameChars((prev) => prev.includes(character.character_id) ? prev.filter((item) => item !== character.character_id) : [...prev, character.character_id])}><div className="avatar">角</div><span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)}</span></button>)}</div>}<div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>取消</button><button className="btn-primary" onClick={makeGame}>创建并进入</button></div></div></div>}
 
         {view === "chat" && (
           <div className="chat-layout">
@@ -1367,7 +1494,7 @@ export default function App() {
                           <div className="timeline-summary">{hook.title}</div>
                           <div className="timeline-content">{hook.summary}</div>
                           <div className="btn-row" style={{ marginTop: 12 }}>
-                            <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)}>选择这条线索</button>
+                            <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)}>选择：{hook.title}</button>
                           </div>
                         </div>
                       ))}
@@ -1437,39 +1564,43 @@ export default function App() {
                       </div>
                     </div>
                     <button className="btn-secondary" onClick={createEncounterFromNames}>创建命名遭遇</button>
-                    <div className="form-group">
-                      <label>从怪物模板生成</label>
-                      <select value={encounterDraft.monster_id} onChange={(e) => setEncounterDraft((p) => ({ ...p, monster_id: e.target.value }))}>
-                        <option value="">选择怪物模板</option>
-                        {monsters.map((monster) => <option key={monster.monster_id} value={monster.monster_id}>{monster.name} · 挑战等级 {monster.challenge_rating}</option>)}
-                      </select>
-                    </div>
-                    <div className="dual-grid">
-                      <div className="form-group">
-                        <label>数量</label>
-                        <input type="number" value={encounterDraft.quantity} onChange={(e) => setEncounterDraft((p) => ({ ...p, quantity: e.target.value }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>自定义名称</label>
-                        <input value={encounterDraft.custom_name} onChange={(e) => setEncounterDraft((p) => ({ ...p, custom_name: e.target.value }))} placeholder="可选" />
-                      </div>
-                    </div>
-                    <div className="dual-grid">
-                      <div className="form-group">
-                        <label>阵营</label>
-                        <select value={encounterDraft.template_side} onChange={(e) => setEncounterDraft((p) => ({ ...p, template_side: e.target.value }))}>
-                          <option value="enemy">敌方</option>
-                          <option value="party">队伍</option>
-                          <option value="ally">友方</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>生命值覆盖</label>
-                        <input value={encounterDraft.hp_override} onChange={(e) => setEncounterDraft((p) => ({ ...p, hp_override: e.target.value }))} placeholder="可选" />
-                      </div>
-                    </div>
-                    {encounterMonsterPreview && <div className="timeline-item"><div className="timeline-summary">{encounterMonsterPreview.name}</div><div className="timeline-content">{formatMonsterPreviewLine(encounterMonsterPreview)}</div></div>}
-                    <button className="btn-secondary" onClick={createEncounterFromTemplate}>生成模板遭遇</button>
+                    {SHOW_DM_ENCOUNTER_TEMPLATE_TOOLS && (
+                      <>
+                        <div className="form-group">
+                          <label>从怪物模板生成</label>
+                          <select value={encounterDraft.monster_id} onChange={(e) => setEncounterDraft((p) => ({ ...p, monster_id: e.target.value }))}>
+                            <option value="">选择怪物模板</option>
+                            {monsters.map((monster) => <option key={monster.monster_id} value={monster.monster_id}>{monster.name} · 挑战等级 {monster.challenge_rating}</option>)}
+                          </select>
+                        </div>
+                        <div className="dual-grid">
+                          <div className="form-group">
+                            <label>数量</label>
+                            <input type="number" value={encounterDraft.quantity} onChange={(e) => setEncounterDraft((p) => ({ ...p, quantity: e.target.value }))} />
+                          </div>
+                          <div className="form-group">
+                            <label>自定义名称</label>
+                            <input value={encounterDraft.custom_name} onChange={(e) => setEncounterDraft((p) => ({ ...p, custom_name: e.target.value }))} placeholder="可选" />
+                          </div>
+                        </div>
+                        <div className="dual-grid">
+                          <div className="form-group">
+                            <label>阵营</label>
+                            <select value={encounterDraft.template_side} onChange={(e) => setEncounterDraft((p) => ({ ...p, template_side: e.target.value }))}>
+                              <option value="enemy">敌方</option>
+                              <option value="party">队伍</option>
+                              <option value="ally">友方</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>生命值覆盖</label>
+                            <input value={encounterDraft.hp_override} onChange={(e) => setEncounterDraft((p) => ({ ...p, hp_override: e.target.value }))} placeholder="可选" />
+                          </div>
+                        </div>
+                        {encounterMonsterPreview && <div className="timeline-item"><div className="timeline-summary">{encounterMonsterPreview.name}</div><div className="timeline-content">{formatMonsterPreviewLine(encounterMonsterPreview)}</div></div>}
+                        <button className="btn-secondary" onClick={createEncounterFromTemplate}>生成模板遭遇</button>
+                      </>
+                    )}
                     <div className="section-divider" style={{ margin: "8px 0" }} />
                     <div className="form-group">
                       <label>快速添加敌人</label>
@@ -1608,7 +1739,10 @@ export default function App() {
                 <div className="panel-card">
                   <h3>时间线</h3>
                   <div className="timeline-list">
-                    {timeline.map((event) => <div key={event.event_id} className="timeline-item"><div className="timeline-type">{eventLabel(event.type)}</div><div className="timeline-summary">{event.summary}</div>{event.content && <div className="timeline-content">{event.content}</div>}</div>)}
+                    {timeline.map((event) => {
+                      const content = eventContent(event);
+                      return <div key={event.event_id} className="timeline-item"><div className="timeline-type">{eventLabel(event.type)}</div><div className="timeline-summary">{eventSummary(event)}</div>{content && <div className="timeline-content">{content}</div>}</div>;
+                    })}
                   </div>
                 </div>
                 <div className="panel-card">

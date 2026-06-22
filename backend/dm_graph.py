@@ -676,6 +676,16 @@ ACTION_RESOLUTION_TERMS = [
     "rest",
     "\u68c0\u67e5",
     "\u8c03\u67e5",
+    "\u89c2\u5bdf",
+    "\u5bfb\u627e",
+    "\u627e",
+    "\u63a2\u67e5",
+    "\u4fa6\u67e5",
+    "\u67e5\u770b",
+    "\u67e5\u9a8c",
+    "\u8ffd\u8e2a",
+    "\u8fa8\u8ba4",
+    "\u4ea4\u6d89",
     "\u611f\u77e5",
     "\u6f5c\u884c",
     "\u8bf4\u670d",
@@ -697,6 +707,38 @@ ACTION_RESOLUTION_TERMS = [
     "\u6cbb\u7597",
     "\u559d\u836f",
 ]
+
+TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
+    "lookup_rules": {"lookup_rules", "knowledge.lookup_rules"},
+    "roll_dice": {"roll_dice", "dice.roll"},
+    "adjust_hp": {"adjust_hp", "target.adjust_hp"},
+    "add_status": {"add_status", "target.add_status"},
+    "remove_status": {"remove_status", "target.remove_status"},
+    "append_adventure_log": {"append_adventure_log", "log.append"},
+    "add_inventory_item": {"add_inventory_item", "character.add_inventory_item"},
+    "use_item": {"use_item", "inventory.use_item"},
+    "use_feature": {"use_feature", "feature.use"},
+    "record_evidence": {"record_evidence", "story.record_evidence"},
+    "record_search_outcome": {"record_search_outcome", "story.record_search_outcome"},
+    "record_major_experience": {"record_major_experience", "character.record_major_experience"},
+    "record_chapter_progress": {"record_chapter_progress", "campaign.record_chapter_progress"},
+    "set_defeat_state": {"set_defeat_state", "combat.set_defeat_state"},
+    "set_scene": {"set_scene", "scene.set"},
+    "set_active_character": {"set_active_character", "character.set_active"},
+    "start_encounter": {"start_encounter", "encounter.start"},
+    "add_enemy": {"add_enemy", "encounter.add_enemy"},
+    "save_monster_template": {"save_monster_template", "monster.save_template"},
+    "spawn_monster_from_template": {"spawn_monster_from_template", "monster.spawn_from_template"},
+    "attack_target": {"attack_target", "combat.attack_target"},
+    "roll_skill_check": {"roll_skill_check", "check.skill"},
+    "roll_saving_throw": {"roll_saving_throw", "check.saving_throw"},
+    "cast_spell": {"cast_spell", "magic.cast_spell"},
+    "set_initiative": {"set_initiative", "encounter.set_initiative"},
+    "roll_initiative": {"roll_initiative", "encounter.roll_initiative"},
+    "advance_turn": {"advance_turn", "encounter.advance_turn"},
+    "end_encounter": {"end_encounter", "encounter.end"},
+}
+
 
 TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
     "setup_guidance": {
@@ -738,6 +780,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
 
 class DMGraphState(TypedDict, total=False):
     game_state: Dict[str, Any]
+    initial_game_state: Dict[str, Any]
     user_input: str
     thread_id: str
     phase: str
@@ -1276,8 +1319,19 @@ class DMGraphRunner:
             ]
         ):
             suggestions.append("advance_turn")
+        if self._chapter_completion_requested(normalized) or any(
+            term in lowered
+            for term in [
+                "record chapter",
+                "chapter progress",
+                "\u8bb0\u5f55\u7ae0\u8282",
+                "\u7ae0\u8282\u8fdb\u5ea6",
+                "\u7ae0\u8282\u5df2\u8bb0\u5f55",
+            ]
+        ):
+            suggestions.append("record_chapter_progress")
 
-        return self._unique_texts(suggestions, limit=3)
+        return self._unique_texts(suggestions, limit=4)
 
     @staticmethod
     def _explicit_tool_names_in_input(user_input: str) -> List[str]:
@@ -1489,6 +1543,189 @@ class DMGraphRunner:
             if len(unique) >= limit:
                 break
         return unique
+
+    @staticmethod
+    def _executed_tool_names(graph_state: DMGraphState) -> set[str]:
+        names: set[str] = set()
+        for item in graph_state.get("tool_results", []) or []:
+            if isinstance(item, ToolResult):
+                raw_name = item.tool_name
+            elif isinstance(item, dict):
+                raw_name = item.get("tool_name", "")
+            else:
+                raw_name = getattr(item, "tool_name", "")
+            name = str(raw_name or "").strip()
+            if name:
+                names.add(name)
+        return names
+
+    @classmethod
+    def _tool_result_present(cls, graph_state: DMGraphState, tool_name: str) -> bool:
+        aliases = TOOL_RESULT_ALIASES.get(tool_name, {tool_name})
+        return bool(cls._executed_tool_names(graph_state) & aliases)
+
+    @classmethod
+    def _tool_result_payloads(cls, graph_state: DMGraphState, tool_name: str) -> List[Dict[str, Any]]:
+        aliases = TOOL_RESULT_ALIASES.get(tool_name, {tool_name})
+        payloads: List[Dict[str, Any]] = []
+        for item in graph_state.get("tool_results", []) or []:
+            if isinstance(item, ToolResult):
+                raw_name = item.tool_name
+                raw_payload = item.payload
+            elif isinstance(item, dict):
+                raw_name = item.get("tool_name", "")
+                raw_payload = item.get("payload", {})
+            else:
+                raw_name = getattr(item, "tool_name", "")
+                raw_payload = getattr(item, "payload", {})
+            if str(raw_name or "").strip() not in aliases:
+                continue
+            payloads.append(dict(raw_payload or {}))
+        return payloads
+
+    @staticmethod
+    def _has_validation_issue(graph_state: DMGraphState, validator: str, action: str = "") -> bool:
+        for item in graph_state.get("validation_issues", []) or []:
+            if isinstance(item, ValidationIssue):
+                issue_validator = item.validator
+                issue_action = item.action
+            elif isinstance(item, dict):
+                issue_validator = str(item.get("validator", ""))
+                issue_action = str(item.get("action", ""))
+            else:
+                issue_validator = str(getattr(item, "validator", ""))
+                issue_action = str(getattr(item, "action", ""))
+            if issue_validator != validator:
+                continue
+            if action and issue_action != action:
+                continue
+            return True
+        return False
+
+    def _repair_tool_call_error(
+        self,
+        graph_state: DMGraphState,
+        tool_name: str,
+        args: Dict[str, Any],
+    ) -> str:
+        if tool_name != "record_chapter_progress":
+            return ""
+        completed_arg = args.get("completed")
+        completed_requested = self._chapter_completion_requested(graph_state.get("user_input", ""))
+        repair_requires_completion = (
+            str(graph_state.get("validation_status") or "") == "repair_required"
+            and self._has_validation_issue(graph_state, "chapter_completion", "repair_required")
+        )
+        completed_is_true = completed_arg is True or str(completed_arg).strip().casefold() in {"true", "1", "yes"}
+        if (completed_requested or repair_requires_completion) and not completed_is_true:
+            return (
+                "record_chapter_progress must include completed=true because the player asked to complete "
+                "the chapter. The attempted call omitted that required argument."
+            )
+        return ""
+
+    @staticmethod
+    def _chapter_completion_requested(user_input: str) -> bool:
+        lowered = " ".join((user_input or "").split()).strip().casefold()
+        if not lowered:
+            return False
+        chapter_terms = ["chapter", "\u7ae0", "\u5927\u7ae0", "\u672c\u7ae0"]
+        completion_terms = [
+            "complete",
+            "completed",
+            "finish",
+            "finished",
+            "ending",
+            "\u5b8c\u6210",
+            "\u7ed3\u675f",
+            "\u7ae0\u672b",
+            "\u660e\u786e\u7ae0\u672b",
+            "\u7ed3\u5c40",
+            "\u6536\u675f",
+        ]
+        return any(term in lowered for term in chapter_terms) and any(
+            term in lowered for term in completion_terms
+        )
+
+    @classmethod
+    def _response_tool_requirements(cls, response_text: str, allowed_tools: List[str]) -> List[str]:
+        lowered = " ".join((response_text or "").split()).strip().casefold()
+        if not lowered:
+            return []
+
+        allowed = set(allowed_tools or [])
+        requirements: List[str] = []
+
+        def add(tool_name: str) -> None:
+            if tool_name in allowed and tool_name not in requirements:
+                requirements.append(tool_name)
+
+        roll_markers = [
+            "i roll",
+            "rolling",
+            "\u6211\u4e3a\u4f60",
+            "\u8ba9\u6211",
+            "\u4e3a\u4f60\u505a",
+            "\u505a\u4e00\u6b21",
+            "\u505a\u4e00\u7ec4",
+            "\u8fdb\u884c\u4e00\u6b21",
+            "\u8fdb\u884c\u4e00\u7ec4",
+            "\u63b7\u9ab0",
+            "\u6295\u9ab0",
+        ]
+        check_terms = [
+            "check",
+            "\u68c0\u5b9a",
+            "\u5224\u5b9a",
+            "\u63a2\u67e5",
+            "\u611f\u77e5",
+            "\u5bdf\u89c9",
+            "\u8c03\u67e5",
+        ]
+        saving_terms = ["saving throw", "save", "\u8c41\u514d"]
+        roll_result_pattern = re.compile(
+            r"(?:check|save|\u68c0\u5b9a|\u5224\u5b9a|\u8c41\u514d)\s*(?:result|\u7ed3\u679c|[：:])?\s*\d+",
+            re.IGNORECASE,
+        )
+
+        has_roll_marker = any(marker in lowered for marker in roll_markers)
+        if roll_result_pattern.search(response_text or "") or (
+            has_roll_marker and any(term in lowered for term in check_terms)
+        ):
+            add("roll_skill_check")
+        if has_roll_marker and any(term in lowered for term in saving_terms):
+            add("roll_saving_throw")
+
+        attack_terms = ["attack", "hit", "miss", "damage", "\u653b\u51fb", "\u547d\u4e2d", "\u672a\u547d\u4e2d", "\u9020\u6210", "\u4f24\u5bb3"]
+        if has_roll_marker and any(term in lowered for term in attack_terms):
+            add("attack_target")
+
+        if any(term in lowered for term in ["\u7ae0\u8282\u5df2\u8bb0\u5f55", "\u7ae0\u8282\u5b8c\u6210", "\u672c\u7ae0\u7ed3\u675f", "\u5c01\u7ae0", "chapter complete"]):
+            add("record_chapter_progress")
+        if any(term in lowered for term in ["\u6218\u6597\u7ed3\u675f", "\u906d\u9047\u7ed3\u675f", "encounter ends", "combat ends"]):
+            add("end_encounter")
+
+        return requirements
+
+    @staticmethod
+    def _contains_internal_tool_leak(response_text: str) -> bool:
+        lowered = " ".join((response_text or "").split()).strip().casefold()
+        if not lowered:
+            return False
+        leak_terms = [
+            "record_chapter_progress",
+            "completed=true",
+            "validate_state",
+            "tool call",
+            "tool_call",
+            "payload",
+            "\u5de5\u5177\u8c03\u7528",
+            "\u8c03\u7528\u5de5\u5177",
+            "\u672a\u8c03\u7528\u5de5\u5177",
+            "\u6ca1\u6709\u53d1\u8d77\u5de5\u5177",
+            "\u72b6\u6001\u6821\u9a8c",
+        ]
+        return any(term in lowered for term in leak_terms)
 
     @staticmethod
     def _append_node_trace(
@@ -1871,6 +2108,7 @@ class DMGraphRunner:
 
     def _prepare_turn(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
+        initial_game_state = dict(graph_state.get("initial_game_state") or graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
         input_warnings = self._detect_input_warnings(user_input)
         payload = {"message": user_input}
@@ -1885,6 +2123,7 @@ class DMGraphRunner:
         state.timeline.append(player_event)
         return {
             "game_state": state.model_dump(mode="json"),
+            "initial_game_state": initial_game_state,
             "tool_call_rounds": 0,
             "tool_results": [],
             "state_delta": {},
@@ -2354,6 +2593,139 @@ class DMGraphRunner:
                 ),
             }
 
+        if not final_response and not tool_calls:
+            retry_instruction = self._human_prompt_message(
+                "上一条模型消息没有工具调用，也没有可展示给玩家的最终回复。"
+                "如果还需要工具，请调用工具；如果工具已经成功，请基于工具结果给出简体中文的最终叙事。"
+                "不要留空。"
+            )
+            retry_messages = [*messages, response, retry_instruction]
+            try:
+                retry_response = model.invoke(retry_messages)
+                retry_tool_calls = self._last_message_tool_calls([retry_response])
+                retry_final_response = self.library.localize_game_terms(
+                    self._extract_message_content(retry_response)
+                )
+                if retry_tool_calls or retry_final_response:
+                    messages = retry_messages
+                    response = retry_response
+                    tool_calls = retry_tool_calls
+                    final_response = retry_final_response
+                retry_node_trace = self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    "Retried empty model response.",
+                    {
+                        "retry_tool_call_count": len(retry_tool_calls),
+                        "retry_response_chars": len(retry_final_response),
+                    },
+                )
+            except Exception as exc:
+                detail = self._summarize_model_exception(exc)
+                retry_node_trace = self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    "Model retry after empty response failed.",
+                    {"error": detail},
+                    status="failed",
+                )
+
+        if not final_response and not tool_calls:
+            validation_notes = list(graph_state.get("validation_notes", []))
+            validation_issues = list(graph_state.get("validation_issues", []))
+            summary = "Model returned an empty final response and did not call a tool."
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator="empty_response",
+                severity="error",
+                action="failed_turn",
+                summary=summary,
+                metadata={
+                    "allowed_tools": list(graph_state.get("allowed_tools", [])),
+                    "suggested_tools": list(graph_state.get("suggested_tools", [])),
+                    "tool_result_count": len(graph_state.get("tool_results", []) or []),
+                },
+            )
+            return {
+                "messages": [*messages, response],
+                "final_response": "模型没有生成可提交的最终叙事；为避免空回复提交状态，本回合未提交。",
+                "turn_status": "failed",
+                "validation_notes": validation_notes,
+                "validation_issues": validation_issues,
+                "node_traces": self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    summary,
+                    {"tool_call_count": 0},
+                    status="failed",
+                ),
+            }
+
+        if final_response and not tool_calls and self._contains_internal_tool_leak(final_response):
+            retry_instruction = self._human_prompt_message(
+                "上一条回复泄露了内部工具、校验或参数细节。"
+                "请重写为玩家可见的简体中文叙事，只描述已经由工具结果支持的剧情和状态，不要提工具、参数、校验或框架。"
+            )
+            retry_messages = [*messages, response, retry_instruction]
+            try:
+                retry_response = model.invoke(retry_messages)
+                retry_tool_calls = self._last_message_tool_calls([retry_response])
+                retry_final_response = self.library.localize_game_terms(
+                    self._extract_message_content(retry_response)
+                )
+                if retry_tool_calls or retry_final_response:
+                    messages = retry_messages
+                    response = retry_response
+                    tool_calls = retry_tool_calls
+                    final_response = retry_final_response
+                retry_node_trace = self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    "Retried response after internal tool leakage.",
+                    {
+                        "retry_tool_call_count": len(retry_tool_calls),
+                        "retry_response_chars": len(retry_final_response),
+                    },
+                )
+            except Exception as exc:
+                detail = self._summarize_model_exception(exc)
+                retry_node_trace = self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    "Model retry after internal tool leakage failed.",
+                    {"error": detail},
+                    status="failed",
+                )
+
+        if final_response and not tool_calls and self._contains_internal_tool_leak(final_response):
+            validation_notes = list(graph_state.get("validation_notes", []))
+            validation_issues = list(graph_state.get("validation_issues", []))
+            summary = "Model leaked internal tool or validation details in the player-facing response."
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator="response_leakage",
+                severity="error",
+                action="failed_turn",
+                summary=summary,
+                metadata={"response_chars": len(final_response)},
+            )
+            return {
+                "messages": [*messages, response],
+                "final_response": "模型生成了包含内部工具细节的回复；为避免破坏玩家叙事，本回合未提交。",
+                "turn_status": "failed",
+                "validation_notes": validation_notes,
+                "validation_issues": validation_issues,
+                "node_traces": self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    summary,
+                    {"response_chars": len(final_response)},
+                    status="failed",
+                ),
+            }
+
         result: DMGraphState = {"messages": [*messages, response]}
         if final_response:
             result["final_response"] = final_response
@@ -2404,10 +2776,25 @@ class DMGraphRunner:
                 break
 
         suggested_tools = set(graph_state.get("suggested_tools", []) or [])
-        if not explicit_tool_request and not suggested_tools:
+        lowered_response = (response_text or "").casefold()
+        response_requirements = self._response_tool_requirements(response_text, allowed_tools)
+        for tool_name in response_requirements:
+            if not self._tool_result_present(graph_state, tool_name):
+                return True
+
+        if explicit_tool_request:
+            explicit_targets = [
+                tool_name
+                for tool_name in self._unique_texts([*explicit_names, *suggested_tools], limit=8)
+                if tool_name in set(allowed_tools)
+            ]
+            if explicit_targets:
+                return any(not self._tool_result_present(graph_state, tool_name) for tool_name in explicit_targets)
+            return not bool(self._executed_tool_names(graph_state))
+
+        if not suggested_tools:
             return False
 
-        lowered_response = (response_text or "").casefold()
         tool_intent_terms = [
             "i roll",
             "i cast",
@@ -2432,7 +2819,15 @@ class DMGraphRunner:
             "\u906d\u9047\u7ed3\u675f",
             "\u5df2\u5012\u4e0b",
         ]
-        return explicit_tool_request or any(term in lowered_response for term in tool_intent_terms)
+        if any(term in lowered_response for term in tool_intent_terms):
+            relevant_suggestions = [tool_name for tool_name in suggested_tools if tool_name in set(allowed_tools)]
+            if relevant_suggestions:
+                return any(
+                    not self._tool_result_present(graph_state, tool_name)
+                    for tool_name in relevant_suggestions
+                )
+            return not bool(self._executed_tool_names(graph_state))
+        return False
 
     def _should_continue_after_model(self, graph_state: DMGraphState) -> str:
         if str(graph_state.get("turn_status") or "") == "failed":
@@ -2598,7 +2993,10 @@ class DMGraphRunner:
             if not guardrail.ok:
                 execution = self._tool_error_execution(tool_name, guardrail.error, guardrail.metadata)
             else:
-                if guardrail.metadata.get("requires_confirmation"):
+                repair_error = self._repair_tool_call_error(graph_state, tool_name, guardrail.args)
+                if repair_error:
+                    execution = self._tool_error_execution(tool_name, repair_error, guardrail.metadata)
+                elif guardrail.metadata.get("requires_confirmation"):
                     confirmed, confirmation_error = self._confirm_tool_execution(
                         graph_state,
                         tool_name,
@@ -2891,6 +3289,29 @@ class DMGraphRunner:
                 metadata={"scene": state.scene, "phase": state.campaign.phase},
             )
 
+        if self._chapter_completion_requested(graph_state.get("user_input", "")):
+            chapter_payloads = self._tool_result_payloads(graph_state, "record_chapter_progress")
+            has_completed_chapter_record = any(
+                bool(payload.get("completed")) or str(payload.get("status", "")).strip().lower() == "completed"
+                for payload in chapter_payloads
+            )
+            if not has_completed_chapter_record:
+                latest_chapter_payload = dict(chapter_payloads[-1]) if chapter_payloads else {}
+                mark_repair(
+                    validator="chapter_completion",
+                    summary=(
+                        "Player asked to complete the chapter, but no successful record_chapter_progress result "
+                        "marked the chapter completed; call record_chapter_progress with completed=true before final narration."
+                    ),
+                    tools=["record_chapter_progress"],
+                    metadata={
+                        "chapter_number": latest_chapter_payload.get("chapter_number", state.campaign.current_chapter_number),
+                        "chapter_title": latest_chapter_payload.get("title", state.campaign.current_chapter_title),
+                        "completed": latest_chapter_payload.get("completed", False),
+                        "status": latest_chapter_payload.get("status", ""),
+                    },
+                )
+
         phase = self._derive_phase(state)
         scene = self._expected_scene_for_phase(phase, state.scene)
         policy = self._phase_policy(phase)
@@ -2907,9 +3328,16 @@ class DMGraphRunner:
 
         repair_tools = self._unique_texts(repair_tools, limit=8)
         if validation_status == "repair_required":
+            repair_requirements: List[str] = []
+            if self._has_validation_issue({"validation_issues": validation_issues}, "chapter_completion", "repair_required"):
+                repair_requirements.append(
+                    "For chapter_completion, call record_chapter_progress with completed=true. "
+                    "Do not call it with completed omitted or false."
+                )
             repair_text = (
                 "State verification requires repair before any final narration.\n"
                 f"Allowed repair tools: {' | '.join(repair_tools) if repair_tools else 'none'}.\n"
+                f"Mandatory repair requirements: {' | '.join(repair_requirements) if repair_requirements else 'Use the exact repair requested by the issue.'}\n"
                 "Call the necessary repair tool now. Do not narrate outcomes until the repair tool succeeds.\n"
                 "Issues:\n- " + "\n- ".join(validation_notes[-6:])
             )
@@ -2987,12 +3415,58 @@ class DMGraphRunner:
         if turn_status == "running":
             turn_status = "completed"
         final_response = self.library.localize_game_terms(
-            graph_state.get("final_response") or "I could not complete this turn."
+            graph_state.get("final_response") or "本回合没有生成可展示的最终回复。"
         )
         tool_results = [
             item if isinstance(item, ToolResult) else ToolResult.model_validate(item)
             for item in graph_state.get("tool_results", [])
         ]
+
+        if turn_status == "failed":
+            initial_payload = graph_state.get("initial_game_state") or graph_state.get("game_state", {})
+            state = GameState.model_validate(initial_payload)
+            state.pending_turn = None
+            state.latest_tool_results = []
+
+            player_events = [
+                item if isinstance(item, SessionEvent) else SessionEvent.model_validate(item)
+                for item in graph_state.get("timeline_append", [])
+                if (item.type if isinstance(item, SessionEvent) else dict(item or {}).get("type")) == "player_action"
+            ]
+            assistant_event = self._build_event(
+                event_type="assistant_response",
+                summary="DM response",
+                content=final_response,
+                payload={"message": final_response, "turn_status": "failed"},
+            )
+            state.timeline.extend(player_events)
+            state.timeline.append(assistant_event)
+            history_append = [
+                ChatMessage(role="user", content=user_input),
+                ChatMessage(role="assistant", content=final_response),
+            ]
+            state.chat_history.extend(history_append)
+            timeline_append = [item.model_dump(mode="json") for item in player_events]
+            timeline_append.append(assistant_event.model_dump(mode="json"))
+            return {
+                "game_state": state.model_dump(mode="json"),
+                "history_append": [item.model_dump(mode="json") for item in history_append],
+                "timeline_append": timeline_append,
+                "tool_results": [item.model_dump(mode="json") for item in tool_results],
+                "final_response": final_response,
+                "turn_status": turn_status,
+                "pending_input": {},
+                "rag_metadata": dict(graph_state.get("rag_metadata", {})),
+                "input_warnings": list(graph_state.get("input_warnings", [])),
+                "validation_notes": list(graph_state.get("validation_notes", [])),
+                "validation_issues": list(graph_state.get("validation_issues", [])),
+                "node_traces": self._append_node_trace(
+                    graph_state,
+                    "finalize_turn",
+                    "Turn finalized without committing failed tool mutations.",
+                    {"turn_status": turn_status, "turn_number": state.turn_number},
+                ),
+            }
 
         state.pending_turn = None
         if turn_status != "failed":
@@ -3274,6 +3748,7 @@ class DMGraphRunner:
         result = self._graph.invoke(
             {
                 "game_state": state.model_dump(mode="json"),
+                "initial_game_state": state.model_dump(mode="json"),
                 "user_input": user_input,
             },
             config=self._graph_config(thread_id),

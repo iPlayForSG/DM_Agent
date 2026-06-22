@@ -306,6 +306,8 @@ class Library:
         if cls._instance is None:
             cls._instance = super(Library, cls).__new__(cls)
             cls._instance.spells = {}
+            cls._instance._localized_aliases = None
+            cls._instance._localized_alias_lookup = None
             cls._instance._load_data()
         return cls._instance
 
@@ -384,11 +386,9 @@ class Library:
             text,
         )
 
-    def localize_game_terms(self, text: str) -> str:
-        """Convert player-facing English D&D aliases to canonical Simplified Chinese."""
-        localized = str(text or "")
-        if not localized:
-            return localized
+    def _get_localized_aliases(self):
+        if self._localized_aliases is not None:
+            return self._localized_aliases
 
         aliases: Dict[str, str] = {}
         for class_spells in self.spells.values():
@@ -398,8 +398,24 @@ class Library:
                 if english and chinese:
                     aliases[english] = chinese
         aliases.update(TERM_TRANSLATIONS)
+        self._localized_alias_lookup = aliases
+        self._localized_aliases = sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True)
+        return self._localized_aliases
 
-        for english, chinese in sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True):
+    def localize_game_terms(self, text: str) -> str:
+        """Convert player-facing English D&D aliases to canonical Simplified Chinese."""
+        localized = str(text or "")
+        if not localized:
+            return localized
+
+        aliases = self._get_localized_aliases()
+        exact_display = self._localized_alias_lookup.get(localized) if self._localized_alias_lookup else None
+        if exact_display:
+            return exact_display
+
+        for english, chinese in aliases:
+            if english not in localized and chinese not in localized:
+                continue
             localized = self._replace_alias(localized, english, chinese)
         return self._strip_duplicate_chinese_aliases(localized)
 

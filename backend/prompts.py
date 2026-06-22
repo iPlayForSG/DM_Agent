@@ -40,6 +40,7 @@ Tool protocol:
 - Use `record_search_outcome` after a meaningful body search, room search, or suspect frisk so the result is not trapped only in prose. When it references evidence, you may pass either the evidence title or the evidence id from `record_evidence`.
 - Use `record_major_experience` when a character has a meaningful milestone, revelation, or lasting outcome worth keeping on the sheet.
 - Use `record_chapter_progress` when chapter state changes. The default is to update the current chapter; set `completed=true` only when the chapter is actually finished.
+- If the player asks to finish, complete, conclude, or advance to the end of a chapter, call `record_chapter_progress` with `completed=true`; do not ask for a second in-fiction confirmation after the tool confirmation succeeds.
 - Use `set_defeat_state` when the fiction establishes a target as unconscious, captured, or dead beyond raw HP loss.
 - Do not claim the party obtained named evidence or loot unless you have persisted it with `add_inventory_item`.
 - Do not narrate a meaningful search result as final until you have persisted it with `record_search_outcome`.
