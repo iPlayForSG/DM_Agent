@@ -14,7 +14,7 @@ from action_service import GameActionService
 from adventure_service import generate_initial_adventures
 from game_logic import GameLogic
 from library import Library
-from models import Character, GameState, MonsterTemplate, TurnResult
+from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from storage import CharacterStorage, GameStorage, MonsterStorage
 
@@ -906,8 +906,25 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
     state.campaign.selected_adventure_id = selected.adventure_id
     state.campaign.phase = "exploration"
     state.campaign.setup_complete = True
+    state.campaign.current_chapter_number = 1
+    state.campaign.current_chapter_title = f"第一章：{selected.title}"
+    state.campaign.current_chapter_summary = selected.summary
     state.scene = "exploration"
-    state.adventure_log.append(f"Selected adventure: {selected.title}")
+    opening_message = (
+        f"你们选择了《{selected.title}》。\n\n"
+        f"{selected.opening_scene or selected.summary}\n\n"
+        "潮湿的空气贴着斗篷边缘，远处的路标在风里轻轻晃动。现在，轮到你决定第一步。"
+    )
+    state.adventure_log.append(f"选择冒险：{selected.title}")
+    state.chat_history.append(ChatMessage(role="assistant", content=opening_message))
+    state.timeline.append(
+        SessionEvent(
+            type="assistant_response",
+            summary="DM response",
+            content=opening_message,
+            payload={"message": opening_message, "adventure_id": selected.adventure_id},
+        )
+    )
     game_storage.save_game(game_id, state)
     return {"status": "selected", "adventure": selected.model_dump(mode="json"), "game_state": state}
 

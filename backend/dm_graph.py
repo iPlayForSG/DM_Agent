@@ -2668,6 +2668,79 @@ class DMGraphRunner:
                 ),
             }
 
+        tool_round_limit = int(graph_state.get("tool_round_limit", 0) or self.max_tool_rounds)
+        tool_budget_exhausted = bool(tool_calls) and int(graph_state.get("tool_call_rounds", 0) or 0) >= tool_round_limit
+        if tool_budget_exhausted:
+            retry_instruction = self._human_prompt_message(
+                "工具调用轮次已经用完，上一条模型消息里的工具调用不会被执行。"
+                "请不要再调用任何工具；只根据当前游戏状态和已经成功返回的工具结果，"
+                "写出给玩家可见的简体中文最终叙事。"
+                "必须说明当前行动的结果、获得或确认的线索，以及玩家下一步可以做什么。"
+            )
+            retry_messages = [*messages, retry_instruction]
+            try:
+                retry_response = model.invoke(retry_messages)
+                retry_tool_calls = self._last_message_tool_calls([retry_response])
+                retry_final_response = self.library.localize_game_terms(
+                    self._extract_message_content(retry_response)
+                )
+                if retry_final_response and not retry_tool_calls:
+                    messages = retry_messages
+                    response = retry_response
+                    tool_calls = []
+                    final_response = retry_final_response
+                retry_node_trace = self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    "Retried final narration after tool budget was exhausted.",
+                    {
+                        "retry_tool_call_count": len(retry_tool_calls),
+                        "retry_response_chars": len(retry_final_response),
+                        "tool_round_limit": tool_round_limit,
+                    },
+                )
+            except Exception as exc:
+                detail = self._summarize_model_exception(exc)
+                retry_node_trace = self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    "Model retry after tool budget exhaustion failed.",
+                    {"error": detail, "tool_round_limit": tool_round_limit},
+                    status="failed",
+                )
+
+        if tool_calls and int(graph_state.get("tool_call_rounds", 0) or 0) >= int(graph_state.get("tool_round_limit", 0) or self.max_tool_rounds):
+            validation_notes = list(graph_state.get("validation_notes", []))
+            validation_issues = list(graph_state.get("validation_issues", []))
+            summary = "Model requested more tool calls after the tool round budget was exhausted."
+            self._record_validation_issue(
+                validation_notes,
+                validation_issues,
+                validator="tool_budget",
+                severity="error",
+                action="failed_turn",
+                summary=summary,
+                metadata={
+                    "tool_call_count": len(tool_calls),
+                    "tool_call_rounds": int(graph_state.get("tool_call_rounds", 0) or 0),
+                    "tool_round_limit": int(graph_state.get("tool_round_limit", 0) or self.max_tool_rounds),
+                },
+            )
+            return {
+                "messages": [*messages, response],
+                "final_response": "本回合需要主持人重新整理叙事结果；为避免空回复或未执行动作进入存档，本回合未提交。",
+                "turn_status": "failed",
+                "validation_notes": validation_notes,
+                "validation_issues": validation_issues,
+                "node_traces": self._append_node_trace(
+                    {**graph_state, "node_traces": retry_node_trace or graph_state.get("node_traces", [])},
+                    "draft_response",
+                    summary,
+                    {"tool_call_count": len(tool_calls)},
+                    status="failed",
+                ),
+            }
+
         if final_response and not tool_calls and self._contains_internal_tool_leak(final_response):
             retry_instruction = self._human_prompt_message(
                 "上一条回复泄露了内部工具、校验或参数细节。"

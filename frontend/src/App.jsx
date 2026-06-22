@@ -208,7 +208,7 @@ const EMPTY_ENCOUNTER_DRAFT = { enemy_names: "", enemy_hp: 10, enemy_ac: 10, mon
 const parseEntries = (text, prefix) => text.split("\n").map((x) => x.trim()).filter(Boolean).map((description, i) => ({ name: `${prefix} ${i + 1}`, description }));
 const entriesToText = (entries = []) => entries.map((x) => x.description).join("\n");
 const localizeSceneText = (text = "") => text.replace(/\b(adventure_selection|preparation|setup|exploration|social|combat|encounter)\b/g, (value) => SCENE_LABELS[value] || value);
-const mapMessages = (history = []) => history.map((m) => ({
+const mapMessages = (history = []) => history.filter((m) => m.kind !== "tool_result").map((m) => ({
   sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
   text: m.role === "system" ? localizeSceneText(m.content) : m.content,
 }));
@@ -230,6 +230,7 @@ const EVENT_LABELS = {
   monster_spawned: "遭遇生成",
 };
 const SHOW_DM_ENCOUNTER_TEMPLATE_TOOLS = false;
+const SHOW_DM_CONTROLS_IN_PLAYER_SESSION = false;
 const EVENT_SUMMARY_LABELS = {
   "Player action": "玩家行动",
   "DM response": "主持人叙事",
@@ -283,13 +284,6 @@ const compactWorkflowMetadata = (metadata = {}) => {
   if (metadata.confirmation_status) fields.push(`确认: ${metadata.confirmation_status}`);
   if (metadata.note_index !== undefined) fields.push(`备注: ${Number(metadata.note_index) + 1}`);
   return fields.join(" · ");
-};
-const compactToolArgs = (args = {}) => {
-  const pairs = Object.entries(args || {}).slice(0, 5).map(([key, value]) => {
-    const rendered = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
-    return `${key}: ${rendered}`;
-  });
-  return pairs.join(" · ") || "无参数";
 };
 const getSpellLevel = (spell) => Number(spell?.level ?? 0);
 const localizeStat = (stat) => {
@@ -506,7 +500,6 @@ export default function App() {
     || Number(actionDraft.item.quantity || 1) > Number(selectedItemOption.quantity || 0);
   const pendingTurn = gameState?.pending_turn || null;
   const isToolConfirmationPending = pendingTurn?.kind === "tool_confirmation";
-  const pendingToolDetails = isToolConfirmationPending ? pendingTurn.details || {} : null;
   const chatInputDisabled = gameState?.campaign?.phase === "adventure_selection" || isLoading;
 
   useEffect(() => {
@@ -1184,17 +1177,17 @@ export default function App() {
               </div>
               <div className="card-grid" aria-label="主要操作">
                 <button type="button" className="bento-card glow-hover" onClick={() => setView("new_game")}>
-                  <div className="card-icon">局</div>
+                  <div className="card-icon">骰</div>
                   <h3>新建游戏</h3>
                   <p>开一张新桌，并带入队伍角色。</p>
                 </button>
                 <button type="button" className="bento-card glow-hover" onClick={openCreator}>
-                  <div className="card-icon">角</div>
+                  <div className="card-icon">人</div>
                   <h3>创建角色卡</h3>
                   <p>整理角色模板、装备与职业资源。</p>
                 </button>
                 <button type="button" className="bento-card glow-hover" onClick={openCreator}>
-                  <div className="card-icon">卡</div>
+                  <div className="card-icon">册</div>
                   <h3>角色卡模板</h3>
                   <p>查看可带入游戏的玩家角色卡。</p>
                 </button>
@@ -1211,7 +1204,7 @@ export default function App() {
                   {games.length === 0 && <p className="empty-text">还没有已保存的游戏。</p>}
                   {games.map((game) => (
                     <button type="button" key={game.game_id} className="list-item" onClick={() => enterGame(game.game_id)}>
-                      <span className="icon">局</span>
+                      <span className="icon">骰</span>
                       <span>{game.title}（{localizeScene(game.scene)}）{game.encounter_active ? " · 战斗中" : ""}</span>
                     </button>
                   ))}
@@ -1242,7 +1235,10 @@ export default function App() {
               <div className="step-indicator">
                 {CREATOR_STEPS.map((step, index) => (
                   <React.Fragment key={step.id}>
-                    <button type="button" className={`step ${creatorStep === index ? "active" : ""} ${creatorStep > index ? "done" : ""}`} onClick={() => goToCreatorStep(index)}>{index + 1}</button>
+                    <button type="button" className={`step ${creatorStep === index ? "active" : ""} ${creatorStep > index ? "done" : ""}`} onClick={() => goToCreatorStep(index)}>
+                      <span className="step-index">{index + 1}</span>
+                      <span className="step-label">{step.label}</span>
+                    </button>
                     {index < CREATOR_STEPS.length - 1 && <div className="line" />}
                   </React.Fragment>
                 ))}
@@ -1372,28 +1368,30 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="form-group">
-                    <label>自定义待定装备</label>
-                    <div className="dual-grid">
-                      <div className="form-group">
-                        <label>名称</label>
-                        <input value={charDraft.custom_pending_item?.name || ""} onChange={(e) => updatePendingCustomItem("name", e.target.value)} placeholder="例如：家传短刃" />
+                  {charDraft.equipment_mode === "custom_purchase" && (
+                    <div className="form-group">
+                      <label>自定义待定装备</label>
+                      <div className="dual-grid">
+                        <div className="form-group">
+                          <label>名称</label>
+                          <input value={charDraft.custom_pending_item?.name || ""} onChange={(e) => updatePendingCustomItem("name", e.target.value)} placeholder="例如：家传短刃" />
+                        </div>
+                        <div className="form-group">
+                          <label>数量</label>
+                          <input type="number" min="1" value={charDraft.custom_pending_item?.quantity || 1} onChange={(e) => updatePendingCustomItem("quantity", Number.parseInt(e.target.value || "1", 10))} />
+                        </div>
+                        <div className="form-group">
+                          <label>预留预算（gp）</label>
+                          <input type="number" min="0" value={charDraft.custom_pending_item?.reserved_cost_gp || 0} onChange={(e) => updatePendingCustomItem("reserved_cost_gp", Number.parseInt(e.target.value || "0", 10))} />
+                        </div>
+                        <div className="form-group">
+                          <label>说明</label>
+                          <input value={charDraft.custom_pending_item?.notes || ""} onChange={(e) => updatePendingCustomItem("notes", e.target.value)} placeholder="由 DM 决定材质、伤害、特效等" />
+                        </div>
                       </div>
-                      <div className="form-group">
-                        <label>数量</label>
-                        <input type="number" min="1" value={charDraft.custom_pending_item?.quantity || 1} onChange={(e) => updatePendingCustomItem("quantity", Number.parseInt(e.target.value || "1", 10))} />
-                      </div>
-                      <div className="form-group">
-                        <label>预留预算（gp）</label>
-                        <input type="number" min="0" value={charDraft.custom_pending_item?.reserved_cost_gp || 0} onChange={(e) => updatePendingCustomItem("reserved_cost_gp", Number.parseInt(e.target.value || "0", 10))} />
-                      </div>
-                      <div className="form-group">
-                        <label>说明</label>
-                        <input value={charDraft.custom_pending_item?.notes || ""} onChange={(e) => updatePendingCustomItem("notes", e.target.value)} placeholder="由 DM 决定材质、伤害、特效等" />
-                      </div>
+                      <p className="info-text">这件装备只记录名称、数量和预算占用，具体属性在角色创建后由 DM 决定。</p>
                     </div>
-                    <p className="info-text">这件装备只记录名称、数量和预算占用，具体属性在角色创建后由 DM 决定。</p>
-                  </div>
+                  )}
 
                   <div className="builder-preview-grid">
                     <div className="builder-preview-card">
@@ -1473,7 +1471,7 @@ export default function App() {
 
         {view === "monsters" && <div className="creator-container anime-slide-up"><div className="manager-layout"><div className="panel-card"><div className="btn-row" style={{ marginTop: 0, marginBottom: 12 }}><h2 style={{ margin: 0 }}>怪物模板</h2><button className="btn-secondary" onClick={() => setMonsterDraft({ ...EMPTY_MON })}>新建</button></div><div className="timeline-list">{monsters.length === 0 && <p className="empty-text">还没有怪物模板。</p>}{monsters.map((monster) => <button type="button" key={monster.monster_id} className="timeline-item timeline-button" onClick={() => openMonster(monster.monster_id)}><div className="timeline-summary">{monster.name}</div><div className="timeline-content">{formatMonsterSummary(monster)}</div></button>)}</div></div><div className="panel-card"><h2>{monsterDraft.monster_id ? "编辑怪物" : "新建怪物"}</h2><div className="form-group"><label>名称</label><input value={monsterDraft.name} onChange={(e) => setMonsterDraft((p) => ({ ...p, name: e.target.value }))} /></div><div className="dual-grid"><div className="form-group"><label>体型</label><input value={monsterDraft.size} onChange={(e) => setMonsterDraft((p) => ({ ...p, size: e.target.value }))} placeholder={localizeSize(monsterDraft.size)} /></div><div className="form-group"><label>类型</label><input value={monsterDraft.creature_type} onChange={(e) => setMonsterDraft((p) => ({ ...p, creature_type: e.target.value }))} placeholder={localizeCreatureType(monsterDraft.creature_type)} /></div><div className="form-group"><label>阵营</label><input value={monsterDraft.alignment} onChange={(e) => setMonsterDraft((p) => ({ ...p, alignment: e.target.value }))} placeholder={localizeAlignment(monsterDraft.alignment)} /></div><div className="form-group"><label>挑战等级</label><input value={monsterDraft.challenge_rating} onChange={(e) => setMonsterDraft((p) => ({ ...p, challenge_rating: e.target.value }))} /></div><div className="form-group"><label>护甲等级</label><input type="number" value={monsterDraft.ac} onChange={(e) => setMonsterDraft((p) => ({ ...p, ac: Number.parseInt(e.target.value || "0", 10) }))} /></div><div className="form-group"><label>生命值</label><input type="number" value={monsterDraft.hp_max} onChange={(e) => setMonsterDraft((p) => ({ ...p, hp_max: Number.parseInt(e.target.value || "0", 10) }))} /></div></div><div className="form-group"><label>特性</label><textarea className="text-block" value={monsterDraft.traitsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, traitsText: e.target.value }))} /></div><div className="form-group"><label>动作</label><textarea className="text-block" value={monsterDraft.actionsText} onChange={(e) => setMonsterDraft((p) => ({ ...p, actionsText: e.target.value }))} /></div><div className="form-group"><label>备注</label><textarea className="text-block" value={monsterDraft.notes} onChange={(e) => setMonsterDraft((p) => ({ ...p, notes: e.target.value }))} /></div><div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>返回</button><button className="btn-success" onClick={saveMonster} disabled={!monsterDraft.name.trim()}>保存怪物</button></div></div></div></div>}
 
-        {view === "new_game" && <div className="modal-overlay"><div className="modal-content anime-pop"><h2>新建游戏</h2><p className="info-text">先输入游戏存档 ID，再从下方选择要带入本局的队伍角色。</p><input className="input-lg" placeholder="例如：第一章-测试局" value={newGameId} onChange={(e) => setNewGameId(e.target.value)} /><h3>队伍角色</h3><p className="info-text">已选择 {selectedGameChars.length} 名角色。这里不是摆设，选中的角色会直接写入新游戏。</p>{characters.length === 0 ? <div className="timeline-item"><div className="timeline-summary">还没有可用角色</div><div className="timeline-content">请先到“角色构筑”里保存至少一名角色，再回来建局。</div></div> : <div className="char-select-list">{characters.map((character) => <button type="button" key={character.character_id} className={`char-option ${selectedGameChars.includes(character.character_id) ? "selected" : ""}`} aria-pressed={selectedGameChars.includes(character.character_id)} onClick={() => setSelectedGameChars((prev) => prev.includes(character.character_id) ? prev.filter((item) => item !== character.character_id) : [...prev, character.character_id])}><div className="avatar">角</div><span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)}</span></button>)}</div>}<div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>取消</button><button className="btn-primary" onClick={makeGame}>创建并进入</button></div></div></div>}
+        {view === "new_game" && <div className="modal-overlay"><div className="modal-content anime-pop"><h2>新建游戏</h2><p className="info-text">为这次冒险取一个存档名，然后选择要同行的角色。</p><input className="input-lg" placeholder="例如：黑冢初探" value={newGameId} onChange={(e) => setNewGameId(e.target.value)} /><h3>队伍角色</h3><p className="info-text">已选择 {selectedGameChars.length} 名角色。被选中的角色会加入本局队伍。</p>{characters.length === 0 ? <div className="timeline-item"><div className="timeline-summary">还没有可用角色</div><div className="timeline-content">请先到“角色构筑”里保存至少一名角色，再回来建局。</div></div> : <div className="char-select-list">{characters.map((character) => <button type="button" key={character.character_id} className={`char-option ${selectedGameChars.includes(character.character_id) ? "selected" : ""}`} aria-pressed={selectedGameChars.includes(character.character_id)} onClick={() => setSelectedGameChars((prev) => prev.includes(character.character_id) ? prev.filter((item) => item !== character.character_id) : [...prev, character.character_id])}><div className="avatar">角</div><span>{character.name} · {character.class_name_display || localizeClassName(character.class_name)}</span></button>)}</div>}<div className="btn-row"><button className="btn-text" onClick={() => setView("home")}>取消</button><button className="btn-primary" onClick={makeGame}>创建并进入</button></div></div></div>}
 
         {view === "chat" && (
           <div className="chat-layout">
@@ -1503,16 +1501,11 @@ export default function App() {
                 )}
                 {isToolConfirmationPending && (
                   <div className="pending-turn-card">
-                    <div className="pending-turn-title">需要确认工具执行</div>
+                    <div className="pending-turn-title">需要你确认</div>
                     <div className="pending-turn-prompt">{pendingTurn.prompt || "当前回合需要确认后才能继续。"}</div>
-                    <div className="pending-turn-meta">
-                      <span>工具：{pendingToolDetails?.tool_name || "unknown"}</span>
-                      <span>风险：{pendingToolDetails?.guardrail?.risk_level || "high"}</span>
-                    </div>
-                    <div className="pending-turn-args">{compactToolArgs(pendingToolDetails?.args || {})}</div>
                     <div className="pending-turn-actions">
                       <button className="btn-danger" onClick={() => respondToPendingTurn("取消")} disabled={isLoading}>取消</button>
-                      <button className="btn-primary" onClick={() => respondToPendingTurn("确认")} disabled={isLoading}>确认执行</button>
+                      <button className="btn-primary" onClick={() => respondToPendingTurn("确认")} disabled={isLoading}>确认</button>
                     </div>
                   </div>
                 )}
@@ -1524,7 +1517,7 @@ export default function App() {
                     </div>
                   </div>
                 ))}
-                {workflowEvents.length > 0 && (
+                {false && workflowEvents.length > 0 && (
                   <div className="workflow-trace">
                     {workflowEvents.map((event, index) => {
                       const metadataLine = compactWorkflowMetadata(event?.metadata || {});
@@ -1545,7 +1538,9 @@ export default function App() {
                 <div ref={messagesEndRef} />
               </div>
               <div className="session-sidepanel">
-                <div className="panel-card">
+                {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
+                  <>
+                    <div className="panel-card">
                   <h3>遭遇设置</h3>
                   <div className="timeline-list">
                     {encounterSummary.active && <button className="btn-danger" onClick={finishEncounter}>结束遭遇</button>}
@@ -1736,6 +1731,8 @@ export default function App() {
                     {selectedItemOption && Number(actionDraft.item.quantity || 1) > Number(selectedItemOption.quantity || 0) && <div className="timeline-content">{selectedItemOption.name} 的剩余数量不足。</div>}
                   </div>
                 </div>
+                  </>
+                )}
                 <div className="panel-card">
                   <h3>时间线</h3>
                   <div className="timeline-list">
@@ -1746,8 +1743,33 @@ export default function App() {
                   </div>
                 </div>
                 <div className="panel-card">
-                  <h3>遭遇面板</h3>
-                  {!encounter ? <p className="empty-text">当前没有激活遭遇。</p> : <div className="combatant-list">{combatants.map((combatant) => <div key={combatant.combatant_id} className={`combatant-item ${encounter.current_combatant_id === combatant.combatant_id ? "combatant-active" : ""}`}><div className="timeline-summary">{combatant.name} · {localizeSide(combatant.side)}</div><div className="timeline-content">{formatCombatantStateLine(combatant)}</div><div className="action-grid" style={{ marginTop: 10 }}><input value={initiativeDrafts[combatant.combatant_id] ?? ""} onChange={(e) => setInitiativeDrafts((prev) => ({ ...prev, [combatant.combatant_id]: e.target.value }))} placeholder="先攻" /><button className="btn-secondary" onClick={() => saveEncounterInitiative(combatant.combatant_id)}>设置先攻</button><button className="btn-secondary" onClick={() => rerollEncounterInitiative(combatant.combatant_id)}>重掷先攻</button></div>{!combatant.linked_character_id && <div className="btn-row" style={{ marginTop: 10 }}><button className="btn-danger" onClick={() => dropEncounterCombatant(combatant.combatant_id)}>移除</button></div>}</div>)}</div>}
+                  <h3>场上形势</h3>
+                  {!encounter ? (
+                    <p className="empty-text">当前没有战斗。</p>
+                  ) : (
+                    <div className="combatant-list">
+                      {combatants.map((combatant) => (
+                        <div key={combatant.combatant_id} className={`combatant-item ${encounter.current_combatant_id === combatant.combatant_id ? "combatant-active" : ""}`}>
+                          <div className="timeline-summary">{combatant.name} · {localizeSide(combatant.side)}</div>
+                          <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
+                          {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
+                            <>
+                              <div className="action-grid" style={{ marginTop: 10 }}>
+                                <input value={initiativeDrafts[combatant.combatant_id] ?? ""} onChange={(e) => setInitiativeDrafts((prev) => ({ ...prev, [combatant.combatant_id]: e.target.value }))} placeholder="先攻" />
+                                <button className="btn-secondary" onClick={() => saveEncounterInitiative(combatant.combatant_id)}>设置先攻</button>
+                                <button className="btn-secondary" onClick={() => rerollEncounterInitiative(combatant.combatant_id)}>重掷先攻</button>
+                              </div>
+                              {!combatant.linked_character_id && (
+                                <div className="btn-row" style={{ marginTop: 10 }}>
+                                  <button className="btn-danger" onClick={() => dropEncounterCombatant(combatant.combatant_id)}>移除</button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

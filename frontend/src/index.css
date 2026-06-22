@@ -431,15 +431,30 @@ button:active { transform: translateY(1px); }
 }
 
 .step {
-  width: 34px;
-  height: 34px;
+  min-width: 72px;
+  height: 44px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(17, 16, 13, 0.72);
   color: var(--paper-dim);
-  padding: 0;
+  padding: 4px 10px;
   cursor: pointer;
   font-family: var(--utility-font);
+  display: grid;
+  place-items: center;
+  gap: 1px;
+}
+
+.step-index {
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.step-label {
+  font-family: var(--body-font);
+  font-size: 0.76rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .step.active {
