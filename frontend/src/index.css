@@ -313,6 +313,52 @@ button:active { transform: translateY(1px); }
   gap: 18px;
 }
 
+.model-settings-panel {
+  padding: 18px;
+}
+
+.model-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-profile-selector {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.model-profile-selector .form-group {
+  margin-bottom: 0;
+}
+
+.model-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.8fr) minmax(0, 1.12fr) minmax(200px, 0.72fr) minmax(220px, 0.78fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.model-settings-grid .form-group {
+  margin-bottom: 10px;
+}
+
+.model-settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 14px;
+}
+
+.model-settings-footer .info-text {
+  margin: 0;
+}
+
 .lobby-panel,
 .panel-card {
   border: 1px solid var(--line);
@@ -1639,6 +1685,51 @@ button[class^="btn-"] {
   margin-top: 4px;
 }
 
+.action-suggestions {
+  padding: 12px 16px 0;
+  background: rgba(23, 21, 16, 0.98);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.action-suggestion {
+  min-height: 72px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(184, 161, 106, 0.26);
+  background:
+    linear-gradient(180deg, rgba(184, 161, 106, 0.1), transparent),
+    rgba(9, 13, 10, 0.82);
+  color: var(--paper);
+  text-align: left;
+}
+
+.action-suggestion span,
+.action-suggestion small {
+  display: block;
+}
+
+.action-suggestion span {
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.action-suggestion small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.action-suggestion:hover:not(:disabled) {
+  border-color: rgba(184, 161, 106, 0.48);
+  background:
+    linear-gradient(180deg, rgba(184, 161, 106, 0.16), transparent),
+    rgba(14, 21, 16, 0.92);
+  transform: translateY(-1px);
+}
+
 .input-area {
   padding: 14px 16px;
   border-top: 1px solid var(--line);
@@ -2274,6 +2365,7 @@ button[class^="btn-"] {
 }
 
 .mini-action,
+.action-suggestion,
 .delete-inline,
 .batch-delete-bar,
 .class-card,
@@ -2565,6 +2657,8 @@ button[class^="btn-"] {
   .lobby-hero,
   .lobby-grid,
   .manager-layout,
+  .model-profile-selector,
+  .model-settings-grid,
   .status-layout,
   .character-library-layout,
   .character-sheet-grid {
@@ -2639,6 +2733,10 @@ button[class^="btn-"] {
     grid-template-columns: 1fr;
   }
 
+  .action-suggestions {
+    grid-template-columns: 1fr;
+  }
+
   .bento-card:first-child,
   .bento-card:not(:first-child) {
     grid-column: 1;
@@ -2648,6 +2746,7 @@ button[class^="btn-"] {
 
   .creator-header,
   .library-header,
+  .model-settings-footer,
   .btn-row,
   .input-area {
     flex-direction: column;

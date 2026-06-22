@@ -556,6 +556,13 @@ class ValidationIssue(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+class ActionSuggestion(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    label: str = ""
+    action: str = ""
+
+
 class TurnTrace(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -574,6 +581,7 @@ class TurnTrace(BaseModel):
     input_warnings: List[str] = Field(default_factory=list)
     pending_input: Dict[str, Any] = Field(default_factory=dict)
     suggested_tools: List[str] = Field(default_factory=list)
+    action_suggestions: List[ActionSuggestion] = Field(default_factory=list)
     allowed_tools: List[str] = Field(default_factory=list)
     validation_notes: List[str] = Field(default_factory=list)
     validation_issues: List[ValidationIssue] = Field(default_factory=list)
@@ -729,5 +737,6 @@ class TurnResult(BaseModel):
     rag_metadata: Dict[str, Any] = Field(default_factory=dict)
     input_warnings: List[str] = Field(default_factory=list)
     validation_issues: List[ValidationIssue] = Field(default_factory=list)
+    action_suggestions: List[ActionSuggestion] = Field(default_factory=list)
     state_delta: Dict[str, Any] = Field(default_factory=dict)
     game_state: GameState

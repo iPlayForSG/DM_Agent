@@ -152,6 +152,24 @@ export async function loadActionOptions(gameId) {
   return request(`/games/${encodeURIComponent(gameId)}/action-options`);
 }
 
+export async function loadModelConfig() {
+  return request("/llm/config");
+}
+
+export async function updateModelConfig(payload) {
+  return request("/llm/config", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function selectModelConfig(profileId) {
+  return request("/llm/config/select", {
+    method: "POST",
+    body: JSON.stringify({ profile_id: profileId }),
+  });
+}
+
 export async function selectAdventure(gameId, adventureId) {
   return request(`/games/${encodeURIComponent(gameId)}/select-adventure`, {
     method: "POST",

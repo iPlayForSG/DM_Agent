@@ -1,5 +1,6 @@
 """FastAPI entrypoint exposing builder, campaign, encounter, and local action routes."""
 
+import asyncio
 import json
 import re
 from typing import Any, Dict, List, Optional
@@ -11,7 +12,12 @@ from pydantic import BaseModel, Field
 
 from agent import DMAgent
 from action_service import GameActionService
-from adventure_service import generate_initial_adventures
+from adventure_service import (
+    ensure_ai_generated_adventure_option,
+    generate_initial_adventures,
+    is_ai_generated_adventure_id,
+    is_model_generated_adventure_id,
+)
 from game_logic import GameLogic
 from library import Library
 from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
@@ -149,6 +155,19 @@ class RuleLookupRequest(BaseModel):
     n_results: int = 3
 
 
+class LLMConfigUpdateRequest(BaseModel):
+    profile_id: str = ""
+    profile_label: str = ""
+    model_name: str = ""
+    base_url: str = ""
+    api_key: Optional[str] = None
+    activate: bool = True
+
+
+class LLMProfileSelectRequest(BaseModel):
+    profile_id: str
+
+
 # Small payload builders keep the route handlers mostly orchestration-only.
 def health_payload():
     return {
@@ -164,6 +183,8 @@ def health_payload():
             "delete_games": True,
             "delete_characters": True,
             "batch_delete": True,
+            "ai_generated_adventures": True,
+            "llm_profiles": True,
         },
     }
 
@@ -743,6 +764,18 @@ def action_options_payload(state: GameState):
     }
 
 
+def ensure_adventure_generation_option(state: GameState) -> bool:
+    if state.campaign.phase != "adventure_selection" or state.campaign.selected_adventure_id:
+        return False
+
+    current_ids = [hook.adventure_id for hook in state.campaign.available_adventures]
+    state.campaign.available_adventures = ensure_ai_generated_adventure_option(
+        state.campaign.available_adventures
+    )
+    next_ids = [hook.adventure_id for hook in state.campaign.available_adventures]
+    return next_ids != current_ids
+
+
 def _roll_missing_initiative(logic, encounter):
     for combatant_id in encounter.initiative_order:
         combatant = encounter.combatants.get(combatant_id)
@@ -758,6 +791,40 @@ async def health_check():
 @app.get("/api/v1/health/llm")
 async def llm_health_check():
     return agent.probe_llm()
+
+
+@app.get("/api/v1/llm/config")
+async def get_llm_config():
+    return agent.llm_runtime_payload()
+
+
+@app.post("/api/v1/llm/config")
+async def update_llm_config(req: LLMConfigUpdateRequest):
+    try:
+        payload = agent.upsert_llm_profile(
+            profile_id=req.profile_id,
+            profile_label=req.profile_label,
+            model_name=req.model_name,
+            base_url=req.base_url,
+            api_key=req.api_key,
+            activate=req.activate,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"更新模型配置失败：{exc}") from exc
+    return {"status": "updated", "llm": payload}
+
+
+@app.post("/api/v1/llm/config/select")
+async def select_llm_config(req: LLMProfileSelectRequest):
+    try:
+        payload = agent.select_llm_profile(req.profile_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"切换模型配置失败：{exc}") from exc
+    return {"status": "selected", "llm": payload}
 
 
 @app.get("/api/v1/config")
@@ -921,6 +988,8 @@ async def get_game_state(game_id: str) -> GameState:
     state = game_storage.load_game(game_id)
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
+    if ensure_adventure_generation_option(state):
+        game_storage.save_game(game_id, state)
     return state
 
 
@@ -974,10 +1043,24 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
         raise HTTPException(status_code=404, detail="Game not found")
 
     selected = None
-    for hook in state.campaign.available_adventures:
-        if hook.adventure_id == req.adventure_id:
-            selected = hook
-            break
+    if is_ai_generated_adventure_id(req.adventure_id):
+        try:
+            selected = await asyncio.to_thread(agent.generate_adventure_hook, state)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"AI 冒险生成失败：{exc}") from exc
+
+        state.campaign.available_adventures = [
+            hook
+            for hook in state.campaign.available_adventures
+            if not is_ai_generated_adventure_id(hook.adventure_id)
+            and hook.adventure_id != selected.adventure_id
+        ]
+        state.campaign.available_adventures.append(selected)
+    else:
+        for hook in state.campaign.available_adventures:
+            if hook.adventure_id == req.adventure_id:
+                selected = hook
+                break
 
     if not selected:
         raise HTTPException(status_code=404, detail="Adventure option not found")
@@ -989,11 +1072,17 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
     state.campaign.current_chapter_title = f"第一章：{selected.title}"
     state.campaign.current_chapter_summary = selected.summary
     state.scene = "exploration"
-    opening_message = (
-        f"你们选择了《{selected.title}》。\n\n"
-        f"{selected.opening_scene or selected.summary}\n\n"
-        "潮湿的空气贴着斗篷边缘，远处的路标在风里轻轻晃动。现在，轮到你决定第一步。"
-    )
+    opening_scene = selected.opening_scene or selected.summary
+    if is_model_generated_adventure_id(selected.adventure_id):
+        opening_message = f"你们选择了《{selected.title}》。\n\n{opening_scene}"
+    else:
+        opening_message = (
+            f"你们选择了《{selected.title}》。\n\n"
+            f"{opening_scene}\n\n"
+            "潮湿的空气贴着斗篷边缘，远处的路标在风里轻轻晃动。现在，轮到你决定第一步。"
+        )
+    opening_message = agent.clean_player_response(opening_message)
+    action_suggestions = agent.build_action_suggestions(state, opening_message)
     state.adventure_log.append(f"选择冒险：{selected.title}")
     state.chat_history.append(ChatMessage(role="assistant", content=opening_message))
     state.timeline.append(
@@ -1005,7 +1094,12 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
         )
     )
     game_storage.save_game(game_id, state)
-    return {"status": "selected", "adventure": selected.model_dump(mode="json"), "game_state": state}
+    return {
+        "status": "selected",
+        "adventure": selected.model_dump(mode="json"),
+        "action_suggestions": [item.model_dump(mode="json") for item in action_suggestions],
+        "game_state": state,
+    }
 
 
 @app.post("/api/v1/games/{game_id}/encounters/start")

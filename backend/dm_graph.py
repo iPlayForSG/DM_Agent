@@ -7,11 +7,14 @@ import sqlite3
 from uuid import uuid4
 from typing import Any, Dict, List, Optional, TypedDict
 
+from adventure_service import build_ai_adventure_prompt, parse_generated_adventure
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
 from campaign_memory import compile_campaign_memory
 from game_logic import GameLogic
 from library import Library
 from models import (
+    ActionSuggestion,
+    AdventureHook,
     ChatMessage,
     GameState,
     PendingTurnState,
@@ -819,6 +822,7 @@ class DMGraphState(TypedDict, total=False):
     turn_status: str
     pending_input: Dict[str, Any]
     final_response: str
+    action_suggestions: List[Dict[str, Any]]
     tool_results: List[Dict[str, Any]]
     state_delta: Dict[str, Any]
     timeline_append: List[Dict[str, Any]]
@@ -1549,6 +1553,134 @@ class DMGraphRunner:
             if len(unique) >= limit:
                 break
         return unique
+
+    @staticmethod
+    def _looks_like_choice_heading(line: str) -> bool:
+        text = " ".join(str(line or "").split()).strip().rstrip("：:")
+        if not text:
+            return False
+        return text in {
+            "你可以",
+            "你现在可以",
+            "接下来",
+            "接下来可以",
+            "下一步",
+            "可选行动",
+            "行动建议",
+            "选项",
+            "选择",
+            "你有几个选择",
+            "你可以选择",
+        }
+
+    @staticmethod
+    def _choice_line_body(line: str) -> str:
+        text = str(line or "").strip()
+        match = re.match(r"^(?:[-*•]\s+|(?:\d+|[一二三四])[\.\)、:：]\s*)(.+)$", text)
+        return " ".join(match.group(1).split()).strip() if match else ""
+
+    @classmethod
+    def _strip_inline_action_options(cls, response: str) -> str:
+        text = str(response or "").strip()
+        if not text:
+            return ""
+
+        lines = text.splitlines()
+        cutoff: Optional[int] = None
+        search_start = max(0, len(lines) - 12)
+        for index in range(search_start, len(lines)):
+            line = lines[index]
+            if not cls._looks_like_choice_heading(line):
+                continue
+            following = [candidate for candidate in lines[index + 1 :] if candidate.strip()]
+            option_count = sum(1 for candidate in following if cls._choice_line_body(candidate))
+            if option_count >= 2:
+                cutoff = index
+                break
+
+        if cutoff is None:
+            option_indexes: List[int] = []
+            index = len(lines) - 1
+            while index >= search_start:
+                if not lines[index].strip():
+                    index -= 1
+                    continue
+                if cls._choice_line_body(lines[index]):
+                    option_indexes.append(index)
+                    index -= 1
+                    continue
+                break
+            if len(option_indexes) >= 2:
+                cutoff = min(option_indexes)
+
+        if cutoff is not None:
+            text = "\n".join(lines[:cutoff]).strip()
+
+        paragraphs = re.split(r"(\n\s*\n)", text)
+        if paragraphs:
+            last = paragraphs[-1].strip()
+            choice_sentence = re.match(
+                r"^(?:你(?:现在)?可以|你(?:该|要|会)?先|接下来(?:你)?可以|下一步(?:你)?可以)"
+                r".*(?:选择|调查|询问|前往|进入|尝试|继续|或(?:者)?|还是|也可以).*[。！？!?]?$",
+                last,
+            )
+            if choice_sentence:
+                text = "".join(paragraphs[:-1]).strip()
+
+        terminal_choice = re.search(
+            r"(?:^|(?<=[。！？!?]))\s*"
+            r"(?:你(?:现在)?可以|你(?:该|要|会)?先|接下来(?:你)?可以|下一步(?:你)?可以)"
+            r"[^。！？!?\n]*(?:选择|调查|询问|前往|进入|尝试|继续|或(?:者)?|还是|也可以)"
+            r"[^。！？!?\n]*[。！？!?]?$",
+            text,
+        )
+        if terminal_choice:
+            text = text[: terminal_choice.start()].strip()
+
+        return text or str(response or "").strip()
+
+    @staticmethod
+    def _suggestion(label: str, action: str) -> ActionSuggestion:
+        return ActionSuggestion(label=label, action=action)
+
+    @classmethod
+    def _build_action_suggestions(cls, state: GameState, response: str) -> List[ActionSuggestion]:
+        phase = cls._derive_phase(state)
+        if phase in {"adventure_selection", "party_creation", "character_creation", "level_up"}:
+            return []
+        if state.pending_turn:
+            return []
+
+        response_text = str(response or "")
+        suggestions: List[ActionSuggestion] = []
+        seen: set[str] = set()
+
+        def add(label: str, action: str) -> None:
+            key = f"{label}|{action}".casefold()
+            if key in seen or len(suggestions) >= 3:
+                return
+            seen.add(key)
+            suggestions.append(cls._suggestion(label, action))
+
+        if state.encounter and state.encounter.active:
+            add("观察战场", "我观察战场，确认敌人的位置、掩体、危险地形和最紧迫的威胁。")
+            add("准备攻击", "我锁定最有威胁的敌人，寻找合适的攻击时机。")
+            add("战术移动", "我移动到更有利的位置，尽量利用掩体并避免被包围。")
+            return suggestions
+
+        if cls._contains_any(response_text, ["守卫", "村民", "店主", "祭司", "法师", "贵族", "佣兵", "难民", "商人", "旅店老板"]):
+            add("询问知情者", "我找最近的知情者交谈，询问这里发生了什么，以及谁掌握更多线索。")
+        if cls._contains_any(response_text, ["脚印", "血迹", "痕迹", "线索", "符号", "信件", "地图", "钥匙", "锁", "箱子", "尸体"]):
+            add("调查线索", "我仔细调查眼前最可疑的线索，寻找痕迹、机关或隐藏的信息。")
+        if cls._contains_any(response_text, ["门", "入口", "通道", "楼梯", "洞穴", "废墟", "房间", "地窖", "塔楼", "大厅"]):
+            add("检查入口", "我先检查入口和周围环境，确认是否有机关、足迹或埋伏。")
+        if cls._contains_any(response_text, ["黑暗", "火光", "雾", "雨", "烟", "低语", "咆哮", "尖叫", "恶臭", "寒意"]):
+            add("保持警戒", "我放慢脚步保持警戒，留意声音、气味、光线变化和可能的伏击。")
+
+        add("调查现场", "我仔细查看现场，寻找能说明下一步方向的细节。")
+        add("交涉打听", "我尝试和附近的人交谈，套出更多关于此地危险与目标的信息。")
+        add("谨慎前进", "我保持武器和装备在手，沿着最可疑的方向谨慎推进。")
+        return suggestions[:3]
 
     @staticmethod
     def _executed_tool_names(graph_state: DMGraphState) -> set[str]:
@@ -2481,6 +2613,52 @@ class DMGraphRunner:
         if HumanMessage is not None:
             return HumanMessage(content=content)
         return {"role": "user", "content": content}
+
+    def generate_adventure_hook(self, state: GameState) -> AdventureHook:
+        model = self._create_model()
+        prompt = build_ai_adventure_prompt(
+            state.characters.values(),
+            state.campaign.available_adventures,
+        )
+        messages = [
+            self._system_prompt_message(
+                "你是严肃、规则感清晰的中文 D&D 2024 地城主持人。"
+                "所有冒险必须保持 D&D 西式奇幻语境，避免中式志怪、武侠、仙侠和东方民俗鬼神。"
+            ),
+            self._human_prompt_message(prompt),
+        ]
+        last_parse_error = ""
+        for attempt in range(2):
+            try:
+                response = model.invoke(messages)
+            except Exception as exc:
+                detail = self._summarize_model_exception(exc)
+                raise RuntimeError(f"model invocation failed: {detail}") from exc
+
+            raw_response = self._extract_message_content(response)
+            try:
+                return parse_generated_adventure(raw_response)
+            except ValueError as exc:
+                last_parse_error = self._summarize_model_exception(exc)
+                if attempt == 0:
+                    messages = [
+                        *messages,
+                        response,
+                        self._human_prompt_message(
+                            "上一版冒险不符合 D&D 2024 西式奇幻限制。"
+                            f"问题：{last_parse_error}。"
+                            "请重新生成，只输出 JSON。必须使用 D&D 兼容世界、地点、阵营或怪物元素，"
+                            "禁止中式志怪、土地庙、祠堂、庙祝、香灰、纸钱、道士、符箓、饿鬼、地府等元素。"
+                        ),
+                    ]
+        raise RuntimeError(f"model returned invalid D&D adventure JSON: {last_parse_error}")
+
+    def clean_player_response(self, response: str) -> str:
+        return self._strip_inline_action_options(response)
+
+    def build_action_suggestions_for_response(self, state: GameState, response: str) -> List[ActionSuggestion]:
+        cleaned_response = self.clean_player_response(response)
+        return self._build_action_suggestions(state, cleaned_response)
 
     def _call_model(self, graph_state: DMGraphState) -> DMGraphState:
         messages = list(graph_state.get("messages", []))
@@ -3496,6 +3674,7 @@ class DMGraphRunner:
         final_response = self.library.localize_game_terms(
             graph_state.get("final_response") or "本回合没有生成可展示的最终回复。"
         )
+        final_response = self._strip_inline_action_options(final_response)
         tool_results = [
             item if isinstance(item, ToolResult) else ToolResult.model_validate(item)
             for item in graph_state.get("tool_results", [])
@@ -3533,6 +3712,7 @@ class DMGraphRunner:
                 "timeline_append": timeline_append,
                 "tool_results": [item.model_dump(mode="json") for item in tool_results],
                 "final_response": final_response,
+                "action_suggestions": [],
                 "turn_status": turn_status,
                 "pending_input": {},
                 "rag_metadata": dict(graph_state.get("rag_metadata", {})),
@@ -3551,6 +3731,7 @@ class DMGraphRunner:
         if turn_status != "failed":
             state.turn_number += 1
         state.latest_tool_results = tool_results
+        action_suggestions = self._build_action_suggestions(state, final_response)
 
         assistant_event = self._build_event(
             event_type="assistant_response",
@@ -3574,6 +3755,7 @@ class DMGraphRunner:
             "history_append": [item.model_dump(mode="json") for item in history_append],
             "timeline_append": timeline_append,
             "final_response": final_response,
+            "action_suggestions": [item.model_dump(mode="json") for item in action_suggestions],
             "turn_status": turn_status,
             "pending_input": {},
             "rag_metadata": dict(graph_state.get("rag_metadata", {})),
@@ -3669,6 +3851,20 @@ class DMGraphRunner:
             return base + 1
         return base
 
+    @staticmethod
+    def _parse_action_suggestions(raw_items: Any) -> List[ActionSuggestion]:
+        suggestions: List[ActionSuggestion] = []
+        for item in raw_items or []:
+            try:
+                suggestion = item if isinstance(item, ActionSuggestion) else ActionSuggestion.model_validate(item)
+            except Exception:
+                continue
+            if suggestion.label.strip() and suggestion.action.strip():
+                suggestions.append(suggestion)
+            if len(suggestions) >= 3:
+                break
+        return suggestions
+
     def _build_turn_trace(
         self,
         result_payload: Dict[str, Any],
@@ -3701,6 +3897,7 @@ class DMGraphRunner:
             input_warnings=list(result_payload.get("input_warnings", [])),
             pending_input=dict(pending_input or {}),
             suggested_tools=list(result_payload.get("suggested_tools", [])),
+            action_suggestions=self._parse_action_suggestions(result_payload.get("action_suggestions", [])),
             allowed_tools=list(result_payload.get("allowed_tools", [])),
             validation_notes=list(result_payload.get("validation_notes", [])),
             validation_issues=[
@@ -3753,6 +3950,7 @@ class DMGraphRunner:
             item if isinstance(item, ValidationIssue) else ValidationIssue.model_validate(item)
             for item in result_payload.get("validation_issues", [])
         ]
+        action_suggestions = self._parse_action_suggestions(result_payload.get("action_suggestions", []))
 
         if interrupt_values:
             pending_turn = self._pending_turn_from_interrupt(thread_id, interrupt_values[0], user_input)
@@ -3783,6 +3981,7 @@ class DMGraphRunner:
                 rag_metadata=dict(result_payload.get("rag_metadata", {})),
                 input_warnings=list(result_payload.get("input_warnings", [])),
                 validation_issues=validation_issues,
+                action_suggestions=[],
                 state_delta=dict(result_payload.get("state_delta", {})),
                 game_state=updated_state,
             )
@@ -3813,6 +4012,7 @@ class DMGraphRunner:
             rag_metadata=dict(result_payload.get("rag_metadata", {})),
             input_warnings=list(result_payload.get("input_warnings", [])),
             validation_issues=validation_issues,
+            action_suggestions=action_suggestions,
             state_delta=dict(result_payload.get("state_delta", {})),
             game_state=updated_state,
         )

@@ -17,11 +17,13 @@ import {
   loadCharacterBuilder,
   loadGame,
   loadLobby,
+  loadModelConfig,
   loadMonsterTemplate,
   loadSpells,
   saveCharacter,
   saveMonsterTemplate,
   savingThrowAction,
+  selectModelConfig,
   selectAdventure,
   skillCheckAction,
   removeEncounterCombatant,
@@ -30,6 +32,7 @@ import {
   startEncounter,
   setEncounterInitiative,
   streamTurn,
+  updateModelConfig,
   useItemAction as itemActionRequest,
 } from "./api";
 import "./index.css";
@@ -64,6 +67,7 @@ const SKILL_LABELS = {
   survival: "求生",
 };
 const SIDE_LABELS = { party: "队伍", enemy: "敌方", ally: "友方" };
+const AI_GENERATED_ADVENTURE_ID = "adv-ai-generated";
 const CLASS_RESOURCE_NAME_LABELS = {
   "Wild Shape": "野性变身",
   "Second Wind": "二次呼吸",
@@ -703,8 +707,14 @@ export default function App() {
   const [selectedGameChars, setSelectedGameChars] = useState([]), [newGameId, setNewGameId] = useState("");
   const [activeGameId, setActiveGameId] = useState(null), [gameState, setGameState] = useState(null), [actionOptions, setActionOptions] = useState({ actors: [] });
   const [actionDraft, setActionDraft] = useState({ ...EMPTY_ACTIONS }), [messages, setMessages] = useState([]);
+  const [actionSuggestions, setActionSuggestions] = useState([]);
   const [workflowEvents, setWorkflowEvents] = useState([]);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
+  const [llmConfig, setLlmConfig] = useState(null);
+  const [llmDraft, setLlmDraft] = useState({ profile_id: "", profile_label: "", model_name: "", base_url: "", api_key: "" });
+  const [isLlmSaving, setIsLlmSaving] = useState(false);
+  const [llmStatusMessage, setLlmStatusMessage] = useState("");
+  const [pendingAdventureId, setPendingAdventureId] = useState(null);
   const [isBuilderLoading, setIsBuilderLoading] = useState(false);
   const [creatorStep, setCreatorStep] = useState(0);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
@@ -715,6 +725,7 @@ export default function App() {
   const [characterDeleteMode, setCharacterDeleteMode] = useState(false);
   const [selectedCharacterDeleteIds, setSelectedCharacterDeleteIds] = useState([]);
   const messagesEndRef = useRef(null);
+  const chatInputRef = useRef(null);
 
   useEffect(() => { refreshLobby(); }, []);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, workflowEvents, isLoading]);
@@ -832,6 +843,9 @@ export default function App() {
   const selectedCharacterDeleteSet = new Set(selectedCharacterDeleteIds);
   const selectedGameDeleteCount = selectedGameDeleteIds.length;
   const selectedCharacterDeleteCount = selectedCharacterDeleteIds.length;
+  const llmProfiles = llmConfig?.profiles || [];
+  const activeLlmProfile = llmProfiles.find((profile) => profile.profile_id === llmConfig?.active_profile_id) || null;
+  const editingLlmProfile = llmProfiles.find((profile) => profile.profile_id === llmDraft.profile_id) || null;
 
   useEffect(() => {
     if (!encounterDraft.monster_id) {
@@ -892,10 +906,24 @@ export default function App() {
     }
   }
 
+  function applyLlmConfig(payload) {
+    const nextConfig = payload || {};
+    const nextProfiles = nextConfig.profiles || [];
+    const activeProfile = nextProfiles.find((profile) => profile.profile_id === nextConfig.active_profile_id) || nextProfiles[0] || {};
+    setLlmConfig(nextConfig);
+    setLlmDraft({
+      profile_id: activeProfile.profile_id || "",
+      profile_label: activeProfile.label || "",
+      model_name: activeProfile.model_name || nextConfig.model_name || "",
+      base_url: activeProfile.raw_base_url || nextConfig.raw_base_url || nextConfig.base_url || "",
+      api_key: "",
+    });
+  }
+
   async function refreshLobby() {
     setIsBuilderLoading(true);
     setError("");
-    const [lobbyResult, rulesResult] = await Promise.allSettled([loadLobby(), loadCharacterBuilder()]);
+    const [lobbyResult, rulesResult, llmResult] = await Promise.allSettled([loadLobby(), loadCharacterBuilder(), loadModelConfig()]);
     let nextError = "";
 
     if (lobbyResult.status === "fulfilled") {
@@ -912,8 +940,67 @@ export default function App() {
       nextError = rulesResult.reason?.message || "加载角色构筑规则失败。";
     }
 
+    if (llmResult.status === "fulfilled") {
+      applyLlmConfig(llmResult.value);
+    } else if (!nextError) {
+      nextError = llmResult.reason?.message || "加载模型配置失败。";
+    }
+
     setIsBuilderLoading(false);
     if (nextError) setError(nextError);
+  }
+
+  async function saveLlmConfig(event) {
+    event.preventDefault();
+    const profileLabel = llmDraft.profile_label.trim();
+    const modelName = llmDraft.model_name.trim();
+    const baseUrl = llmDraft.base_url.trim();
+    if (!profileLabel) return setLlmStatusMessage("请填写条目名称。");
+    if (!modelName) return setLlmStatusMessage("请填写模型名称。");
+    if (!baseUrl) return setLlmStatusMessage("请填写 Base URL。");
+
+    setIsLlmSaving(true);
+    setLlmStatusMessage("");
+    setError("");
+    try {
+      const payload = {
+        profile_id: llmDraft.profile_id,
+        profile_label: profileLabel,
+        model_name: modelName,
+        base_url: baseUrl,
+        activate: true,
+      };
+      const nextKey = llmDraft.api_key.trim();
+      if (nextKey) payload.api_key = nextKey;
+      const result = await updateModelConfig(payload);
+      applyLlmConfig(result.llm || result);
+      setLlmStatusMessage("模型档案已保存并启用，后续对话会使用新的设置。");
+    } catch (err) {
+      setLlmStatusMessage(err.message || "保存模型配置失败。");
+    } finally {
+      setIsLlmSaving(false);
+    }
+  }
+
+  async function chooseLlmProfile(profileId) {
+    if (!profileId || isLlmSaving) return;
+    setIsLlmSaving(true);
+    setLlmStatusMessage("");
+    setError("");
+    try {
+      const result = await selectModelConfig(profileId);
+      applyLlmConfig(result.llm || result);
+      setLlmStatusMessage("模型档案已切换。");
+    } catch (err) {
+      setLlmStatusMessage(err.message || "切换模型档案失败。");
+    } finally {
+      setIsLlmSaving(false);
+    }
+  }
+
+  function beginNewLlmProfile() {
+    setLlmDraft({ profile_id: "", profile_label: "", model_name: "", base_url: "", api_key: "" });
+    setLlmStatusMessage("正在创建新模型档案。");
   }
 
   async function openCreator() {
@@ -1050,6 +1137,7 @@ export default function App() {
           setActiveGameId(null);
           setGameState(null);
           setActionOptions({ actors: [] });
+          setActionSuggestions([]);
           setMessages([]);
           setWorkflowEvents([]);
           setView("home");
@@ -1104,8 +1192,22 @@ export default function App() {
     setActionOptions(options || { actors: [] });
   }
 
-  async function syncGame(gameId, state) {
+  function normalizeActionSuggestions(items) {
+    return (items || [])
+      .filter((item) => item?.label && item?.action)
+      .slice(0, 3);
+  }
+
+  async function syncGame(gameId, state, options = {}) {
     applyGameSnapshot(state, await loadActionOptions(gameId));
+    setActionSuggestions(normalizeActionSuggestions(options.actionSuggestions));
+  }
+
+  function fillActionSuggestion(suggestion) {
+    const action = String(suggestion?.action || "").trim();
+    if (!action) return;
+    setInput(action);
+    window.requestAnimationFrame(() => chatInputRef.current?.focus());
   }
 
   function buildAttackDraft(attackerRef, attackName, currentAttack) {
@@ -1447,13 +1549,29 @@ export default function App() {
       const result = await createGame({ game_id: gameId, title: gameId, character_ids: selectedGameChars });
       setActiveGameId(gameId);
       setWorkflowEvents([]);
+      setActionSuggestions([]);
       setView("chat");
       applyGameSnapshot(result.game_state, result.action_options);
       setInput("");
       await refreshLobby().catch(() => {});
     } catch (err) { setError(err.message || "创建游戏失败。"); }
   }
-  async function chooseAdventure(adventureId) { if (!activeGameId) return; const result = await selectAdventure(activeGameId, adventureId); await syncGame(activeGameId, result.game_state); }
+  async function chooseAdventure(adventureId) {
+    if (!activeGameId || isLoading) return;
+    setIsLoading(true);
+    setPendingAdventureId(adventureId);
+    setError("");
+    setActionSuggestions([]);
+    try {
+      const result = await selectAdventure(activeGameId, adventureId);
+      await syncGame(activeGameId, result.game_state, { actionSuggestions: result.action_suggestions });
+    } catch (err) {
+      setError(err.message || "选择冒险失败。");
+    } finally {
+      setPendingAdventureId(null);
+      setIsLoading(false);
+    }
+  }
   async function submitChatMessage(rawMessage, options = {}) {
     const message = String(rawMessage || "").trim();
     const gameId = activeGameId;
@@ -1463,6 +1581,7 @@ export default function App() {
     setIsLoading(true);
     setError("");
     setWorkflowEvents([]);
+    setActionSuggestions([]);
     try {
       const pushWorkflowEvent = (event) => {
         setWorkflowEvents((prev) => [...prev.slice(-29), event]);
@@ -1519,7 +1638,7 @@ export default function App() {
         },
       });
       if (options.clearInput) setInput("");
-      await syncGame(gameId, result.game_state);
+      await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions });
     } catch (err) {
       setError(err.message || "发送消息失败。");
     } finally {
@@ -1637,6 +1756,7 @@ export default function App() {
   const partyCharacters = Object.values(gameState?.characters || {});
   const activeCharacterId = gameState?.active_character_id || partyCharacters[0]?.character_id || "";
   const characterActorById = Object.fromEntries(charActors.map((actor) => [actor.ref, actor]));
+  const visibleActionSuggestions = gameState?.campaign?.phase === "adventure_selection" ? [] : actionSuggestions;
 
   return (
     <div className="app-container">
@@ -1650,7 +1770,7 @@ export default function App() {
             <div className="menu-active-info">当前游戏：{activeGameId}</div>
             <button onClick={() => setView("chat")} className={view === "chat" ? "active" : ""}>对话</button>
             <button onClick={() => setView("status")} className={view === "status" ? "active" : ""}>时间线</button>
-            <button className="btn-danger" onClick={() => { setActiveGameId(null); setGameState(null); setMessages([]); setView("home"); }}>返回主页</button>
+            <button className="btn-danger" onClick={() => { setActiveGameId(null); setGameState(null); setMessages([]); setActionSuggestions([]); setView("home"); }}>返回主页</button>
           </div>
         </aside>
       )}
@@ -1713,6 +1833,89 @@ export default function App() {
                   <p>查看可带入游戏的玩家角色卡。</p>
                 </button>
               </div>
+            </section>
+
+            <section className="lobby-panel model-settings-panel" aria-label="模型配置">
+              <div className="panel-heading panel-heading-actions">
+                <div>
+                  <h3>模型设置</h3>
+                  <p className="info-text">选择或保存本地模型档案，后续回合会使用当前启用的档案。</p>
+                </div>
+                <div className="panel-actions">
+                  <span>{llmConfig?.configured ? "已配置" : "未完整配置"}</span>
+                  <span>{activeLlmProfile?.label || "无当前档案"}</span>
+                </div>
+              </div>
+              <div className="model-profile-selector">
+                <div className="form-group">
+                  <label>选择模型档案</label>
+                  <select
+                    value={llmDraft.profile_id || ""}
+                    onChange={(e) => {
+                      if (e.target.value === "__new__") beginNewLlmProfile();
+                      else chooseLlmProfile(e.target.value);
+                    }}
+                    disabled={isLlmSaving}
+                  >
+                    <option value="" disabled>{llmProfiles.length === 0 ? "暂无已保存档案" : "选择一个模型档案"}</option>
+                    {llmProfiles.map((profile) => (
+                      <option key={profile.profile_id} value={profile.profile_id}>
+                        {profile.label}{profile.active ? "（当前）" : ""}{profile.api_key_configured ? "" : " · 未保存密钥"}
+                      </option>
+                    ))}
+                    <option value="__new__">新建模型档案...</option>
+                  </select>
+                </div>
+                <button type="button" className="btn-secondary" onClick={beginNewLlmProfile} disabled={isLlmSaving}>新建档案</button>
+              </div>
+              <form className="model-settings-form" onSubmit={saveLlmConfig}>
+                <div className="model-settings-grid">
+                  <div className="form-group">
+                    <label>条目名称</label>
+                    <input
+                      value={llmDraft.profile_label}
+                      onChange={(e) => setLlmDraft((prev) => ({ ...prev, profile_label: e.target.value }))}
+                      placeholder="例如：DeepSeek 主账号"
+                      disabled={isLlmSaving}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Base URL</label>
+                    <input
+                      value={llmDraft.base_url}
+                      onChange={(e) => setLlmDraft((prev) => ({ ...prev, base_url: e.target.value }))}
+                      placeholder="https://api.deepseek.com"
+                      disabled={isLlmSaving}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>模型名称</label>
+                    <input
+                      value={llmDraft.model_name}
+                      onChange={(e) => setLlmDraft((prev) => ({ ...prev, model_name: e.target.value }))}
+                      placeholder="deepseek-v4-flash"
+                      disabled={isLlmSaving}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>API Key</label>
+                    <input
+                      type="password"
+                      value={llmDraft.api_key}
+                      onChange={(e) => setLlmDraft((prev) => ({ ...prev, api_key: e.target.value }))}
+                      placeholder={editingLlmProfile?.api_key_configured ? "留空保持该档案密钥" : "填写 API Key"}
+                      autoComplete="new-password"
+                      disabled={isLlmSaving}
+                    />
+                  </div>
+                </div>
+                <div className="model-settings-footer">
+                  <p className="info-text">{llmStatusMessage || "API Key 不会显示；编辑已有档案时留空会保留该档案当前密钥。"}</p>
+                  <button type="submit" className="btn-primary" disabled={isLlmSaving}>
+                    {isLlmSaving ? "保存中..." : "保存并启用"}
+                  </button>
+                </div>
+              </form>
             </section>
 
             <section className="lobby-grid">
@@ -2156,15 +2359,27 @@ export default function App() {
                   <div className="panel-card">
                     <h3>选择冒险</h3>
                     <div className="timeline-list">
-                      {(gameState?.campaign?.available_adventures || []).map((hook) => (
-                        <div key={hook.adventure_id} className="timeline-item">
-                          <div className="timeline-summary">{hook.title}</div>
-                          <div className="timeline-content">{hook.summary}</div>
-                          <div className="btn-row" style={{ marginTop: 12 }}>
-                            <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)}>选择：{hook.title}</button>
+                      {(gameState?.campaign?.available_adventures || []).map((hook) => {
+                        const isAiGeneratedAdventure = hook.adventure_id === AI_GENERATED_ADVENTURE_ID;
+                        const isPendingAdventure = pendingAdventureId === hook.adventure_id;
+                        return (
+                          <div key={hook.adventure_id} className="timeline-item">
+                            <div className="timeline-summary">{hook.title}</div>
+                            <div className="timeline-content">{hook.summary}</div>
+                            <div className="btn-row" style={{ marginTop: 12 }}>
+                              <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)} disabled={isLoading}>
+                                {isPendingAdventure && isAiGeneratedAdventure
+                                  ? "主持人构思中..."
+                                  : isPendingAdventure
+                                    ? "准备中..."
+                                    : isAiGeneratedAdventure
+                                      ? "生成并开始"
+                                      : `选择：${hook.title}`}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2203,7 +2418,15 @@ export default function App() {
                     })}
                   </div>
                 )}
-                {isLoading && <div className="loading-indicator">主持人思考中...</div>}
+                {isLoading && (
+                  <div className="loading-indicator">
+                    {pendingAdventureId === AI_GENERATED_ADVENTURE_ID
+                      ? "主持人正在构思冒险..."
+                      : gameState?.campaign?.phase === "adventure_selection"
+                        ? "主持人正在准备冒险..."
+                        : "主持人思考中..."}
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
               <div className="session-sidepanel">
@@ -2433,8 +2656,24 @@ export default function App() {
                 />
               </div>
             </div>
+            {visibleActionSuggestions.length > 0 && (
+              <div className="action-suggestions" aria-label="行动建议">
+                {visibleActionSuggestions.map((suggestion, index) => (
+                  <button
+                    key={`${suggestion.label}-${index}`}
+                    type="button"
+                    className="action-suggestion"
+                    onClick={() => fillActionSuggestion(suggestion)}
+                    disabled={chatInputDisabled}
+                  >
+                    <span>{suggestion.label}</span>
+                    <small>{suggestion.action}</small>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="input-area">
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isToolConfirmationPending ? "可直接确认或取消，也可以输入补充说明。" : "描述你的行动..."} disabled={chatInputDisabled} />
+              <textarea ref={chatInputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isToolConfirmationPending ? "可直接确认或取消，也可以输入补充说明。" : "描述你的行动..."} disabled={chatInputDisabled} />
               <button onClick={sendMessage} disabled={chatInputDisabled || !input.trim()}>发送</button>
             </div>
           </div>

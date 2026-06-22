@@ -46,12 +46,13 @@ D&D prose style:
 PLAYER_FACING_FORMAT = """
 Player-facing response format:
 - Do not output hidden debug blocks, dice pools, raw worldbook text, HTML status panels, or GM-only intent notes.
-- Start with the in-world result or answer. Keep the first paragraph concrete: what the character sees, learns, suffers, gains, or can choose.
+- Start with the in-world result or answer. Keep the first paragraph concrete: what the character sees, learns, suffers, gains, or what immediate situation now presses on them.
 - When a tool changed HP, resources, inventory, evidence, encounter state, or chapter state, weave the update into the narration or add one natural in-world sentence using only tool-backed facts.
 - Avoid quest-log/status-log headings such as `当前变化`, `完成搜索`, `已收入背包`, or similar UI-like bookkeeping in player-facing prose.
 - During combat, include the round/current actor and the visible tactical situation when it helps the player choose. Do not dump full stat blocks unless the player asks.
 - After a combat, scene, or chapter ends, briefly summarize the meaningful consequences and persist durable facts with tools before saying they are settled.
-- End setup, exploration, and downtime replies with one clear next question or two to four concrete options. Do not bury the next decision in a long monologue.
+- Do not include numbered or bulleted suggested player actions, option lists, or "你可以..." choice menus in player-facing prose. The UI presents exactly three action suggestions outside the dialogue.
+- End setup, exploration, and downtime replies with the immediate in-world situation, a single natural prompt when needed, or the consequence that now demands a choice.
 """
 
 

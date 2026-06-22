@@ -98,7 +98,12 @@ function Test-BackendCompatible {
     param([Parameter(Mandatory = $true)][string]$HealthUrl)
     try {
         $payload = Invoke-RestMethod -UseBasicParsing -Uri $HealthUrl -TimeoutSec 3
-        return [bool]($payload.api_features -and $payload.api_features.batch_delete)
+        return [bool](
+            $payload.api_features -and
+            $payload.api_features.batch_delete -and
+            $payload.api_features.ai_generated_adventures -and
+            $payload.api_features.llm_profiles
+        )
     }
     catch {
         return $false

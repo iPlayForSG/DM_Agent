@@ -1,8 +1,11 @@
 """LangGraph-backed Dungeon Master agent facade."""
 
+import base64
+import hashlib
 import json
 import os
-from typing import Any, Dict, List
+import re
+from typing import Any, Dict, List, Optional
 from urllib import parse as urllib_parse
 
 from dotenv import load_dotenv
@@ -14,13 +17,23 @@ except ImportError:
 
 from agent_tools import AgentToolService
 from dm_graph import DMGraphRunner
-from models import Character, GameState, TurnResult
+from models import ActionSuggestion, AdventureHook, Character, GameState, TurnResult
 from rag import RAGEngine
 from rules_catalog import RuleCatalog
 from storage import MonsterStorage
 
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path, override=True)
+
+
+LLM_ENV_KEYS = (
+    "OPENAI_API_KEY",
+    "OPENAI_API_BASE",
+    "OPENAI_BASE_URL",
+    "LLM_MODEL",
+    "LLM_ACTIVE_PROFILE_ID",
+    "LLM_PROFILES_B64",
+)
 
 
 def normalize_openai_base_url(base_url: str) -> str:
@@ -51,6 +64,9 @@ class DMAgent:
         self.raw_base_url = os.getenv("OPENAI_API_BASE") or os.getenv("OPENAI_BASE_URL", "")
         self.base_url = normalize_openai_base_url(self.raw_base_url)
         self.model_name = os.getenv("LLM_MODEL", "gpt-5.1")
+        self.active_profile_id = os.getenv("LLM_ACTIVE_PROFILE_ID", "")
+        self.llm_profiles = self._load_llm_profiles()
+        self._ensure_active_profile()
         self.monster_storage = MonsterStorage()
         self.rules_catalog = RuleCatalog()
         self.rag_engine = RAGEngine()
@@ -59,20 +75,9 @@ class DMAgent:
             monster_storage=self.monster_storage,
             rules_catalog=self.rules_catalog,
         )
-        self.dm_graph_runner = DMGraphRunner(
-            rag_engine=self.rag_engine,
-            tool_service=self.tool_service,
-            model_name=self.model_name,
-            api_key=self.api_key,
-            base_url=self.base_url,
-            enable_model=True,
-        )
+        self.dm_graph_runner = self._create_dm_graph_runner()
 
-        if self.api_key:
-            os.environ.setdefault("OPENAI_API_KEY", self.api_key)
-        if self.base_url:
-            os.environ["OPENAI_API_BASE"] = self.base_url
-            os.environ["OPENAI_BASE_URL"] = self.base_url
+        self._apply_llm_environment()
 
     @property
     def backend_name(self) -> str:
@@ -94,13 +99,112 @@ class DMAgent:
     def base_url_normalized(self) -> bool:
         return bool(self.base_url) and self.base_url != (self.raw_base_url or "").rstrip("/")
 
+    @staticmethod
+    def _profile_id_from_label(label: str) -> str:
+        normalized = str(label or "").strip().lower()
+        slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")[:36]
+        digest = hashlib.md5(str(label or "llm-profile").encode("utf-8")).hexdigest()[:8]
+        return f"llm-{slug or 'profile'}-{digest}"
+
+    @staticmethod
+    def _default_profile_label(model_name: str, base_url: str) -> str:
+        model = str(model_name or "model").strip()
+        parsed = urllib_parse.urlparse(str(base_url or "").strip())
+        host = parsed.netloc or parsed.path or "provider"
+        return f"{model} @ {host}"
+
+    @staticmethod
+    def _decode_profiles(raw_b64: str) -> List[Dict[str, Any]]:
+        raw = str(raw_b64 or "").strip()
+        if not raw:
+            return []
+        try:
+            decoded = base64.b64decode(raw.encode("ascii")).decode("utf-8")
+            payload = json.loads(decoded)
+        except Exception:
+            return []
+        if not isinstance(payload, list):
+            return []
+        return [item for item in payload if isinstance(item, dict)]
+
+    @staticmethod
+    def _encode_profiles(profiles: List[Dict[str, Any]]) -> str:
+        raw = json.dumps(profiles, ensure_ascii=False, separators=(",", ":"))
+        return base64.b64encode(raw.encode("utf-8")).decode("ascii")
+
+    def _load_llm_profiles(self) -> List[Dict[str, Any]]:
+        profiles = self._decode_profiles(os.getenv("LLM_PROFILES_B64", ""))
+        normalized: List[Dict[str, Any]] = []
+        for profile in profiles:
+            label = self._validate_env_value("profile_label", profile.get("label", ""))
+            model_name = self._validate_env_value("LLM_MODEL", profile.get("model_name", ""))
+            raw_base_url = self._validate_env_value("OPENAI_API_BASE", profile.get("raw_base_url") or profile.get("base_url", ""))
+            api_key = self._validate_env_value("OPENAI_API_KEY", profile.get("api_key", ""))
+            if not label or not model_name or not raw_base_url:
+                continue
+            profile_id = self._validate_env_value("profile_id", profile.get("profile_id", "")) or self._profile_id_from_label(label)
+            normalized.append(
+                {
+                    "profile_id": profile_id,
+                    "label": label,
+                    "model_name": model_name,
+                    "raw_base_url": raw_base_url,
+                    "api_key": api_key,
+                }
+            )
+        return normalized
+
+    def _find_llm_profile(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        for profile in self.llm_profiles:
+            if profile.get("profile_id") == profile_id:
+                return profile
+        return None
+
+    def _ensure_active_profile(self) -> None:
+        active_profile = self._find_llm_profile(self.active_profile_id)
+        if active_profile:
+            self.api_key = active_profile.get("api_key", "") or self.api_key
+            self.raw_base_url = active_profile.get("raw_base_url", "") or self.raw_base_url
+            self.model_name = active_profile.get("model_name", "") or self.model_name
+            self.base_url = normalize_openai_base_url(self.raw_base_url)
+            return
+
+        label = self._default_profile_label(self.model_name, self.raw_base_url)
+        profile_id = self.active_profile_id or self._profile_id_from_label(label)
+        profile = {
+            "profile_id": profile_id,
+            "label": label,
+            "model_name": self.model_name,
+            "raw_base_url": self.raw_base_url,
+            "api_key": self.api_key,
+        }
+        self.active_profile_id = profile_id
+        if not self._find_llm_profile(profile_id):
+            self.llm_profiles.append(profile)
+
+    def _public_llm_profile(self, profile: Dict[str, Any]) -> Dict[str, Any]:
+        raw_base_url = profile.get("raw_base_url", "")
+        profile_id = profile.get("profile_id", "")
+        return {
+            "profile_id": profile_id,
+            "label": profile.get("label", ""),
+            "model_name": profile.get("model_name", ""),
+            "base_url": normalize_openai_base_url(raw_base_url),
+            "raw_base_url": raw_base_url,
+            "api_key_configured": bool(profile.get("api_key", "")),
+            "active": profile_id == self.active_profile_id,
+        }
+
     def llm_runtime_payload(self) -> Dict[str, Any]:
         return {
+            "active_profile_id": self.active_profile_id,
             "model_name": self.model_name,
             "base_url": self.base_url,
             "raw_base_url": self.raw_base_url,
             "base_url_normalized": self.base_url_normalized,
             "configured": bool(self.api_key and self.base_url),
+            "api_key_configured": bool(self.api_key),
+            "profiles": [self._public_llm_profile(profile) for profile in self.llm_profiles],
         }
 
     def probe_llm(self, timeout_s: float = 20.0) -> Dict[str, Any]:
@@ -154,6 +258,185 @@ class DMAgent:
     def close(self) -> None:
         self.dm_graph_runner.close()
 
+    def _create_dm_graph_runner(self) -> DMGraphRunner:
+        return DMGraphRunner(
+            rag_engine=self.rag_engine,
+            tool_service=self.tool_service,
+            model_name=self.model_name,
+            api_key=self.api_key,
+            base_url=self.base_url,
+            enable_model=True,
+        )
+
+    def _apply_llm_environment(self) -> None:
+        if self.api_key:
+            os.environ["OPENAI_API_KEY"] = self.api_key
+        if self.base_url:
+            os.environ["OPENAI_API_BASE"] = self.base_url
+            os.environ["OPENAI_BASE_URL"] = self.base_url
+        if self.model_name:
+            os.environ["LLM_MODEL"] = self.model_name
+
+    @staticmethod
+    def _validate_env_value(name: str, value: str) -> str:
+        normalized = str(value or "").strip()
+        if "\n" in normalized or "\r" in normalized:
+            raise ValueError(f"{name} must be a single-line value.")
+        return normalized
+
+    @staticmethod
+    def _persist_env_values(path: str, updates: Dict[str, str]) -> None:
+        sanitized = {
+            key: DMAgent._validate_env_value(key, value)
+            for key, value in updates.items()
+            if key in LLM_ENV_KEYS
+        }
+        if not sanitized:
+            return
+
+        lines: List[str] = []
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as handle:
+                lines = handle.read().splitlines()
+
+        seen = set()
+        next_lines: List[str] = []
+        pattern = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
+        for line in lines:
+            match = pattern.match(line)
+            key = match.group(1) if match else ""
+            if key in sanitized:
+                next_lines.append(f"{key}={sanitized[key]}")
+                seen.add(key)
+            else:
+                next_lines.append(line)
+
+        for key in LLM_ENV_KEYS:
+            if key in sanitized and key not in seen:
+                next_lines.append(f"{key}={sanitized[key]}")
+
+        with open(path, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write("\n".join(next_lines).rstrip() + "\n")
+
+    def _persist_current_llm_config(self) -> None:
+        self._persist_env_values(
+            env_path,
+            {
+                "OPENAI_API_KEY": self.api_key,
+                "OPENAI_API_BASE": self.raw_base_url,
+                "OPENAI_BASE_URL": self.raw_base_url,
+                "LLM_MODEL": self.model_name,
+                "LLM_ACTIVE_PROFILE_ID": self.active_profile_id,
+                "LLM_PROFILES_B64": self._encode_profiles(self.llm_profiles),
+            },
+        )
+
+    def _activate_llm_profile(self, profile: Dict[str, Any], persist: bool = True) -> Dict[str, Any]:
+        api_key = profile.get("api_key", "")
+        raw_base_url = profile.get("raw_base_url", "")
+        model_name = profile.get("model_name", "")
+        if not api_key:
+            raise ValueError("API Key is required for the selected model profile.")
+        if not raw_base_url:
+            raise ValueError("Base URL is required for the selected model profile.")
+        if not model_name:
+            raise ValueError("Model name is required for the selected model profile.")
+
+        self.close()
+        self.active_profile_id = profile.get("profile_id", "")
+        self.api_key = api_key
+        self.raw_base_url = raw_base_url
+        self.base_url = normalize_openai_base_url(raw_base_url)
+        self.model_name = model_name
+        self._apply_llm_environment()
+        self.dm_graph_runner = self._create_dm_graph_runner()
+        if persist:
+            self._persist_current_llm_config()
+        return self.llm_runtime_payload()
+
+    def select_llm_profile(self, profile_id: str, persist: bool = True) -> Dict[str, Any]:
+        normalized_profile_id = self._validate_env_value("profile_id", profile_id)
+        profile = self._find_llm_profile(normalized_profile_id)
+        if not profile:
+            raise ValueError("Model profile was not found.")
+        return self._activate_llm_profile(profile, persist=persist)
+
+    def upsert_llm_profile(
+        self,
+        *,
+        profile_id: str = "",
+        profile_label: str,
+        model_name: str,
+        base_url: str,
+        api_key: Optional[str] = None,
+        activate: bool = True,
+        persist: bool = True,
+    ) -> Dict[str, Any]:
+        label = self._validate_env_value("profile_label", profile_label)
+        next_model_name = self._validate_env_value("LLM_MODEL", model_name)
+        next_raw_base_url = self._validate_env_value("OPENAI_API_BASE", base_url)
+        provided_api_key = self._validate_env_value("OPENAI_API_KEY", api_key) if api_key is not None else ""
+
+        if not label:
+            raise ValueError("Profile name is required.")
+        if not next_model_name:
+            raise ValueError("Model name is required.")
+        if not next_raw_base_url:
+            raise ValueError("Base URL is required.")
+
+        normalized_profile_id = self._validate_env_value("profile_id", profile_id) or self._profile_id_from_label(label)
+        existing_profile = self._find_llm_profile(normalized_profile_id)
+        existing_api_key = existing_profile.get("api_key", "") if existing_profile else ""
+        next_api_key = provided_api_key or existing_api_key or self.api_key
+        if not next_api_key:
+            raise ValueError("API Key is required because this profile has no saved key.")
+
+        next_profile = {
+            "profile_id": normalized_profile_id,
+            "label": label,
+            "model_name": next_model_name,
+            "raw_base_url": next_raw_base_url,
+            "api_key": next_api_key,
+        }
+
+        replaced = False
+        self.llm_profiles = [
+            next_profile if profile.get("profile_id") == normalized_profile_id else profile
+            for profile in self.llm_profiles
+        ]
+        for profile in self.llm_profiles:
+            if profile.get("profile_id") == normalized_profile_id:
+                replaced = True
+                break
+        if not replaced:
+            self.llm_profiles.append(next_profile)
+
+        if activate:
+            return self._activate_llm_profile(next_profile, persist=persist)
+
+        if persist:
+            self._persist_current_llm_config()
+        return self.llm_runtime_payload()
+
+    def update_llm_config(
+        self,
+        *,
+        model_name: str,
+        base_url: str,
+        api_key: Optional[str] = None,
+        persist: bool = True,
+    ) -> Dict[str, Any]:
+        label = self._default_profile_label(model_name, base_url)
+        return self.upsert_llm_profile(
+            profile_id=self.active_profile_id,
+            profile_label=label,
+            model_name=model_name,
+            base_url=base_url,
+            api_key=api_key,
+            activate=True,
+            persist=persist,
+        )
+
     def create_new_game(
         self, characters: List[Character], game_id: str = "", title: str = ""
     ) -> GameState:
@@ -165,6 +448,15 @@ class DMAgent:
             state.active_character_id = characters[0].character_id
 
         return state
+
+    def generate_adventure_hook(self, state: GameState) -> AdventureHook:
+        return self.dm_graph_runner.generate_adventure_hook(state)
+
+    def clean_player_response(self, response: str) -> str:
+        return self.dm_graph_runner.clean_player_response(response)
+
+    def build_action_suggestions(self, state: GameState, response: str) -> List[ActionSuggestion]:
+        return self.dm_graph_runner.build_action_suggestions_for_response(state, response)
 
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
         return self.dm_graph_runner.run_turn(state, user_input)
