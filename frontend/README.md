@@ -1,16 +1,25 @@
-# React + Vite
+# DM_Agent Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite 前端应用，负责角色创建、游戏入口、状态展示、聊天交互和最小战斗操作层。
 
-Currently, two official plugins are available:
+## 运行
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```powershell
+npm install
+npm run dev
+```
 
-## React Compiler
+开发态默认通过 `/api/v1` 访问后端。若存在 `.env.development.local` 中的 `VITE_BACKEND_URL`，则优先直连该后端地址。仓库根目录的 `start.cmd` 会自动写入该配置并启动前后端。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 构建
 
-## Expanding the ESLint configuration
+```powershell
+npm run build
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 主要代码
+
+- `src/App.jsx`：主应用和页面状态。
+- `src/api.js`：后端 API 调用封装。
+- `src/components/`：角色创建、战斗操作、状态展示等组件。
+- `src/styles/`：全局样式与页面样式。
