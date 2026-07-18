@@ -18,6 +18,16 @@ class GameActionService:
         return (getattr(combatant.stats, attr, 10) - 10) // 2
 
     @staticmethod
+    def _linked_character(state: GameState, logic: GameLogic, identifier: str):
+        character = logic.get_character(identifier)
+        if character:
+            return character
+        combatant = logic.get_combatant(identifier)
+        if combatant and combatant.linked_character_id:
+            return state.characters.get(combatant.linked_character_id)
+        return None
+
+    @staticmethod
     def _concentration_summary(check: Optional[Dict[str, Any]]) -> str:
         if not check:
             return ""
@@ -88,14 +98,45 @@ class GameActionService:
         state: GameState,
         attacker_ref: str,
         target_ref: str,
-        attack_bonus: int,
-        damage_expression: str,
+        attack_bonus: Optional[int] = None,
+        damage_expression: str = "",
         damage_type: str = "",
         resolution_mode: str = "normal",
+        attack_name: str = "",
+        roll_mode: str = "normal",
     ) -> Dict[str, Any]:
         logic = GameLogic(state)
         logic.require_current_actor(attacker_ref)
         logic.require_turn_action_available("attack_target")
+        requested_attack_bonus = attack_bonus
+        requested_damage_expression = damage_expression
+        attacker = self._linked_character(state, logic, attacker_ref)
+        if attacker:
+            profile = self.rules.resolve_character_attack_profile(
+                attacker,
+                attack_name=attack_name,
+                requested_attack_bonus=attack_bonus,
+                requested_damage_expression=damage_expression,
+            )
+            attack_bonus = int(profile["attack_bonus"])
+            damage_expression = str(profile["damage_expression"])
+            damage_type = str(profile["damage_type"])
+            resolved_attack_name = str(profile["attack_name"])
+            modifier_source = "character_sheet"
+        else:
+            if attack_bonus is None or not str(damage_expression or "").strip():
+                raise ValueError("Non-character attacks require attack_bonus and damage_expression")
+            attack_bonus = int(attack_bonus)
+            balance_error = self.rules.solo_level_one_npc_attack_error(
+                state,
+                attack_bonus,
+                damage_expression,
+            )
+            if balance_error:
+                raise ValueError(balance_error)
+            resolved_attack_name = str(attack_name or "")
+            modifier_source = "explicit_non_character"
+
         result = logic.resolve_attack(
             attacker_ref,
             target_ref,
@@ -103,6 +144,7 @@ class GameActionService:
             damage_expression,
             damage_type,
             resolution_mode=resolution_mode,
+            roll_mode=roll_mode,
         )
         if not result:
             raise ValueError(f"Attack target not found: {target_ref}")
@@ -124,6 +166,11 @@ class GameActionService:
             "damage_type": result["damage_type"],
             "damage_type_display": damage_type_display,
             "resolution_mode": result["resolution_mode"],
+            "roll_mode": result["roll_mode"],
+            "attack_name": resolved_attack_name,
+            "requested_attack_bonus": requested_attack_bonus,
+            "requested_damage_expression": requested_damage_expression,
+            "modifier_source": modifier_source,
             "target_hp_current": result["target_hp_current"],
             "target_defeat_state": result["target_defeat_state"],
             "target_defeat_state_display": target_defeat_state_display,
@@ -159,22 +206,36 @@ class GameActionService:
         skill_name: str,
         dc: int = 0,
         modifier: Optional[int] = None,
+        roll_mode: str = "normal",
     ) -> Dict[str, Any]:
         logic = GameLogic(state)
         logic.require_current_actor(actor_ref)
         logic.require_turn_action_available("roll_skill_check")
         actor = logic.get_character(actor_ref)
-        if modifier is not None:
+        canonical_skill_name = self.rules.normalize_skill_name(skill_name)
+        if actor:
+            resolved_modifier = self.rules.get_skill_modifier(actor, canonical_skill_name)
+        elif modifier is not None:
             resolved_modifier = modifier
-        elif actor:
-            resolved_modifier = self.rules.get_skill_modifier(actor, skill_name)
         else:
             combatant = logic.get_combatant(actor_ref)
             resolved_modifier = int(
-                combatant.skills.get(skill_name, self._combatant_ability_modifier(combatant, SKILL_TO_ABILITY.get(skill_name, "wisdom")))
+                combatant.skills.get(
+                    canonical_skill_name,
+                    combatant.skills.get(
+                        skill_name,
+                        self._combatant_ability_modifier(combatant, SKILL_TO_ABILITY.get(canonical_skill_name, "wisdom")),
+                    ),
+                )
             ) if combatant else 0
-        result = logic.roll_skill_check(actor_ref, skill_name, int(resolved_modifier), dc)
-        skill_display = self.library.localize_game_terms(skill_name)
+        result = logic.roll_skill_check(
+            actor_ref,
+            canonical_skill_name,
+            int(resolved_modifier),
+            dc,
+            roll_mode=roll_mode,
+        )
+        skill_display = self.library.localize_game_terms(canonical_skill_name)
         summary = f"{result['actor_name']} {skill_display}检定 {result['total']}"
         if dc > 0:
             summary += f" vs DC {dc} -> {'成功' if result['success'] else '失败'}"
@@ -194,20 +255,40 @@ class GameActionService:
         save_name: str,
         dc: int,
         modifier: Optional[int] = None,
+        roll_mode: str = "normal",
     ) -> Dict[str, Any]:
         logic = GameLogic(state)
-        target = logic.get_character(target_ref)
-        if modifier is not None:
-            resolved_modifier = modifier
-        elif target:
-            resolved_modifier = self.rules.get_save_modifier(target, save_name)
+        requested_save_name = save_name
+        canonical_save_name = self.rules.normalize_save_name(save_name)
+        target = self._linked_character(state, logic, target_ref)
+        combatant = logic.get_combatant(target_ref)
+        if target:
+            resolved_modifier = self.rules.get_save_modifier(target, canonical_save_name)
+            modifier_source = "character_sheet"
+        elif modifier is not None:
+            resolved_modifier = int(modifier)
+            modifier_source = "explicit_non_character"
         else:
-            combatant = logic.get_combatant(target_ref)
             resolved_modifier = int(
-                combatant.saving_throws.get(save_name, self._combatant_ability_modifier(combatant, save_name))
+                combatant.saving_throws.get(
+                    canonical_save_name,
+                    combatant.saving_throws.get(
+                        requested_save_name,
+                        self._combatant_ability_modifier(combatant, canonical_save_name),
+                    ),
+                )
             ) if combatant else 0
-        result = logic.roll_saving_throw(target_ref, save_name, int(resolved_modifier), dc)
-        save_display = self.library.localize_game_terms(save_name)
+            modifier_source = "combatant_sheet" if combatant else "missing_target"
+        result = logic.roll_saving_throw(
+            target_ref,
+            canonical_save_name,
+            int(resolved_modifier),
+            dc,
+            roll_mode=roll_mode,
+        )
+        result["requested_save_name"] = requested_save_name
+        result["modifier_source"] = modifier_source
+        save_display = self.library.localize_game_terms(canonical_save_name.title())
         summary = f"{result['target_name']} {save_display}豁免 {result['total']} vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         return self._append_result(
             state,

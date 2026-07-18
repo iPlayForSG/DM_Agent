@@ -103,7 +103,8 @@ function Test-BackendCompatible {
             $payload.api_features.batch_delete -and
             $payload.api_features.ai_generated_adventures -and
             $payload.api_features.llm_profiles -and
-            $payload.api_features.action_suggestions
+            $payload.api_features.action_suggestions -and
+            $payload.api_features.action_suggestion_tool
         )
     }
     catch {

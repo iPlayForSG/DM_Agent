@@ -458,6 +458,22 @@ class DMAgent:
     def build_action_suggestions(self, state: GameState, response: str) -> List[ActionSuggestion]:
         return self.dm_graph_runner.build_action_suggestions_for_response(state, response)
 
+    def project_action_suggestions(
+        self,
+        state: GameState,
+        response: str,
+        user_input: str = "",
+    ) -> tuple[List[ActionSuggestion], Dict[str, Any]]:
+        return self.dm_graph_runner._generate_action_suggestion_projection(
+            state,
+            {
+                "game_state": state.model_dump(mode="json"),
+                "user_input": user_input,
+                "turn_profile": "ui_projection",
+            },
+            response,
+        )
+
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
         return self.dm_graph_runner.run_turn(state, user_input)
 

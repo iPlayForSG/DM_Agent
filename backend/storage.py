@@ -3,6 +3,7 @@
 import glob
 import json
 import os
+import shutil
 from datetime import datetime
 from typing import List, Optional
 
@@ -11,6 +12,7 @@ from models import Character, CharacterSummary, GameState, GameSummary, MonsterS
 GAME_DIR = os.path.join(os.path.dirname(__file__), "Game")
 CHAR_DIR = os.path.join(os.path.dirname(__file__), "Characters")
 MONSTER_DIR = os.path.join(os.path.dirname(__file__), "Monsters")
+REWIND_DIR = os.path.join(GAME_DIR, "_rewind")
 
 
 def now_iso() -> str:
@@ -26,9 +28,16 @@ class GameStorage:
     # Game state is stored as one JSON file per game id.
     def __init__(self):
         os.makedirs(GAME_DIR, exist_ok=True)
+        os.makedirs(REWIND_DIR, exist_ok=True)
 
     def _get_path(self, game_id: str) -> str:
         return os.path.join(GAME_DIR, f"{safe_file_stem(game_id)}.json")
+
+    def _get_rewind_dir(self, game_id: str) -> str:
+        return os.path.join(REWIND_DIR, safe_file_stem(game_id))
+
+    def _get_rewind_path(self, game_id: str, message_index: int) -> str:
+        return os.path.join(self._get_rewind_dir(game_id), f"{int(message_index):06d}.json")
 
     def save_game(self, game_id: str, state: GameState) -> None:
         state.game_id = game_id
@@ -76,6 +85,48 @@ class GameStorage:
         path = self._get_path(game_id)
         if os.path.exists(path):
             os.remove(path)
+        rewind_dir = self._get_rewind_dir(game_id)
+        if os.path.isdir(rewind_dir):
+            shutil.rmtree(rewind_dir)
+
+    def save_rewind_snapshot(self, game_id: str, message_index: int, state: GameState) -> None:
+        if message_index < 0:
+            return
+        snapshot = state.model_copy(deep=True)
+        snapshot.game_id = game_id
+        snapshot.title = snapshot.title or game_id
+
+        rewind_dir = self._get_rewind_dir(game_id)
+        os.makedirs(rewind_dir, exist_ok=True)
+        with open(self._get_rewind_path(game_id, message_index), "w", encoding="utf-8") as handle:
+            handle.write(snapshot.model_dump_json(indent=2))
+
+    def load_rewind_snapshot(self, game_id: str, message_index: int) -> Optional[GameState]:
+        path = self._get_rewind_path(game_id, message_index)
+        if not os.path.exists(path):
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            state = GameState.model_validate(data)
+            state.game_id = game_id
+            state.title = state.title or game_id
+            return state
+        except Exception as exc:
+            print(f"Error loading rewind snapshot {game_id}@{message_index}: {exc}")
+            return None
+
+    def prune_rewind_snapshots_from(self, game_id: str, message_index: int) -> None:
+        rewind_dir = self._get_rewind_dir(game_id)
+        if not os.path.isdir(rewind_dir):
+            return
+        for path in glob.glob(os.path.join(rewind_dir, "*.json")):
+            try:
+                index = int(os.path.splitext(os.path.basename(path))[0])
+            except ValueError:
+                continue
+            if index >= message_index:
+                os.remove(path)
 
 
 class CharacterStorage:

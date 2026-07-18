@@ -22,6 +22,8 @@ from rules_catalog import ABILITY_ALIAS, SKILL_TO_ABILITY, proficiency_bonus_for
 
 
 class DiceRoller:
+    VALID_ROLL_MODES = {"normal", "advantage", "disadvantage"}
+
     @staticmethod
     def roll(expression: str) -> Tuple[int, str]:
         expression = expression.lower().replace(" ", "")
@@ -29,6 +31,8 @@ class DiceRoller:
         if not match:
             try:
                 value = int(expression)
+                if abs(value) > 100000:
+                    raise ValueError("Fixed dice result is outside the supported range")
                 return value, str(value)
             except ValueError:
                 return 0, "Invalid Dice"
@@ -36,6 +40,13 @@ class DiceRoller:
         count = int(match.group(1))
         sides = int(match.group(2))
         modifier = int(match.group(3)) if match.group(3) else 0
+
+        if count < 1 or count > 100:
+            raise ValueError("Dice count must be between 1 and 100")
+        if sides < 1 or sides > 1000:
+            raise ValueError("Dice sides must be between 1 and 1000")
+        if abs(modifier) > 100000:
+            raise ValueError("Dice modifier is outside the supported range")
 
         rolls = [random.randint(1, sides) for _ in range(count)]
         total = sum(rolls) + modifier
@@ -46,10 +57,24 @@ class DiceRoller:
         return total, detail
 
     @staticmethod
-    def roll_d20(modifier: int = 0) -> Tuple[int, int, str]:
-        natural = random.randint(1, 20)
+    def roll_d20(modifier: int = 0, roll_mode: str = "normal") -> Tuple[int, int, str]:
+        normalized_mode = str(roll_mode or "normal").strip().casefold()
+        if normalized_mode not in DiceRoller.VALID_ROLL_MODES:
+            raise ValueError(f"Unsupported d20 roll mode: {roll_mode}")
+        rolls = [random.randint(1, 20)]
+        if normalized_mode != "normal":
+            rolls.append(random.randint(1, 20))
+        natural = (
+            max(rolls)
+            if normalized_mode == "advantage"
+            else min(rolls)
+            if normalized_mode == "disadvantage"
+            else rolls[0]
+        )
         total = natural + modifier
-        detail = f"[{natural}]"
+        detail = f"[{','.join(map(str, rolls))}]"
+        if normalized_mode != "normal":
+            detail += f" -> [{natural}]"
         if modifier:
             detail += f"{modifier:+d}"
         return natural, total, detail
@@ -1355,6 +1380,7 @@ class GameLogic:
         damage_expression: str,
         damage_type: str = "",
         resolution_mode: str = "normal",
+        roll_mode: str = "normal",
     ) -> Optional[Dict[str, Any]]:
         target_character = self.get_character(target_ref)
         target_combatant = None if target_character else self.get_combatant(target_ref)
@@ -1362,7 +1388,7 @@ class GameLogic:
             return None
 
         target = target_character or target_combatant
-        natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus)
+        natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus, roll_mode=roll_mode)
         critical = natural == 20
         hit = critical or (natural != 1 and attack_total >= target.ac)
 
@@ -1375,6 +1401,7 @@ class GameLogic:
             if critical:
                 damage_roll = self._expand_critical_damage(damage_expression)
             damage_total, damage_detail = DiceRoller.roll(damage_roll)
+            damage_total = max(0, damage_total)
             hp_result = self.update_target_hp(target_ref, -damage_total)
             if hp_result:
                 patch = hp_result["patch"]
@@ -1405,6 +1432,7 @@ class GameLogic:
             "damage_detail": damage_detail,
             "damage_type": damage_type,
             "resolution_mode": resolution_mode,
+            "roll_mode": roll_mode,
             "target_hp_current": target.hp_current,
             "target_defeat_state": getattr(target, "defeat_state", "active"),
             "concentration_check": concentration_check,
@@ -1417,8 +1445,9 @@ class GameLogic:
         skill_name: str,
         modifier: int,
         dc: int = 0,
+        roll_mode: str = "normal",
     ) -> Dict[str, Any]:
-        natural, total, detail = DiceRoller.roll_d20(modifier)
+        natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
         return {
             "actor_name": self.get_actor_name(actor_ref),
             "skill_name": skill_name,
@@ -1428,6 +1457,7 @@ class GameLogic:
             "total": total,
             "detail": detail,
             "success": None if dc <= 0 else total >= dc,
+            "roll_mode": roll_mode,
         }
 
     def roll_saving_throw(
@@ -1436,8 +1466,9 @@ class GameLogic:
         save_name: str,
         modifier: int,
         dc: int,
+        roll_mode: str = "normal",
     ) -> Dict[str, Any]:
-        natural, total, detail = DiceRoller.roll_d20(modifier)
+        natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
         return {
             "target_name": self.get_actor_name(target_ref),
             "save_name": save_name,
@@ -1447,6 +1478,7 @@ class GameLogic:
             "total": total,
             "detail": detail,
             "success": total >= dc,
+            "roll_mode": roll_mode,
         }
 
     def set_initiative(self, identifier: str, initiative: int) -> Optional[Combatant]:

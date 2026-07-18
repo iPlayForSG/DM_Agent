@@ -328,6 +328,27 @@ class DMGraphWorkflowTests(unittest.TestCase):
             "none",
         )
 
+    def test_concrete_skill_action_with_how_language_stays_action_resolution(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+
+        intent = self.runner._plan_turn_intent(
+            state,
+            "我用调查判断机关如何运作，不踩进符号圈。",
+            "exploration",
+            "exploration",
+        )
+        routed = self.runner._classify_turn_profile(
+            state,
+            "我用调查判断机关如何运作，不踩进符号圈。",
+            "exploration",
+            intent.model_dump(mode="json"),
+        )
+
+        self.assertEqual(intent.turn_type, "action_resolution")
+        self.assertIn("roll_skill_check", intent.suggested_tools)
+        self.assertEqual(routed["turn_profile"], "action_resolution")
+        self.assertIn("roll_skill_check", routed["allowed_tools"])
+
     def test_rules_question_uses_lookup_only_profile(self) -> None:
         state = self._build_state(with_selected_adventure=True)
         routed = self.runner._route_phase(
@@ -383,7 +404,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(routed["suggested_tools"], ["attack_target"])
         self.assertEqual(routed["allowed_tools"][0], "attack_target")
         self.assertIn("attack_target", routed["allowed_tools"])
-        self.assertEqual(routed["tool_round_limit"], 3)
+        self.assertEqual(routed["tool_round_limit"], 8)
 
     def test_tool_guardrail_rejects_missing_required_argument(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -652,6 +673,293 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertFalse(second_action.ok)
         self.assertIn("action already used", second_action.error)
         self.assertTrue(second_action.metadata["consumes_turn_action"])
+
+    def test_agent_skill_check_normalizes_chinese_name_and_ignores_model_modifier(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.stats.intelligence = 12
+        character.stats.wisdom = 10
+        character.skill_proficiencies = {"Religion": 1}
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="roll_skill_check",
+            args={
+                "actor_ref": character.character_id,
+                "skill_name": "宗教",
+                "modifier": 99,
+                "dc": 12,
+            },
+            allowed_tools=["roll_skill_check"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["skill_name"], "Religion")
+        self.assertEqual(execution.payload["skill_name_display"], "宗教")
+        self.assertEqual(execution.payload["modifier"], 3)
+        self.assertEqual(execution.payload["modifier_source"], "character_sheet")
+
+    def test_agent_character_attack_ignores_model_attack_math(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.stats.strength = 15
+        character.inventory = [
+            InventoryItem(name="Mace", quantity=1, type="weapon", is_equipped=True)
+        ]
+        logic = GameLogic(state)
+        logic.start_encounter(["Goblin"], enemy_hp=20, enemy_ac=10)
+        party = next(
+            item for item in state.encounter.combatants.values()
+            if item.linked_character_id == character.character_id
+        )
+        enemy = next(item for item in state.encounter.combatants.values() if item.side == "enemy")
+        logic.set_initiative(party.combatant_id, 18)
+        logic.set_initiative(enemy.combatant_id, 8)
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        with patch("game_logic.random.randint", side_effect=[10, 3]):
+            execution = service.attack_target(
+                state,
+                attacker_ref=party.combatant_id,
+                target_ref=enemy.combatant_id,
+                attack_bonus=99,
+                damage_expression="100d1000+999",
+                damage_type="force",
+            )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["attack_total"], 14)
+        self.assertEqual(execution.payload["damage_expression"], "1d6+2")
+        self.assertEqual(execution.payload["damage_total"], 5)
+        self.assertEqual(execution.payload["damage_type"], "bludgeoning")
+        self.assertEqual(execution.payload["requested_attack_bonus"], 99)
+        self.assertEqual(execution.payload["requested_damage_expression"], "100d1000+999")
+        self.assertEqual(execution.payload["modifier_source"], "character_sheet")
+
+    def test_agent_character_save_ignores_model_modifier_and_normalizes_chinese_name(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.stats.wisdom = 10
+        character.save_proficiencies = {"Wisdom": True}
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        with patch("game_logic.random.randint", return_value=10):
+            execution = service.roll_saving_throw(
+                state,
+                target_ref=character.character_id,
+                save_name="感知",
+                dc=12,
+                modifier=99,
+            )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["save_name"], "wisdom")
+        self.assertEqual(execution.payload["modifier"], 2)
+        self.assertEqual(execution.payload["total"], 12)
+        self.assertEqual(execution.payload["modifier_source"], "character_sheet")
+
+    def test_agent_skill_check_rolls_real_advantage_and_rejects_false_claims(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        with patch("game_logic.random.randint", side_effect=[3, 17]):
+            execution = service.roll_skill_check(
+                state,
+                actor_ref=character.character_id,
+                skill_name="Perception",
+                dc=12,
+                roll_mode="advantage",
+                reason="谨慎搜索获得优势",
+            )
+        rejected = service.roll_skill_check(
+            state,
+            actor_ref=character.character_id,
+            skill_name="Perception",
+            dc=12,
+            roll_mode="normal",
+            reason="谨慎搜索获得优势",
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["roll_mode"], "advantage")
+        self.assertEqual(execution.payload["natural"], 17)
+        self.assertIn("[3,17] -> [17]", execution.payload["detail"])
+        self.assertFalse(rejected.ok)
+        self.assertIn("roll_mode is not advantage", rejected.error)
+
+    def test_thrown_weapon_uses_strength_unless_it_is_finesse(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.stats.strength = 14
+        character.stats.dexterity = 18
+        character.inventory = [InventoryItem(name="Javelin", quantity=1, type="weapon")]
+
+        profile = RuleCatalog().resolve_character_attack_profile(character, attack_name="Javelin")
+
+        self.assertEqual(profile["attack_bonus"], 4)
+        self.assertEqual(profile["damage_expression"], "1d6+2")
+
+    def test_indirect_signal_evidence_must_keep_interpretations_unverified(self) -> None:
+        graph_state = {
+            "user_input": "我约定哈兰敲一下、艾拉敲两下、奥图敲三下。",
+        }
+
+        rejected = self.runner._repair_tool_call_error(
+            graph_state,
+            "record_evidence",
+            {
+                "title": "石板下的敲击回应",
+                "summary": "通过敲击确认三人均存活且神志清醒，危险就在他们身边。",
+            },
+        )
+        accepted = self.runner._repair_tool_call_error(
+            graph_state,
+            "record_evidence",
+            {
+                "title": "石板下的敲击回应",
+                "summary": "观察到依次一、二、三下敲击；若约定被真实执行，可能对应三名失踪者，但来源身份未核实。",
+            },
+        )
+
+        self.assertIn("Indirect signals cannot authenticate", rejected)
+        self.assertEqual(accepted, "")
+
+    def test_indirect_signal_narration_rejects_certainty_claims(self) -> None:
+        user_input = "我约定哈兰敲一下、艾拉敲两下、奥图敲三下。"
+
+        rejected = self.runner._indirect_signal_response_issue(
+            user_input,
+            "三组敲击分别对应三人，危险就在他们身边。",
+        )
+        rejected_count = self.runner._indirect_signal_response_issue(
+            user_input,
+            "地下那三个敲击者仍然沉默。",
+        )
+        accepted = self.runner._indirect_signal_response_issue(
+            user_input,
+            "我只确认听到了依次一、二、三下敲击；它们可能对应约定对象，但身份与危险仍未核实。",
+        )
+
+        self.assertIn("only indirect signals", rejected)
+        self.assertIn("only indirect signals", rejected_count)
+        self.assertEqual(accepted, "")
+
+    def test_combat_turn_narration_cannot_advance_without_state_change(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["Stone Warden"], enemy_hp=20, enemy_ac=14)
+        party = next(
+            item for item in state.encounter.combatants.values()
+            if item.linked_character_id == state.active_character_id
+        )
+        enemy = next(item for item in state.encounter.combatants.values() if item.side == "enemy")
+        logic.set_initiative(enemy.combatant_id, 18)
+        logic.set_initiative(party.combatant_id, 10)
+
+        rejected = self.runner._combat_turn_claim_error(
+            state,
+            f"石缚看守的动作结束。现在轮到你了，**{state.get_active_char().name}的回合。**",
+        )
+        accepted = self.runner._combat_turn_claim_error(
+            state,
+            "石缚看守仍是当前行动者，尚未轮到塞琳。",
+        )
+
+        self.assertIn("current combatant", rejected)
+        self.assertEqual(accepted, "")
+
+    def test_attack_damage_cannot_be_applied_twice_with_adjust_hp(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.get_active_char()
+        graph_state = {
+            "game_state": state.model_dump(mode="json"),
+            "tool_results": [
+                {
+                    "tool_name": "combat.attack_target",
+                    "payload": {
+                        "target_name": character.name,
+                        "damage_total": 7,
+                    },
+                }
+            ],
+        }
+
+        rejected = self.runner._repair_tool_call_error(
+            graph_state,
+            "adjust_hp",
+            {"target_ref": character.character_id, "amount": -7},
+        )
+        accepted = self.runner._repair_tool_call_error(
+            graph_state,
+            "adjust_hp",
+            {"target_ref": character.character_id, "amount": 3},
+        )
+
+        self.assertIn("already applied", rejected)
+        self.assertEqual(accepted, "")
+
+    def test_solo_level_one_encounter_rejects_one_shot_monster_math(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        rejected_encounter = service.start_encounter(
+            state,
+            enemy_names=["Stone Warden"],
+            enemy_hp=22,
+            enemy_ac=15,
+        )
+        GameLogic(state).start_encounter(["Training Marker"], enemy_hp=10, enemy_ac=10)
+        rejected_template = service.save_monster_template(
+            state,
+            name="Stone Warden",
+            challenge_rating="1",
+            hp_max=22,
+            ac=15,
+            actions=["Slam: +5 to hit, 2d6+3 bludgeoning damage"],
+        )
+        safe_attack_error = RuleCatalog().solo_level_one_npc_attack_error(
+            state,
+            attack_bonus=3,
+            damage_expression="1d6+1",
+        )
+        lethal_attack_error = RuleCatalog().solo_level_one_npc_attack_error(
+            state,
+            attack_bonus=5,
+            damage_expression="2d6+3",
+        )
+
+        self.assertFalse(rejected_encounter.ok)
+        self.assertIn("15 HP and AC 14", rejected_encounter.error)
+        self.assertFalse(rejected_template.ok)
+        self.assertIn("CR 1/2 or lower", rejected_template.error)
+        self.assertEqual(safe_attack_error, "")
+        self.assertTrue(lethal_attack_error)
 
     def test_advance_turn_resets_turn_action_ledger(self) -> None:
         state = self._build_state(with_selected_adventure=True)

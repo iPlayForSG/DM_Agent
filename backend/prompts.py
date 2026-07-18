@@ -51,7 +51,7 @@ Player-facing response format:
 - Avoid quest-log/status-log headings such as `当前变化`, `完成搜索`, `已收入背包`, or similar UI-like bookkeeping in player-facing prose.
 - During combat, include the round/current actor and the visible tactical situation when it helps the player choose. Do not dump full stat blocks unless the player asks.
 - After a combat, scene, or chapter ends, briefly summarize the meaningful consequences and persist durable facts with tools before saying they are settled.
-- Do not include numbered or bulleted suggested player actions, option lists, or "你可以..." choice menus in player-facing prose. The UI presents exactly three action suggestions outside the dialogue.
+- Do not include numbered or bulleted suggested player actions, option lists, "你可以..." choice menus, or A/B/C decision menus in player-facing prose. The UI presents exactly three action suggestions outside the dialogue.
 - End setup, exploration, and downtime replies with the immediate in-world situation, a single natural prompt when needed, or the consequence that now demands a choice.
 """
 
@@ -69,6 +69,7 @@ Setup and Session 0 guidance:
 TOOL_USE_PROTOCOL = """
 Tool protocol:
 - Use `lookup_rules` when you need a rules snippet, monster reference, or setting material that is not already in the game state.
+- Do not write suggested actions in the dialogue. A separate UI projection generates optional action inspiration after the authoritative turn is complete; free-form player input always remains available.
 - If this turn already includes retrieved rule snippets in the system prompt, treat them as the primary reference before calling `lookup_rules` again.
 - Use `roll_dice` for checks, saves, attacks, damage, healing, and random outcomes.
 - Use `adjust_hp` whenever HP changes.
@@ -77,6 +78,7 @@ Tool protocol:
 - Use `add_inventory_item` when the party gains named loot, clues, letters, keys, weapons, or other evidence that should persist.
 - Use `use_feature` when a class feature, monster feature, trait, bonus action, or reaction is used so turn slots and character resource pools stay authoritative.
 - Use `record_evidence` for named clues, documents, tokens, and other investigation artifacts that should remain queryable later.
+- Treat knocks, gestures, coded replies, tracks, silhouettes, and other indirect signals as observations rather than authenticated identities. Persist the observed pattern separately from any interpretation, and label identity, headcount, survival, mental state, source, and danger claims as unverified unless direct evidence independently confirms them. One source may imitate several coded replies.
 - Use `record_search_outcome` after a meaningful body search, room search, or suspect frisk so the result is not trapped only in prose. When it references evidence, you may pass either the evidence title or the evidence id from `record_evidence`.
 - Use `record_major_experience` when a character has a meaningful milestone, revelation, or lasting outcome worth keeping on the sheet.
 - Use `record_chapter_progress` when chapter state changes. The default is to update the current chapter; set `completed=true` only when the chapter is actually finished.
@@ -128,6 +130,8 @@ def build_dm_instruction(
     suggested_tools: list[str] | None = None,
     turn_checklist: list[str] | None = None,
     turn_intent: dict | None = None,
+    reply_min_chars: int = 0,
+    reply_max_chars: int = 0,
 ) -> str:
     rag_status = (
         "Rules retrieval is available. Use `lookup_rules` before citing detailed rules or niche monster lore."
@@ -174,6 +178,17 @@ Current turn profile:
 - Suggested tools: {' | '.join(suggested_tools or []) if suggested_tools else 'None preferred.'}
 - Checklist: {' | '.join(turn_checklist or []) if turn_checklist else 'No extra checklist.'}
 """.strip()
+    length_lines = []
+    if reply_min_chars > 0:
+        length_lines.append(f"minimum {reply_min_chars} visible Chinese characters")
+    if reply_max_chars > 0:
+        length_lines.append(f"maximum {reply_max_chars} visible Chinese characters")
+    length_block = f"""
+Player-facing reply length:
+- Target: {'; '.join(length_lines) if length_lines else 'No explicit per-reply character limit is configured.'}
+- Count only the player-facing narrative text, not hidden tool calls or structured action suggestions.
+- Satisfy the length target through concise scene narration and useful consequences; do not add filler, disclaimers, or meta text about the limit.
+""".strip()
     return f"""
 {CORE_DM_MANDATE}
 
@@ -197,6 +212,8 @@ Knowledge base status:
 {intent_block}
 
 {turn_block}
+
+{length_block}
 
 Current game state:
 {state_summary}

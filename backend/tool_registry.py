@@ -40,6 +40,7 @@ class ToolGuardrailResult:
 
 TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "lookup_rules": {"side_effect": "read", "risk_level": "low"},
+    "set_player_action_suggestions": {"side_effect": "ui_write", "risk_level": "low"},
     "roll_dice": {"side_effect": "random", "risk_level": "low"},
     "adjust_hp": {"side_effect": "state_write", "risk_level": "medium"},
     "add_status": {"side_effect": "state_write", "risk_level": "medium"},
@@ -191,6 +192,11 @@ class ToolRegistry:
         if schema_error:
             return self._reject(tool_name, schema_error, contract=contract)
 
+        if tool_name == "set_player_action_suggestions":
+            suggestion_error = self._validate_player_action_suggestions(normalized_args)
+            if suggestion_error:
+                return self._reject(tool_name, suggestion_error, contract=contract)
+
         encounter_active = bool(state.encounter and state.encounter.active)
         if contract.needs_active_encounter and not encounter_active:
             return self._reject(
@@ -256,6 +262,67 @@ class ToolRegistry:
             enum_values = prop_schema.get("enum")
             if enum_values and value not in enum_values:
                 return f"Invalid value for `{field_name}` on {contract.name}: {value!r}."
+        return ""
+
+    @staticmethod
+    def _validate_player_action_suggestions(args: Dict[str, Any]) -> str:
+        suggestions = args.get("suggestions")
+        if not isinstance(suggestions, list):
+            return "`suggestions` must be an array for set_player_action_suggestions."
+        if len(suggestions) != 3:
+            return "set_player_action_suggestions requires exactly three suggestions."
+        seen_labels: set[str] = set()
+        seen_actions: set[str] = set()
+        generic_labels = {
+            "询问知情者",
+            "调查线索",
+            "调查现场",
+            "交涉打听",
+            "谨慎前进",
+            "保持警戒",
+            "检查入口",
+            "观察战场",
+            "准备攻击",
+            "战术移动",
+        }
+        generic_phrases = [
+            "最近的知情者",
+            "这里发生了什么",
+            "谁掌握更多线索",
+            "眼前最可疑的线索",
+            "痕迹、机关或隐藏的信息",
+            "寻找能说明下一步方向的细节",
+            "附近的人交谈",
+            "沿着最可疑的方向",
+            "敌人的位置、掩体、危险地形",
+            "最有威胁的敌人",
+            "更有利的位置",
+            "可能的伏击",
+        ]
+        for index, item in enumerate(suggestions, start=1):
+            if not isinstance(item, dict):
+                return f"Suggestion {index} must be an object with label and action."
+            label = " ".join(str(item.get("label") or "").split()).strip()
+            action = " ".join(str(item.get("action") or "").split()).strip()
+            if not label:
+                return f"Suggestion {index} label cannot be empty."
+            if not action:
+                return f"Suggestion {index} action cannot be empty."
+            if len(label) > 24:
+                return f"Suggestion {index} label is too long; keep it button-sized."
+            if len(action) > 160:
+                return f"Suggestion {index} action is too long; keep it editable for the player."
+            if label in generic_labels or any(phrase in action for phrase in generic_phrases):
+                return (
+                    "set_player_action_suggestions must be scene-specific; "
+                    f"suggestion {index} is generic instead of referencing concrete NPCs, locations, clues, or threats."
+                )
+            label_key = label.casefold()
+            action_key = action.casefold()
+            if label_key in seen_labels or action_key in seen_actions:
+                return "set_player_action_suggestions suggestions must be distinct."
+            seen_labels.add(label_key)
+            seen_actions.add(action_key)
         return ""
 
     @staticmethod

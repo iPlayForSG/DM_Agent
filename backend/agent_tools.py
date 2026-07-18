@@ -119,6 +119,36 @@ class AgentToolService:
         return (getattr(combatant.stats, attr, 10) - 10) // 2
 
     @staticmethod
+    def _roll_mode_error(reason: str, roll_mode: str) -> str:
+        normalized_reason = str(reason or "").casefold()
+        normalized_mode = str(roll_mode or "normal").casefold()
+        claims_advantage = "优势" in normalized_reason or "advantage" in normalized_reason
+        claims_disadvantage = "劣势" in normalized_reason or "disadvantage" in normalized_reason
+        if claims_advantage and normalized_mode != "advantage":
+            return "reason claims mechanical advantage but roll_mode is not advantage"
+        if claims_disadvantage and normalized_mode != "disadvantage":
+            return "reason claims mechanical disadvantage but roll_mode is not disadvantage"
+        return ""
+
+    @staticmethod
+    def _roll_mode_summary(roll_mode: str) -> str:
+        if roll_mode == "advantage":
+            return "（优势）"
+        if roll_mode == "disadvantage":
+            return "（劣势）"
+        return ""
+
+    @staticmethod
+    def _linked_character(state: GameState, logic: GameLogic, identifier: str):
+        character = logic.get_character(identifier)
+        if character:
+            return character
+        combatant = logic.get_combatant(identifier)
+        if combatant and combatant.linked_character_id:
+            return state.characters.get(combatant.linked_character_id)
+        return None
+
+    @staticmethod
     def _normalize_text_entries(entries: Optional[List[str]]) -> List[MonsterTextEntry]:
         normalized: List[MonsterTextEntry] = []
         for index, item in enumerate(entries or [], start=1):
@@ -165,6 +195,28 @@ class AgentToolService:
             event_type="rules_retrieved",
             content=normalized_query,
             status="success" if snippets else "empty",
+        )
+
+    def set_player_action_suggestions(
+        self,
+        state: GameState,
+        suggestions: List[Dict[str, Any]],
+    ) -> AgentToolExecution:
+        normalized: List[Dict[str, str]] = []
+        for item in suggestions or []:
+            if not isinstance(item, dict):
+                continue
+            label = " ".join(str(item.get("label") or "").split()).strip()
+            action = " ".join(str(item.get("action") or "").split()).strip()
+            if label and action:
+                normalized.append({"label": label, "action": action})
+
+        if len(normalized) != 3:
+            return self._error("set_player_action_suggestions requires exactly three valid suggestions.")
+
+        return AgentToolExecution(
+            ok=True,
+            payload={"suggestions": normalized},
         )
 
     def roll_dice(self, state: GameState, expression: str, reason: str = "") -> AgentToolExecution:
@@ -511,6 +563,14 @@ class AgentToolService:
         enemy_ac: int = 10,
         auto_roll_initiative: bool = True,
     ) -> AgentToolExecution:
+        balance_error = self.rules_catalog.solo_level_one_encounter_error(
+            state,
+            enemy_names,
+            enemy_hp,
+            enemy_ac,
+        )
+        if balance_error:
+            return self._error(balance_error)
         logic = GameLogic(state)
         encounter = logic.start_encounter(enemy_names, enemy_hp=enemy_hp, enemy_ac=enemy_ac)
         if auto_roll_initiative:
@@ -590,6 +650,16 @@ class AgentToolService:
         reactions: Optional[List[str]] = None,
         bonus_actions: Optional[List[str]] = None,
     ) -> AgentToolExecution:
+        if state.encounter and state.encounter.active:
+            balance_error = self.rules_catalog.solo_level_one_monster_template_error(
+                state,
+                challenge_rating,
+                hp_max,
+                ac,
+                actions,
+            )
+            if balance_error:
+                return self._error(balance_error)
         monster = MonsterTemplate(
             name=name,
             creature_type=creature_type,
@@ -669,11 +739,13 @@ class AgentToolService:
         state: GameState,
         attacker_ref: str,
         target_ref: str,
-        attack_bonus: int,
-        damage_expression: str,
+        attack_bonus: Optional[int] = None,
+        damage_expression: str = "",
         damage_type: str = "",
         resolution_mode: str = "normal",
         reason: str = "",
+        attack_name: str = "",
+        roll_mode: str = "normal",
     ) -> AgentToolExecution:
         logic = GameLogic(state)
         try:
@@ -682,6 +754,42 @@ class AgentToolService:
         except ValueError as exc:
             return self._error(str(exc))
 
+        roll_mode_error = self._roll_mode_error(reason, roll_mode)
+        if roll_mode_error:
+            return self._error(roll_mode_error)
+
+        requested_attack_bonus = attack_bonus
+        requested_damage_expression = damage_expression
+        attacker = self._linked_character(state, logic, attacker_ref)
+        if attacker:
+            try:
+                profile = self.rules_catalog.resolve_character_attack_profile(
+                    attacker,
+                    attack_name=attack_name,
+                    requested_attack_bonus=attack_bonus,
+                    requested_damage_expression=damage_expression,
+                )
+            except ValueError as exc:
+                return self._error(str(exc))
+            attack_bonus = int(profile["attack_bonus"])
+            damage_expression = str(profile["damage_expression"])
+            damage_type = str(profile["damage_type"])
+            resolved_attack_name = str(profile["attack_name"])
+            modifier_source = "character_sheet"
+        else:
+            if attack_bonus is None or not str(damage_expression or "").strip():
+                return self._error("Non-character attacks require attack_bonus and damage_expression")
+            attack_bonus = int(attack_bonus)
+            balance_error = self.rules_catalog.solo_level_one_npc_attack_error(
+                state,
+                attack_bonus,
+                damage_expression,
+            )
+            if balance_error:
+                return self._error(balance_error)
+            resolved_attack_name = str(attack_name or "")
+            modifier_source = "explicit_non_character"
+
         result = logic.resolve_attack(
             attacker_ref=attacker_ref,
             target_ref=target_ref,
@@ -689,6 +797,7 @@ class AgentToolService:
             damage_expression=damage_expression,
             damage_type=damage_type,
             resolution_mode=resolution_mode,
+            roll_mode=roll_mode,
         )
         if not result:
             return self._error(f"Attack target not found: {target_ref}")
@@ -710,6 +819,11 @@ class AgentToolService:
             "damage_type": result["damage_type"],
             "damage_type_display": damage_type_display,
             "resolution_mode": result["resolution_mode"],
+            "roll_mode": result["roll_mode"],
+            "attack_name": resolved_attack_name,
+            "requested_attack_bonus": requested_attack_bonus,
+            "requested_damage_expression": requested_damage_expression,
+            "modifier_source": modifier_source,
             "target_hp_current": result["target_hp_current"],
             "target_defeat_state": result["target_defeat_state"],
             "target_defeat_state_display": target_defeat_state_display,
@@ -720,7 +834,7 @@ class AgentToolService:
             payload["concentration_check"] = concentration_check
         hit_display = "命中" if result["hit"] else "未命中"
         summary = (
-            f"{result['attacker_name']} 攻击 {result['target_name']}："
+            f"{result['attacker_name']} 攻击 {result['target_name']}{self._roll_mode_summary(roll_mode)}："
             f"{result['attack_total']} vs AC {result['target_ac']} -> "
             f"{hit_display}"
         )
@@ -754,6 +868,7 @@ class AgentToolService:
         modifier: Optional[int] = None,
         dc: int = 0,
         reason: str = "",
+        roll_mode: str = "normal",
     ) -> AgentToolExecution:
         logic = GameLogic(state)
         try:
@@ -762,28 +877,47 @@ class AgentToolService:
         except ValueError as exc:
             return self._error(str(exc))
 
-        resolved_modifier = modifier
+        roll_mode_error = self._roll_mode_error(reason, roll_mode)
+        if roll_mode_error:
+            return self._error(roll_mode_error)
+
+        requested_skill_name = skill_name
+        canonical_skill_name = self.rules_catalog.normalize_skill_name(skill_name)
         actor = logic.get_character(actor_ref)
-        if actor and resolved_modifier is None:
-            resolved_modifier = self.rules_catalog.get_skill_modifier(actor, skill_name)
-        elif resolved_modifier is None:
+        resolved_modifier: Optional[int] = None
+        if actor:
+            resolved_modifier = self.rules_catalog.get_skill_modifier(actor, canonical_skill_name)
+        else:
             combatant = logic.get_combatant(actor_ref)
             if combatant:
                 resolved_modifier = int(
                     combatant.skills.get(
-                        skill_name,
-                        self._combatant_ability_modifier(combatant, SKILL_TO_ABILITY.get(skill_name, "wisdom")),
+                        canonical_skill_name,
+                        combatant.skills.get(
+                            requested_skill_name,
+                            self._combatant_ability_modifier(
+                                combatant,
+                                SKILL_TO_ABILITY.get(canonical_skill_name, "wisdom"),
+                            ),
+                        ),
                     )
                 )
         result = logic.roll_skill_check(
             actor_ref=actor_ref,
-            skill_name=skill_name,
+            skill_name=canonical_skill_name,
             modifier=int(resolved_modifier or 0),
             dc=dc,
+            roll_mode=roll_mode,
         )
-        skill_display = self.library.localize_game_terms(skill_name)
-        payload = {**result, "skill_name_display": skill_display, "reason": reason}
-        summary = f"{result['actor_name']} {skill_display}检定 {result['total']}"
+        skill_display = self.library.localize_game_terms(canonical_skill_name)
+        payload = {
+            **result,
+            "requested_skill_name": requested_skill_name,
+            "skill_name_display": skill_display,
+            "modifier_source": "character_sheet" if actor else "combatant_sheet",
+            "reason": reason,
+        }
+        summary = f"{result['actor_name']} {skill_display}检定{self._roll_mode_summary(roll_mode)} {result['total']}"
         if dc > 0:
             summary += f" vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         if reason:
@@ -809,27 +943,52 @@ class AgentToolService:
         dc: int,
         modifier: Optional[int] = None,
         reason: str = "",
+        roll_mode: str = "normal",
     ) -> AgentToolExecution:
         logic = GameLogic(state)
-        resolved_modifier = modifier
-        target = logic.get_character(target_ref)
-        if target and resolved_modifier is None:
-            resolved_modifier = self.rules_catalog.get_save_modifier(target, save_name)
-        elif resolved_modifier is None:
-            combatant = logic.get_combatant(target_ref)
-            if combatant:
-                resolved_modifier = int(
-                    combatant.saving_throws.get(save_name, self._combatant_ability_modifier(combatant, save_name))
+        roll_mode_error = self._roll_mode_error(reason, roll_mode)
+        if roll_mode_error:
+            return self._error(roll_mode_error)
+        requested_save_name = save_name
+        canonical_save_name = self.rules_catalog.normalize_save_name(save_name)
+        target = self._linked_character(state, logic, target_ref)
+        combatant = logic.get_combatant(target_ref)
+        if target:
+            resolved_modifier = self.rules_catalog.get_save_modifier(target, canonical_save_name)
+            modifier_source = "character_sheet"
+        elif modifier is not None:
+            resolved_modifier = int(modifier)
+            modifier_source = "explicit_non_character"
+        elif combatant:
+            resolved_modifier = int(
+                combatant.saving_throws.get(
+                    canonical_save_name,
+                    combatant.saving_throws.get(
+                        requested_save_name,
+                        self._combatant_ability_modifier(combatant, canonical_save_name),
+                    ),
                 )
+            )
+            modifier_source = "combatant_sheet"
+        else:
+            resolved_modifier = 0
+            modifier_source = "missing_target"
         result = logic.roll_saving_throw(
             target_ref=target_ref,
-            save_name=save_name,
+            save_name=canonical_save_name,
             modifier=int(resolved_modifier or 0),
             dc=dc,
+            roll_mode=roll_mode,
         )
-        save_display = self.library.localize_game_terms(save_name)
-        payload = {**result, "save_name_display": save_display, "reason": reason}
-        summary = f"{result['target_name']} {save_display}豁免 {result['total']} vs DC {dc} -> {'成功' if result['success'] else '失败'}"
+        save_display = self.library.localize_game_terms(canonical_save_name.title())
+        payload = {
+            **result,
+            "requested_save_name": requested_save_name,
+            "save_name_display": save_display,
+            "modifier_source": modifier_source,
+            "reason": reason,
+        }
+        summary = f"{result['target_name']} {save_display}豁免{self._roll_mode_summary(roll_mode)} {result['total']} vs DC {dc} -> {'成功' if result['success'] else '失败'}"
         if reason:
             summary += f" | {self.library.localize_game_terms(reason)}"
         return self._success(

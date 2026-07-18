@@ -17,6 +17,7 @@ from adventure_service import (
     generate_initial_adventures,
     is_ai_generated_adventure_id,
     is_model_generated_adventure_id,
+    opening_action_suggestions,
 )
 from game_logic import GameLogic
 from library import Library
@@ -50,6 +51,10 @@ def shutdown_event():
 
 # Request payloads stay intentionally thin and map 1:1 to frontend form state.
 class ChatRequest(BaseModel):
+    message: str
+
+
+class RewriteMessageRequest(BaseModel):
     message: str
 
 
@@ -168,6 +173,11 @@ class LLMProfileSelectRequest(BaseModel):
     profile_id: str
 
 
+class ReplyLengthSettingsRequest(BaseModel):
+    min_chars: int = 0
+    max_chars: int = 0
+
+
 # Small payload builders keep the route handlers mostly orchestration-only.
 def health_payload():
     return {
@@ -186,6 +196,8 @@ def health_payload():
             "ai_generated_adventures": True,
             "llm_profiles": True,
             "action_suggestions": True,
+            "action_suggestion_tool": True,
+            "reply_length_settings": True,
         },
     }
 
@@ -303,10 +315,52 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
 
 async def _execute_turn_request(state: GameState, message: str) -> tuple[TurnResult, str]:
     mode = "resume" if state.pending_turn else "start"
-    if state.pending_turn:
-        result = await agent.resume_turn(state, message)
-    else:
-        result = await agent.run_turn(state, message)
+    turn_method = agent.resume_turn if state.pending_turn else agent.run_turn
+    result = await asyncio.to_thread(lambda: asyncio.run(turn_method(state, message)))
+    return result, mode
+
+
+def _visible_chat_messages(state: GameState) -> List[ChatMessage]:
+    return [message for message in state.chat_history if message.kind != "tool_result"]
+
+
+def _visible_message_count(state: GameState) -> int:
+    return len(_visible_chat_messages(state))
+
+
+def _state_before_last_assistant_message(state: GameState) -> GameState:
+    snapshot = state.model_copy(deep=True)
+    for index in range(len(snapshot.chat_history) - 1, -1, -1):
+        message = snapshot.chat_history[index]
+        if message.kind != "tool_result" and message.role == "assistant":
+            del snapshot.chat_history[index]
+            break
+
+    for index in range(len(snapshot.timeline) - 1, -1, -1):
+        if snapshot.timeline[index].type == "assistant_response":
+            del snapshot.timeline[index]
+            break
+    return snapshot
+
+
+def _action_suggestions_for_state(state: GameState) -> List[Dict[str, Any]]:
+    return []
+
+
+async def _execute_turn_and_save(game_id: str, state: GameState, message: str) -> tuple[TurnResult, str]:
+    base_message_index = _visible_message_count(state)
+    game_storage.prune_rewind_snapshots_from(game_id, base_message_index)
+    game_storage.save_rewind_snapshot(game_id, base_message_index, state)
+
+    result, mode = await _execute_turn_request(state, message)
+
+    assistant_message_index = base_message_index + 1
+    game_storage.save_rewind_snapshot(
+        game_id,
+        assistant_message_index,
+        _state_before_last_assistant_message(result.game_state),
+    )
+    game_storage.save_game(game_id, result.game_state)
     return result, mode
 
 
@@ -784,6 +838,14 @@ def _roll_missing_initiative(logic, encounter):
             logic.roll_initiative(combatant.combatant_id)
 
 
+def _normalize_reply_length_settings(min_chars: int = 0, max_chars: int = 0) -> tuple[int, int]:
+    min_value = max(0, min(int(min_chars or 0), 3000))
+    max_value = max(0, min(int(max_chars or 0), 4000))
+    if min_value and max_value and min_value > max_value:
+        raise ValueError("最小字数不能大于最大字数")
+    return min_value, max_value
+
+
 @app.get("/api/v1/health")
 async def health_check():
     return health_payload()
@@ -1037,6 +1099,29 @@ async def get_game_action_options(game_id: str):
     return action_options_payload(state)
 
 
+@app.post("/api/v1/games/{game_id}/reply-length")
+async def update_game_reply_length(game_id: str, req: ReplyLengthSettingsRequest):
+    state = game_storage.load_game(game_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Game not found")
+    try:
+        min_chars, max_chars = _normalize_reply_length_settings(req.min_chars, req.max_chars)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    state.campaign.reply_min_chars = min_chars
+    state.campaign.reply_max_chars = max_chars
+    game_storage.save_game(game_id, state)
+    return {
+        "status": "updated",
+        "reply_length": {
+            "min_chars": min_chars,
+            "max_chars": max_chars,
+        },
+        "game_state": state,
+    }
+
+
 @app.post("/api/v1/games/{game_id}/select-adventure")
 async def select_adventure(game_id: str, req: SelectAdventureRequest):
     state = game_storage.load_game(game_id)
@@ -1083,7 +1168,8 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
             "潮湿的空气贴着斗篷边缘，远处的路标在风里轻轻晃动。现在，轮到你决定第一步。"
         )
     opening_message = agent.clean_player_response(opening_message)
-    action_suggestions = agent.build_action_suggestions(state, opening_message)
+    action_suggestions = opening_action_suggestions(selected)
+    game_storage.save_rewind_snapshot(game_id, _visible_message_count(state), state)
     state.adventure_log.append(f"选择冒险：{selected.title}")
     state.chat_history.append(ChatMessage(role="assistant", content=opening_message))
     state.timeline.append(
@@ -1234,6 +1320,61 @@ async def roll_encounter_initiative(game_id: str, req: RollInitiativeRequest):
     }
 
 
+@app.post("/api/v1/games/{game_id}/messages/{message_index}/delete")
+async def delete_game_message(game_id: str, message_index: int):
+    state = game_storage.load_game(game_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Game not found")
+    visible_messages = _visible_chat_messages(state)
+    if message_index < 0 or message_index >= len(visible_messages):
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    snapshot = game_storage.load_rewind_snapshot(game_id, message_index)
+    if not snapshot:
+        raise HTTPException(
+            status_code=409,
+            detail="This message does not have a rewind snapshot. Continue playing once, then new messages can be rewound.",
+        )
+
+    game_storage.prune_rewind_snapshots_from(game_id, message_index)
+    game_storage.save_game(game_id, snapshot)
+    return {
+        "status": "rewound",
+        "message_index": message_index,
+        "game_state": snapshot,
+        "action_suggestions": _action_suggestions_for_state(snapshot),
+    }
+
+
+@app.post("/api/v1/games/{game_id}/messages/{message_index}/rewrite")
+async def rewrite_game_message(game_id: str, message_index: int, req: RewriteMessageRequest):
+    message = req.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    state = game_storage.load_game(game_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Game not found")
+    visible_messages = _visible_chat_messages(state)
+    if message_index < 0 or message_index >= len(visible_messages):
+        raise HTTPException(status_code=404, detail="Message not found")
+    if visible_messages[message_index].role != "user":
+        raise HTTPException(status_code=400, detail="Only player messages can be rewritten")
+
+    snapshot = game_storage.load_rewind_snapshot(game_id, message_index)
+    if not snapshot:
+        raise HTTPException(
+            status_code=409,
+            detail="This message does not have a rewind snapshot. Continue playing once, then new player messages can be rewritten.",
+        )
+
+    try:
+        result, _ = await _execute_turn_and_save(game_id, snapshot, message)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
+    return result
+
+
 @app.post("/api/v1/games/{game_id}/turns")
 async def run_turn(game_id: str, req: ChatRequest):
     state = game_storage.load_game(game_id)
@@ -1241,11 +1382,10 @@ async def run_turn(game_id: str, req: ChatRequest):
         raise HTTPException(status_code=404, detail="Game not found")
 
     try:
-        result, _ = await _execute_turn_request(state, req.message)
+        result, _ = await _execute_turn_and_save(game_id, state, req.message)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
 
-    game_storage.save_game(game_id, result.game_state)
     return result
 
 
@@ -1268,8 +1408,7 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
             },
         )
         try:
-            result, mode = await _execute_turn_request(state, req.message)
-            game_storage.save_game(game_id, result.game_state)
+            result, mode = await _execute_turn_and_save(game_id, state, req.message)
         except Exception as exc:
             yield _sse_event(
                 "turn.error",
@@ -1335,6 +1474,35 @@ async def get_game_turn_traces(game_id: str, limit: int = 20):
         "trace_count": len(state.turn_traces),
         "limit": normalized_limit,
         "traces": traces,
+    }
+
+
+@app.post("/api/v1/games/{game_id}/action-suggestions")
+async def project_game_action_suggestions(game_id: str):
+    state = _load_game_or_404(game_id)
+    visible_history = _visible_chat_messages(state)
+    response = next(
+        (message.content for message in reversed(visible_history) if message.role == "assistant"),
+        "",
+    )
+    user_input = next(
+        (message.content for message in reversed(visible_history) if message.role == "user"),
+        "",
+    )
+    if not response:
+        return {"game_id": game_id, "turn_number": state.turn_number, "action_suggestions": []}
+
+    suggestions, metadata = await asyncio.to_thread(
+        agent.project_action_suggestions,
+        state,
+        response,
+        user_input,
+    )
+    return {
+        "game_id": game_id,
+        "turn_number": state.turn_number,
+        "action_suggestions": [item.model_dump(mode="json") for item in suggestions],
+        "metadata": metadata,
     }
 
 

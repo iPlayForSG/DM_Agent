@@ -19,16 +19,17 @@ DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目
 
 ## 本地数据
 
-仓库不提交私有运行数据、D&D 原始资料、模型缓存或向量库产物。完整本地运行时，需要自行放回对应目录：
+仓库不提交私有运行数据、D&D 原始资料、模型缓存或向量库产物。完整本地运行时，需要自行准备或由应用生成对应目录：
 
 - `backend/Game/`
 - `backend/Characters/`
-- `backend/Monsters/`
 - `backend/Documents/`
 - `backend/Knowledge/`
 - `backend/data/spells.json`
 
 这些路径已由 `.gitignore` 排除。
+
+`backend/Monsters/` 保存供 Agent 读取和实例化的标准中文怪物模板，属于仓库资产。游戏过程中由 Agent 创建的自定义怪物则保存在对应游戏存档中，不会写回标准模板目录。
 
 ## 启动项目
 
@@ -96,5 +97,5 @@ npm run build
 后端测试可在仓库根目录运行：
 
 ```powershell
-pytest
+& 'C:\Users\iPlayForSG\.conda\envs\DM_Agent\python.exe' -m unittest discover -s tests -v
 ```

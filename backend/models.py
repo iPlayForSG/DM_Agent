@@ -294,6 +294,7 @@ class AdventureHook(BaseModel):
     tone: str = "grim"
     difficulty: str = "medium"
     opening_scene: str = ""
+    opening_suggestions: List[Dict[str, str]] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -361,6 +362,8 @@ class CampaignFlowState(BaseModel):
     phase: str = "character_creation"
     milestone_mode: bool = True
     party_size_limit: int = 4
+    reply_min_chars: int = 0
+    reply_max_chars: int = 0
     available_adventures: List[AdventureHook] = Field(default_factory=list)
     selected_adventure_id: Optional[str] = None
     setup_complete: bool = False

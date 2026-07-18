@@ -11,8 +11,10 @@ import {
   deleteCharacters,
   deleteGame,
   deleteGames,
+  deleteGameMessage,
   endEncounter,
   loadActionOptions,
+  loadActionSuggestions,
   loadCharacter,
   loadCharacterBuilder,
   loadGame,
@@ -28,10 +30,12 @@ import {
   skillCheckAction,
   removeEncounterCombatant,
   rollEncounterInitiative,
+  rewriteGameMessage,
   spawnEncounterTemplate,
   startEncounter,
   setEncounterInitiative,
   streamTurn,
+  updateReplyLength,
   updateModelConfig,
   useItemAction as itemActionRequest,
 } from "./api";
@@ -173,6 +177,26 @@ const ATTACK_RESOLUTION_OPTIONS = [
 ];
 const POINT_BUY_COSTS = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 const DEFAULT_STATS = { strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 };
+const CLASS_RECOMMENDED_STAT_ORDER = {
+  Artificer: ["intelligence", "constitution", "dexterity", "wisdom", "charisma", "strength"],
+  Barbarian: ["strength", "constitution", "dexterity", "wisdom", "charisma", "intelligence"],
+  Bard: ["charisma", "dexterity", "constitution", "wisdom", "intelligence", "strength"],
+  Cleric: ["wisdom", "constitution", "strength", "dexterity", "charisma", "intelligence"],
+  Druid: ["wisdom", "constitution", "dexterity", "intelligence", "charisma", "strength"],
+  Fighter: ["strength", "constitution", "dexterity", "wisdom", "charisma", "intelligence"],
+  Monk: ["dexterity", "wisdom", "constitution", "strength", "charisma", "intelligence"],
+  Paladin: ["strength", "charisma", "constitution", "wisdom", "dexterity", "intelligence"],
+  Ranger: ["dexterity", "wisdom", "constitution", "strength", "charisma", "intelligence"],
+  Rogue: ["dexterity", "constitution", "wisdom", "charisma", "intelligence", "strength"],
+  Sorcerer: ["charisma", "constitution", "dexterity", "wisdom", "intelligence", "strength"],
+  Warlock: ["charisma", "constitution", "dexterity", "wisdom", "intelligence", "strength"],
+  Wizard: ["intelligence", "constitution", "dexterity", "wisdom", "charisma", "strength"],
+};
+const recommendedStatsForClass = (className) => {
+  const order = CLASS_RECOMMENDED_STAT_ORDER[className];
+  if (!order) return { ...DEFAULT_STATS };
+  return Object.fromEntries(order.map((stat, index) => [stat, [15, 14, 13, 12, 10, 8][index]]));
+};
 const CREATOR_STEPS = [
   { id: "identity", label: "基础" },
   { id: "build", label: "构筑" },
@@ -217,10 +241,17 @@ const EMPTY_ENCOUNTER_DRAFT = { enemy_names: "", enemy_hp: 10, enemy_ac: 10, mon
 const parseEntries = (text, prefix) => text.split("\n").map((x) => x.trim()).filter(Boolean).map((description, i) => ({ name: `${prefix} ${i + 1}`, description }));
 const entriesToText = (entries = []) => entries.map((x) => x.description).join("\n");
 const localizeSceneText = (text = "") => text.replace(/\b(adventure_selection|preparation|setup|exploration|social|combat|encounter)\b/g, (value) => SCENE_LABELS[value] || value);
-const mapMessages = (history = []) => history.filter((m) => m.kind !== "tool_result").map((m) => ({
-  sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
-  text: m.role === "system" ? localizeSceneText(m.content) : m.content,
-}));
+const mapMessages = (history = []) => history.reduce((items, m, chatIndex) => {
+  if (m.kind === "tool_result") return items;
+  items.push({
+    index: items.length,
+    chatIndex,
+    role: m.role,
+    sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
+    text: m.role === "system" ? localizeSceneText(m.content) : m.content,
+  });
+  return items;
+}, []);
 const EVENT_LABELS = {
   player_action: "玩家",
   assistant_response: "主持",
@@ -708,17 +739,23 @@ export default function App() {
   const [activeGameId, setActiveGameId] = useState(null), [gameState, setGameState] = useState(null), [actionOptions, setActionOptions] = useState({ actors: [] });
   const [actionDraft, setActionDraft] = useState({ ...EMPTY_ACTIONS }), [messages, setMessages] = useState([]);
   const [actionSuggestions, setActionSuggestions] = useState([]);
+  const [isActionSuggestionsLoading, setIsActionSuggestionsLoading] = useState(false);
   const [workflowEvents, setWorkflowEvents] = useState([]);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
+  const [replyLengthDraft, setReplyLengthDraft] = useState({ min_chars: "", max_chars: "" });
+  const [isReplyLengthSaving, setIsReplyLengthSaving] = useState(false);
+  const [replyLengthMessage, setReplyLengthMessage] = useState("");
   const [llmConfig, setLlmConfig] = useState(null);
   const [llmDraft, setLlmDraft] = useState({ profile_id: "", profile_label: "", model_name: "", base_url: "", api_key: "" });
   const [isLlmSaving, setIsLlmSaving] = useState(false);
   const [llmStatusMessage, setLlmStatusMessage] = useState("");
   const [pendingAdventureId, setPendingAdventureId] = useState(null);
   const [isBuilderLoading, setIsBuilderLoading] = useState(false);
+  const [isLobbyLoading, setIsLobbyLoading] = useState(true);
   const [creatorStep, setCreatorStep] = useState(0);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [isCharacterLoading, setIsCharacterLoading] = useState(false);
+  const [rewriteTarget, setRewriteTarget] = useState(null);
   const [deleteRequest, setDeleteRequest] = useState(null);
   const [gameDeleteMode, setGameDeleteMode] = useState(false);
   const [selectedGameDeleteIds, setSelectedGameDeleteIds] = useState([]);
@@ -726,6 +763,11 @@ export default function App() {
   const [selectedCharacterDeleteIds, setSelectedCharacterDeleteIds] = useState([]);
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
+  const activeGameIdRef = useRef(null);
+  const latestTurnNumberRef = useRef(0);
+  const actionSuggestionRequestRef = useRef(0);
+  const gameLifecycleRef = useRef(0);
+  const gameSyncRequestRef = useRef(0);
 
   useEffect(() => { refreshLobby(); }, []);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, workflowEvents, isLoading]);
@@ -838,7 +880,9 @@ export default function App() {
     || Number(actionDraft.item.quantity || 1) > Number(selectedItemOption.quantity || 0);
   const pendingTurn = gameState?.pending_turn || null;
   const isToolConfirmationPending = pendingTurn?.kind === "tool_confirmation";
-  const chatInputDisabled = gameState?.campaign?.phase === "adventure_selection" || isLoading;
+  const chatComposerDisabled = gameState?.campaign?.phase === "adventure_selection";
+  const isGameMutationBusy = isLoading || isReplyLengthSaving;
+  const chatSubmitDisabled = chatComposerDisabled || isGameMutationBusy;
   const selectedGameDeleteSet = new Set(selectedGameDeleteIds);
   const selectedCharacterDeleteSet = new Set(selectedCharacterDeleteIds);
   const selectedGameDeleteCount = selectedGameDeleteIds.length;
@@ -947,6 +991,7 @@ export default function App() {
     }
 
     setIsBuilderLoading(false);
+    setIsLobbyLoading(false);
     if (nextError) setError(nextError);
   }
 
@@ -1133,15 +1178,7 @@ export default function App() {
         }
         setSelectedGameDeleteIds((prev) => prev.filter((item) => !targetIds.includes(item)));
         setGameDeleteMode(false);
-        if (targetIds.includes(activeGameId)) {
-          setActiveGameId(null);
-          setGameState(null);
-          setActionOptions({ actors: [] });
-          setActionSuggestions([]);
-          setMessages([]);
-          setWorkflowEvents([]);
-          setView("home");
-        }
+        if (targetIds.includes(activeGameIdRef.current)) leaveGame();
       } else {
         if (targetIds.length === 1) {
           await deleteCharacter(targetIds[0]);
@@ -1186,10 +1223,21 @@ export default function App() {
     );
   }
 
-  function applyGameSnapshot(state, options = { actors: [] }) {
+  function replyLengthDraftFromState(state) {
+    const campaign = state?.campaign || {};
+    return {
+      min_chars: campaign.reply_min_chars ? String(campaign.reply_min_chars) : "",
+      max_chars: campaign.reply_max_chars ? String(campaign.reply_max_chars) : "",
+    };
+  }
+
+  function applyGameSnapshot(state, options, { preserveRewrite = false } = {}) {
+    latestTurnNumberRef.current = Number(state?.turn_number || 0);
     setGameState(state);
     setMessages(mapMessages(state.chat_history || []));
-    setActionOptions(options || { actors: [] });
+    if (options) setActionOptions(options);
+    setReplyLengthDraft(replyLengthDraftFromState(state));
+    if (!preserveRewrite) setRewriteTarget(null);
   }
 
   function normalizeActionSuggestions(items) {
@@ -1198,14 +1246,143 @@ export default function App() {
       .slice(0, 3);
   }
 
+  function invalidateActionSuggestionProjection() {
+    actionSuggestionRequestRef.current += 1;
+    setIsActionSuggestionsLoading(false);
+  }
+
+  function beginGameLifecycle(gameId) {
+    const lifecycleToken = gameLifecycleRef.current + 1;
+    gameLifecycleRef.current = lifecycleToken;
+    gameSyncRequestRef.current += 1;
+    activeGameIdRef.current = gameId;
+    setActiveGameId(gameId);
+    return lifecycleToken;
+  }
+
+  function isCurrentGameLifecycle(gameId, lifecycleToken) {
+    return activeGameIdRef.current === gameId && gameLifecycleRef.current === lifecycleToken;
+  }
+
+  function leaveGame() {
+    gameLifecycleRef.current += 1;
+    gameSyncRequestRef.current += 1;
+    activeGameIdRef.current = null;
+    latestTurnNumberRef.current = 0;
+    invalidateActionSuggestionProjection();
+    setActiveGameId(null);
+    setGameState(null);
+    setActionOptions({ actors: [] });
+    setActionDraft({ ...EMPTY_ACTIONS });
+    setActionSuggestions([]);
+    setMessages([]);
+    setWorkflowEvents([]);
+    setRewriteTarget(null);
+    setInput("");
+    setReplyLengthDraft({ min_chars: "", max_chars: "" });
+    setReplyLengthMessage("");
+    setIsReplyLengthSaving(false);
+    setIsLoading(false);
+    setPendingAdventureId(null);
+    setError("");
+    setView("home");
+  }
+
+  function requestActionSuggestionProjection(gameId, turnNumber, lifecycleToken = gameLifecycleRef.current) {
+    if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+    const requestId = actionSuggestionRequestRef.current + 1;
+    actionSuggestionRequestRef.current = requestId;
+    setIsActionSuggestionsLoading(true);
+    void loadActionSuggestions(gameId)
+      .then((payload) => {
+        if (
+          actionSuggestionRequestRef.current === requestId
+          && isCurrentGameLifecycle(gameId, lifecycleToken)
+          && latestTurnNumberRef.current === Number(turnNumber || 0)
+          && Number(payload.turn_number || 0) === Number(turnNumber || 0)
+        ) {
+          setActionSuggestions(normalizeActionSuggestions(payload.action_suggestions));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (actionSuggestionRequestRef.current === requestId && isCurrentGameLifecycle(gameId, lifecycleToken)) {
+          setIsActionSuggestionsLoading(false);
+        }
+      });
+  }
+
   async function syncGame(gameId, state, options = {}) {
-    applyGameSnapshot(state, await loadActionOptions(gameId));
-    setActionSuggestions(normalizeActionSuggestions(options.actionSuggestions));
+    const lifecycleToken = options.lifecycleToken ?? gameLifecycleRef.current;
+    if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return [];
+
+    const normalizedSuggestions = normalizeActionSuggestions(options.actionSuggestions);
+    const syncRequestId = gameSyncRequestRef.current + 1;
+    gameSyncRequestRef.current = syncRequestId;
+    applyGameSnapshot(state, options.actionOptions, { preserveRewrite: options.preserveRewrite });
+    setActionSuggestions(normalizedSuggestions);
+    const expectedTurnNumber = Number(state?.turn_number || 0);
+    void loadActionOptions(gameId)
+      .then((nextActionOptions) => {
+        if (
+          isCurrentGameLifecycle(gameId, lifecycleToken)
+          && gameSyncRequestRef.current === syncRequestId
+          && latestTurnNumberRef.current === expectedTurnNumber
+        ) {
+          setActionOptions(nextActionOptions || { actors: [] });
+        }
+      })
+      .catch(() => {
+        // The authoritative game snapshot remains usable when this optional projection fails.
+      });
+    return normalizedSuggestions;
+  }
+
+  async function saveReplyLengthSettings() {
+    const gameId = activeGameId;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (!gameId || isReplyLengthSaving || isLoading || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+    const minChars = normalizeReplyLengthValue(replyLengthDraft.min_chars);
+    const maxChars = normalizeReplyLengthValue(replyLengthDraft.max_chars);
+    if (minChars && maxChars && minChars > maxChars) {
+      setReplyLengthMessage("最小字数不能大于最大字数。");
+      return;
+    }
+
+    setIsReplyLengthSaving(true);
+    setReplyLengthMessage("");
+    try {
+      const result = await updateReplyLength(gameId, { min_chars: minChars, max_chars: maxChars });
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      await syncGame(gameId, result.game_state, { actionSuggestions, preserveRewrite: true, lifecycleToken });
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setReplyLengthMessage("已应用。");
+    } catch (err) {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setReplyLengthMessage(err.message || "保存失败。");
+    } finally {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsReplyLengthSaving(false);
+    }
+  }
+
+  function normalizeReplyLengthValue(value) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) return 0;
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }
+
+  function replyLengthSummary() {
+    const minChars = normalizeReplyLengthValue(replyLengthDraft.min_chars);
+    const maxChars = normalizeReplyLengthValue(replyLengthDraft.max_chars);
+    if (!minChars && !maxChars) return "不限制";
+    if (minChars && maxChars) return `${minChars}-${maxChars} 字`;
+    if (minChars) return `至少 ${minChars} 字`;
+    return `至多 ${maxChars} 字`;
   }
 
   function fillActionSuggestion(suggestion) {
     const action = String(suggestion?.action || "").trim();
     if (!action) return;
+    setRewriteTarget(null);
     setInput(action);
     window.requestAnimationFrame(() => chatInputRef.current?.focus());
   }
@@ -1303,10 +1480,37 @@ export default function App() {
   }, [actionOptions]);
 
   async function enterGame(gameId) {
-    setActiveGameId(gameId);
+    invalidateActionSuggestionProjection();
+    const lifecycleToken = beginGameLifecycle(gameId);
+    setIsLoading(true);
+    setError("");
+    setGameState(null);
+    setMessages([]);
     setWorkflowEvents([]);
+    setActionOptions({ actors: [] });
+    setActionSuggestions([]);
+    setRewriteTarget(null);
+    setInput("");
+    setReplyLengthMessage("");
     setView("chat");
-    await syncGame(gameId, await loadGame(gameId));
+    try {
+      const state = await loadGame(gameId);
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      const normalizedSuggestions = await syncGame(gameId, state, { lifecycleToken });
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && state?.campaign?.phase !== "adventure_selection"
+        && normalizedSuggestions.length !== 3
+      ) {
+        requestActionSuggestionProjection(gameId, state.turn_number, lifecycleToken);
+      }
+    } catch (err) {
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      leaveGame();
+      setError(err.message || "读取游戏存档失败。");
+    } finally {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsLoading(false);
+    }
   }
   function adjustStat(stat, delta) {
     const currentValue = Number(charDraft.stats?.[stat] || 0);
@@ -1364,6 +1568,7 @@ export default function App() {
       equipment_mode: "starter_package",
       custom_purchase_items: {},
       custom_pending_item: { ...EMPTY_PENDING_ITEM },
+      stats: recommendedStatsForClass(c.name),
       skill_proficiencies: baseSkills,
       selectedCantrips: [],
       selectedSpells: [],
@@ -1547,43 +1752,59 @@ export default function App() {
     try {
       setError("");
       const result = await createGame({ game_id: gameId, title: gameId, character_ids: selectedGameChars });
-      setActiveGameId(gameId);
+      invalidateActionSuggestionProjection();
+      const lifecycleToken = beginGameLifecycle(gameId);
       setWorkflowEvents([]);
       setActionSuggestions([]);
+      setRewriteTarget(null);
+      setReplyLengthMessage("");
       setView("chat");
       applyGameSnapshot(result.game_state, result.action_options);
-      setInput("");
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setInput("");
       await refreshLobby().catch(() => {});
     } catch (err) { setError(err.message || "创建游戏失败。"); }
   }
   async function chooseAdventure(adventureId) {
-    if (!activeGameId || isLoading) return;
+    const gameId = activeGameId;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (!gameId || isGameMutationBusy || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
     setIsLoading(true);
     setPendingAdventureId(adventureId);
     setError("");
+    invalidateActionSuggestionProjection();
     setActionSuggestions([]);
     try {
-      const result = await selectAdventure(activeGameId, adventureId);
-      await syncGame(activeGameId, result.game_state, { actionSuggestions: result.action_suggestions });
+      const result = await selectAdventure(gameId, adventureId);
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
+      }
     } catch (err) {
-      setError(err.message || "选择冒险失败。");
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setError(err.message || "选择冒险失败。");
     } finally {
-      setPendingAdventureId(null);
-      setIsLoading(false);
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setPendingAdventureId(null);
+        setIsLoading(false);
+      }
     }
   }
   async function submitChatMessage(rawMessage, options = {}) {
     const message = String(rawMessage || "").trim();
     const gameId = activeGameId;
-    if (!message || !gameId || isLoading) return;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (!message || !gameId || isGameMutationBusy || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
     if (gameState?.campaign?.phase === "adventure_selection") return setError("请先选择冒险。");
 
     setIsLoading(true);
     setError("");
     setWorkflowEvents([]);
+    invalidateActionSuggestionProjection();
     setActionSuggestions([]);
+    if (options.clearInput) setInput("");
     try {
       const pushWorkflowEvent = (event) => {
+        if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
         setWorkflowEvents((prev) => [...prev.slice(-29), event]);
       };
       const result = await streamTurn(gameId, message, {
@@ -1637,16 +1858,100 @@ export default function App() {
           });
         },
       });
-      if (options.clearInput) setInput("");
-      await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions });
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
+      }
     } catch (err) {
-      setError(err.message || "发送消息失败。");
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setError(err.message || "发送消息失败。");
+        if (options.clearInput) setInput((current) => current.trim() ? current : message);
+      }
     } finally {
-      setIsLoading(false);
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsLoading(false);
     }
   }
 
-  async function sendMessage() { await submitChatMessage(input, { clearInput: true }); }
+  async function deleteMessageFromHere(message) {
+    const gameId = activeGameId;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (!gameId || isGameMutationBusy || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+    const confirmed = window.confirm("删除会回到这条消息出现之前，并移除后续剧情、状态变化和时间线记录。继续？");
+    if (!confirmed) return;
+
+    setIsLoading(true);
+    setError("");
+    setWorkflowEvents([]);
+    invalidateActionSuggestionProjection();
+    try {
+      const result = await deleteGameMessage(gameId, message.index);
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && normalizedSuggestions.length !== 3
+        && result.game_state?.campaign?.phase !== "adventure_selection"
+      ) {
+        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
+      }
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setInput("");
+    } catch (err) {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setError(err.message || "删除消息失败。");
+    } finally {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsLoading(false);
+    }
+  }
+
+  function startRewriteFromMessage(message) {
+    if (message.sender !== "player" || isGameMutationBusy) return;
+    setError("");
+    setRewriteTarget({ index: message.index, text: message.text, previousInput: input });
+    setInput(message.text);
+    window.requestAnimationFrame(() => chatInputRef.current?.focus());
+  }
+
+  function cancelRewrite() {
+    setInput(rewriteTarget?.previousInput || "");
+    setRewriteTarget(null);
+  }
+
+  async function submitRewriteMessage(rawMessage) {
+    const message = String(rawMessage || "").trim();
+    const gameId = activeGameId;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (!message || !gameId || !rewriteTarget || isGameMutationBusy || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+
+    setIsLoading(true);
+    setError("");
+    setWorkflowEvents([]);
+    invalidateActionSuggestionProjection();
+    setActionSuggestions([]);
+    setInput("");
+    try {
+      const result = await rewriteGameMessage(gameId, rewriteTarget.index, message);
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
+      }
+    } catch (err) {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setError(err.message || "重写消息失败。");
+        setInput((current) => current.trim() ? current : message);
+      }
+    } finally {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsLoading(false);
+    }
+  }
+
+  async function sendMessage() {
+    if (rewriteTarget) {
+      await submitRewriteMessage(input);
+      return;
+    }
+    await submitChatMessage(input, { clearInput: true });
+  }
   async function respondToPendingTurn(response) { await submitChatMessage(response); }
 
   async function createEncounterFromNames() {
@@ -1770,7 +2075,7 @@ export default function App() {
             <div className="menu-active-info">当前游戏：{activeGameId}</div>
             <button onClick={() => setView("chat")} className={view === "chat" ? "active" : ""}>对话</button>
             <button onClick={() => setView("status")} className={view === "status" ? "active" : ""}>时间线</button>
-            <button className="btn-danger" onClick={() => { setActiveGameId(null); setGameState(null); setMessages([]); setActionSuggestions([]); setView("home"); }}>返回主页</button>
+            <button className="btn-danger" onClick={leaveGame}>返回主页</button>
           </div>
         </aside>
       )}
@@ -1842,8 +2147,8 @@ export default function App() {
                   <p className="info-text">选择或保存本地模型档案，后续回合会使用当前启用的档案。</p>
                 </div>
                 <div className="panel-actions">
-                  <span>{llmConfig?.configured ? "已配置" : "未完整配置"}</span>
-                  <span>{activeLlmProfile?.label || "无当前档案"}</span>
+                  <span>{isLobbyLoading ? "读取中" : llmConfig?.configured ? "已配置" : "未完整配置"}</span>
+                  <span>{isLobbyLoading ? "正在加载模型档案" : activeLlmProfile?.label || "无当前档案"}</span>
                 </div>
               </div>
               <div className="model-profile-selector">
@@ -2143,8 +2448,8 @@ export default function App() {
                   </div>
                   <div className="form-group">
                     <label>起源专长</label>
-                    <input value={background?.origin_feat_display || localizeOriginFeat(charDraft.origin_feat)} readOnly />
-                    <p className="info-text" style={{ marginTop: 8 }}>当前规则目录里，起源专长由所选背景固定决定，不提供自由下拉选择。</p>
+                    <div className="locked-field">{background?.origin_feat_display || localizeOriginFeat(charDraft.origin_feat) || "选择背景后确定"}</div>
+                    <p className="info-text" style={{ marginTop: 8 }}>起源专长由所选背景决定。</p>
                   </div>
                 </>
               )}
@@ -2290,7 +2595,7 @@ export default function App() {
                     </div>
                     <div className="builder-preview-card">
                       <h3>起始法术位</h3>
-                      {!classDef ? <p className="info-text">选择职业后即可预览 1 级法术位。</p> : !classDef.spellcasting_ability ? <p className="info-text">当前职业起始时不具备施法能力。</p> : startingSpellSlots.length === 0 ? <div><p className="info-text">该职业有施法元数据，但当前构筑目录里没有 1 级法术位。</p><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p></div> : <div><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p><div className="timeline-list">{startingSpellSlots.map((slot) => <div key={slot[0]} className="timeline-item"><div className="timeline-summary">{formatSpellSlotLine(slot)}</div><div className="timeline-content">角色保存时会由后端自动填充。</div></div>)}</div></div>}
+                      {!classDef ? <p className="info-text">选择职业后即可预览 1 级法术位。</p> : !classDef.spellcasting_ability ? <p className="info-text">当前职业起始时不具备施法能力。</p> : startingSpellSlots.length === 0 ? <div><p className="info-text">该职业在 1 级时没有可用法术位。</p><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p></div> : <div><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p><div className="timeline-list">{startingSpellSlots.map((slot) => <div key={slot[0]} className="timeline-item"><div className="timeline-summary">{formatSpellSlotLine(slot)}</div><div className="timeline-content">长休后恢复全部法术位。</div></div>)}</div></div>}
                     </div>
                   </div>
                   <div className="form-group">
@@ -2367,7 +2672,7 @@ export default function App() {
                             <div className="timeline-summary">{hook.title}</div>
                             <div className="timeline-content">{hook.summary}</div>
                             <div className="btn-row" style={{ marginTop: 12 }}>
-                              <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)} disabled={isLoading}>
+                              <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)} disabled={isGameMutationBusy}>
                                 {isPendingAdventure && isAiGeneratedAdventure
                                   ? "主持人构思中..."
                                   : isPendingAdventure
@@ -2388,16 +2693,28 @@ export default function App() {
                     <div className="pending-turn-title">需要你确认</div>
                     <div className="pending-turn-prompt">{pendingTurn.prompt || "当前回合需要确认后才能继续。"}</div>
                     <div className="pending-turn-actions">
-                      <button className="btn-danger" onClick={() => respondToPendingTurn("取消")} disabled={isLoading}>取消</button>
-                      <button className="btn-primary" onClick={() => respondToPendingTurn("确认")} disabled={isLoading}>确认</button>
+                      <button className="btn-danger" onClick={() => respondToPendingTurn("取消")} disabled={isGameMutationBusy}>取消</button>
+                      <button className="btn-primary" onClick={() => respondToPendingTurn("确认")} disabled={isGameMutationBusy}>确认</button>
                     </div>
                   </div>
                 )}
                 {messages.map((message, index) => (
-                  <div key={`${message.sender}-${index}`} className={`message ${message.sender} anime-pop`}>
-                    <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
-                    <div className="bubble markdown-body">
-                      <MarkdownBlock>{message.text}</MarkdownBlock>
+                  <div key={`${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender}`}>
+                    <div className={`message ${message.sender} anime-pop`}>
+                      <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
+                      <div className="bubble markdown-body">
+                        <MarkdownBlock>{message.text}</MarkdownBlock>
+                      </div>
+                    </div>
+                    <div className="message-actions" aria-label="消息操作">
+                      <button type="button" onClick={() => deleteMessageFromHere(message)} disabled={isGameMutationBusy}>
+                        删除
+                      </button>
+                      {message.sender === "player" && (
+                        <button type="button" onClick={() => startRewriteFromMessage(message)} disabled={isGameMutationBusy}>
+                          修改并重写
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2656,6 +2973,12 @@ export default function App() {
                 />
               </div>
             </div>
+            {isActionSuggestionsLoading && (
+              <div className="action-suggestions-loading" role="status" aria-live="polite">
+                <span className="action-suggestions-loading-mark" aria-hidden="true" />
+                <span>正在准备行动灵感</span>
+              </div>
+            )}
             {visibleActionSuggestions.length > 0 && (
               <div className="action-suggestions" aria-label="行动建议">
                 {visibleActionSuggestions.map((suggestion, index) => (
@@ -2664,7 +2987,7 @@ export default function App() {
                     type="button"
                     className="action-suggestion"
                     onClick={() => fillActionSuggestion(suggestion)}
-                    disabled={chatInputDisabled}
+                    disabled={chatSubmitDisabled}
                   >
                     <span>{suggestion.label}</span>
                     <small>{suggestion.action}</small>
@@ -2672,9 +2995,53 @@ export default function App() {
                 ))}
               </div>
             )}
+            {rewriteTarget && (
+              <div className="rewrite-bar">
+                <span>正在从第 {rewriteTarget.index + 1} 条玩家消息重写</span>
+                <button type="button" onClick={cancelRewrite} disabled={isLoading}>取消</button>
+              </div>
+            )}
+            <details className="chat-control-menu">
+              <summary>
+                <span>主持文本</span>
+                <small>{replyLengthSummary()}</small>
+              </summary>
+              <div className="chat-control-grid">
+                <label>
+                  <span>最少字数</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="3000"
+                    inputMode="numeric"
+                    value={replyLengthDraft.min_chars}
+                    onChange={(e) => setReplyLengthDraft((prev) => ({ ...prev, min_chars: e.target.value }))}
+                    placeholder="不限"
+                    disabled={isLoading || isReplyLengthSaving}
+                  />
+                </label>
+                <label>
+                  <span>最多字数</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="4000"
+                    inputMode="numeric"
+                    value={replyLengthDraft.max_chars}
+                    onChange={(e) => setReplyLengthDraft((prev) => ({ ...prev, max_chars: e.target.value }))}
+                    placeholder="不限"
+                    disabled={isLoading || isReplyLengthSaving}
+                  />
+                </label>
+                <button type="button" className="btn-secondary" onClick={saveReplyLengthSettings} disabled={isReplyLengthSaving || isLoading || !activeGameId}>
+                  {isReplyLengthSaving ? "保存中..." : "应用"}
+                </button>
+              </div>
+              {replyLengthMessage && <div className="chat-control-note">{replyLengthMessage}</div>}
+            </details>
             <div className="input-area">
-              <textarea ref={chatInputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isToolConfirmationPending ? "可直接确认或取消，也可以输入补充说明。" : "描述你的行动..."} disabled={chatInputDisabled} />
-              <button onClick={sendMessage} disabled={chatInputDisabled || !input.trim()}>发送</button>
+              <textarea ref={chatInputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isToolConfirmationPending ? "可直接确认或取消，也可以输入补充说明。" : rewriteTarget ? "修改这条行动，然后从这里重新开始..." : isLoading ? "可以先写下下一步行动..." : "描述你的行动..."} disabled={chatComposerDisabled} />
+              <button onClick={sendMessage} disabled={chatSubmitDisabled || !input.trim()}>{rewriteTarget ? "重写" : "发送"}</button>
             </div>
           </div>
         )}

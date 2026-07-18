@@ -23,6 +23,7 @@ class FakeStorage:
         self.state = state
         self.saved_game_id = None
         self.saved_state = None
+        self.rewind_snapshots = {}
 
     def load_game(self, game_id: str):
         return self.state
@@ -31,6 +32,18 @@ class FakeStorage:
         self.saved_game_id = game_id
         self.saved_state = state
         self.state = state
+
+    def save_rewind_snapshot(self, game_id: str, message_index: int, state: GameState) -> None:
+        self.rewind_snapshots[(game_id, message_index)] = state.model_copy(deep=True)
+
+    def load_rewind_snapshot(self, game_id: str, message_index: int):
+        snapshot = self.rewind_snapshots.get((game_id, message_index))
+        return snapshot.model_copy(deep=True) if snapshot else None
+
+    def prune_rewind_snapshots_from(self, game_id: str, message_index: int) -> None:
+        for key in list(self.rewind_snapshots):
+            if key[0] == game_id and key[1] >= message_index:
+                del self.rewind_snapshots[key]
 
 
 class FakeAgent:
@@ -116,6 +129,42 @@ def parse_sse_events(lines):
 
 
 class TurnStreamingApiTests(unittest.TestCase):
+    def test_reply_length_settings_are_persisted(self) -> None:
+        state = GameState(game_id="length-test", title="Length Test")
+        result = TurnResult(response="unused", turn_status="completed", game_state=state.model_copy(deep=True))
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post(
+                    "/api/v1/games/length-test/reply-length",
+                    json={"min_chars": 120, "max_chars": 480},
+                )
+
+        self.assertEqual(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEqual(payload["reply_length"], {"min_chars": 120, "max_chars": 480})
+        self.assertEqual(fake_storage.saved_state.campaign.reply_min_chars, 120)
+        self.assertEqual(fake_storage.saved_state.campaign.reply_max_chars, 480)
+
+    def test_reply_length_settings_reject_inverted_bounds(self) -> None:
+        state = GameState(game_id="length-test", title="Length Test")
+        result = TurnResult(response="unused", turn_status="completed", game_state=state.model_copy(deep=True))
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post(
+                    "/api/v1/games/length-test/reply-length",
+                    json={"min_chars": 500, "max_chars": 100},
+                )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("最小字数", resp.json()["detail"])
+        self.assertIsNone(fake_storage.saved_state)
+
     def test_turn_stream_emits_lifecycle_events(self) -> None:
         state = GameState(game_id="stream-test", title="Stream Test")
         result = TurnResult(response="DM reply", turn_status="completed", game_state=state.model_copy(deep=True))
@@ -167,6 +216,49 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(fake_agent.run_calls, 0)
         self.assertEqual(fake_agent.resume_calls, 1)
         self.assertEqual(fake_storage.saved_game_id, "resume-test")
+
+    def test_delete_message_restores_rewind_snapshot(self) -> None:
+        state = GameState(game_id="rewind-test", title="Rewind Test")
+        state.chat_history.append(api_main.ChatMessage(role="user", content="旧行动"))
+        state.chat_history.append(api_main.ChatMessage(role="assistant", content="旧回应"))
+        snapshot = GameState(game_id="rewind-test", title="Rewind Test")
+        result = TurnResult(response="unused", turn_status="completed", game_state=state.model_copy(deep=True))
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+        fake_storage.save_rewind_snapshot("rewind-test", 0, snapshot)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post("/api/v1/games/rewind-test/messages/0/delete")
+
+        self.assertEqual(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEqual(payload["status"], "rewound")
+        self.assertEqual(payload["game_state"]["chat_history"], [])
+        self.assertEqual(fake_storage.saved_state.chat_history, [])
+
+    def test_rewrite_player_message_restores_snapshot_then_runs_turn(self) -> None:
+        state = GameState(game_id="rewrite-test", title="Rewrite Test")
+        state.chat_history.append(api_main.ChatMessage(role="user", content="旧行动"))
+        state.chat_history.append(api_main.ChatMessage(role="assistant", content="旧回应"))
+        snapshot = GameState(game_id="rewrite-test", title="Rewrite Test")
+        new_state = snapshot.model_copy(deep=True)
+        new_state.chat_history.append(api_main.ChatMessage(role="user", content="新行动"))
+        new_state.chat_history.append(api_main.ChatMessage(role="assistant", content="新回应"))
+        result = TurnResult(response="新回应", turn_status="completed", game_state=new_state)
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+        fake_storage.save_rewind_snapshot("rewrite-test", 0, snapshot)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post("/api/v1/games/rewrite-test/messages/0/rewrite", json={"message": "新行动"})
+
+        self.assertEqual(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEqual(payload["response"], "新回应")
+        self.assertEqual(fake_agent.run_calls, 1)
+        self.assertEqual(fake_storage.saved_state.chat_history[-1].content, "新回应")
 
     def test_turn_stream_emits_node_trace_events_when_available(self) -> None:
         state = GameState(game_id="node-stream-test", title="Node Stream Test")

@@ -1,5 +1,14 @@
-const BACKEND_BASE = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
+const CONFIGURED_BACKEND_BASE = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
+const BACKEND_BASE = import.meta.env.DEV ? "" : CONFIGURED_BACKEND_BASE;
 const API_PREFIX = BACKEND_BASE ? `${BACKEND_BASE}/api/v1` : "/api/v1";
+
+function readableHttpError(response, detail = "") {
+  const normalizedDetail = String(detail || "").trim();
+  if (response.status >= 500) return "模型或后端服务暂时不可用，请稍后重新载入存档确认进度。";
+  if (normalizedDetail && !/^\d{3}(?:\s+OK)?$/i.test(normalizedDetail)) return normalizedDetail;
+  if (response.status === 404) return "没有找到对应的存档或页面，请返回主页重新选择。";
+  return `请求未能完成（${response.status}）。请稍后重试。`;
+}
 
 async function request(path, options = {}) {
   let response;
@@ -11,19 +20,20 @@ async function request(path, options = {}) {
       },
       ...options,
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("主持服务等待超时，请重新载入存档确认当前进度。");
     throw new Error("无法连接后端服务，请确认启动脚本仍在运行，然后刷新页面重试。");
   }
 
   if (!response.ok) {
-    let detail = `${response.status} ${response.statusText}`;
+    let detail = "";
     try {
       const payload = await response.json();
       detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail || payload);
     } catch {
       // ignore JSON parse errors for empty bodies
     }
-    throw new Error(detail);
+    throw new Error(readableHttpError(response, detail));
   }
 
   return response.json();
@@ -60,8 +70,11 @@ function parseSseBlock(block) {
 
 function streamErrorMessage(data) {
   if (!data) return "流式回合请求失败。";
-  if (typeof data === "string") return data;
-  return data.detail || data.error || JSON.stringify(data);
+  const detail = typeof data === "string" ? data : data.detail || data.error || JSON.stringify(data);
+  if (/connection error|connection reset|peer closed|timed?\s*out|network|dm agent request failed|model invocation failed/i.test(String(detail))) {
+    return "模型服务连接中断。请重新载入存档确认当前进度后再试。";
+  }
+  return detail;
 }
 
 export async function loadLobby() {
@@ -148,8 +161,41 @@ export async function deleteGames(gameIds) {
   });
 }
 
+export async function deleteGameMessage(gameId, messageIndex) {
+  return request(`/games/${encodeURIComponent(gameId)}/messages/${encodeURIComponent(messageIndex)}/delete`, {
+    method: "POST",
+  });
+}
+
+export async function rewriteGameMessage(gameId, messageIndex, message) {
+  return request(`/games/${encodeURIComponent(gameId)}/messages/${encodeURIComponent(messageIndex)}/rewrite`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+}
+
 export async function loadActionOptions(gameId) {
   return request(`/games/${encodeURIComponent(gameId)}/action-options`);
+}
+
+export async function updateReplyLength(gameId, payload) {
+  return request(`/games/${encodeURIComponent(gameId)}/reply-length`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function loadActionSuggestions(gameId, { timeoutMs = 45000 } = {}) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await request(`/games/${encodeURIComponent(gameId)}/action-suggestions`, {
+      method: "POST",
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export async function loadModelConfig() {
@@ -240,19 +286,20 @@ export async function streamTurn(gameId, message, handlers = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("请求等待超时，请稍后重试。");
     throw new Error("无法连接后端服务，请确认启动脚本仍在运行，然后刷新页面重试。");
   }
 
   if (!response.ok) {
-    let detail = `${response.status} ${response.statusText}`;
+    let detail = "";
     try {
       const payload = await response.json();
       detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail || payload);
     } catch {
       // ignore JSON parse errors for empty bodies
     }
-    throw new Error(detail);
+    throw new Error(readableHttpError(response, detail));
   }
 
   if (!response.body) {
@@ -286,14 +333,19 @@ export async function streamTurn(gameId, message, handlers = {}) {
     }
   };
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const blocks = buffer.split(/\r?\n\r?\n/);
-    buffer = blocks.pop() || "";
-    for (const block of blocks) dispatchBlock(block);
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split(/\r?\n\r?\n/);
+      buffer = blocks.pop() || "";
+      for (const block of blocks) dispatchBlock(block);
+    }
+  } catch {
+    if (streamError) throw streamError;
+    throw new Error("与主持服务的连接意外中断，请重新载入存档确认当前进度。");
   }
 
   buffer += decoder.decode();

@@ -2,11 +2,12 @@
 
 import json
 import os
+import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
-from library import Library
-from models import Character, InventoryItem, PendingCustomEquipment, ResourcePool, SpellSlot
+from library import Library, TERM_TRANSLATIONS
+from models import Character, GameState, InventoryItem, PendingCustomEquipment, ResourcePool, SpellSlot
 from starter_shop import get_shop_catalog, get_shop_item, get_shop_item_by_name
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "character_builder_2024.json")
@@ -46,6 +47,24 @@ ABILITY_ALIAS = {
     "Intelligence": "intelligence",
     "Wisdom": "wisdom",
     "Charisma": "charisma",
+    "str": "strength",
+    "dex": "dexterity",
+    "con": "constitution",
+    "int": "intelligence",
+    "wis": "wisdom",
+    "cha": "charisma",
+    "strength": "strength",
+    "dexterity": "dexterity",
+    "constitution": "constitution",
+    "intelligence": "intelligence",
+    "wisdom": "wisdom",
+    "charisma": "charisma",
+    "力量": "strength",
+    "敏捷": "dexterity",
+    "体质": "constitution",
+    "智力": "intelligence",
+    "感知": "wisdom",
+    "魅力": "charisma",
 }
 
 SPELL_LIBRARY_KEY_ALIASES = {
@@ -67,6 +86,15 @@ SPELL_LIBRARY_KEY_ALIASES = {
     "wizard": "法师",
     "法师": "法师",
 }
+
+SKILL_ALIASES = {name.casefold(): name for name in SKILL_TO_ABILITY}
+SKILL_ALIASES.update(
+    {
+        str(TERM_TRANSLATIONS.get(name) or "").strip().casefold(): name
+        for name in SKILL_TO_ABILITY
+        if str(TERM_TRANSLATIONS.get(name) or "").strip()
+    }
+)
 
 POINT_BUY_COSTS = {
     8: 0,
@@ -246,18 +274,32 @@ class RuleCatalog:
         value = getattr(character.stats, attr, 10)
         return (value - 10) // 2
 
+    @staticmethod
+    def normalize_skill_name(skill_name: str) -> str:
+        normalized = " ".join(str(skill_name or "").split()).strip()
+        return SKILL_ALIASES.get(normalized.casefold(), normalized)
+
+    @staticmethod
+    def normalize_save_name(save_name: str) -> str:
+        normalized = " ".join(str(save_name or "").split()).strip()
+        return ABILITY_ALIAS.get(normalized, ABILITY_ALIAS.get(normalized.casefold(), normalized.casefold()))
+
     def get_skill_modifier(self, character: Character, skill_name: str) -> int:
-        ability = SKILL_TO_ABILITY.get(skill_name, "wisdom")
+        canonical_skill = self.normalize_skill_name(skill_name)
+        ability = SKILL_TO_ABILITY.get(canonical_skill, "wisdom")
         modifier = self.get_ability_modifier(character, ability)
-        rank = int(character.skill_proficiencies.get(skill_name, 0))
+        rank = int(character.skill_proficiencies.get(canonical_skill, character.skill_proficiencies.get(skill_name, 0)))
         if rank > 0:
             modifier += proficiency_bonus_for_level(character.level) * rank
         return modifier
 
     def get_save_modifier(self, character: Character, save_name: str) -> int:
-        ability = ABILITY_ALIAS.get(save_name, save_name)
+        ability = self.normalize_save_name(save_name)
         modifier = self.get_ability_modifier(character, ability)
-        if character.save_proficiencies.get(ABILITY_ALIAS.get(save_name, save_name).lower(), False):
+        if any(
+            bool(is_proficient) and self.normalize_save_name(proficiency_name) == ability
+            for proficiency_name, is_proficient in character.save_proficiencies.items()
+        ):
             modifier += proficiency_bonus_for_level(character.level)
         return modifier
 
@@ -334,9 +376,193 @@ class RuleCatalog:
         properties = set(item_data.get("properties", []) or [])
         strength_mod = self.get_ability_modifier(character, "strength")
         dexterity_mod = self.get_ability_modifier(character, "dexterity")
-        if {"Ranged", "Thrown", "Finesse"} & properties:
+        if "Finesse" in properties:
             return max(strength_mod, dexterity_mod)
+        if "Ranged" in properties:
+            return dexterity_mod
         return strength_mod
+
+    def _character_weapon_attack_profile(self, character: Character, item: InventoryItem) -> Dict[str, Any]:
+        catalog_item = get_shop_item_by_name(item.name) or {}
+        item_data = {**item.model_dump(mode="python"), **catalog_item}
+        ability_modifier = self._weapon_ability_modifier(character, item_data)
+        attack_bonus = (
+            int(item.attack_bonus)
+            if item.attack_bonus is not None
+            else ability_modifier + proficiency_bonus_for_level(character.level)
+        )
+        damage_die = str(catalog_item.get("damage_die") or "").strip()
+        damage_expression = (
+            self._format_damage_expression(damage_die, ability_modifier)
+            if damage_die
+            else str(item.damage_expression or "").strip()
+        )
+        if not damage_expression:
+            raise ValueError(f"Weapon has no authoritative damage expression: {item.name}")
+        return {
+            "attack_name": item.name,
+            "attack_bonus": attack_bonus,
+            "damage_expression": damage_expression,
+            "damage_type": str(catalog_item.get("damage_type") or item.damage_type or ""),
+            "source": "character_sheet",
+        }
+
+    def resolve_character_attack_profile(
+        self,
+        character: Character,
+        attack_name: str = "",
+        requested_attack_bonus: Optional[int] = None,
+        requested_damage_expression: str = "",
+    ) -> Dict[str, Any]:
+        weapons = [
+            item
+            for item in character.inventory
+            if item.type == "weapon" and int(item.quantity or 0) > 0
+        ]
+        if not weapons:
+            raise ValueError(f"Character has no weapon attack on the character sheet: {character.name}")
+
+        normalized_name = " ".join(str(attack_name or "").split()).strip().casefold()
+        selected: Optional[InventoryItem] = None
+        if normalized_name:
+            matching = [
+                item
+                for item in weapons
+                if normalized_name
+                in {
+                    str(item.name or "").strip().casefold(),
+                    str(self.library.localize_game_terms(item.name) or "").strip().casefold(),
+                }
+            ]
+            if len(matching) == 1:
+                selected = matching[0]
+            elif not matching:
+                raise ValueError(f"Weapon attack is not present on the character sheet: {attack_name}")
+            else:
+                raise ValueError(f"Weapon attack name is ambiguous on the character sheet: {attack_name}")
+        elif len(weapons) == 1:
+            selected = weapons[0]
+        else:
+            profiles = [self._character_weapon_attack_profile(character, item) for item in weapons]
+            requested_expression = str(requested_damage_expression or "").strip().casefold()
+            matching_profiles = [
+                profile
+                for profile in profiles
+                if requested_attack_bonus is not None
+                and int(profile["attack_bonus"]) == int(requested_attack_bonus)
+                and requested_expression
+                and str(profile["damage_expression"]).casefold() == requested_expression
+            ]
+            if len(matching_profiles) == 1:
+                return matching_profiles[0]
+            equipped = [item for item in weapons if item.is_equipped]
+            if len(equipped) == 1:
+                selected = equipped[0]
+            else:
+                raise ValueError("attack_name is required when a character has multiple available weapon attacks")
+
+        return self._character_weapon_attack_profile(character, selected)
+
+    @staticmethod
+    def _solo_level_one_party(state: GameState) -> List[Character]:
+        party = [character for character in state.characters.values() if character.hp_max > 0]
+        if len(party) == 1 and int(party[0].level or 1) <= 1:
+            return party
+        return []
+
+    @staticmethod
+    def _challenge_rating_value(value: str) -> float:
+        normalized = str(value or "0").strip()
+        if "/" in normalized:
+            numerator, denominator = normalized.split("/", 1)
+            try:
+                return float(numerator) / float(denominator)
+            except (TypeError, ValueError, ZeroDivisionError):
+                return 99.0
+        try:
+            return float(normalized)
+        except (TypeError, ValueError):
+            return 99.0
+
+    @staticmethod
+    def _damage_expression_bounds(expression: str) -> Optional[tuple[float, int]]:
+        normalized = str(expression or "").lower().replace(" ", "")
+        match = re.fullmatch(r"(\d+)d(\d+)([+-]\d+)?", normalized)
+        if not match:
+            return None
+        count = int(match.group(1))
+        sides = int(match.group(2))
+        modifier = int(match.group(3) or 0)
+        return count * (sides + 1) / 2 + modifier, count * sides + modifier
+
+    def solo_level_one_encounter_error(
+        self,
+        state: GameState,
+        enemy_names: List[str],
+        enemy_hp: int,
+        enemy_ac: int,
+    ) -> str:
+        if not self._solo_level_one_party(state):
+            return ""
+        if len([name for name in enemy_names if str(name or "").strip()]) > 1:
+            return "A solo level-1 party cannot start against multiple new enemies without explicit balancing support."
+        if int(enemy_hp or 0) > 15 or int(enemy_ac or 0) > 14:
+            return "For a solo level-1 party, a new encounter enemy must use at most 15 HP and AC 14."
+        return ""
+
+    def solo_level_one_monster_template_error(
+        self,
+        state: GameState,
+        challenge_rating: str,
+        hp_max: int,
+        ac: int,
+        actions: Optional[List[str]] = None,
+    ) -> str:
+        party = self._solo_level_one_party(state)
+        if not party:
+            return ""
+        if self._challenge_rating_value(challenge_rating) > 0.5:
+            return "A game-authored monster facing one level-1 character must be CR 1/2 or lower."
+        encounter_error = self.solo_level_one_encounter_error(state, ["monster"], hp_max, ac)
+        if encounter_error:
+            return encounter_error
+        for action in actions or []:
+            text = str(action or "")
+            bonus_match = re.search(r"([+-]\d+)\s*(?:命中|to hit)", text, flags=re.IGNORECASE)
+            if bonus_match and int(bonus_match.group(1)) > 4:
+                return "A solo level-1 monster attack bonus cannot exceed +4."
+            damage_match = re.search(r"(\d+d\d+(?:[+-]\d+)?)", text, flags=re.IGNORECASE)
+            if damage_match:
+                attack_error = self.solo_level_one_npc_attack_error(
+                    state,
+                    int(bonus_match.group(1)) if bonus_match else 0,
+                    damage_match.group(1),
+                )
+                if attack_error:
+                    return attack_error
+        return ""
+
+    def solo_level_one_npc_attack_error(
+        self,
+        state: GameState,
+        attack_bonus: int,
+        damage_expression: str,
+    ) -> str:
+        party = self._solo_level_one_party(state)
+        if not party:
+            return ""
+        if int(attack_bonus or 0) > 4:
+            return "A solo level-1 enemy attack bonus cannot exceed +4."
+        damage_bounds = self._damage_expression_bounds(damage_expression)
+        if not damage_bounds:
+            return "A solo level-1 enemy attack requires a bounded dice damage expression."
+        _, maximum_damage = damage_bounds
+        if maximum_damage >= min(character.hp_max for character in party):
+            return (
+                "A routine enemy attack against a solo level-1 party cannot deal enough normal maximum damage "
+                "to drop the character from full HP in one hit."
+            )
+        return ""
 
     def _format_damage_expression(self, damage_die: str, ability_modifier: int) -> str:
         if ability_modifier > 0:
