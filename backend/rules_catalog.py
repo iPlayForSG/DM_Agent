@@ -249,7 +249,7 @@ class RuleCatalog:
         return resolved_items
 
     def resolve_spell_library_key(self, class_name: str) -> str:
-        # Handle legacy localized keys before falling back to the requested name.
+        # Normalize localized class keys before trying the requested name.
         class_def = self.get_class_def(class_name)
         library_keys = set(self.library.get_all_classes())
         candidates = [

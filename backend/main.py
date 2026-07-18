@@ -188,6 +188,7 @@ def health_payload():
         "checkpoint_backend": agent.checkpoint_backend,
         "checkpoint_db_path": agent.checkpoint_db_path,
         "checkpoint_warning": agent.checkpoint_warning,
+        "agent_topology": agent.agent_topology,
         "llm": agent.llm_runtime_payload(),
         "api_features": {
             "delete_games": True,

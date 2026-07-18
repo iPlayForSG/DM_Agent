@@ -55,6 +55,7 @@ class FakeAgent:
         self.checkpoint_db_path = "backend/Game/langgraph_checkpoints.sqlite"
         self.checkpoint_warning = ""
         self.backend_name = "langgraph"
+        self.agent_topology = {"exploration": ["lookup_rules"], "combat": ["attack_target"]}
         self.rag_engine = type(
             "FakeRAG",
             (),

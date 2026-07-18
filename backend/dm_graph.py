@@ -1,6 +1,7 @@
 """LangGraph workflow for deterministic DM turn orchestration."""
 
 import json
+import inspect
 import os
 import re
 import sqlite3
@@ -10,6 +11,11 @@ from typing import Any, Dict, List, Optional, TypedDict
 from adventure_service import build_ai_adventure_prompt, parse_generated_adventure
 from agent_tools import AgentToolExecution, AgentToolService, merge_patch
 from campaign_memory import compile_campaign_memory
+from agents.specialist import SpecialistAgent, specialist_role_for_phase
+from agents.specs import AgentRole
+from agents.factory import DMAgentFactory
+from agents.rules import RulesResearchAgent
+from agents.suggestions import SuggestionAgent
 from game_logic import GameLogic
 from library import Library
 from models import (
@@ -871,6 +877,10 @@ class DMGraphState(TypedDict, total=False):
     pending_input: Dict[str, Any]
     final_response: str
     action_suggestions: List[Dict[str, Any]]
+    active_agent: str
+    director_decision: Dict[str, Any]
+    audit_result: Dict[str, Any]
+    audit_attempts: int
     tool_results: List[Dict[str, Any]]
     state_delta: Dict[str, Any]
     timeline_append: List[Dict[str, Any]]
@@ -914,6 +924,12 @@ class DMGraphRunner:
         self.checkpoint_backend = "none"
         self.checkpoint_db_path = ""
         self.checkpoint_warning = ""
+        self.agent_team = None
+        self.specialist_agents: Dict[AgentRole, SpecialistAgent] = {}
+        self.control_agents: Dict[AgentRole, Any] = {}
+        self.control_agents_enabled = False
+        self.rules_agent: Optional[RulesResearchAgent] = None
+        self.suggestion_agent = SuggestionAgent(self)
         self._checkpointer = self._create_checkpointer()
 
     @property
@@ -950,11 +966,9 @@ class DMGraphRunner:
             path = os.path.join(os.path.dirname(__file__), path)
         return os.path.normpath(path)
 
-    def _fallback_memory_checkpointer(self, warning: str = ""):
-        self.checkpoint_warning = warning
+    def _memory_checkpointer(self):
         if InMemorySaver is None:
-            self.checkpoint_backend = "none"
-            return None
+            raise LangGraphUnavailableError("langgraph in-memory checkpoint support is not installed.")
         self.checkpoint_backend = "memory"
         self.checkpoint_db_path = ""
         return InMemorySaver()
@@ -966,12 +980,10 @@ class DMGraphRunner:
             self.checkpoint_db_path = ""
             return None
         if mode == "memory":
-            return self._fallback_memory_checkpointer()
+            return self._memory_checkpointer()
 
         if SqliteSaver is None:
-            return self._fallback_memory_checkpointer(
-                "langgraph-checkpoint-sqlite is not installed; falling back to in-memory checkpoints."
-            )
+            raise LangGraphUnavailableError("langgraph-checkpoint-sqlite is required for SQLite checkpoints.")
 
         db_path = self._resolved_checkpoint_db_path()
         try:
@@ -990,9 +1002,11 @@ class DMGraphRunner:
                 except Exception:
                     pass
                 self._checkpoint_conn = None
-            return self._fallback_memory_checkpointer(
-                f"SQLite checkpointer initialization failed ({exc}); falling back to in-memory checkpoints."
-            )
+            raise RuntimeError(f"SQLite checkpointer initialization failed: {exc}") from exc
+
+    @property
+    def graph_state_type(self):
+        return DMGraphState
 
     def close(self) -> None:
         if self._checkpoint_conn is not None:
@@ -4875,44 +4889,194 @@ class DMGraphRunner:
             ),
         }
 
+    @staticmethod
+    def _structured_agent_payload(result: Any) -> Dict[str, Any]:
+        if not isinstance(result, dict):
+            return {}
+        structured = result.get("structured_response")
+        if hasattr(structured, "model_dump"):
+            return structured.model_dump(mode="json")
+        return dict(structured) if isinstance(structured, dict) else {}
+
+    def _director_agent(self, graph_state: DMGraphState) -> DMGraphState:
+        planned = self._plan_turn(graph_state)
+        if AgentRole.DIRECTOR not in self.control_agents:
+            return {
+                **planned,
+                "director_decision": {
+                    "route": specialist_role_for_phase(planned.get("phase", "")).value,
+                    "objective": planned.get("turn_expectation", ""),
+                    "requires_rules": bool(planned.get("rag_queries")),
+                    "risk_level": planned.get("turn_intent", {}).get("risk_level", "low"),
+                    "reason": "Deterministic test routing.",
+                },
+            }
+        state = GameState.model_validate(planned["game_state"])
+        current = state.encounter.get_current_combatant() if state.encounter and state.encounter.active else None
+        prompt = (
+            "Route this turn. The authoritative phase is a hard constraint and must not be contradicted.\n"
+            f"Player input: {planned.get('user_input', '')}\n"
+            f"Authoritative phase: {planned.get('phase', '')}\n"
+            f"Scene: {planned.get('scene', '')}\n"
+            f"Current combatant: {current.name if current else 'none'}\n"
+            f"Deterministic intent: {json.dumps(planned.get('turn_intent', {}), ensure_ascii=False)}"
+        )
+        result = self.control_agents[AgentRole.DIRECTOR].invoke(
+            {"messages": [{"role": "user", "content": prompt}]},
+            config=self._graph_config(str(planned.get("thread_id") or "director")),
+        )
+        decision = self._structured_agent_payload(result)
+        authoritative_role = specialist_role_for_phase(planned.get("phase", "")).value
+        if decision.get("route") != authoritative_role:
+            decision["route"] = authoritative_role
+            decision["reason"] = (
+                f"Authoritative phase requires the {authoritative_role} specialist. "
+                + str(decision.get("reason") or "")
+            ).strip()
+        return {
+            **planned,
+            "director_decision": decision,
+            "node_traces": self._append_node_trace(
+                {**graph_state, **planned},
+                "agent.director.completed",
+                "Director delegated the turn.",
+                decision,
+            ),
+        }
+
+    def _auditor_agent(self, graph_state: DMGraphState) -> DMGraphState:
+        if AgentRole.AUDITOR not in self.control_agents:
+            return {"audit_result": {"accepted": True, "issues": [], "reason": "Test mode."}}
+        state = GameState.model_validate(graph_state["game_state"])
+        current = state.encounter.get_current_combatant() if state.encounter and state.encounter.active else None
+        prompt = (
+            "Audit this proposed DM turn. Reject factual claims that are not backed by authoritative state or tool results, "
+            "incorrect combat turn ownership, duplicate damage, missing required state mutation, or player-facing action menus.\n"
+            f"Phase: {graph_state.get('phase', '')}\n"
+            f"Current combatant: {current.name if current else 'none'}\n"
+            f"Tool results: {json.dumps(graph_state.get('tool_results', []), ensure_ascii=False, default=str)}\n"
+            f"Validation issues: {json.dumps(graph_state.get('validation_issues', []), ensure_ascii=False)}\n"
+            f"Proposed narration: {graph_state.get('final_response', '')}"
+        )
+        result = self.control_agents[AgentRole.AUDITOR].invoke(
+            {"messages": [{"role": "user", "content": prompt}]},
+            config=self._graph_config(str(graph_state.get("thread_id") or "auditor")),
+        )
+        audit = self._structured_agent_payload(result)
+        accepted = bool(audit.get("accepted"))
+        issues = [str(item).strip() for item in audit.get("issues", []) if str(item).strip()]
+        attempts = int(graph_state.get("audit_attempts", 0)) + (0 if accepted else 1)
+        messages = list(graph_state.get("messages", []))
+        if not accepted and issues:
+            repair_message = self._build_validation_message(issues)
+            if repair_message is not None:
+                messages.append(repair_message)
+        return {
+            "audit_result": audit,
+            "audit_attempts": attempts,
+            "messages": messages,
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "agent.auditor.completed",
+                "Auditor accepted the turn." if accepted else "Auditor requested a specialist repair.",
+                {"accepted": accepted, "issues": issues, "attempt": attempts},
+            ),
+        }
+
+    @staticmethod
+    def _route_after_auditor(graph_state: DMGraphState) -> str:
+        audit = graph_state.get("audit_result", {})
+        if bool(audit.get("accepted")) or int(graph_state.get("audit_attempts", 0)) >= 2:
+            return "narrator"
+        return specialist_role_for_phase(graph_state.get("phase", "")).value
+
+    def _narrator_agent(self, graph_state: DMGraphState) -> DMGraphState:
+        draft = str(graph_state.get("final_response") or "").strip()
+        if AgentRole.NARRATOR not in self.control_agents or not draft:
+            return {}
+        state = GameState.model_validate(graph_state["game_state"])
+        min_chars, max_chars = self._reply_length_bounds(state)
+        prompt = (
+            "Produce the final player-facing narration from the accepted draft. Preserve every resolved fact and numeric result. "
+            "Do not add actions, choices, tools, rules commentary, or new facts.\n"
+            f"Length bounds: min={min_chars or 'none'}, max={max_chars or 'none'} Chinese characters.\n"
+            f"Accepted draft: {draft}"
+        )
+        result = self.control_agents[AgentRole.NARRATOR].invoke(
+            {"messages": [{"role": "user", "content": prompt}]},
+            config=self._graph_config(str(graph_state.get("thread_id") or "narrator")),
+        )
+        payload = self._structured_agent_payload(result)
+        response = self.clean_player_response(str(payload.get("response") or draft))
+        return {
+            "final_response": response,
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "agent.narrator.completed",
+                "Narrator produced the final player-facing response.",
+                {"response_chars": self._visible_reply_char_count(response)},
+            ),
+        }
+
     def _build_graph(self):
         self._require_langgraph()
+        specialist_roles = (
+            AgentRole.SETUP,
+            AgentRole.EXPLORATION,
+            AgentRole.COMBAT,
+            AgentRole.DOWNTIME,
+            AgentRole.LEVEL_UP,
+        )
+        self.specialist_agents = {role: SpecialistAgent(role, self) for role in specialist_roles}
+        self.agent_team = self.specialist_agents
+        self.rules_agent = RulesResearchAgent(self)
+        if self.enable_model:
+            model = self._create_model()
+            bind_signature = inspect.signature(model.bind_tools)
+            supports_tool_choice = "tool_choice" in bind_signature.parameters or any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in bind_signature.parameters.values()
+            )
+            if supports_tool_choice:
+                control_factory = DMAgentFactory(model)
+                self.control_agents = control_factory.create_many(
+                    (AgentRole.DIRECTOR, AgentRole.AUDITOR, AgentRole.NARRATOR)
+                )
+                self.control_agents_enabled = True
         builder = StateGraph(DMGraphState)
         builder.add_node("prepare_turn", self._prepare_turn)
         builder.add_node("input_gate", self._input_gate)
-        builder.add_node("plan_turn", self._plan_turn)
+        builder.add_node("director_agent", self._director_agent)
         builder.add_node("route_phase", self._route_phase)
-        builder.add_node("retrieve_rules", self._retrieve_rules)
-        builder.add_node("prepare_context", self._prepare_context)
-        model_node = self._call_model if self.enable_model else self._draft_response_placeholder
-        builder.add_node("draft_response", model_node)
-        builder.add_node("execute_tools", self._execute_tools)
-        builder.add_node("validate_state", self._validate_state)
+        builder.add_node("rules_agent", self.rules_agent.graph)
+        builder.add_node("memory_context", self._prepare_context)
+        for role, specialist in self.specialist_agents.items():
+            builder.add_node(f"{role.value}_agent", specialist.graph)
+        builder.add_node("auditor_agent", self._auditor_agent)
+        builder.add_node("narrator_agent", self._narrator_agent)
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
         builder.add_edge("prepare_turn", "input_gate")
-        builder.add_edge("input_gate", "plan_turn")
-        builder.add_edge("plan_turn", "route_phase")
-        builder.add_edge("route_phase", "retrieve_rules")
-        builder.add_edge("retrieve_rules", "prepare_context")
-        builder.add_edge("prepare_context", "draft_response")
+        builder.add_edge("input_gate", "director_agent")
+        builder.add_edge("director_agent", "route_phase")
+        builder.add_edge("route_phase", "rules_agent")
+        builder.add_edge("rules_agent", "memory_context")
         builder.add_conditional_edges(
-            "draft_response",
-            self._should_continue_after_model,
+            "memory_context",
+            lambda state: specialist_role_for_phase(state.get("phase", "")).value,
+            {role.value: f"{role.value}_agent" for role in specialist_roles},
+        )
+        for role in specialist_roles:
+            builder.add_edge(f"{role.value}_agent", "auditor_agent")
+        builder.add_conditional_edges(
+            "auditor_agent",
+            self._route_after_auditor,
             {
-                "execute_tools": "execute_tools",
-                "finalize_turn": "finalize_turn",
+                "narrator": "narrator_agent",
+                **{role.value: f"{role.value}_agent" for role in specialist_roles},
             },
         )
-        builder.add_edge("execute_tools", "validate_state")
-        builder.add_conditional_edges(
-            "validate_state",
-            self._should_continue_after_validation,
-            {
-                "draft_response": "draft_response",
-                "finalize_turn": "finalize_turn",
-            },
-        )
+        builder.add_edge("narrator_agent", "finalize_turn")
         builder.add_edge("finalize_turn", END)
         if self._checkpointer is not None:
             return builder.compile(checkpointer=self._checkpointer)

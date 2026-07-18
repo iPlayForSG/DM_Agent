@@ -96,6 +96,13 @@ class DMAgent:
         return self.dm_graph_runner.checkpoint_warning
 
     @property
+    def agent_topology(self) -> Dict[str, List[str]]:
+        from agents.specs import AGENT_SPECS, AgentRole
+
+        roles = tuple(AgentRole)
+        return {role.value: list(AGENT_SPECS[role].tool_names) for role in roles}
+
+    @property
     def base_url_normalized(self) -> bool:
         return bool(self.base_url) and self.base_url != (self.raw_base_url or "").rstrip("/")
 
@@ -464,15 +471,7 @@ class DMAgent:
         response: str,
         user_input: str = "",
     ) -> tuple[List[ActionSuggestion], Dict[str, Any]]:
-        return self.dm_graph_runner._generate_action_suggestion_projection(
-            state,
-            {
-                "game_state": state.model_dump(mode="json"),
-                "user_input": user_input,
-                "turn_profile": "ui_projection",
-            },
-            response,
-        )
+        return self.dm_graph_runner.suggestion_agent.project(state, response, user_input)
 
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
         return self.dm_graph_runner.run_turn(state, user_input)

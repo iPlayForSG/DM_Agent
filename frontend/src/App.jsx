@@ -1198,7 +1198,7 @@ export default function App() {
       setDeleteRequest((latest) => latest ? { ...latest, busy: false } : latest);
       const message = err.message || "删除失败。";
       setError(message.includes("Method Not Allowed") || message.includes("405")
-        ? "删除接口已更新，但当前后端进程仍是旧版本。请重新运行 start.cmd 后再试。"
+        ? "当前后端进程尚未加载删除接口。请重新运行 start.cmd 后再试。"
         : message);
     }
   }
