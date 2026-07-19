@@ -1,170 +1,149 @@
-# DM_Agent 多 Agent 架构设计
+# DM_Agent 多 Agent 架构
 
-## 1. 结论
+本文档描述当前实现，不记录迁移过程。
 
-采用 LangGraph Custom Workflow 作为父图，每个业务节点挂载一个独立编译的 Agent 子图。每个 Agent 拥有独立的系统提示词、输入上下文、模型实例配置、工具白名单和内部 `model -> tools -> model` 循环。
+## 1. 架构选择
 
-确定性准备、提交和持久化步骤仍是普通节点，不伪装成 Agent。`GameState` 继续作为唯一事实源，任何业务状态变更只能由 Specialist Agent 的受控工具产生。
+系统采用 LangGraph custom workflow：父图组合确定性节点、结构化控制 Agent 和业务 Specialist 子图。`GameState` 是唯一事实源，所有业务状态变更必须由已注册工具调用 `ToolRegistry`、`AgentToolService` 和 `GameLogic` 完成。
 
-当前父图已经使用独立编译的 Rules 与 Specialist 子图；Director、Auditor 和 Narrator 使用独立 `create_agent` 图。旧 `DMAgentNode(handler=runner_method)` 包装层已经删除。
+确定性准备、路由保护、验证和原子提交不会伪装成 Agent。行动建议在主回合提交后独立运行，不参与剧情事务。
 
 ## 2. 父图
 
 ```text
 START
-  -> prepare_turn                 # deterministic
-  -> director_agent              # structured route decision
-       -> rules_agent             # rules question / rule context
-       -> exploration_agent       # exploration, social, investigation
-       -> combat_agent            # encounter and initiative turns
-       -> downtime_agent          # inventory, recovery, progression
-  -> state_auditor_agent          # structured verdict, no state mutation
-       -> selected specialist     # repair loop, bounded
-       -> narrator_agent          # accepted state
-  -> commit_turn                  # deterministic atomic persistence
-  -> suggestion_agent             # optional projection after commit
+  -> prepare_turn
+  -> input_gate
+  -> director_agent
+  -> route_phase
+  -> rules_agent
+  -> memory_context
+  -> specialist(setup | exploration | combat | downtime | level_up)
+  -> auditor_agent
+       -> selected specialist repair loop
+       -> narrator_agent
+  -> finalize_turn
   -> END
 ```
 
-`director_agent` 使用结构化输出决定唯一主 Specialist。规则资料可在 Specialist 之前按需调用 `rules_agent`；不要让多个可写 Agent 并行修改同一份 `GameState`。
+- `prepare_turn`、`input_gate`、`route_phase`、`memory_context` 和 `finalize_turn` 是确定性节点。
+- Director、Auditor 和 Narrator 使用独立 `create_agent` 图与结构化输出。
+- Rules、五个 Specialist 和 Suggestion 是独立编译的 `StateGraph`。
+- 同一回合只有一个可写 Specialist，禁止多个 Agent 并行修改同一份 `GameState`。
+- Director 的结果受确定性 phase guard 约束，模型不能把活动战斗路由给 Exploration。
 
 ## 3. Agent 契约
 
-### Director Agent
+### 控制 Agent
 
-- 输入：玩家原文、当前 phase/scene、遭遇摘要、pending input。
-- 输出：`route`、`objective`、`requires_rules`、`risk_level`、`reason`。
-- Tools：无。
-- 禁止：叙事、掷骰、修改状态。
+- Director：输出唯一 route、目标、规则需求和风险；无工具，不叙事、不写状态。
+- Auditor：检查 Specialist 草稿、工具轨迹和权威状态；无工具，拒绝时把问题送回原 Specialist。
+- Narrator：把审计通过的事实整理成玩家正文；无工具，不创造事实或行动菜单。
 
-### Rules Agent
+### 只读 Agent
 
-- 输入：标准化规则问题、角色/法术/怪物相关最小上下文。
-- Tools：`lookup_rules`。
-- 输出：带来源片段的 `RuleBrief`，供 Specialist 使用。
-- 持久化：per-invocation，不保留独立对话记忆。
+- Rules：私有 `RulesState`，只注册 `lookup_rules`，通过独立 ToolNode 读取本地规则。
+- Suggestion：私有 `SuggestionState`，只注册 `set_player_action_suggestions`；候选必须再次通过场景锚点验证，失败返回空建议，不撤销主回合。
 
-### Exploration Agent
+### Specialist
 
-- 输入：场景、最近对话、Campaign Memory、可见角色信息、可选 RuleBrief。
-- Tools：`roll_skill_check`、`roll_saving_throw`、`cast_spell`、`use_item`、`use_feature`、`record_evidence`、`record_search_outcome`、`append_adventure_log`、`set_scene`、`start_encounter`。
-- 输出：结构化事实摘要、工具结果、叙事草稿。
-- 禁止：直接操作先攻、敌方 HP 或结束遭遇。
+- Setup：队伍、角色与冒险准备。
+- Exploration：探索、社交、调查、旅行、场景转换和遭遇建立。
+- Combat：攻击、施法、状态、先攻、当前行动者、败北和遭遇结束。
+- Downtime：恢复、物品、奖励与章节整理。
+- Level Up：升级和里程碑选择。
 
-### Combat Agent
+工具全集与所有权以 `backend/agents/specs.py` 为准。`tests/test_agent_factory.py` 检查所有后端 schema 都至少属于一个 Agent，`tests/test_dm_agent_team.py` 检查运行时真实工具表与声明完全一致。
 
-- 输入：完整 EncounterState、当前行动者、战斗角色卡镜像、可选 RuleBrief。
-- Tools：`attack_target`、`cast_spell`、`use_item`、`use_feature`、`roll_saving_throw`、`adjust_hp`、`add_status`、`remove_status`、`set_initiative`、`roll_initiative`、`advance_turn`、`end_encounter`、`set_defeat_state`、受限的怪物生成工具。
-- 输出：本行动者的结算结果和叙事草稿。
-- 约束：一次只结算当前行动者；每次推进必须有工具结果；修复循环设硬上限。
+## 4. 子图隔离
 
-### Downtime Agent
+每个 Specialist 拥有：
 
-- 输入：队伍资源、库存、章节进度和当前地点。
-- Tools：`add_inventory_item`、`use_item`、`record_major_experience`、`record_chapter_progress`、`append_adventure_log`、`set_scene`、`set_active_character`。
-- 输出：结算结果和叙事草稿。
-- 高风险章节变更继续通过 `interrupt()` 获取确认。
+- 私有 `SpecialistState`。
+- 独立角色提示词。
+- 由 `StructuredTool` 构成的真实工具对象集合。
+- 独立 `ToolNode`。
+- `scope -> model -> tools -> audit -> model` 有界循环。
 
-### State Auditor Agent
+父图通过 adapter 把必要字段映射到私有状态，并只接收父图拥有的输出字段。模型绑定当前阶段白名单与 Agent 所有权白名单的交集；工具节点再次执行同样的权限和规则检查。
 
-- 输入：回合前后状态 diff、工具调用轨迹、Specialist 草稿、权威当前行动者。
-- Tools：只读检查工具；不得拥有任何写工具。
-- 结构化输出：`accepted`、`issues[]`、`repair_route`、`required_tools[]`。
-- 作用：检查叙事与状态一致性，不自行修补状态。
+模型一次可能请求多个工具，但可写工具不会并行执行。Specialist 只放行一个调用，再让模型根据 ToolMessage 请求下一项，从而避免多个 `Command` 基于同一旧状态竞争写入。
 
-### Narrator Agent
+## 5. 工具执行
 
-- 输入：已通过审计的事实、工具结果、玩家可见上下文和长度偏好。
-- Tools：无。
-- 输出：唯一玩家可见正文。
-- 禁止：创造未落库事实、修改状态、输出行动选项。
-
-### Suggestion Agent
-
-- 在主回合提交后运行。
-- Tools：无；结构化输出三条建议。
-- 失败只返回空建议，不影响已提交回合。
-
-## 4. 状态边界
-
-父图使用 `DMWorkflowState`，只保留跨 Agent 共享字段：
+`backend/agents/tool_adapters.py` 把已有 JSON schema 转为 LangChain `StructuredTool`。工具通过 `ToolRuntime` 读取私有状态，并返回 `Command(update=...)`：
 
 ```text
-game_state_before
-game_state
-player_input
-route_decision
-rule_brief
-specialist_result
-audit_result
-final_response
-tool_events
-validation_issues
-pending_input
+model
+  -> registered BaseTool
+  -> ToolNode
+  -> ToolRegistry.validate_call
+  -> AgentToolService
+  -> GameLogic / storage / RAG
+  -> ToolMessage + GameState + trace
 ```
 
-各子 Agent 使用自己的私有 State schema。父图通过 adapter 将最小必要上下文映射给子图，再把结构化结果合并回来。禁止把完整聊天历史、全部 RAG 文档和全部工具同时传给每个 Agent。
+执行顺序：
 
-## 5. Tool 实现
+1. Agent 所有权和阶段白名单取交集。
+2. 校验参数 schema、遭遇状态、当前行动者、动作槽、法术位、库存和确认策略。
+3. 高风险工具通过 `interrupt()` 暂停，确认后从原 ToolNode 恢复。
+4. 调用框架无关的 `AgentToolService`。
+5. 合并 `ToolResult`、timeline、state patch 和 trace。
+6. 进入确定性验证；需要修复时仅开放指定工具并回到模型。
 
-每个工具使用 LangChain `@tool` 定义，并通过 `ToolRuntime` 读取当前子图状态。状态写工具返回 `Command(update=...)`；工具内部继续调用 `ToolRegistry` 和 `AgentToolService`，保留现有 guardrail 与确定性结算。
+`validate_state` 和 Auditor 不直接补写业务状态。可以由工具修复的问题回到 Specialist；不能安全修复的问题让整个回合失败并回滚到 `initial_game_state`。
 
-每个 Specialist 使用独立 `ToolNode`：
+## 6. 状态与持久化
+
+- 父图使用 `DMGraphState` 和 SQLite checkpointer。
+- Specialist 使用 `SpecialistState`，Rules 使用 `RulesState`，Suggestion 使用 `SuggestionState`。
+- 子图默认 per-invocation，并在父图调用时继承运行配置，以支持 interrupt 和 durable execution。
+- LangGraph checkpoint 用于回合暂停恢复；玩家消息删除和重写使用存档中的 `_rewind` 快照。
+- `finalize_turn` 是唯一主回合提交点；失败回合不会提交工具产生的中间状态。
+
+## 7. 运行时审计
+
+`GET /api/v1/health` 的 `agent_topology` 来自已编译 Agent 的实际工具对象，不再直接回显声明。当前角色包括：
 
 ```text
-specialist.model -> specialist.tools -> specialist.model
+director, rules, setup, exploration, combat,
+downtime, level_up, auditor, narrator, suggestions
 ```
 
-模型只能看到该 Agent 的工具白名单。不要继续创建一个绑定所有 schema 的共享模型，再在运行时仅靠提示词限制工具。
+关键 trace：
 
-## 6. 路由与持久化
+- `agent.<role>.entered`
+- `execute_tools`，包含 `agent_name`、工具名、guardrail、确认状态和轮次。
+- `validate_state`
+- `agent.auditor.completed`
+- `agent.narrator.completed`
+- `finalize_turn`
 
-- 父图使用 SQLite checkpointer，负责整个玩家回合、HITL 和恢复。
-- Specialist 子图默认 per-invocation，继承父图 checkpointer。
-- Director、Rules、Auditor、Narrator、Suggestion 默认无跨回合私有记忆。
-- 使用 `Command` 做单路由；只有多个纯只读任务才允许 `Send` 并行。
-- 所有可写 Specialist 串行执行，避免 reducer 合并状态时出现冲突。
-
-## 7. 目录结构
+## 8. 目录
 
 ```text
 backend/agents/
-  state.py
-  factory.py
-  director.py
-  rules.py
-  exploration.py
-  combat.py
-  downtime.py
-  auditor.py
-  narrator.py
-  suggestions.py
-backend/tools/
-  adapters.py
-  rules.py
-  exploration.py
-  combat.py
-  campaign.py
-backend/workflows/
-  dm_workflow.py
+  contracts.py       # 结构化控制输出
+  factory.py         # create_agent 控制 Agent
+  specs.py           # 角色与工具所有权
+  state.py           # 私有子图状态
+  tool_adapters.py   # BaseTool / ToolRuntime / Command adapter
+  specialist.py      # 五个阶段 Specialist
+  rules.py           # Rules 子图
+  suggestions.py     # Suggestion 子图
 ```
 
-## 8. 迁移顺序
+父工作流仍位于 `backend/dm_graph.py`；确定性工具与规则分别位于 `agent_tools.py`、`tool_registry.py` 和 `game_logic.py`。
 
-1. 建立新 State schema、Agent result schema 和 tool adapter，不改变 HTTP API。
-2. 迁移 Rules Agent 与 Narrator Agent，验证无写工具边界。
-3. 迁移 Exploration Agent，复用现有 ToolRegistry/AgentToolService。
-4. 迁移 Combat Agent，并先覆盖当前行动者、伤害去重、施法 DC 和遭遇结束测试。
-5. 加入 Director 与 Auditor 的结构化路由和修复循环。
-6. 将旧 `_call_model/_execute_tools/_validate_state` 单体循环移除。
-7. 更新 SSE，使事件携带 `agent_name`、`subgraph_node`、`tool_name` 和 attempt。
+## 9. 变更门禁
 
-## 9. 验收标准
+新增或修改工具时必须同时满足：
 
-- 每个 Agent 的模型只绑定自己的工具集合。
-- 任一 Agent 无法调用未注册工具，且有自动化测试证明。
-- LangGraph trace 能看到独立 Agent 子图和内部 ToolNode。
-- Narrator 和 Auditor 没有写工具。
-- 同一时刻只有一个可写 Specialist 修改 `GameState`。
-- 中断恢复后从原 Agent 子图继续，而不是重跑已提交工具。
-- 现有后端回归、SSE、消息重写和浏览器长流程全部通过。
+1. schema、service 实现和 guardrail 同步。
+2. `AGENT_SPECS` 指定合理所有者。
+3. 运行时 topology 与声明一致。
+4. 未授权 Agent 看不到且不能执行该工具。
+5. 写工具保持串行，失败不提交部分状态。
+6. checkpoint 暂停恢复、高风险确认、SSE 和消息重写测试通过。
+7. 后端全量测试、前端 build/lint 和真实运行时 smoke test通过。

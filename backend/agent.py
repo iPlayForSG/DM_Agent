@@ -97,10 +97,7 @@ class DMAgent:
 
     @property
     def agent_topology(self) -> Dict[str, List[str]]:
-        from agents.specs import AGENT_SPECS, AgentRole
-
-        roles = tuple(AgentRole)
-        return {role.value: list(AGENT_SPECS[role].tool_names) for role in roles}
+        return self.dm_graph_runner.registered_agent_topology()
 
     @property
     def base_url_normalized(self) -> bool:

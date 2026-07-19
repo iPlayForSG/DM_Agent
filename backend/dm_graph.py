@@ -1008,6 +1008,23 @@ class DMGraphRunner:
     def graph_state_type(self):
         return DMGraphState
 
+    def registered_agent_topology(self) -> Dict[str, List[str]]:
+        """Return tools registered on compiled runtime agents, not declarations."""
+
+        if self._graph is None:
+            self._graph = self._build_graph()
+        topology: Dict[str, List[str]] = {
+            AgentRole.DIRECTOR.value: [],
+            AgentRole.AUDITOR.value: [],
+            AgentRole.NARRATOR.value: [],
+        }
+        if self.rules_agent is not None:
+            topology[AgentRole.RULES.value] = sorted(self.rules_agent.tools)
+        for role, specialist in self.specialist_agents.items():
+            topology[role.value] = sorted(specialist.tools)
+        topology[AgentRole.SUGGESTIONS.value] = sorted(self.suggestion_agent.tools)
+        return topology
+
     def close(self) -> None:
         if self._checkpoint_conn is not None:
             try:
@@ -3389,14 +3406,15 @@ class DMGraphRunner:
         cleaned_response = self.clean_player_response(response)
         return self._build_action_suggestions(state, cleaned_response)
 
-    def _call_model(self, graph_state: DMGraphState) -> DMGraphState:
+    def _call_model(self, graph_state: DMGraphState, *, model: Any = None) -> DMGraphState:
         messages = list(graph_state.get("messages", []))
         if not messages:
             messages = [
                 self._system_prompt_message(graph_state.get("instruction", "")),
                 self._human_prompt_message(graph_state.get("user_input", "")),
             ]
-        model = self._create_tool_bound_model(graph_state.get("allowed_tools", []))
+        if model is None:
+            model = self._create_tool_bound_model(graph_state.get("allowed_tools", []))
         game_state_payload = graph_state.get("game_state")
         output_token_limit = (
             self._reply_output_token_limit(GameState.model_validate(game_state_payload))
@@ -4312,121 +4330,6 @@ class DMGraphRunner:
     def _tool_message_content(execution: AgentToolExecution) -> str:
         return json.dumps(execution.response(), ensure_ascii=False, default=str)
 
-    def _execute_tools(self, graph_state: DMGraphState) -> DMGraphState:
-        state = GameState.model_validate(graph_state["game_state"])
-        messages = list(graph_state.get("messages", []))
-        allowed_tools = list(graph_state.get("allowed_tools", []))
-        tool_results = list(graph_state.get("tool_results", []))
-        action_suggestions = self._valid_scene_action_suggestions(
-            graph_state.get("action_suggestions", []),
-            state,
-            graph_state,
-            response=str(graph_state.get("final_response") or ""),
-        )
-        timeline_append = list(graph_state.get("timeline_append", []))
-        state_delta = dict(graph_state.get("state_delta", {}))
-        tool_trace_items: List[Dict[str, Any]] = []
-        tool_calls = self._last_message_tool_calls(messages)
-        mixed_action_suggestion_batch = (
-            any(str(tool_call.get("name") or "") == "set_player_action_suggestions" for tool_call in tool_calls)
-            and len(tool_calls) > 1
-        )
-
-        for tool_call in tool_calls:
-            tool_name = tool_call.get("name", "")
-            args = dict(tool_call.get("args") or {})
-            guardrail = self.tool_registry.validate_call(
-                state=state,
-                tool_name=tool_name,
-                args=args,
-                allowed_tools=allowed_tools,
-            )
-            confirmation_status = ""
-            if not guardrail.ok:
-                execution = self._tool_error_execution(tool_name, guardrail.error, guardrail.metadata)
-            elif tool_name == "set_player_action_suggestions" and mixed_action_suggestion_batch:
-                execution = self._tool_error_execution(
-                    tool_name,
-                    "set_player_action_suggestions must be called by itself after state-changing tools are complete.",
-                    guardrail.metadata,
-                )
-            else:
-                repair_error = self._repair_tool_call_error(graph_state, tool_name, guardrail.args)
-                if repair_error:
-                    execution = self._tool_error_execution(tool_name, repair_error, guardrail.metadata)
-                elif guardrail.metadata.get("requires_confirmation"):
-                    confirmed, confirmation_error = self._confirm_tool_execution(
-                        graph_state,
-                        tool_name,
-                        args,
-                        guardrail,
-                    )
-                    confirmation_status = "confirmed" if confirmed else "cancelled"
-                    if not confirmed:
-                        execution = self._tool_error_execution(
-                            tool_name,
-                            confirmation_error,
-                            guardrail.metadata,
-                        )
-                    else:
-                        execution = self._execute_single_tool(state, tool_name, args, allowed_tools)
-                else:
-                    execution = self._execute_single_tool(state, tool_name, args, allowed_tools)
-
-            if execution.ok:
-                if tool_name == "set_player_action_suggestions":
-                    action_suggestions = self._valid_scene_action_suggestions(
-                        execution.payload.get("suggestions", []),
-                        state,
-                        graph_state,
-                        response=str(graph_state.get("final_response") or ""),
-                    )
-                if execution.timeline_event:
-                    state.timeline.append(execution.timeline_event)
-                    timeline_append.append(execution.timeline_event.model_dump(mode="json"))
-                if execution.tool_result:
-                    tool_results.append(execution.tool_result.model_dump(mode="json"))
-                if execution.state_patch:
-                    state_delta = merge_patch(state_delta, execution.state_patch)
-
-            messages.append(
-                ToolMessage(
-                    content=self._tool_message_content(execution),
-                    tool_call_id=tool_call.get("id", tool_name or "tool_call"),
-                )
-            )
-            tool_trace_items.append(
-                {
-                    "tool_name": tool_name,
-                    "ok": execution.ok,
-                    "error": execution.error,
-                    "guardrail": dict(guardrail.metadata),
-                    "confirmation_status": confirmation_status,
-                }
-            )
-
-        return {
-            "game_state": state.model_dump(mode="json"),
-            "messages": messages,
-            "tool_results": tool_results,
-            "action_suggestions": [item.model_dump(mode="json") for item in action_suggestions],
-            "timeline_append": timeline_append,
-            "state_delta": state_delta,
-            "tool_call_rounds": graph_state.get("tool_call_rounds", 0) + 1,
-            "allowed_tools": self._allowed_tool_names(state, phase=self._derive_phase(state)),
-            "node_traces": self._append_node_trace(
-                graph_state,
-                "execute_tools",
-                "Tool call round executed.",
-                {
-                    "tool_call_count": len(tool_calls),
-                    "tool_result_count": len(tool_results),
-                    "tool_round": graph_state.get("tool_call_rounds", 0) + 1,
-                    "tools": tool_trace_items,
-                },
-            ),
-        }
-
     @staticmethod
     def _build_validation_message(notes: List[str]) -> Optional[Any]:
         if not notes or SystemMessage is None:
@@ -5048,10 +4951,10 @@ class DMGraphRunner:
         builder.add_node("input_gate", self._input_gate)
         builder.add_node("director_agent", self._director_agent)
         builder.add_node("route_phase", self._route_phase)
-        builder.add_node("rules_agent", self.rules_agent.graph)
+        builder.add_node("rules_agent", self.rules_agent.as_parent_node)
         builder.add_node("memory_context", self._prepare_context)
         for role, specialist in self.specialist_agents.items():
-            builder.add_node(f"{role.value}_agent", specialist.graph)
+            builder.add_node(f"{role.value}_agent", specialist.as_parent_node)
         builder.add_node("auditor_agent", self._auditor_agent)
         builder.add_node("narrator_agent", self._narrator_agent)
         builder.add_node("finalize_turn", self._finalize_turn)
