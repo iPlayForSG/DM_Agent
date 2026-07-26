@@ -84,6 +84,155 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         },
     },
     {
+        "name": "generate_ability_scores",
+        "description": (
+            "Prepare authoritative D&D ability scores during character setup. Use point_buy to validate six supplied "
+            "scores, standard_array for the configured array, or rolled for six 4d6-drop-lowest results."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "enum": ["point_buy", "standard_array", "rolled"],
+                },
+                "scores": {
+                    "type": "object",
+                    "properties": {
+                        "strength": {"type": "integer"},
+                        "dexterity": {"type": "integer"},
+                        "constitution": {"type": "integer"},
+                        "intelligence": {"type": "integer"},
+                        "wisdom": {"type": "integer"},
+                        "charisma": {"type": "integer"},
+                    },
+                },
+            },
+            "required": ["method"],
+        },
+    },
+    {
+        "name": "list_character_options",
+        "description": (
+            "Read the authoritative character builder catalog: ability generation config, species, backgrounds, "
+            "origin feats, and classes. Always consult this before proposing build choices; never invent options."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "enum": ["all", "species", "backgrounds", "origin_feats", "classes", "ability_generation"],
+                    "default": "all",
+                },
+                "name": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Optional exact name to expand one species, background, or class definition.",
+                },
+            },
+        },
+    },
+    {
+        "name": "list_class_spells",
+        "description": (
+            "Read the local spell library. Omit all arguments to list spellcasting classes, pass class_name for that "
+            "class spell list, or pass spell_name for one spell's full details."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "class_name": {"type": "string", "default": ""},
+                "max_level": {"type": "integer", "description": "Optional inclusive spell level cap."},
+                "spell_name": {"type": "string", "default": ""},
+            },
+        },
+    },
+    {
+        "name": "list_starter_equipment",
+        "description": (
+            "Read starter equipment packages, embedded choice groups, custom purchase budget, and the shop catalog "
+            "for one class. Use the returned option and choice ids when creating a character."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "class_name": {"type": "string"},
+                "option_id": {"type": "string", "default": ""},
+            },
+            "required": ["class_name"],
+        },
+    },
+    {
+        "name": "validate_character_sheet",
+        "description": (
+            "Validate one existing party member against the authoritative build rules and report concrete errors. "
+            "Read-only; never mutates the sheet."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "character_ref": {"type": "string"},
+            },
+            "required": ["character_ref"],
+        },
+    },
+    {
+        "name": "create_party_character",
+        "description": (
+            "Create one validated party member in the current game. Every field must come from list_character_options, "
+            "list_class_spells, and list_starter_equipment. Ability scores must satisfy the chosen generation method; "
+            "the character is rejected instead of partially saved when validation fails."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "class_name": {"type": "string"},
+                "species": {"type": "string", "default": "Human"},
+                "background_name": {"type": "string", "default": ""},
+                "ability_scores": {
+                    "type": "object",
+                    "properties": {
+                        "strength": {"type": "integer"},
+                        "dexterity": {"type": "integer"},
+                        "constitution": {"type": "integer"},
+                        "intelligence": {"type": "integer"},
+                        "wisdom": {"type": "integer"},
+                        "charisma": {"type": "integer"},
+                    },
+                },
+                "ability_generation_method": {
+                    "type": "string",
+                    "enum": ["point_buy", "standard_array", "rolled"],
+                    "default": "standard_array",
+                },
+                "skill_proficiencies": {"type": "array", "items": {"type": "string"}, "default": []},
+                "cantrips": {"type": "array", "items": {"type": "string"}, "default": []},
+                "prepared_spells": {"type": "array", "items": {"type": "string"}, "default": []},
+                "starter_option_id": {"type": "string", "default": ""},
+                "starter_choice_ids": {"type": "object", "default": {}},
+                "alignment": {"type": "string", "default": "Neutral"},
+                "set_active": {"type": "boolean", "default": True},
+            },
+            "required": ["name", "class_name"],
+        },
+    },
+    {
+        "name": "select_adventure_hook",
+        "description": (
+            "Lock in one adventure hook already offered in campaign.available_adventures and advance the campaign into "
+            "exploration with chapter one. Only valid once the party exists and no adventure is selected yet."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "adventure_id": {"type": "string"},
+            },
+            "required": ["adventure_id"],
+        },
+    },
+    {
         "name": "set_player_action_suggestions",
         "description": (
             "Prepare exactly three out-of-dialogue player action suggestions for the frontend. "
@@ -412,17 +561,23 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "roll_saving_throw",
-        "description": "Roll a saving throw against a DC.",
+        "description": (
+            "Resolve a saving throw for an existing target. For a character spell, pass source_ref and spell_name; "
+            "the runtime derives the spell save DC and required ability from authoritative character and spell data. "
+            "Use an explicit dc only for environmental or non-character effects."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "target_ref": {"type": "string"},
                 "save_name": {"type": "string"},
-                "dc": {"type": "integer"},
+                "dc": {"type": "integer", "default": 0},
+                "source_ref": {"type": "string", "default": ""},
+                "spell_name": {"type": "string", "default": ""},
                 "roll_mode": {"type": "string", "enum": ["normal", "advantage", "disadvantage"], "default": "normal"},
                 "reason": {"type": "string", "default": ""},
             },
-            "required": ["target_ref", "save_name", "dc"],
+            "required": ["target_ref", "save_name"],
         },
     },
     {
@@ -454,6 +609,20 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {"combatant_ref": {"type": "string"}},
+            "required": ["combatant_ref"],
+        },
+    },
+    {
+        "name": "remove_combatant",
+        "description": (
+            "Remove one non-party combatant from the active encounter, for example a creature that flees, is dismissed, "
+            "or was spawned by mistake. Party members cannot be removed with this tool."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "combatant_ref": {"type": "string"},
+            },
             "required": ["combatant_ref"],
         },
     },
@@ -593,6 +762,14 @@ SCENE_LABELS = {
     "level_up": "升级",
 }
 
+# Setup 阶段的只读目录工具：让模型先读权威建卡数据再做选择，避免臆造物种/背景/装备。
+SETUP_CATALOG_TOOL_NAMES = [
+    "list_character_options",
+    "list_class_spells",
+    "list_starter_equipment",
+    "validate_character_sheet",
+]
+
 BASE_TOOL_NAMES = [
     "lookup_rules",
     "roll_dice",
@@ -624,13 +801,19 @@ COMBAT_TOOL_NAMES = [
     "set_initiative",
     "roll_initiative",
     "advance_turn",
+    "remove_combatant",
     "end_encounter",
 ]
 
 PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
     "party_creation": {
         "scene": "setup",
-        "tools": ["lookup_rules"],
+        "tools": [
+            "lookup_rules",
+            "generate_ability_scores",
+            *SETUP_CATALOG_TOOL_NAMES,
+            "create_party_character",
+        ],
         "objective": "Help the player finish assembling the party before active play begins.",
         "constraints": [
             "Do not narrate live exploration or combat before at least one playable character exists.",
@@ -644,7 +827,12 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
     },
     "character_creation": {
         "scene": "setup",
-        "tools": ["lookup_rules"],
+        "tools": [
+            "lookup_rules",
+            "generate_ability_scores",
+            *SETUP_CATALOG_TOOL_NAMES,
+            "create_party_character",
+        ],
         "objective": "Help resolve remaining character build choices before starting the campaign.",
         "constraints": [
             "Do not start scenes, encounters, or chapter progression while build choices remain unresolved.",
@@ -658,7 +846,12 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
     },
     "adventure_selection": {
         "scene": "setup",
-        "tools": ["lookup_rules", "append_adventure_log"],
+        "tools": [
+            "lookup_rules",
+            "append_adventure_log",
+            *SETUP_CATALOG_TOOL_NAMES,
+            "select_adventure_hook",
+        ],
         "objective": "Help the player compare the offered adventures and choose one hook.",
         "constraints": [
             "Do not begin active exploration or combat until an adventure hook is selected.",
@@ -709,6 +902,9 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
             "record_chapter_progress",
             "set_scene",
             "set_active_character",
+            "list_character_options",
+            "list_class_spells",
+            "validate_character_sheet",
         ],
         "objective": "Resolve level-up decisions and milestone bookkeeping before returning to play.",
         "constraints": [
@@ -772,6 +968,18 @@ ACTION_RESOLUTION_TERMS = [
 
 TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
     "lookup_rules": {"lookup_rules", "knowledge.lookup_rules"},
+    "generate_ability_scores": {"generate_ability_scores", "character.generate_ability_scores"},
+    "list_character_options": {"list_character_options", "character.list_options"},
+    "list_class_spells": {
+        "list_class_spells",
+        "library.class_spells",
+        "library.class_list",
+        "library.spell_details",
+    },
+    "list_starter_equipment": {"list_starter_equipment", "character.list_starter_equipment"},
+    "validate_character_sheet": {"validate_character_sheet", "character.validate_sheet"},
+    "create_party_character": {"create_party_character", "character.create_party_member"},
+    "select_adventure_hook": {"select_adventure_hook", "campaign.select_adventure"},
     "set_player_action_suggestions": {"set_player_action_suggestions", "ui.set_player_action_suggestions"},
     "roll_dice": {"roll_dice", "dice.roll"},
     "adjust_hp": {"adjust_hp", "target.adjust_hp"},
@@ -798,6 +1006,7 @@ TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
     "cast_spell": {"cast_spell", "magic.cast_spell"},
     "set_initiative": {"set_initiative", "encounter.set_initiative"},
     "roll_initiative": {"roll_initiative", "encounter.roll_initiative"},
+    "remove_combatant": {"remove_combatant", "encounter.remove_combatant"},
     "advance_turn": {"advance_turn", "encounter.advance_turn"},
     "end_encounter": {"end_encounter", "encounter.end"},
 }
@@ -1046,8 +1255,16 @@ class DMGraphRunner:
         }
         if self.base_url:
             model_kwargs["base_url"] = self.base_url
+        if self._requires_non_thinking_tool_mode(self.base_url, self.model_name):
+            model_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         self._model = ChatOpenAI(**model_kwargs)
         return self._model
+
+    @staticmethod
+    def _requires_non_thinking_tool_mode(base_url: str, model_name: str) -> bool:
+        normalized_base = str(base_url or "").strip().lower()
+        normalized_model = str(model_name or "").strip().lower()
+        return "api.deepseek.com" in normalized_base and normalized_model.startswith("deepseek-v4")
 
     def _create_tool_bound_model(self, allowed_tools: List[str]):
         model = self._create_model()
@@ -1994,6 +2211,11 @@ class DMGraphRunner:
         phase = cls._derive_phase(state)
         if phase not in {"exploration", "combat", "downtime"}:
             return False
+        if phase == "combat":
+            encounter = state.encounter
+            current = encounter.get_current_combatant() if encounter and encounter.active else None
+            if not current or not cls._is_player_controlled_combatant(state, current):
+                return False
         if state.pending_turn:
             return False
         turn_profile = str((graph_state or {}).get("turn_profile") or "").strip().lower()
@@ -2384,6 +2606,32 @@ class DMGraphRunner:
                 "Do not say that coded replies prove named people or that danger is definitely present."
             )
         return ""
+
+    @staticmethod
+    def _is_player_controlled_combatant(state: GameState, combatant: Any) -> bool:
+        linked_character_id = str(getattr(combatant, "linked_character_id", "") or "")
+        return bool(
+            linked_character_id
+            and linked_character_id in state.characters
+            and str(getattr(combatant, "side", "") or "").strip().lower() == "party"
+        )
+
+    @classmethod
+    def _dm_controlled_turn_pending(cls, graph_state: DMGraphState) -> bool:
+        if str(graph_state.get("turn_status") or "") == "failed":
+            return False
+        payload = graph_state.get("game_state")
+        if not payload:
+            return False
+        try:
+            state = GameState.model_validate(payload)
+        except Exception:
+            return False
+        encounter = state.encounter
+        if not encounter or not encounter.active or not encounter.turn_order_started:
+            return False
+        current = encounter.get_current_combatant()
+        return bool(current and not cls._is_player_controlled_combatant(state, current))
 
     @staticmethod
     def _combat_turn_claim_error(state: GameState, response_text: str) -> str:
@@ -4525,6 +4773,43 @@ class DMGraphRunner:
                     )
 
                 current = encounter.get_current_combatant()
+                if (
+                    current
+                    and encounter.turn_order_started
+                    and logic._combatant_can_take_turn(current)
+                    and not self._is_player_controlled_combatant(state, current)
+                ):
+                    if encounter.turn_action_used:
+                        repair_summary = (
+                            f"DM-controlled combatant {current.name} has completed its action but still owns the turn; "
+                            "call advance_turn before returning control to the player."
+                        )
+                        dm_turn_tools = ["advance_turn"]
+                    else:
+                        repair_summary = (
+                            f"DM-controlled combatant {current.name} still owns the current turn. Resolve its action with "
+                            "an authoritative combat tool, or explicitly forgo it by calling advance_turn; do not finish "
+                            "the Specialist response while this combatant remains current."
+                        )
+                        dm_turn_tools = [
+                            "attack_target",
+                            "cast_spell",
+                            "use_feature",
+                            "roll_skill_check",
+                            "advance_turn",
+                        ]
+                    mark_repair(
+                        validator="dm_controlled_turn",
+                        summary=repair_summary,
+                        tools=dm_turn_tools,
+                        metadata={
+                            "combatant_id": current.combatant_id,
+                            "combatant_name": current.name,
+                            "side": current.side,
+                            "turn_action_used": encounter.turn_action_used,
+                            "turn_action_tool": encounter.turn_action_tool,
+                        },
+                    )
                 if current and current.linked_character_id and current.linked_character_id in state.characters:
                     if state.active_character_id != current.linked_character_id:
                         mark_repair(
@@ -4889,9 +5174,34 @@ class DMGraphRunner:
     @staticmethod
     def _route_after_auditor(graph_state: DMGraphState) -> str:
         audit = graph_state.get("audit_result", {})
-        if bool(audit.get("accepted")) or int(graph_state.get("audit_attempts", 0)) >= 2:
+        if bool(audit.get("accepted")):
             return "narrator"
+        if int(graph_state.get("audit_attempts", 0)) >= 2:
+            return "audit_failed"
         return specialist_role_for_phase(graph_state.get("phase", "")).value
+
+    def _fail_rejected_audit(self, graph_state: DMGraphState) -> DMGraphState:
+        audit = dict(graph_state.get("audit_result") or {})
+        issues = [str(item).strip() for item in audit.get("issues", []) if str(item).strip()]
+        summary = "Auditor rejected the repaired turn twice; the transaction will roll back."
+        notes = list(graph_state.get("validation_notes", []))
+        if issues:
+            notes.extend(issues)
+        return {
+            "turn_status": "failed",
+            "validation_status": "failed",
+            "final_response": "回合审计未能确认叙事与权威状态一致；本回合已回滚，请重新描述行动。",
+            "validation_notes": list(dict.fromkeys(notes)),
+            "node_traces": self._append_node_trace(
+                graph_state,
+                "agent.auditor.failed",
+                summary,
+                {
+                    "attempt": int(graph_state.get("audit_attempts", 0)),
+                    "issues": issues,
+                },
+            ),
+        }
 
     def _narrator_agent(self, graph_state: DMGraphState) -> DMGraphState:
         draft = str(graph_state.get("final_response") or "").strip()
@@ -4956,6 +5266,7 @@ class DMGraphRunner:
         for role, specialist in self.specialist_agents.items():
             builder.add_node(f"{role.value}_agent", specialist.as_parent_node)
         builder.add_node("auditor_agent", self._auditor_agent)
+        builder.add_node("audit_failed", self._fail_rejected_audit)
         builder.add_node("narrator_agent", self._narrator_agent)
         builder.add_node("finalize_turn", self._finalize_turn)
         builder.add_edge(START, "prepare_turn")
@@ -4976,9 +5287,11 @@ class DMGraphRunner:
             self._route_after_auditor,
             {
                 "narrator": "narrator_agent",
+                "audit_failed": "audit_failed",
                 **{role.value: f"{role.value}_agent" for role in specialist_roles},
             },
         )
+        builder.add_edge("audit_failed", "finalize_turn")
         builder.add_edge("narrator_agent", "finalize_turn")
         builder.add_edge("finalize_turn", END)
         if self._checkpointer is not None:

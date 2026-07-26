@@ -13,6 +13,7 @@ import {
   deleteGames,
   deleteGameMessage,
   endEncounter,
+  generateAbilityScores,
   loadActionOptions,
   loadActionSuggestions,
   loadCharacter,
@@ -20,6 +21,7 @@ import {
   loadGame,
   loadLobby,
   loadModelConfig,
+  loadModelHealth,
   loadMonsterTemplate,
   loadSpells,
   saveCharacter,
@@ -42,6 +44,15 @@ import {
 import "./index.css";
 
 const STATS = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"];
+
+function formatLlmHealthMessage(health) {
+  if (!health || health.ready) return "";
+  if (!health.configured) return "模型档案尚未完整配置，请补全 Base URL、模型名称和 API Key。";
+  if (Number(health.status_code) === 401) return "模型连接失败：API Key 无效或已被服务拒绝。";
+  if (health.status_code) return `模型连接失败（HTTP ${health.status_code}），请检查服务地址和模型档案。`;
+  return "暂时无法验证模型连接，请检查模型服务是否可访问。";
+}
+
 const STAT_LABELS = {
   strength: "力量",
   dexterity: "敏捷",
@@ -177,6 +188,17 @@ const ATTACK_RESOLUTION_OPTIONS = [
 ];
 const POINT_BUY_COSTS = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 const DEFAULT_STATS = { strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 };
+const ABILITY_METHOD_LABELS = {
+  point_buy: "27 点购点",
+  standard_array: "标准数组",
+  rolled: "4d6 去最低",
+};
+const DEFEAT_STATE_LABELS = {
+  active: "正常",
+  unconscious: "昏迷",
+  captured: "被俘",
+  dead: "死亡",
+};
 const CLASS_RECOMMENDED_STAT_ORDER = {
   Artificer: ["intelligence", "constitution", "dexterity", "wisdom", "charisma", "strength"],
   Barbarian: ["strength", "constitution", "dexterity", "wisdom", "charisma", "intelligence"],
@@ -230,6 +252,10 @@ const EMPTY_CHAR = {
   custom_pending_item: { ...EMPTY_PENDING_ITEM },
   hp_max: 10,
   stats: { ...DEFAULT_STATS },
+  ability_generation_method: "point_buy",
+  ability_rolls: [],
+  ability_pool: [],
+  ability_assignments: {},
   skill_proficiencies: {},
   selectedCantrips: [],
   selectedSpells: [],
@@ -369,10 +395,11 @@ const localizeName = (entry) => typeof entry === "string" ? entry : entry?.name_
 const localizeSpellcastingMode = (mode) => mode === "prepared" ? "预备施法" : mode === "known" ? "已知施法" : mode || "未说明";
 const formatActorLabel = (actor) => actor.side ? `${actor.name}（${localizeSide(actor.side)}）` : actor.name;
 const localizeEquipmentType = (type) => EQUIPMENT_TYPE_LABELS[type] || type || "物品";
+const localizeDefeatState = (state) => DEFEAT_STATE_LABELS[state] || state || "正常";
 const formatEquipmentLine = (item) => {
   const details = [];
   if (item.quantity && item.quantity > 1) details.push(`x${item.quantity}`);
-  if (item.type_display || item.type) details.push(item.type_display || item.type);
+  if (item.type_display || item.type) details.push(item.type_display || localizeEquipmentType(item.type));
   if (item.damage_expression) details.push(item.damage_expression);
   if (item.damage_type_display || item.damage_type) details.push(item.damage_type_display || item.damage_type);
   if (item.armor_class_bonus) details.push(`护甲 +${item.armor_class_bonus}`);
@@ -449,8 +476,15 @@ function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiative
       ) : (
         <div className="combatant-list">
           {combatants.map((combatant) => (
-            <div key={combatant.combatant_id} className={`combatant-item ${encounter.current_combatant_id === combatant.combatant_id ? "combatant-active" : ""}`}>
-              <div className="timeline-summary">{combatant.name} · {localizeSide(combatant.side)}</div>
+            <div
+              key={combatant.combatant_id}
+              className={`combatant-item ${encounter.current_combatant_id === combatant.combatant_id ? "combatant-active" : ""}`}
+              aria-current={encounter.current_combatant_id === combatant.combatant_id ? "true" : undefined}
+            >
+              <div className="timeline-summary combatant-heading">
+                <span>{combatant.name} · {localizeSide(combatant.side)}</span>
+                {encounter.current_combatant_id === combatant.combatant_id && <span className="combatant-turn-badge">当前行动</span>}
+              </div>
               <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
               {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
                 <>
@@ -521,7 +555,7 @@ function CharacterStatusCard({ character, actor, primary = false }) {
         {(statuses.length > 0 || defeatState !== "active" || character.inspiration) && (
           <div className="tags">
             {character.inspiration && <span className="tag">激励</span>}
-            {defeatState !== "active" && <span className="tag">{defeatState}</span>}
+            {defeatState !== "active" && <span className="tag">{localizeDefeatState(defeatState)}</span>}
             {statuses.map((status) => <span key={status} className="tag">{status}</span>)}
           </div>
         )}
@@ -580,12 +614,12 @@ function CharacterSheetDetail({ character }) {
   const inventory = character.inventory || [];
   const attacks = inventory.filter((item) => item.damage_expression || (item.attack_bonus !== null && item.attack_bonus !== undefined));
   const spells = character.spells || {};
-  const cantrips = spells.cantrips || [];
-  const prepared = spells.prepared || [];
+  const cantrips = spells.cantrips_display || spells.cantrips || [];
+  const prepared = spells.prepared_display || spells.prepared || [];
   const slots = Object.entries(spells.slots || {}).filter(([, slot]) => Number(slot?.total ?? slot ?? 0) > 0);
   const skills = Object.entries(character.skill_proficiencies || {}).filter(([, rank]) => Number(rank) > 0);
   const saves = Object.entries(character.save_proficiencies || {}).filter(([, proficient]) => Boolean(proficient));
-  const statuses = character.status_effects || [];
+  const statuses = character.status_effects_display || character.status_effects || [];
   const experiences = character.major_experiences || [];
   const starterChoices = Object.entries(character.starter_choice_ids || {});
 
@@ -621,17 +655,18 @@ function CharacterSheetDetail({ character }) {
               </div>
             ))}
           </div>
+          <p className="sheet-panel-note">生成方式：{ABILITY_METHOD_LABELS[character.ability_generation_method || "point_buy"] || character.ability_generation_method}</p>
         </section>
 
         <section className="sheet-panel identity-panel">
           <h3>身份</h3>
           <div className="sheet-data-grid">
             <div><span>等级</span><strong>{character.level || 1}级</strong></div>
-            <div><span>阵营</span><strong>{character.alignment || "未说明"}</strong></div>
+            <div><span>阵营</span><strong>{character.alignment_display || localizeAlignment(character.alignment) || "未说明"}</strong></div>
             <div><span>起源专长</span><strong>{localizeOriginFeat(character.origin_feat) || "未记录"}</strong></div>
             <div><span>经验值</span><strong>{character.experience_points || 0}</strong></div>
             <div><span>激励</span><strong>{character.inspiration ? "有" : "无"}</strong></div>
-            <div><span>状态</span><strong>{character.defeat_state || "active"}</strong></div>
+            <div><span>状态</span><strong>{localizeDefeatState(character.defeat_state)}</strong></div>
           </div>
           {statuses.length > 0 && <div className="tags sheet-tags">{statuses.map((status) => <span key={status} className="tag">{status}</span>)}</div>}
         </section>
@@ -662,7 +697,7 @@ function CharacterSheetDetail({ character }) {
             <div key={`${attack.name}-${index}`} className="attack-card">
               <strong>{attack.name_display || attack.name}</strong>
               <span>{formatAttackSummary(attack) || "攻击资料未完整记录"}</span>
-              {attack.properties?.length > 0 && <small>{attack.properties.join("、")}</small>}
+              {(attack.properties_display || attack.properties)?.length > 0 && <small>{(attack.properties_display || attack.properties).join("、")}</small>}
             </div>
           ))}
         </section>
@@ -692,7 +727,7 @@ function CharacterSheetDetail({ character }) {
               </div>
               <em>x{item.quantity || 1}</em>
               {item.notes && <p>{item.notes}</p>}
-              {item.tags?.length > 0 && <small>{item.tags.join("、")}</small>}
+              {(item.tags_display || item.tags)?.length > 0 && <small>{(item.tags_display || item.tags).join("、")}</small>}
             </div>
           ))}
         </section>
@@ -746,11 +781,13 @@ export default function App() {
   const [isReplyLengthSaving, setIsReplyLengthSaving] = useState(false);
   const [replyLengthMessage, setReplyLengthMessage] = useState("");
   const [llmConfig, setLlmConfig] = useState(null);
+  const [llmHealth, setLlmHealth] = useState(null);
   const [llmDraft, setLlmDraft] = useState({ profile_id: "", profile_label: "", model_name: "", base_url: "", api_key: "" });
   const [isLlmSaving, setIsLlmSaving] = useState(false);
   const [llmStatusMessage, setLlmStatusMessage] = useState("");
   const [pendingAdventureId, setPendingAdventureId] = useState(null);
   const [isBuilderLoading, setIsBuilderLoading] = useState(false);
+  const [isAbilityGenerating, setIsAbilityGenerating] = useState(false);
   const [isLobbyLoading, setIsLobbyLoading] = useState(true);
   const [creatorStep, setCreatorStep] = useState(0);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
@@ -810,6 +847,11 @@ export default function App() {
   const selectedClassSkillCount = Object.entries(charDraft.skill_proficiencies || {}).filter(([skill, rank]) => Number(rank) > 0 && !backgroundSkills.has(skill)).length;
   const pointBuySpent = STATS.reduce((total, stat) => total + (POINT_BUY_COSTS[Number(charDraft.stats?.[stat] || 0)] ?? 0), 0);
   const pointBuyRemaining = Number(pointBuyRules.budget || 27) - pointBuySpent;
+  const abilityGenerationMethod = charDraft.ability_generation_method || "point_buy";
+  const abilityPool = charDraft.ability_pool || [];
+  const abilityAssignments = charDraft.ability_assignments || {};
+  const abilityAssignmentComplete = abilityGenerationMethod === "point_buy"
+    || (abilityPool.length === STATS.length && STATS.every((stat) => abilityAssignments[stat]));
   const computedHpMax = classDef ? Math.max(1, Number(classDef.hit_die || 8) + Math.floor((Number(charDraft.stats?.constitution || 10) - 10) / 2)) : Number(charDraft.hp_max || 10);
   const customPurchaseBudgetGp = Number(classDef?.custom_purchase_budget_gp || 0);
   const customPurchaseEntries = Object.entries(charDraft.custom_purchase_items || {}).filter(([, quantity]) => Number(quantity) > 0);
@@ -890,6 +932,15 @@ export default function App() {
   const llmProfiles = llmConfig?.profiles || [];
   const activeLlmProfile = llmProfiles.find((profile) => profile.profile_id === llmConfig?.active_profile_id) || null;
   const editingLlmProfile = llmProfiles.find((profile) => profile.profile_id === llmDraft.profile_id) || null;
+  const llmHealthMessage = formatLlmHealthMessage(llmHealth);
+  const llmConnectionLabel = isLobbyLoading
+    ? "读取中"
+    : llmHealth?.ready
+      ? "可用"
+      : llmConfig?.configured
+        ? "连接失败"
+        : "未完整配置";
+  const llmAuthorizationFailed = Number(llmHealth?.status_code) === 401;
 
   useEffect(() => {
     if (!encounterDraft.monster_id) {
@@ -915,6 +966,10 @@ export default function App() {
     return {
       ...EMPTY_CHAR,
       stats: { ...DEFAULT_STATS },
+      ability_generation_method: "point_buy",
+      ability_rolls: [],
+      ability_pool: [],
+      ability_assignments: {},
       starter_choice_ids: {},
       custom_purchase_items: {},
       custom_pending_item: { ...EMPTY_PENDING_ITEM },
@@ -967,7 +1022,12 @@ export default function App() {
   async function refreshLobby() {
     setIsBuilderLoading(true);
     setError("");
-    const [lobbyResult, rulesResult, llmResult] = await Promise.allSettled([loadLobby(), loadCharacterBuilder(), loadModelConfig()]);
+    const [lobbyResult, rulesResult, llmResult, llmHealthResult] = await Promise.allSettled([
+      loadLobby(),
+      loadCharacterBuilder(),
+      loadModelConfig(),
+      loadModelHealth(),
+    ]);
     let nextError = "";
 
     if (lobbyResult.status === "fulfilled") {
@@ -988,6 +1048,12 @@ export default function App() {
       applyLlmConfig(llmResult.value);
     } else if (!nextError) {
       nextError = llmResult.reason?.message || "加载模型配置失败。";
+    }
+
+    if (llmHealthResult.status === "fulfilled") {
+      setLlmHealth(llmHealthResult.value);
+    } else {
+      setLlmHealth({ ready: false, reason: "health_check_failed" });
     }
 
     setIsBuilderLoading(false);
@@ -1019,7 +1085,11 @@ export default function App() {
       if (nextKey) payload.api_key = nextKey;
       const result = await updateModelConfig(payload);
       applyLlmConfig(result.llm || result);
-      setLlmStatusMessage("模型档案已保存并启用，后续对话会使用新的设置。");
+      const health = await loadModelHealth();
+      setLlmHealth(health);
+      setLlmStatusMessage(health.ready
+        ? "模型档案已保存并启用，连接验证成功。"
+        : `模型档案已保存，但${formatLlmHealthMessage(health)}`);
     } catch (err) {
       setLlmStatusMessage(err.message || "保存模型配置失败。");
     } finally {
@@ -1035,7 +1105,11 @@ export default function App() {
     try {
       const result = await selectModelConfig(profileId);
       applyLlmConfig(result.llm || result);
-      setLlmStatusMessage("模型档案已切换。");
+      const health = await loadModelHealth();
+      setLlmHealth(health);
+      setLlmStatusMessage(health.ready
+        ? "模型档案已切换，连接验证成功。"
+        : `模型档案已切换，但${formatLlmHealthMessage(health)}`);
     } catch (err) {
       setLlmStatusMessage(err.message || "切换模型档案失败。");
     } finally {
@@ -1527,6 +1601,66 @@ export default function App() {
     setCharDraft((prev) => ({ ...prev, stats: { ...prev.stats, [stat]: nextValue } }));
   }
 
+  function applyAbilityPool(method, pool, rolls = []) {
+    const normalizedPool = [...(pool || [])].sort((left, right) => Number(right.score) - Number(left.score));
+    const preferredOrder = CLASS_RECOMMENDED_STAT_ORDER[charDraft.class_name] || STATS;
+    const assignments = {};
+    const stats = {};
+    preferredOrder.forEach((stat, index) => {
+      const slot = normalizedPool[index];
+      if (!slot) return;
+      assignments[stat] = slot.slot_id;
+      stats[stat] = Number(slot.score);
+    });
+    setCharDraft((prev) => ({
+      ...prev,
+      ability_generation_method: method,
+      ability_rolls: method === "rolled" ? rolls : [],
+      ability_pool: normalizedPool,
+      ability_assignments: assignments,
+      stats: { ...prev.stats, ...stats },
+    }));
+  }
+
+  async function setAbilityGenerationMethod(method) {
+    setError("");
+    if (method === "point_buy") {
+      setCharDraft((prev) => ({
+        ...prev,
+        ability_generation_method: "point_buy",
+        ability_rolls: [],
+        ability_pool: [],
+        ability_assignments: {},
+        stats: recommendedStatsForClass(prev.class_name),
+      }));
+      return;
+    }
+
+    try {
+      setIsAbilityGenerating(true);
+      const result = await generateAbilityScores({ method });
+      applyAbilityPool(method, result.pool || [], result.rolls || []);
+    } catch (err) {
+      setError(err.message || "无法生成属性值，请稍后重试。");
+    } finally {
+      setIsAbilityGenerating(false);
+    }
+  }
+
+  function assignAbilitySlot(stat, slotId) {
+    setError("");
+    setCharDraft((prev) => {
+      const assignments = { ...(prev.ability_assignments || {}) };
+      const previousSlotId = assignments[stat];
+      const previousOwner = STATS.find((candidate) => candidate !== stat && assignments[candidate] === slotId);
+      assignments[stat] = slotId;
+      if (previousOwner && previousSlotId) assignments[previousOwner] = previousSlotId;
+      const poolById = Object.fromEntries((prev.ability_pool || []).map((slot) => [slot.slot_id, slot]));
+      const stats = Object.fromEntries(STATS.map((name) => [name, Number(poolById[assignments[name]]?.score || 0)]));
+      return { ...prev, ability_assignments: assignments, stats };
+    });
+  }
+
   function setEquipmentMode(mode) {
     setError("");
     setCharDraft((prev) => ({
@@ -1569,6 +1703,10 @@ export default function App() {
       custom_purchase_items: {},
       custom_pending_item: { ...EMPTY_PENDING_ITEM },
       stats: recommendedStatsForClass(c.name),
+      ability_generation_method: "point_buy",
+      ability_rolls: [],
+      ability_pool: [],
+      ability_assignments: {},
       skill_proficiencies: baseSkills,
       selectedCantrips: [],
       selectedSpells: [],
@@ -1653,7 +1791,8 @@ export default function App() {
 
     if (stepIndex === 1) {
       if (!charDraft.class_name) return "请先选择职业。";
-      if (pointBuyRemaining < 0) return "属性购点超出预算，请调低属性。";
+      if (abilityGenerationMethod === "point_buy" && pointBuyRemaining < 0) return "属性购点超出预算，请调低属性。";
+      if (!abilityAssignmentComplete) return "请先为六项属性分配完整的属性值。";
       if (selectedClassSkillCount !== classSkillTarget) return `请准确选择 ${classSkillTarget} 项职业技能。`;
     }
 
@@ -1717,6 +1856,8 @@ export default function App() {
         hp_current: computedHpMax,
         hp_max: computedHpMax,
         stats: charDraft.stats,
+        ability_generation_method: abilityGenerationMethod,
+        ability_rolls: charDraft.ability_rolls,
         skill_proficiencies: charDraft.skill_proficiencies,
         spells: { cantrips: charDraft.selectedCantrips, prepared: charDraft.selectedSpells },
         inventory: [],
@@ -2061,7 +2202,15 @@ export default function App() {
   const partyCharacters = Object.values(gameState?.characters || {});
   const activeCharacterId = gameState?.active_character_id || partyCharacters[0]?.character_id || "";
   const characterActorById = Object.fromEntries(charActors.map((actor) => [actor.ref, actor]));
-  const visibleActionSuggestions = gameState?.campaign?.phase === "adventure_selection" ? [] : actionSuggestions;
+  const currentCombatant = encounter?.combatants?.[encounter.current_combatant_id];
+  const playerDecisionAvailable = !encounter?.active || Boolean(
+    currentCombatant?.side === "party"
+    && currentCombatant?.linked_character_id
+    && gameState?.characters?.[currentCombatant.linked_character_id]
+  );
+  const visibleActionSuggestions = (
+    gameState?.campaign?.phase === "adventure_selection" || !playerDecisionAvailable
+  ) ? [] : actionSuggestions;
 
   return (
     <div className="app-container">
@@ -2147,7 +2296,7 @@ export default function App() {
                   <p className="info-text">选择或保存本地模型档案，后续回合会使用当前启用的档案。</p>
                 </div>
                 <div className="panel-actions">
-                  <span>{isLobbyLoading ? "读取中" : llmConfig?.configured ? "已配置" : "未完整配置"}</span>
+                  <span>{llmConnectionLabel}</span>
                   <span>{isLobbyLoading ? "正在加载模型档案" : activeLlmProfile?.label || "无当前档案"}</span>
                 </div>
               </div>
@@ -2215,7 +2364,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="model-settings-footer">
-                  <p className="info-text">{llmStatusMessage || "API Key 不会显示；编辑已有档案时留空会保留该档案当前密钥。"}</p>
+                  <p className="info-text">{llmStatusMessage || llmHealthMessage || "API Key 不会显示；编辑已有档案时留空会保留该档案当前密钥。"}</p>
                   <button type="submit" className="btn-primary" disabled={isLlmSaving}>
                     {isLlmSaving ? "保存中..." : "保存并启用"}
                   </button>
@@ -2459,7 +2608,7 @@ export default function App() {
                   <div className="form-group">
                     <label>职业</label>
                     {builder.classes.length === 0 ? renderBuilderLoadState("职业目录") : <div className="class-grid">
-                      {builder.classes.map((cls) => <ChoiceButton key={cls.id} selected={charDraft.class_name === cls.name} onClick={() => chooseClass(cls)}>{cls.name_display || localizeClassName(cls.name)}</ChoiceButton>)}
+                      {builder.classes.map((cls) => <ChoiceButton key={cls.id} selected={charDraft.class_name === cls.name} disabled={isAbilityGenerating} onClick={() => chooseClass(cls)}>{cls.name_display || localizeClassName(cls.name)}</ChoiceButton>)}
                     </div>}
                   </div>
                   <div className="builder-preview-grid">
@@ -2469,14 +2618,56 @@ export default function App() {
                       <div className="timeline-content">按职业生命骰和体质调整值自动计算。</div>
                     </div>
                     <div className="builder-preview-card">
-                      <h3>属性购点</h3>
-                      <div className="timeline-summary">{pointBuySpent}/{pointBuyRules.budget}</div>
-                      <div className="timeline-content">范围 {pointBuyRules.minimum}-{pointBuyRules.maximum}，剩余 {pointBuyRemaining} 点。</div>
+                      <h3>属性生成</h3>
+                      <div className="timeline-summary">{ABILITY_METHOD_LABELS[abilityGenerationMethod]}</div>
+                      <div className="timeline-content">{abilityGenerationMethod === "point_buy" ? `已用 ${pointBuySpent}/${pointBuyRules.budget}，剩余 ${pointBuyRemaining} 点。` : abilityPool.map((slot) => slot.score).join(" · ") || "选择一种生成方式。"}</div>
                     </div>
                   </div>
-                  <div className="stats-editor">
-                    {STATS.map((stat) => <div key={stat} className="stat-row"><span className="stat-name">{localizeStat(stat)}</span><button onClick={() => adjustStat(stat, -1)}>-</button><span className="stat-val">{charDraft.stats[stat]}</span><button onClick={() => adjustStat(stat, 1)}>+</button></div>)}
+                  <div className="ability-method-picker" role="group" aria-label="属性生成方式">
+                    {Object.entries(ABILITY_METHOD_LABELS).map(([method, label]) => (
+                      <button
+                        type="button"
+                        key={method}
+                        className={abilityGenerationMethod === method ? "selected" : ""}
+                        aria-pressed={abilityGenerationMethod === method}
+                        disabled={!classDef || isAbilityGenerating}
+                        onClick={() => abilityGenerationMethod !== method && setAbilityGenerationMethod(method)}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
+                  {abilityGenerationMethod === "point_buy" ? (
+                    <div className="stats-editor">
+                      {STATS.map((stat) => <div key={stat} className="stat-row"><span className="stat-name">{localizeStat(stat)}</span><button onClick={() => adjustStat(stat, -1)}>-</button><span className="stat-val">{charDraft.stats[stat]}</span><button onClick={() => adjustStat(stat, 1)}>+</button></div>)}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="ability-pool-header">
+                        <span>{abilityGenerationMethod === "rolled" ? "本次骰池" : "标准数组"}</span>
+                        {abilityGenerationMethod === "rolled" && <button type="button" className="btn-secondary" disabled={isAbilityGenerating} onClick={() => setAbilityGenerationMethod("rolled")}>{isAbilityGenerating ? "掷骰中…" : "重新掷骰"}</button>}
+                      </div>
+                      <div className="ability-pool" aria-live="polite">
+                        {abilityPool.map((slot) => (
+                          <div key={slot.slot_id} className="ability-pool-slot">
+                            {slot.dice?.length > 0 ? slot.dice.map((die, index) => <span key={`${slot.slot_id}-${index}`} className={index === slot.dropped_index ? "dropped" : ""}>{die}</span>) : <span>{slot.score}</span>}
+                            {slot.dice?.length > 0 && <strong>= {slot.score}</strong>}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="stats-editor ability-assignment-editor">
+                        {STATS.map((stat) => (
+                          <label key={stat} className="ability-assignment-row">
+                            <span className="stat-name">{localizeStat(stat)}</span>
+                            <select value={abilityAssignments[stat] || ""} onChange={(event) => assignAbilitySlot(stat, event.target.value)}>
+                              {abilityPool.map((slot, index) => <option key={slot.slot_id} value={slot.slot_id}>{slot.score} · 第 {index + 1} 组</option>)}
+                            </select>
+                            <strong>{charDraft.stats[stat]}</strong>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
                   <div className="form-group" style={{ marginTop: 24 }}>
                     <label>职业技能</label>
                     {!classDef ? <p className="info-text">先选择职业，才能分配职业技能。</p> : <><p className="spell-meta">需要选择 {classSkillTarget} 项职业技能，当前 {selectedClassSkillCount}/{classSkillTarget}。</p><div className="class-grid skill-choice-grid">
@@ -2621,6 +2812,7 @@ export default function App() {
                     <h3>职业构筑</h3>
                     <div className="timeline-summary">{classDef?.name_display || localizeClassName(charDraft.class_name)}</div>
                     <div className="timeline-content">生命上限 {computedHpMax} · 职业技能 {selectedClassSkillCount}/{classSkillTarget}</div>
+                    <div className="timeline-content">属性生成：{ABILITY_METHOD_LABELS[abilityGenerationMethod]}</div>
                     <div className="timeline-content">{STATS.map((stat) => `${localizeStat(stat)} ${charDraft.stats[stat]}`).join(" · ")}</div>
                   </div>
                   <div className="builder-preview-card">
@@ -2973,7 +3165,7 @@ export default function App() {
                 />
               </div>
             </div>
-            {isActionSuggestionsLoading && (
+            {isActionSuggestionsLoading && playerDecisionAvailable && (
               <div className="action-suggestions-loading" role="status" aria-live="polite">
                 <span className="action-suggestions-loading-mark" aria-hidden="true" />
                 <span>正在准备行动灵感</span>
@@ -2999,6 +3191,11 @@ export default function App() {
               <div className="rewrite-bar">
                 <span>正在从第 {rewriteTarget.index + 1} 条玩家消息重写</span>
                 <button type="button" onClick={cancelRewrite} disabled={isLoading}>取消</button>
+              </div>
+            )}
+            {llmHealth && !llmHealth.ready && (
+              <div className="chat-model-warning" role="status">
+                {llmHealthMessage} 返回主页检查“模型设置”后再继续游戏。
               </div>
             )}
             <details className="chat-control-menu">
@@ -3041,7 +3238,7 @@ export default function App() {
             </details>
             <div className="input-area">
               <textarea ref={chatInputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isToolConfirmationPending ? "可直接确认或取消，也可以输入补充说明。" : rewriteTarget ? "修改这条行动，然后从这里重新开始..." : isLoading ? "可以先写下下一步行动..." : "描述你的行动..."} disabled={chatComposerDisabled} />
-              <button onClick={sendMessage} disabled={chatSubmitDisabled || !input.trim()}>{rewriteTarget ? "重写" : "发送"}</button>
+              <button onClick={sendMessage} disabled={chatSubmitDisabled || llmAuthorizationFailed || !input.trim()}>{rewriteTarget ? "重写" : "发送"}</button>
             </div>
           </div>
         )}

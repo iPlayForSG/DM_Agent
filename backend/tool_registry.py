@@ -40,6 +40,24 @@ class ToolGuardrailResult:
 
 TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "lookup_rules": {"side_effect": "read", "risk_level": "low"},
+    "generate_ability_scores": {"side_effect": "random", "risk_level": "low"},
+    "list_character_options": {"side_effect": "read", "risk_level": "low"},
+    "list_class_spells": {"side_effect": "read", "risk_level": "low"},
+    "list_starter_equipment": {"side_effect": "read", "risk_level": "low"},
+    "validate_character_sheet": {"side_effect": "read", "risk_level": "low"},
+    "create_party_character": {
+        # 建卡是不可逆的队伍事实，和 record_chapter_progress 一样需要玩家确认。
+        "side_effect": "state_write",
+        "risk_level": "high",
+        "requires_confirmation": True,
+        "blocks_active_encounter": True,
+    },
+    "select_adventure_hook": {
+        "side_effect": "campaign_write",
+        "risk_level": "high",
+        "requires_confirmation": True,
+        "blocks_active_encounter": True,
+    },
     "set_player_action_suggestions": {"side_effect": "ui_write", "risk_level": "low"},
     "roll_dice": {"side_effect": "random", "risk_level": "low"},
     "adjust_hp": {"side_effect": "state_write", "risk_level": "medium"},
@@ -127,6 +145,12 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "roll_initiative": {
         "side_effect": "random",
         "risk_level": "medium",
+        "needs_active_encounter": True,
+    },
+    "remove_combatant": {
+        "side_effect": "combat_write",
+        "risk_level": "high",
+        "requires_confirmation": True,
         "needs_active_encounter": True,
     },
     "advance_turn": {

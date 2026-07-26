@@ -303,6 +303,52 @@ class RuleCatalog:
             modifier += proficiency_bonus_for_level(character.level)
         return modifier
 
+    def get_spell_save_profile(self, character: Character, spell_name: str) -> Dict[str, Any]:
+        class_def = self.get_class_def(character.class_name)
+        casting_ability = str((class_def or {}).get("spellcasting_ability") or "").strip()
+        if not casting_ability:
+            raise ValueError(f"{character.name} has no authoritative spellcasting ability")
+
+        details = self.library.get_spell_details(spell_name)
+        if not details:
+            raise ValueError(f"Unknown spell: {spell_name}")
+
+        canonical_name = str(details.get("name") or spell_name).strip()
+        known_spells = set(
+            self.library.normalize_spell_names(
+                list(character.spells.cantrips) + list(character.spells.prepared)
+            )
+        )
+        if canonical_name not in known_spells:
+            raise ValueError(f"Spell not known or prepared: {canonical_name}")
+
+        description = " ".join(
+            str(details.get(field_name) or "")
+            for field_name in ("desc", "description", "higherLevels", "higher_levels")
+        )
+        save_match = re.search(
+            r"(力量|敏捷|体质|智力|感知|魅力)\s*豁免"
+            r"|(?:\b)(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)\s+saving throw",
+            description,
+            flags=re.IGNORECASE,
+        )
+        if not save_match:
+            raise ValueError(f"Spell does not define a saving throw: {canonical_name}")
+
+        save_name = self.normalize_save_name(save_match.group(1) or save_match.group(2))
+        dc = (
+            8
+            + proficiency_bonus_for_level(character.level)
+            + self.get_ability_modifier(character, casting_ability)
+        )
+        return {
+            "spell_name": canonical_name,
+            "save_name": save_name,
+            "dc": dc,
+            "dc_source": "character_spellcasting",
+            "casting_ability": self.normalize_save_name(casting_ability),
+        }
+
     def get_point_buy_config(self) -> Dict[str, int]:
         point_buy = self.data.get("ability_generation", {}).get("point_buy", {})
         return {
@@ -687,17 +733,55 @@ class RuleCatalog:
         if not class_def:
             errors.append(f"Unknown class: {character.class_name}")
 
-        point_buy = self.get_point_buy_config()
-        for stat_name, stat_value in self.get_stat_values(character).items():
-            if stat_value < point_buy["minimum"] or stat_value > point_buy["maximum"]:
-                errors.append(
-                    f"Ability score {stat_name}={stat_value} is outside the supported range {point_buy['minimum']}-{point_buy['maximum']}"
-                )
-        point_buy_spend = self.get_point_buy_spend(character)
-        if point_buy_spend is None:
-            errors.append("Ability scores do not match the configured point-buy table")
-        elif point_buy_spend > point_buy["budget"]:
-            errors.append(f"Ability score spend {point_buy_spend} exceeds the point-buy budget {point_buy['budget']}")
+        stat_values = self.get_stat_values(character)
+        generation_method = str(character.ability_generation_method or "point_buy").strip().lower()
+        if generation_method == "point_buy":
+            point_buy = self.get_point_buy_config()
+            for stat_name, stat_value in stat_values.items():
+                if stat_value < point_buy["minimum"] or stat_value > point_buy["maximum"]:
+                    errors.append(
+                        f"Ability score {stat_name}={stat_value} is outside the supported range "
+                        f"{point_buy['minimum']}-{point_buy['maximum']}"
+                    )
+            point_buy_spend = self.get_point_buy_spend(character)
+            if point_buy_spend is None:
+                errors.append("Ability scores do not match the configured point-buy table")
+            elif point_buy_spend > point_buy["budget"]:
+                errors.append(f"Ability score spend {point_buy_spend} exceeds the point-buy budget {point_buy['budget']}")
+        elif generation_method == "standard_array":
+            standard_array = sorted(
+                int(value)
+                for value in self.data.get("ability_generation", {}).get("standard_array", [])
+            )
+            if sorted(stat_values.values()) != standard_array:
+                errors.append("Ability scores do not match the configured standard array")
+            if character.ability_rolls:
+                errors.append("Standard-array characters must not include rolled ability records")
+        elif generation_method == "rolled":
+            roll_errors: List[str] = []
+            if len(character.ability_rolls) != 6:
+                roll_errors.append("Rolled ability generation requires exactly six recorded rolls")
+            else:
+                roll_totals: List[int] = []
+                for index, roll in enumerate(character.ability_rolls, start=1):
+                    dice = [int(value) for value in roll.dice]
+                    if len(dice) != 4 or any(value < 1 or value > 6 for value in dice):
+                        roll_errors.append(f"Ability roll {index} must contain four d6 results")
+                        continue
+                    dropped_index = int(roll.dropped_index)
+                    if dropped_index < 0 or dropped_index >= len(dice) or dice[dropped_index] != min(dice):
+                        roll_errors.append(f"Ability roll {index} must drop one of its lowest dice")
+                        continue
+                    expected_total = sum(dice) - min(dice)
+                    if int(roll.total) != expected_total:
+                        roll_errors.append(f"Ability roll {index} total does not match its dice")
+                        continue
+                    roll_totals.append(expected_total)
+                if not roll_errors and sorted(roll_totals) != sorted(stat_values.values()):
+                    roll_errors.append("Assigned ability scores do not match the recorded rolled pool")
+            errors.extend(roll_errors)
+        else:
+            errors.append(f"Unsupported ability generation method: {character.ability_generation_method}")
 
         allowed_skills = set(background.get("skill_proficiencies", [])) if background else set()
         if class_def:

@@ -98,7 +98,9 @@ Tool protocol:
 - Use `spawn_monster_from_template` when a standard or game-scoped monster template should enter the current encounter.
 - Use `attack_target` to resolve attacks against a target AC and apply damage. Use `resolution_mode="nonlethal"` when the player is trying to subdue, and `resolution_mode="capture"` when the outcome is explicitly capture rather than kill.
 - Use `roll_skill_check` for exploration and social checks.
-- Use `roll_saving_throw` when a creature must make a save against a DC.
+- Use `roll_saving_throw` only for an existing target. For a character spell, pass both `source_ref` and
+  `spell_name`; the tool derives the required saving throw and spell save DC from authoritative data. Pass an
+  explicit `dc` only for environmental or non-character effects.
 - Use `cast_spell` when a character casts a spell so the system can verify preparation and spend slots locally.
 - Use `use_feature` instead of prose-only narration for non-spell features such as Second Wind, Action Surge, monster bonus actions, and reactions. Pass `action_cost` as `action`, `bonus_action`, `reaction`, or `free`; pass `resource_name` and `resource_cost` when the character sheet tracks a spendable pool.
 - Use `roll_initiative` or `set_initiative` when combat order becomes relevant.

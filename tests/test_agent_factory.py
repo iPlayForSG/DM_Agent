@@ -12,20 +12,25 @@ from dm_graph import LANGGRAPH_TOOL_SCHEMAS
 
 class DMAgentFactoryTests(unittest.TestCase):
     def test_each_role_receives_only_its_declared_tools(self) -> None:
-        tools = {name: object() for name in {
-            "lookup_rules", "roll_dice", "roll_skill_check", "roll_saving_throw", "cast_spell", "use_item", "use_feature",
-            "record_evidence", "record_search_outcome", "append_adventure_log", "set_scene", "start_encounter",
-            "attack_target", "adjust_hp", "add_status", "remove_status", "set_initiative", "roll_initiative",
-            "advance_turn", "end_encounter", "set_defeat_state", "add_enemy", "spawn_monster_from_template",
-            "add_inventory_item", "record_major_experience", "record_chapter_progress", "set_active_character",
-            "save_monster_template",
-        }}
+        # 工具面从 schema 派生，新增工具时这里不会再因为硬编码清单而漂移。
+        tools = {str(schema["name"]): object() for schema in LANGGRAPH_TOOL_SCHEMAS}
         factory = DMAgentFactory(model=object(), tools=tools)
 
         self.assertEqual(factory.tools_for(AgentRole.RULES), [tools["lookup_rules"]])
         self.assertEqual(factory.tools_for(AgentRole.NARRATOR), [])
         self.assertNotIn(tools["attack_target"], factory.tools_for(AgentRole.EXPLORATION))
         self.assertIn(tools["attack_target"], factory.tools_for(AgentRole.COMBAT))
+        self.assertIn(tools["remove_combatant"], factory.tools_for(AgentRole.COMBAT))
+        self.assertNotIn(tools["remove_combatant"], factory.tools_for(AgentRole.EXPLORATION))
+        self.assertIn(tools["create_party_character"], factory.tools_for(AgentRole.SETUP))
+        self.assertNotIn(tools["create_party_character"], factory.tools_for(AgentRole.LEVEL_UP))
+
+        for role, spec in AGENT_SPECS.items():
+            self.assertEqual(
+                [tools[name] for name in spec.tool_names],
+                factory.tools_for(role),
+                msg=f"{role.value} received a tool list that does not match its declaration",
+            )
 
     def test_create_agent_uses_distinct_name_prompt_and_tool_list(self) -> None:
         lookup = object()

@@ -287,6 +287,45 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("Party combatant mirror differs", validated["validation_notes"][0])
         self.assertEqual(validated["validation_issues"][0]["action"], "failed_turn")
 
+    def test_validate_state_requires_dm_controlled_turn_to_finish_with_tools(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        logic.start_encounter(["地精"], enemy_hp=7, enemy_ac=12)
+        party = next(item for item in state.encounter.combatants.values() if item.side == "party")
+        enemy = next(item for item in state.encounter.combatants.values() if item.side == "enemy")
+        logic.set_initiative(party.combatant_id, 18)
+        logic.set_initiative(enemy.combatant_id, 8)
+        logic.advance_turn()
+
+        validated = self.runner._validate_state(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "messages": [],
+                "timeline_append": [],
+                "state_delta": {},
+            }
+        )
+
+        self.assertEqual(state.encounter.current_combatant_id, enemy.combatant_id)
+        self.assertEqual(validated["validation_status"], "repair_required")
+        self.assertIn("attack_target", validated["allowed_tools"])
+        self.assertIn("advance_turn", validated["allowed_tools"])
+        issue = next(item for item in validated["validation_issues"] if item["validator"] == "dm_controlled_turn")
+        self.assertEqual(issue["action"], "repair_required")
+        self.assertFalse(issue["metadata"]["turn_action_used"])
+
+        logic.mark_current_action_used("attack_target")
+        after_action = self.runner._validate_state(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "messages": [],
+                "timeline_append": [],
+                "state_delta": {},
+            }
+        )
+        self.assertEqual(after_action["allowed_tools"], ["advance_turn"])
+        self.assertTrue(after_action["validation_issues"][0]["metadata"]["turn_action_used"])
+
     def test_level_up_phase_disables_encounter_tools(self) -> None:
         state = self._build_state(with_selected_adventure=True)
         state.scene = "level_up"
@@ -774,6 +813,117 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(execution.payload["modifier"], 2)
         self.assertEqual(execution.payload["total"], 12)
         self.assertEqual(execution.payload["modifier_source"], "character_sheet")
+
+    def test_saving_throw_rejects_missing_target_in_both_execution_paths(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        execution = service.roll_saving_throw(
+            state,
+            target_ref="不存在的目标",
+            save_name="感知",
+            dc=12,
+        )
+
+        self.assertFalse(execution.ok)
+        self.assertIn("target not found", execution.error)
+        with self.assertRaisesRegex(ValueError, "target not found"):
+            GameActionService().saving_throw(
+                state,
+                target_ref="不存在的目标",
+                save_name="感知",
+                dc=12,
+            )
+
+    def test_character_spell_save_uses_authoritative_ability_dc_and_target_save(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        caster = state.characters[state.active_character_id]
+        caster.class_name = "Wizard"
+        caster.stats.intelligence = 16
+        caster.spells.ability = "CHA"
+        caster.spells.cantrips = ["交友术"]
+        target = Character(name="米拉", class_name="Fighter")
+        target.stats.wisdom = 10
+        state.characters[target.character_id] = target
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        with patch("game_logic.random.randint", return_value=10):
+            execution = service.roll_saving_throw(
+                state,
+                target_ref=target.character_id,
+                save_name="感知",
+                dc=99,
+                modifier=99,
+                source_ref=caster.character_id,
+                spell_name="交友术",
+            )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["dc"], 13)
+        self.assertEqual(execution.payload["requested_dc"], 99)
+        self.assertEqual(execution.payload["dc_source"], "character_spellcasting")
+        self.assertEqual(execution.payload["save_name"], "wisdom")
+        self.assertEqual(execution.payload["modifier"], 0)
+        self.assertEqual(execution.payload["spell_name"], "交友术")
+
+        wrong_save = service.roll_saving_throw(
+            state,
+            target_ref=target.character_id,
+            save_name="力量",
+            dc=99,
+            source_ref=caster.character_id,
+            spell_name="交友术",
+        )
+        self.assertFalse(wrong_save.ok)
+        self.assertIn("requires a wisdom saving throw", wrong_save.error)
+
+        with patch("game_logic.random.randint", return_value=10):
+            local_result = GameActionService().saving_throw(
+                state,
+                target_ref=target.character_id,
+                save_name="感知",
+                dc=99,
+                modifier=99,
+                source_ref=caster.character_id,
+                spell_name="交友术",
+            )
+        self.assertEqual(local_result["tool_result"].payload["dc"], 13)
+        self.assertEqual(local_result["tool_result"].payload["dc_source"], "character_spellcasting")
+
+    def test_rejected_auditor_never_reaches_narrator_and_rolls_back(self) -> None:
+        initial = self._build_state(with_selected_adventure=True)
+        mutated = initial.model_copy(deep=True)
+        mutated.scene = "combat"
+        graph_state = {
+            "game_state": mutated.model_dump(mode="json"),
+            "initial_game_state": initial.model_dump(mode="json"),
+            "user_input": "我冲向门口。",
+            "audit_result": {"accepted": False, "issues": ["场景与权威状态不一致"]},
+            "audit_attempts": 2,
+            "turn_status": "running",
+            "timeline_append": [],
+            "tool_results": [],
+            "node_traces": [],
+            "validation_notes": [],
+        }
+
+        self.assertEqual(self.runner._route_after_auditor(graph_state), "audit_failed")
+        failed = self.runner._fail_rejected_audit(graph_state)
+        finalized = self.runner._finalize_turn({**graph_state, **failed})
+        restored = GameState.model_validate(finalized["game_state"])
+
+        self.assertEqual(failed["turn_status"], "failed")
+        self.assertEqual(restored.scene, initial.scene)
+        self.assertEqual(restored.turn_number, initial.turn_number)
+        self.assertIn("已回滚", finalized["final_response"])
 
     def test_agent_skill_check_rolls_real_advantage_and_rejects_false_claims(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -1665,6 +1815,23 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(
             normalize_openai_base_url("https://open.bigmodel.cn/api/coding/paas/v4"),
             "https://open.bigmodel.cn/api/coding/paas/v4",
+        )
+
+    def test_deepseek_v4_uses_non_thinking_mode_for_structured_tool_calls(self) -> None:
+        with patch("dm_graph.ChatOpenAI") as chat_model:
+            runner = DMGraphRunner(
+                rag_engine=DummyRAGEngine(),
+                tool_service=object(),
+                api_key="test-key",
+                base_url="https://api.deepseek.com/v1",
+                model_name="deepseek-v4-pro",
+                enable_model=False,
+            )
+            runner._create_model()
+
+        self.assertEqual(
+            chat_model.call_args.kwargs["extra_body"],
+            {"thinking": {"type": "disabled"}},
         )
 
 

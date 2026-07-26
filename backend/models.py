@@ -119,6 +119,13 @@ class Stats(BaseModel):
     charisma: int = 10
 
 
+class AbilityScoreRoll(BaseModel):
+    slot_id: str = ""
+    dice: List[int] = Field(default_factory=list)
+    dropped_index: int = 0
+    total: int = 0
+
+
 class CharacterSummary(BaseModel):
     character_id: str
     name: str
@@ -155,6 +162,8 @@ class Character(BaseModel):
     initiative_bonus: int = 0
 
     stats: Stats = Field(default_factory=Stats)
+    ability_generation_method: str = "point_buy"
+    ability_rolls: List[AbilityScoreRoll] = Field(default_factory=list)
     spells: Spellbook = Field(default_factory=Spellbook)
     concentration_spell: str = ""
     concentration_spell_level: int = 0

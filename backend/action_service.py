@@ -253,15 +253,19 @@ class GameActionService:
         state: GameState,
         target_ref: str,
         save_name: str,
-        dc: int,
+        dc: int = 0,
         modifier: Optional[int] = None,
         roll_mode: str = "normal",
+        source_ref: str = "",
+        spell_name: str = "",
     ) -> Dict[str, Any]:
         logic = GameLogic(state)
         requested_save_name = save_name
         canonical_save_name = self.rules.normalize_save_name(save_name)
         target = self._linked_character(state, logic, target_ref)
         combatant = logic.get_combatant(target_ref)
+        if not target and not combatant:
+            raise ValueError(f"Saving throw target not found: {target_ref}")
         if target:
             resolved_modifier = self.rules.get_save_modifier(target, canonical_save_name)
             modifier_source = "character_sheet"
@@ -277,19 +281,52 @@ class GameActionService:
                         self._combatant_ability_modifier(combatant, canonical_save_name),
                     ),
                 )
-            ) if combatant else 0
-            modifier_source = "combatant_sheet" if combatant else "missing_target"
+            )
+            modifier_source = "combatant_sheet"
+
+        requested_dc = int(dc or 0)
+        resolved_dc = requested_dc
+        dc_source = "explicit_effect"
+        resolved_spell_name = ""
+        if source_ref:
+            source_character = self._linked_character(state, logic, source_ref)
+            source_combatant = logic.get_combatant(source_ref)
+            if not source_character and not source_combatant:
+                raise ValueError(f"Saving throw source not found: {source_ref}")
+            if source_character:
+                if not str(spell_name or "").strip():
+                    raise ValueError("Character-caused saving throws require spell_name")
+                spell_profile = self.rules.get_spell_save_profile(source_character, spell_name)
+                if canonical_save_name != spell_profile["save_name"]:
+                    raise ValueError(
+                        f"{spell_profile['spell_name']} requires a {spell_profile['save_name']} saving throw, "
+                        f"not {canonical_save_name}"
+                    )
+                resolved_dc = int(spell_profile["dc"])
+                dc_source = str(spell_profile["dc_source"])
+                resolved_spell_name = str(spell_profile["spell_name"])
+            else:
+                dc_source = "explicit_non_character_effect"
+        elif str(spell_name or "").strip():
+            raise ValueError("spell_name requires source_ref")
+        if resolved_dc <= 0:
+            raise ValueError("Saving throw DC must be a positive integer")
+
         result = logic.roll_saving_throw(
             target_ref,
             canonical_save_name,
             int(resolved_modifier),
-            dc,
+            resolved_dc,
             roll_mode=roll_mode,
         )
         result["requested_save_name"] = requested_save_name
         result["modifier_source"] = modifier_source
+        result["requested_dc"] = requested_dc
+        result["dc_source"] = dc_source
+        result["source_ref"] = source_ref
+        result["spell_name"] = resolved_spell_name
         save_display = self.library.localize_game_terms(canonical_save_name.title())
-        summary = f"{result['target_name']} {save_display}豁免 {result['total']} vs DC {dc} -> {'成功' if result['success'] else '失败'}"
+        summary = f"{result['target_name']} {save_display}豁免 {result['total']} vs DC {resolved_dc} -> {'成功' if result['success'] else '失败'}"
         return self._append_result(
             state,
             summary=summary,

@@ -159,6 +159,15 @@ class SuggestionAgent:
         response: str,
         user_input: str = "",
     ) -> tuple[List[ActionSuggestion], Dict[str, Any]]:
+        if not self.runner._action_suggestions_required(
+            game_state,
+            {"turn_profile": "ui_projection"},
+        ):
+            return [], {
+                "agent_name": self.role.value,
+                "skipped": True,
+                "skipped_reason": "not_player_decision_point",
+            }
         result = self.graph.invoke(
             {
                 "game_state": game_state.model_dump(mode="json"),

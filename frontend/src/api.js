@@ -102,6 +102,13 @@ export async function loadCharacterBuilder() {
   return request("/rules/character-builder");
 }
 
+export async function generateAbilityScores(payload) {
+  return request("/rules/ability-scores", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function saveCharacter(draft) {
   return request("/characters", {
     method: "POST",
@@ -200,6 +207,10 @@ export async function loadActionSuggestions(gameId, { timeoutMs = 45000 } = {}) 
 
 export async function loadModelConfig() {
   return request("/llm/config");
+}
+
+export async function loadModelHealth() {
+  return request("/health/llm");
 }
 
 export async function updateModelConfig(payload) {

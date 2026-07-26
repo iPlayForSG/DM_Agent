@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from agent import DMAgent
 from action_service import GameActionService
+from ability_scores import AbilityScoreService
 from adventure_service import (
     ensure_ai_generated_adventure_option,
     generate_initial_adventures,
@@ -42,6 +43,7 @@ monster_storage = MonsterStorage()
 agent = DMAgent()
 rule_catalog = RuleCatalog()
 action_service = GameActionService()
+ability_score_service = AbilityScoreService(rule_catalog)
 
 
 @app.on_event("shutdown")
@@ -92,8 +94,10 @@ class SkillCheckActionRequest(BaseModel):
 class SavingThrowActionRequest(BaseModel):
     target_ref: str
     save_name: str
-    dc: int
+    dc: int = 0
     modifier: int | None = None
+    source_ref: str = ""
+    spell_name: str = ""
 
 
 class CastSpellActionRequest(BaseModel):
@@ -160,6 +164,11 @@ class RuleLookupRequest(BaseModel):
     n_results: int = 3
 
 
+class AbilityScoreRequest(BaseModel):
+    method: str
+    scores: Dict[str, int] = Field(default_factory=dict)
+
+
 class LLMConfigUpdateRequest(BaseModel):
     profile_id: str = ""
     profile_label: str = ""
@@ -199,6 +208,7 @@ def health_payload():
             "action_suggestions": True,
             "action_suggestion_tool": True,
             "reply_length_settings": True,
+            "ability_score_generation": True,
         },
     }
 
@@ -606,6 +616,13 @@ def _add_display_fields(value):
         display = library.localize_game_terms(raw)
         if display != raw:
             localized[f"{key}_display"] = display
+    for key in ("properties", "tags", "status_effects", "cantrips", "prepared"):
+        raw_values = value.get(key)
+        if not isinstance(raw_values, list):
+            continue
+        display_values = [library.localize_game_terms(str(item)) for item in raw_values]
+        if display_values != raw_values:
+            localized[f"{key}_display"] = display_values
     return localized
 
 
@@ -920,6 +937,14 @@ async def get_character_builder_rules():
     return builder_payload()
 
 
+@app.post("/api/v1/rules/ability-scores")
+async def generate_ability_scores(req: AbilityScoreRequest):
+    try:
+        return ability_score_service.generate(req.method, req.scores or None)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/v1/rag/search")
 async def search_rules(req: RuleLookupRequest):
     snippets = library.localize_rag_snippets(agent.rag_engine.search(req.query, n_results=req.n_results))
@@ -963,7 +988,7 @@ async def get_character(identifier: str):
     char = char_storage.load_character(identifier)
     if not char:
         raise HTTPException(status_code=404, detail="Character not found")
-    return char
+    return _add_display_fields(char.model_dump(mode="json"))
 
 
 @app.post("/api/v1/characters/{identifier}/delete")
@@ -1565,6 +1590,8 @@ async def saving_throw_action(game_id: str, req: SavingThrowActionRequest):
             save_name=req.save_name,
             dc=req.dc,
             modifier=req.modifier,
+            source_ref=req.source_ref,
+            spell_name=req.spell_name,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

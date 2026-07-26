@@ -7,6 +7,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from agent_tools import AgentToolService
 from dm_graph import DMGraphRunner, LANGGRAPH_TOOL_SCHEMAS
+from game_logic import GameLogic
 from prompts import build_dm_instruction
 from models import AdventureHook, Character, GameState
 from tool_registry import ToolRegistry
@@ -228,6 +229,35 @@ class ActionSuggestionTest(unittest.TestCase):
                 },
             )
         )
+
+    def test_combat_suggestions_wait_until_control_returns_to_player(self) -> None:
+        state = self._exploration_state()
+        logic = GameLogic(state)
+        logic.start_encounter(["地精"], enemy_hp=7, enemy_ac=12)
+        party = next(item for item in state.encounter.combatants.values() if item.side == "party")
+        enemy = next(item for item in state.encounter.combatants.values() if item.side == "enemy")
+        logic.set_initiative(party.combatant_id, 18)
+        logic.set_initiative(enemy.combatant_id, 8)
+
+        self.assertTrue(DMGraphRunner._action_suggestions_required(state, {"turn_profile": "combat_resolution"}))
+
+        logic.advance_turn()
+
+        self.assertEqual(state.encounter.current_combatant_id, enemy.combatant_id)
+        self.assertFalse(DMGraphRunner._action_suggestions_required(state, {"turn_profile": "combat_resolution"}))
+
+        runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
+        runner._generate_action_suggestion_projection = lambda *_args, **_kwargs: self.fail(
+            "Suggestion projection must not call the model during a DM-controlled turn."
+        )
+        suggestions, metadata = runner.suggestion_agent.project(
+            state,
+            "地精仍在行动。",
+            "我保持警戒。",
+        )
+        self.assertEqual(suggestions, [])
+        self.assertTrue(metadata["skipped"])
+        self.assertEqual(metadata["skipped_reason"], "not_player_decision_point")
 
     def test_action_resolution_commits_before_async_suggestion_projection(self) -> None:
         state = self._exploration_state()

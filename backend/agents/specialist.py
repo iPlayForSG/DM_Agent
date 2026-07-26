@@ -74,7 +74,15 @@ class SpecialistAgent:
 
         first_call = tool_calls[0]
         if isinstance(last_message, AIMessage):
-            serialized_message = last_message.model_copy(update={"tool_calls": [first_call]})
+            additional_kwargs = dict(last_message.additional_kwargs or {})
+            additional_kwargs.pop("tool_calls", None)
+            serialized_message = last_message.model_copy(
+                update={
+                    "tool_calls": [first_call],
+                    "invalid_tool_calls": [],
+                    "additional_kwargs": additional_kwargs,
+                }
+            )
         else:
             serialized_message = AIMessage(
                 content=self.runner._extract_message_content(last_message),
@@ -97,6 +105,14 @@ class SpecialistAgent:
     def _audit(self, state: SpecialistState) -> SpecialistState:
         return self.runner._validate_state(state)
 
+    def _route_after_model(self, state: SpecialistState) -> str:
+        route = self.runner._should_continue_after_model(state)
+        if route != "finalize_turn":
+            return route
+        if self.runner.enable_model and self.runner._dm_controlled_turn_pending(state):
+            return "audit_state"
+        return "finalize_turn"
+
     def _build_graph(self):
         builder = StateGraph(SpecialistState)
         builder.add_node("scope", self._scope)
@@ -107,8 +123,8 @@ class SpecialistAgent:
         builder.add_edge("scope", "model")
         builder.add_conditional_edges(
             "model",
-            self.runner._should_continue_after_model,
-            {"execute_tools": "tools", "finalize_turn": END},
+            self._route_after_model,
+            {"execute_tools": "tools", "audit_state": "audit", "finalize_turn": END},
         )
         builder.add_edge("tools", "audit")
         builder.add_conditional_edges(

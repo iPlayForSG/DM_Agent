@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "project": "DM_Agent",
+  "ignore": {
+    "path_globs": [
+      ".agent/**",
+      ".codex/**",
+      "docs/adr/**",
+      "frontend/dist/**",
+      "frontend/node_modules/**",
+      "backend/Game/**",
+      "backend/Characters/**",
+      "backend/Documents/**",
+      "backend/Knowledge/**",
+      "backend/runtime-logs/**",
+      "runtime-logs/**",
+      "**/__pycache__/**",
+      "**/*.pyc",
+      "**/*.log",
+      "**/*.md"
+    ]
+  },
+  "high_signal_rules": [
+    {
+      "id": "commands-and-ci",
+      "patterns": [
+        "start.cmd",
+        "backend/requirements.txt",
+        "frontend/package.json",
+        ".github/**",
+        "Makefile",
+        "pyproject.toml",
+        "Dockerfile",
+        "docker-compose*.yml",
+        "docker-compose*.yaml"
+      ],
+      "suggested_docs": [
+        ".agent/memory/commands.md",
+        "AGENTS.md"
+      ]
+    },
+    {
+      "id": "api-and-schema",
+      "patterns": [
+        "backend/main.py",
+        "backend/models.py",
+        "frontend/src/api.js",
+        "backend/migrations/**",
+        "migrations/**"
+      ],
+      "suggested_docs": [
+        ".agent/memory/architecture-map.md",
+        ".agent/memory/module-map.md",
+        ".agent/memory/conventions.md",
+        ".agent/memory/common-pitfalls.md"
+      ]
+    },
+    {
+      "id": "agent-workflow-boundary",
+      "patterns": [
+        "backend/agent.py",
+        "backend/dm_graph.py",
+        "backend/agent_tools.py",
+        "backend/action_service.py",
+        "backend/tool_registry.py",
+        "backend/agents/**"
+      ],
+      "suggested_docs": [
+        ".agent/memory/architecture-map.md",
+        ".agent/memory/module-map.md",
+        ".agent/memory/conventions.md",
+        ".agent/memory/common-pitfalls.md"
+      ]
+    },
+    {
+      "id": "rules-state-and-persistence",
+      "patterns": [
+        "backend/game_logic.py",
+        "backend/rules_catalog.py",
+        "backend/ability_scores.py",
+        "backend/storage.py"
+      ],
+      "suggested_docs": [
+        ".agent/memory/architecture-map.md",
+        ".agent/memory/module-map.md",
+        ".agent/memory/conventions.md",
+        ".agent/memory/common-pitfalls.md"
+      ]
+    },
+    {
+      "id": "rag-infrastructure",
+      "patterns": [
+        "backend/rag.py",
+        "backend/rag_embeddings.py",
+        "backend/build_rag_index.py"
+      ],
+      "suggested_docs": [
+        ".agent/memory/architecture-map.md",
+        ".agent/memory/module-map.md",
+        ".agent/memory/commands.md",
+        ".agent/memory/common-pitfalls.md"
+      ]
+    }
+  ],
+  "major_module_prefixes": {
+    "backend": [
+      "backend/"
+    ],
+    "frontend": [
+      "frontend/src/"
+    ],
+    "infrastructure": [
+      ".github/",
+      "start.cmd",
+      "Dockerfile",
+      "docker-compose"
+    ]
+  },
+  "major_structure_prefixes": [
+    "backend/",
+    "frontend/src/"
+  ],
+  "thresholds": {
+    "file_count": 6,
+    "cross_module_count": 2
+  },
+  "active_exec_plan": {
+    "directory": ".agent/tasks",
+    "glob": "*.md",
+    "status_regex": "(?im)^Status:\\s*active\\s*$"
+  },
+  "max_evidence_files": 12,
+  "max_triggers_per_fingerprint": 1
+}

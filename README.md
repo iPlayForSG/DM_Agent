@@ -5,7 +5,7 @@ DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目
 ## 功能概览
 
 - 规则目录驱动的角色创建流程。
-- 怪物模板管理与遭遇实例化。
+- 标准怪物模板读取、游戏内自定义怪物与遭遇实例化。
 - 本地游戏存档与战役阶段状态。
 - Director、Rules、阶段 Specialist、Auditor、Narrator 与 Suggestion Agent 协作完成对话、工具调用和剧情推进。
 - 攻击、施法、技能检定、豁免检定、物品和特性使用等本地动作接口。
@@ -94,8 +94,16 @@ cd frontend
 npm run build
 ```
 
-后端测试可在仓库根目录运行：
+激活已安装后端依赖的 Python 环境后，可在仓库根目录运行：
 
 ```powershell
-& 'C:\Users\iPlayForSG\.conda\envs\DM_Agent\python.exe' -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
+```
+
+前端验证：
+
+```powershell
+cd frontend
+npm run build
+npm run lint
 ```

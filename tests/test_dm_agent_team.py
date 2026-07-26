@@ -8,6 +8,7 @@ os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 from agent_tools import AgentToolExecution
 from agents.specs import AGENT_SPECS, AgentRole
 from dm_graph import DMGraphRunner
+from game_logic import GameLogic
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.prebuilt import ToolNode
@@ -62,6 +63,145 @@ class DMAgentTeamTests(unittest.TestCase):
         finally:
             runner.close()
 
+    def test_combat_specialist_routes_dm_controlled_no_tool_response_to_audit(self) -> None:
+        class MinimalModel:
+            def bind_tools(self, tools):
+                return self
+
+        runner = DMGraphRunner(
+            rag_engine=None,
+            enable_model=True,
+            api_key="test-key",
+            checkpoint_mode="memory",
+        )
+        runner._model = MinimalModel()
+        state = GameState(game_id="enemy-turn-route", title="Enemy Turn Route")
+        character = Character(name="守誓者", class_name="Fighter")
+        state.characters[character.character_id] = character
+        state.active_character_id = character.character_id
+        logic = GameLogic(state)
+        logic.start_encounter(["地精"], enemy_hp=7, enemy_ac=12)
+        party = next(item for item in state.encounter.combatants.values() if item.side == "party")
+        enemy = next(item for item in state.encounter.combatants.values() if item.side == "enemy")
+        logic.set_initiative(party.combatant_id, 18)
+        logic.set_initiative(enemy.combatant_id, 8)
+        logic.advance_turn()
+        try:
+            runner._graph = runner._build_graph()
+            combat = runner.specialist_agents[AgentRole.COMBAT]
+            route = combat._route_after_model(
+                {
+                    "game_state": state.model_dump(mode="json"),
+                    "messages": [AIMessage(content="地精仍在行动。")],
+                    "turn_status": "running",
+                    "tool_call_rounds": 0,
+                    "tool_round_limit": 6,
+                }
+            )
+        finally:
+            runner.close()
+
+        self.assertEqual(state.encounter.current_combatant_id, enemy.combatant_id)
+        self.assertEqual(route, "audit_state")
+
+    def test_combat_specialist_audits_and_advances_dm_controlled_turn(self) -> None:
+        class EnemyTurnModel:
+            def __init__(self):
+                self.calls = 0
+
+            def bind_tools(self, tools):
+                return self
+
+            def bind(self, **kwargs):
+                return self
+
+            def invoke(self, messages):
+                self.calls += 1
+                if self.calls == 1:
+                    return AIMessage(content="地精仍在行动。")
+                if self.calls == 2:
+                    return AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "id": "call-advance-enemy",
+                                "name": "advance_turn",
+                                "args": {},
+                            }
+                        ],
+                    )
+                return AIMessage(content="地精迟疑片刻，没有抓住进攻机会；行动权回到你手中。")
+
+        class AdvanceTurnService:
+            def advance_turn(self, state):
+                current = GameLogic(state).advance_turn()
+                return AgentToolExecution(
+                    ok=bool(current),
+                    payload={
+                        "current_combatant_id": current.combatant_id if current else None,
+                        "current_combatant_name": current.name if current else "",
+                    },
+                    state_patch={
+                        "encounter": state.encounter.model_dump(mode="json") if state.encounter else None,
+                    },
+                )
+
+        model = EnemyTurnModel()
+        runner = DMGraphRunner(
+            rag_engine=None,
+            tool_service=AdvanceTurnService(),
+            enable_model=True,
+            api_key="test-key",
+            checkpoint_mode="memory",
+        )
+        runner._model = model
+        state = GameState(game_id="enemy-turn-loop", title="Enemy Turn Loop")
+        character = Character(name="守誓者", class_name="Fighter")
+        state.characters[character.character_id] = character
+        state.active_character_id = character.character_id
+        state.campaign.setup_complete = True
+        logic = GameLogic(state)
+        logic.start_encounter(["地精"], enemy_hp=7, enemy_ac=12)
+        party = next(item for item in state.encounter.combatants.values() if item.side == "party")
+        enemy = next(item for item in state.encounter.combatants.values() if item.side == "enemy")
+        logic.set_initiative(party.combatant_id, 18)
+        logic.set_initiative(enemy.combatant_id, 8)
+        logic.advance_turn()
+        try:
+            runner._graph = runner._build_graph()
+            routed = runner._route_phase(
+                {
+                    "game_state": state.model_dump(mode="json"),
+                    "user_input": "我保持警戒。",
+                    "state_delta": {},
+                }
+            )
+            result = runner.specialist_agents[AgentRole.COMBAT].as_parent_node(
+                {
+                    **routed,
+                    "messages": [],
+                    "instruction": "Resolve the authoritative combat turn.",
+                    "user_input": "我保持警戒。",
+                    "timeline_append": [],
+                    "tool_results": [],
+                    "node_traces": [],
+                    "validation_notes": [],
+                    "validation_issues": [],
+                    "tool_call_rounds": 0,
+                    "turn_status": "running",
+                }
+            )
+        finally:
+            runner.close()
+
+        resolved = GameState.model_validate(result["game_state"])
+        self.assertEqual(model.calls, 3)
+        self.assertEqual(resolved.encounter.current_combatant_id, party.combatant_id)
+        self.assertEqual(result["validation_status"], "ok")
+        self.assertIn("行动权回到你手中", result["final_response"])
+        self.assertIn("dm_controlled_turn", [item["validator"] for item in result["validation_issues"]])
+        self.assertIn("execute_tools", [item["node_name"] for item in result["node_traces"]])
+
     def test_runtime_topology_matches_every_declared_agent_tool(self) -> None:
         runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
         try:
@@ -89,6 +229,15 @@ class DMAgentTeamTests(unittest.TestCase):
 
         runner = DMGraphRunner(rag_engine=DisabledRAG(), checkpoint_mode="memory")
         state = GameState(game_id="read-only-agents", title="Read-only Agents")
+        character = Character(name="艾拉", class_name="Wizard")
+        adventure = AdventureHook(title="旧矿坑阴影", summary="矿坑入口传来异常嗡鸣。")
+        state.characters[character.character_id] = character
+        state.active_character_id = character.character_id
+        state.campaign.available_adventures = [adventure]
+        state.campaign.selected_adventure_id = adventure.adventure_id
+        state.campaign.setup_complete = True
+        state.campaign.phase = "exploration"
+        state.scene = "exploration"
         try:
             runner._graph = runner._build_graph()
             rules_result = runner.rules_agent.as_parent_node(
@@ -210,6 +359,34 @@ class DMAgentTeamTests(unittest.TestCase):
         self.assertTrue(any(isinstance(message, ToolMessage) for message in result["messages"]))
         self.assertEqual(result["tool_call_rounds"], 1)
         self.assertEqual(result["active_agent"], "exploration")
+
+    def test_specialist_serialization_removes_unanswered_raw_tool_calls(self) -> None:
+        runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
+        try:
+            runner._graph = runner._build_graph()
+            specialist = runner.specialist_agents[AgentRole.EXPLORATION]
+            message = AIMessage(
+                content="",
+                additional_kwargs={
+                    "tool_calls": [
+                        {"id": "call-one", "type": "function", "function": {"name": "roll_dice", "arguments": "{}"}},
+                        {"id": "call-two", "type": "function", "function": {"name": "append_adventure_log", "arguments": "{}"}},
+                    ]
+                },
+                tool_calls=[
+                    {"id": "call-one", "name": "roll_dice", "args": {"expression": "1d20"}},
+                    {"id": "call-two", "name": "append_adventure_log", "args": {"entry": "test"}},
+                ],
+            )
+
+            result = specialist._serialize_tool_batch({"messages": [message], "node_traces": []})
+        finally:
+            runner.close()
+
+        serialized = result["messages"][-1]
+        self.assertEqual([call["id"] for call in serialized.tool_calls], ["call-one"])
+        self.assertNotIn("tool_calls", serialized.additional_kwargs)
+        self.assertEqual(serialized.invalid_tool_calls, [])
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ START
   -> auditor_agent
        -> selected specialist repair loop
        -> narrator_agent
+       -> audit_failed -> finalize_turn
   -> finalize_turn
   -> END
 ```
@@ -37,7 +38,7 @@ START
 ### 控制 Agent
 
 - Director：输出唯一 route、目标、规则需求和风险；无工具，不叙事、不写状态。
-- Auditor：检查 Specialist 草稿、工具轨迹和权威状态；无工具，拒绝时把问题送回原 Specialist。
+- Auditor：检查 Specialist 草稿、工具轨迹和权威状态；无工具，首次拒绝把问题送回原 Specialist，修复后仍拒绝则使回合失败并回滚。
 - Narrator：把审计通过的事实整理成玩家正文；无工具，不创造事实或行动菜单。
 
 ### 只读 Agent
@@ -94,6 +95,8 @@ model
 
 `validate_state` 和 Auditor 不直接补写业务状态。可以由工具修复的问题回到 Specialist；不能安全修复的问题让整个回合失败并回滚到 `initial_game_state`。
 
+角色法术造成豁免时，`roll_saving_throw` 必须收到施法者和法术名。运行时从职业施法属性、等级、角色属性与法术说明推导 DC 和豁免属性；模型提供的 DC、目标修正值或错误豁免属性不会覆盖权威数据。环境或非角色效果才使用显式 DC，目标与来源引用不存在时直接失败。
+
 ## 6. 状态与持久化
 
 - 父图使用 `DMGraphState` 和 SQLite checkpointer。
@@ -117,6 +120,7 @@ downtime, level_up, auditor, narrator, suggestions
 - `execute_tools`，包含 `agent_name`、工具名、guardrail、确认状态和轮次。
 - `validate_state`
 - `agent.auditor.completed`
+- `agent.auditor.failed`
 - `agent.narrator.completed`
 - `finalize_turn`
 

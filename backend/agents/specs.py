@@ -37,8 +37,13 @@ AGENT_SPECS = {
     ),
     AgentRole.SETUP: AgentSpec(
         AgentRole.SETUP,
-        "Resolve party, character, and adventure setup without starting unsupported live play.",
-        ("lookup_rules", "append_adventure_log"),
+        "Resolve party, character, and adventure setup without starting unsupported live play. "
+        "Read the authoritative catalogs before proposing build choices, then commit them with the setup tools.",
+        (
+            "lookup_rules", "generate_ability_scores", "append_adventure_log",
+            "list_character_options", "list_class_spells", "list_starter_equipment",
+            "validate_character_sheet", "create_party_character", "select_adventure_hook",
+        ),
     ),
     AgentRole.EXPLORATION: AgentSpec(
         AgentRole.EXPLORATION,
@@ -59,7 +64,7 @@ AGENT_SPECS = {
             "record_major_experience", "record_chapter_progress", "set_scene", "set_active_character",
             "roll_skill_check", "roll_saving_throw", "cast_spell", "save_monster_template", "set_defeat_state",
             "start_encounter", "add_enemy", "spawn_monster_from_template", "attack_target", "set_initiative",
-            "roll_initiative", "advance_turn", "end_encounter",
+            "roll_initiative", "advance_turn", "remove_combatant", "end_encounter",
         ),
     ),
     AgentRole.DOWNTIME: AgentSpec(
@@ -78,6 +83,7 @@ AGENT_SPECS = {
         (
             "lookup_rules", "append_adventure_log", "record_major_experience", "record_chapter_progress",
             "set_scene", "set_active_character",
+            "list_character_options", "list_class_spells", "validate_character_sheet",
         ),
     ),
     AgentRole.AUDITOR: AgentSpec(

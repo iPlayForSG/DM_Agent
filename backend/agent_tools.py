@@ -3,11 +3,13 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from ability_scores import AbilityScoreService
 from game_logic import DiceRoller, GameLogic
 from library import Library
-from models import GameState, MonsterTemplate, MonsterTextEntry, SessionEvent, ToolResult
+from models import Character, GameState, MonsterTemplate, MonsterTextEntry, SessionEvent, Stats, ToolResult
 from rag import RAGEngine
 from rules_catalog import ABILITY_ALIAS, SKILL_TO_ABILITY, RuleCatalog
+from starter_shop import get_shop_catalog
 from storage import MonsterStorage
 
 
@@ -54,6 +56,7 @@ class AgentToolService:
         self.monster_storage = monster_storage
         self.rules_catalog = rules_catalog
         self.library = Library()
+        self.ability_scores = AbilityScoreService(rules_catalog)
 
     def _build_event(
         self,
@@ -195,6 +198,27 @@ class AgentToolService:
             event_type="rules_retrieved",
             content=normalized_query,
             status="success" if snippets else "empty",
+        )
+
+    def generate_ability_scores(
+        self,
+        state: GameState,
+        method: str,
+        scores: Optional[Dict[str, int]] = None,
+    ) -> AgentToolExecution:
+        result = self.ability_scores.generate(method, scores)
+        normalized_method = str(result.get("method") or method).strip().lower()
+        method_labels = {
+            "point_buy": "point buy",
+            "standard_array": "standard array",
+            "rolled": "4d6 drop lowest",
+        }
+        return self._success(
+            tool_name="character.generate_ability_scores",
+            summary=f"Prepared ability scores using {method_labels.get(normalized_method, normalized_method)}.",
+            payload=result,
+            event_type="ability_scores_generated",
+            content=normalized_method,
         )
 
     def set_player_action_suggestions(
@@ -940,10 +964,12 @@ class AgentToolService:
         state: GameState,
         target_ref: str,
         save_name: str,
-        dc: int,
+        dc: int = 0,
         modifier: Optional[int] = None,
         reason: str = "",
         roll_mode: str = "normal",
+        source_ref: str = "",
+        spell_name: str = "",
     ) -> AgentToolExecution:
         logic = GameLogic(state)
         roll_mode_error = self._roll_mode_error(reason, roll_mode)
@@ -953,6 +979,8 @@ class AgentToolService:
         canonical_save_name = self.rules_catalog.normalize_save_name(save_name)
         target = self._linked_character(state, logic, target_ref)
         combatant = logic.get_combatant(target_ref)
+        if not target and not combatant:
+            return self._error(f"Saving throw target not found: {target_ref}")
         if target:
             resolved_modifier = self.rules_catalog.get_save_modifier(target, canonical_save_name)
             modifier_source = "character_sheet"
@@ -970,14 +998,43 @@ class AgentToolService:
                 )
             )
             modifier_source = "combatant_sheet"
-        else:
-            resolved_modifier = 0
-            modifier_source = "missing_target"
+
+        requested_dc = int(dc or 0)
+        resolved_dc = requested_dc
+        dc_source = "explicit_effect"
+        resolved_spell_name = ""
+        if source_ref:
+            source_character = self._linked_character(state, logic, source_ref)
+            source_combatant = logic.get_combatant(source_ref)
+            if not source_character and not source_combatant:
+                return self._error(f"Saving throw source not found: {source_ref}")
+            if source_character:
+                if not str(spell_name or "").strip():
+                    return self._error("Character-caused saving throws require spell_name")
+                try:
+                    spell_profile = self.rules_catalog.get_spell_save_profile(source_character, spell_name)
+                except ValueError as exc:
+                    return self._error(str(exc))
+                if canonical_save_name != spell_profile["save_name"]:
+                    return self._error(
+                        f"{spell_profile['spell_name']} requires a {spell_profile['save_name']} saving throw, "
+                        f"not {canonical_save_name}"
+                    )
+                resolved_dc = int(spell_profile["dc"])
+                dc_source = str(spell_profile["dc_source"])
+                resolved_spell_name = str(spell_profile["spell_name"])
+            else:
+                dc_source = "explicit_non_character_effect"
+        elif str(spell_name or "").strip():
+            return self._error("spell_name requires source_ref")
+        if resolved_dc <= 0:
+            return self._error("Saving throw DC must be a positive integer")
+
         result = logic.roll_saving_throw(
             target_ref=target_ref,
             save_name=canonical_save_name,
             modifier=int(resolved_modifier or 0),
-            dc=dc,
+            dc=resolved_dc,
             roll_mode=roll_mode,
         )
         save_display = self.library.localize_game_terms(canonical_save_name.title())
@@ -986,9 +1043,13 @@ class AgentToolService:
             "requested_save_name": requested_save_name,
             "save_name_display": save_display,
             "modifier_source": modifier_source,
+            "requested_dc": requested_dc,
+            "dc_source": dc_source,
+            "source_ref": source_ref,
+            "spell_name": resolved_spell_name,
             "reason": reason,
         }
-        summary = f"{result['target_name']} {save_display}豁免{self._roll_mode_summary(roll_mode)} {result['total']} vs DC {dc} -> {'成功' if result['success'] else '失败'}"
+        summary = f"{result['target_name']} {save_display}豁免{self._roll_mode_summary(roll_mode)} {result['total']} vs DC {resolved_dc} -> {'成功' if result['success'] else '失败'}"
         if reason:
             summary += f" | {self.library.localize_game_terms(reason)}"
         return self._success(
@@ -1247,6 +1308,424 @@ class AgentToolService:
             payload=payload,
             event_type="turn_advanced",
             state_patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
+        )
+
+    # --- Setup catalog reads -------------------------------------------------
+    # 这些只读工具让 Setup Agent 能拿到与前端建卡界面同一份权威目录，
+    # 否则模型只能凭训练记忆臆造物种/背景/装备，导致后续 validate_character 必然失败。
+
+    @staticmethod
+    def _summarize_species(entry: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "name": entry.get("name", ""),
+            "speed": entry.get("speed", 30),
+            "traits": list(entry.get("traits", [])),
+        }
+
+    @staticmethod
+    def _summarize_background(entry: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "name": entry.get("name", ""),
+            "ability_bonuses": dict(entry.get("ability_bonuses", {})),
+            "origin_feat": entry.get("origin_feat", ""),
+            "skill_proficiencies": list(entry.get("skill_proficiencies", [])),
+        }
+
+    @staticmethod
+    def _summarize_class(entry: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "name": entry.get("name", ""),
+            "hit_die": entry.get("hit_die", 8),
+            "spellcasting_ability": entry.get("spellcasting_ability", ""),
+            "spellcasting_mode": entry.get("spellcasting_mode", ""),
+            "save_proficiencies": list(entry.get("save_proficiencies", [])),
+            "skill_choices": list(entry.get("skill_choices", [])),
+            "skills_to_choose": entry.get("skills_to_choose", 0),
+            "starting_cantrips": entry.get("starting_cantrips", 0),
+            "starting_prepared_spells": entry.get("starting_prepared_spells", 0),
+            "starter_equipment_option_ids": [
+                option.get("id", "")
+                for option in (entry.get("starter_equipment_options") or [])
+            ],
+        }
+
+    def list_character_options(self, state: GameState, category: str = "all", name: str = "") -> AgentToolExecution:
+        normalized_category = str(category or "all").strip().lower()
+        supported = {"all", "species", "backgrounds", "origin_feats", "classes", "ability_generation"}
+        if normalized_category not in supported:
+            return self._error(
+                f"Unsupported category: {category}. Use one of {', '.join(sorted(supported))}."
+            )
+
+        catalog = self.rules_catalog.get_builder_catalog()
+        lookup = str(name or "").strip()
+        payload: Dict[str, Any] = {"category": normalized_category}
+
+        if lookup:
+            # 指定名称时返回单条完整定义，避免模型对着摘要继续猜细节。
+            resolvers = {
+                "species": self.rules_catalog.get_species,
+                "backgrounds": self.rules_catalog.get_background,
+                "classes": self.rules_catalog.get_class_def,
+            }
+            if normalized_category not in resolvers:
+                return self._error("The name filter only applies to species, backgrounds, or classes.")
+            entry = resolvers[normalized_category](lookup)
+            if not entry:
+                return self._error(f"Unknown {normalized_category[:-1] if normalized_category.endswith('s') else normalized_category}: {lookup}")
+            payload["entry"] = entry
+            summary = f"建卡目录：{lookup}"
+        else:
+            if normalized_category in {"all", "ability_generation"}:
+                payload["ability_generation"] = catalog.get("ability_generation", {})
+            if normalized_category in {"all", "species"}:
+                payload["species"] = [self._summarize_species(item) for item in catalog.get("species", [])]
+            if normalized_category in {"all", "backgrounds"}:
+                payload["backgrounds"] = [self._summarize_background(item) for item in catalog.get("backgrounds", [])]
+            if normalized_category in {"all", "origin_feats"}:
+                payload["origin_feats"] = [item.get("name", "") for item in catalog.get("origin_feats", [])]
+            if normalized_category in {"all", "classes"}:
+                payload["classes"] = [self._summarize_class(item) for item in catalog.get("classes", [])]
+            summary = f"建卡目录已读取：{normalized_category}"
+
+        return self._success(
+            tool_name="character.list_options",
+            summary=summary,
+            payload=payload,
+            event_type="character_options_listed",
+            content=normalized_category,
+        )
+
+    def list_class_spells(
+        self,
+        state: GameState,
+        class_name: str = "",
+        max_level: Optional[int] = None,
+        spell_name: str = "",
+    ) -> AgentToolExecution:
+        requested_spell = str(spell_name or "").strip()
+        if requested_spell:
+            details = self.library.get_spell_details(requested_spell)
+            if not details:
+                return self._error(f"Unknown spell: {requested_spell}")
+            return self._success(
+                tool_name="library.spell_details",
+                summary=f"法术资料：{details.get('name', requested_spell)}",
+                payload={"spell": details},
+                event_type="spell_details_read",
+                content=str(details.get("name") or requested_spell),
+            )
+
+        requested_class = str(class_name or "").strip()
+        if not requested_class:
+            return self._success(
+                tool_name="library.class_list",
+                summary="可用施法职业法术库列表",
+                payload={"classes": self.library.get_all_classes()},
+                event_type="spell_library_listed",
+            )
+
+        library_key = self.rules_catalog.resolve_spell_library_key(requested_class)
+        spells = self.library.get_spells_by_class(library_key)
+        if not spells:
+            return self._error(
+                f"No spell library for class: {requested_class}. Available keys: {', '.join(self.library.get_all_classes())}"
+            )
+
+        if max_level is not None:
+            try:
+                level_cap = int(max_level)
+            except (TypeError, ValueError):
+                return self._error("max_level must be an integer spell level.")
+            spells = [item for item in spells if int(item.get("level", 0)) <= level_cap]
+
+        payload = {
+            "class_name": requested_class,
+            "spell_library_key": library_key,
+            "spells": [
+                {
+                    "name": item.get("name", ""),
+                    "level": item.get("level", 0),
+                    "school": item.get("school", ""),
+                    "casting_time": item.get("casting_time", ""),
+                    "concentration": bool(item.get("concentration", False)),
+                }
+                for item in spells
+            ],
+        }
+        return self._success(
+            tool_name="library.class_spells",
+            summary=f"{requested_class} 法术列表（{len(payload['spells'])} 条）",
+            payload=payload,
+            event_type="class_spells_listed",
+            content=library_key,
+        )
+
+    def list_starter_equipment(self, state: GameState, class_name: str, option_id: str = "") -> AgentToolExecution:
+        class_def = self.rules_catalog.get_class_def(str(class_name or "").strip())
+        if not class_def:
+            return self._error(f"Unknown class: {class_name}")
+
+        options = self.rules_catalog.get_starter_options(class_def)
+        payload: Dict[str, Any] = {
+            "class_name": class_def.get("name", class_name),
+            "custom_purchase_budget_gp": self.rules_catalog.get_custom_purchase_budget_gp(class_def),
+            "options": [
+                {
+                    "id": option.get("id", ""),
+                    "label": option.get("label", ""),
+                    "description": option.get("description", ""),
+                    "gold_gp": int(option.get("gold_gp", 0)),
+                    "items": [item.get("name", "") for item in option.get("items", [])],
+                    "choices": [
+                        {
+                            "id": group.get("id", ""),
+                            "label": group.get("label", ""),
+                            "options": [
+                                {
+                                    "id": choice.get("id", ""),
+                                    "label": choice.get("label", ""),
+                                    "items": [item.get("name", "") for item in choice.get("items", [])],
+                                }
+                                for choice in group.get("options", [])
+                            ],
+                        }
+                        for group in option.get("choices", [])
+                    ],
+                }
+                for option in options
+            ],
+        }
+
+        requested_option = str(option_id or "").strip()
+        if requested_option:
+            selected = self.rules_catalog.get_starter_option(class_def, requested_option)
+            if not selected or selected.get("id") != requested_option:
+                return self._error(f"Unknown starter equipment option for {class_name}: {requested_option}")
+            payload["selected_option"] = selected
+
+        payload["shop_catalog"] = [
+            {
+                "item_id": item.get("id", ""),
+                "name": item.get("name", ""),
+                "cost_gp": item.get("cost_gp", 0),
+                "type": item.get("type", ""),
+            }
+            for item in get_shop_catalog()
+        ]
+
+        return self._success(
+            tool_name="character.list_starter_equipment",
+            summary=f"{payload['class_name']} 初始装备选项（{len(payload['options'])} 组）",
+            payload=payload,
+            event_type="starter_equipment_listed",
+            content=str(payload["class_name"]),
+        )
+
+    def validate_character_sheet(self, state: GameState, character_ref: str) -> AgentToolExecution:
+        logic = GameLogic(state)
+        character = logic.get_character(character_ref)
+        if not character:
+            return self._error(f"Unknown character: {character_ref}")
+
+        errors = self.rules_catalog.validate_character(character)
+        payload = {
+            "character_id": character.character_id,
+            "name": character.name,
+            "valid": not errors,
+            "errors": errors,
+        }
+        summary = (
+            f"角色卡校验通过：{character.name}"
+            if not errors
+            else f"角色卡校验发现 {len(errors)} 个问题：{character.name}"
+        )
+        return self._success(
+            tool_name="character.validate_sheet",
+            summary=summary,
+            payload=payload,
+            event_type="character_sheet_validated",
+            content=character.name,
+            status="success" if not errors else "warning",
+        )
+
+    def create_party_character(
+        self,
+        state: GameState,
+        name: str,
+        class_name: str,
+        species: str = "Human",
+        background_name: str = "",
+        ability_scores: Optional[Dict[str, int]] = None,
+        ability_generation_method: str = "standard_array",
+        skill_proficiencies: Optional[List[str]] = None,
+        cantrips: Optional[List[str]] = None,
+        prepared_spells: Optional[List[str]] = None,
+        starter_option_id: str = "",
+        starter_choice_ids: Optional[Dict[str, str]] = None,
+        alignment: str = "Neutral",
+        set_active: bool = True,
+    ) -> AgentToolExecution:
+        if state.campaign.setup_complete:
+            return self._error("Party setup is already complete; use level_up or downtime tools instead.")
+
+        limit = int(state.campaign.party_size_limit or 0)
+        if limit and len(state.characters) >= limit:
+            return self._error(f"Party size limit reached: {limit}")
+
+        clean_name = " ".join(str(name or "").split()).strip()
+        if not clean_name:
+            return self._error("create_party_character requires a non-empty character name.")
+        if any(existing.name == clean_name for existing in state.characters.values()):
+            return self._error(f"A party member named {clean_name} already exists.")
+
+        draft = Character(
+            name=clean_name,
+            species=str(species or "Human").strip() or "Human",
+            race=str(species or "Human").strip() or "Human",
+            background_name=str(background_name or "").strip(),
+            class_name=str(class_name or "").strip(),
+            ability_generation_method=str(ability_generation_method or "standard_array").strip().lower(),
+            skill_proficiencies={str(skill): 1 for skill in (skill_proficiencies or []) if str(skill).strip()},
+            starter_option_id=str(starter_option_id or "").strip(),
+            starter_choice_ids={str(key): str(value) for key, value in (starter_choice_ids or {}).items()},
+            alignment=str(alignment or "Neutral").strip() or "Neutral",
+        )
+        if ability_scores:
+            draft.stats = Stats(**{
+                key: int(value)
+                for key, value in ability_scores.items()
+                if key in Stats.model_fields
+            })
+        draft.spells.cantrips = [str(item) for item in (cantrips or []) if str(item).strip()]
+        draft.spells.prepared = [str(item) for item in (prepared_spells or []) if str(item).strip()]
+
+        draft = self.rules_catalog.apply_builder_defaults(draft)
+        errors = self.rules_catalog.validate_character(draft)
+        if errors:
+            # 校验失败时绝不落地半成品角色，让模型带着具体错误重试。
+            return self._error(
+                "Character validation failed: " + "; ".join(errors),
+                response={"ok": False, "error": "Character validation failed", "errors": errors},
+            )
+
+        state.characters[draft.character_id] = draft
+        if set_active or not state.active_character_id:
+            state.active_character_id = draft.character_id
+
+        if state.campaign.phase in {"character_creation", "party_creation"} and state.characters:
+            state.campaign.phase = "adventure_selection"
+
+        payload = {
+            "character_id": draft.character_id,
+            "name": draft.name,
+            "species": draft.species,
+            "class_name": draft.class_name,
+            "level": draft.level,
+            "hp_max": draft.hp_max,
+            "ac": draft.ac,
+            "stats": draft.stats.model_dump(mode="json"),
+            "active_character_id": state.active_character_id,
+            "party_size": len(state.characters),
+            "campaign_phase": state.campaign.phase,
+        }
+        return self._success(
+            tool_name="character.create_party_member",
+            summary=f"队伍成员已创建：{draft.name}（{draft.class_name} {draft.level} 级）",
+            payload=payload,
+            event_type="party_character_created",
+            content=draft.name,
+            state_patch={
+                "characters": {draft.character_id: draft.model_dump(mode="json")},
+                "active_character_id": state.active_character_id,
+                "campaign": {"phase": state.campaign.phase},
+            },
+        )
+
+    def select_adventure_hook(self, state: GameState, adventure_id: str) -> AgentToolExecution:
+        if not state.characters:
+            return self._error("Select an adventure only after at least one party member exists.")
+        if state.campaign.selected_adventure_id:
+            return self._error(
+                f"An adventure is already locked in: {state.campaign.selected_adventure_id}"
+            )
+
+        requested = str(adventure_id or "").strip()
+        selected = None
+        for hook in state.campaign.available_adventures:
+            if hook.adventure_id == requested or hook.title == requested:
+                selected = hook
+                break
+        if not selected:
+            available = ", ".join(
+                f"{hook.adventure_id}({hook.title})" for hook in state.campaign.available_adventures
+            )
+            return self._error(f"Unknown adventure option: {adventure_id}. Available: {available or 'none'}")
+
+        # 与 REST 的 select-adventure 保持同一套阶段推进，但不在这里写存档或聊天记录；
+        # 主回合的 finalize_turn 才是唯一提交点。
+        state.campaign.selected_adventure_id = selected.adventure_id
+        state.campaign.phase = "exploration"
+        state.campaign.setup_complete = True
+        state.campaign.current_chapter_number = 1
+        state.campaign.current_chapter_title = f"第一章：{selected.title}"
+        state.campaign.current_chapter_summary = selected.summary
+        state.scene = "exploration"
+        log_entry = f"选择冒险：{selected.title}"
+        state.adventure_log.append(log_entry)
+
+        payload = {
+            "adventure_id": selected.adventure_id,
+            "title": selected.title,
+            "summary": selected.summary,
+            "opening_scene": selected.opening_scene or selected.summary,
+            "chapter_number": state.campaign.current_chapter_number,
+            "chapter_title": state.campaign.current_chapter_title,
+        }
+        return self._success(
+            tool_name="campaign.select_adventure",
+            summary=f"冒险已选定：{selected.title}",
+            payload=payload,
+            event_type="adventure_selected",
+            content=selected.title,
+            state_patch={
+                "scene": state.scene,
+                "adventure_log": state.adventure_log,
+                "campaign": {
+                    "phase": state.campaign.phase,
+                    "selected_adventure_id": state.campaign.selected_adventure_id,
+                    "setup_complete": state.campaign.setup_complete,
+                    "current_chapter_number": state.campaign.current_chapter_number,
+                    "current_chapter_title": state.campaign.current_chapter_title,
+                    "current_chapter_summary": state.campaign.current_chapter_summary,
+                },
+            },
+        )
+
+    def remove_combatant(self, state: GameState, combatant_ref: str) -> AgentToolExecution:
+        logic = GameLogic(state)
+        try:
+            combatant = logic.remove_combatant(combatant_ref)
+        except ValueError as exc:
+            return self._error(str(exc))
+        if not combatant:
+            return self._error(f"Combatant not found in the active encounter: {combatant_ref}")
+
+        payload = {
+            "combatant_id": combatant.combatant_id,
+            "name": combatant.name,
+            "encounter_active": bool(state.encounter and state.encounter.active),
+        }
+        return self._success(
+            tool_name="encounter.remove_combatant",
+            summary=f"{combatant.name} 已离开战斗",
+            payload=payload,
+            event_type="combatant_removed",
+            state_patch={
+                "scene": state.scene,
+                "campaign": {"phase": state.campaign.phase},
+                "encounter": state.encounter.model_dump(mode="json") if state.encounter else None,
+            },
         )
 
     def end_encounter(self, state: GameState) -> AgentToolExecution:
