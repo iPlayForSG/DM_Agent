@@ -23,7 +23,7 @@ React/Vite UI
 - API 层 `backend/main.py`：请求模型、HTTP 状态码、SSE 事件、存档读写时机。
 - 编排层 `backend/dm_graph.py`：阶段、Agent 路由、工具预算、校验/修复、叙事与事务边界。
 - Agent 层 `backend/agents/`：角色所有权和私有子图状态；适配器才把工具结果投影回父图。
-- 规则执行层：`agent_tools.py` / `action_service.py` 组织操作，`game_logic.py` 结算，`rules_catalog.py` 提供角色卡和目录事实。
+- 规则执行层：`agent_tools.py` / `action_service.py` 组织操作，`game_logic.py` 结算，`rules_catalog.py` 提供角色卡和目录事实，`encounter_math.py` 提供无状态的遭遇预算与 CR 估算。
 - 数据层 `models.py`：API、存档和图状态共享的 Pydantic schema。
 - 持久化层 `storage.py`：每游戏/角色/怪物一个 JSON；rewind 保存完整 `GameState`。
 - 检索层 `rag.py`：Chroma 检索；`rag_embeddings.py` 按需启动本地 llama.cpp embedding server。

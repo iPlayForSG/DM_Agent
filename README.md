@@ -4,8 +4,9 @@ DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目
 
 ## 功能概览
 
-- 规则目录驱动的角色创建流程。
+- 规则目录驱动的角色创建流程；Setup Agent 可直接读取目录、落地并校验角色卡、锁定冒险。
 - 标准怪物模板读取、游戏内自定义怪物与遭遇实例化。
+- 遭遇 XP 预算难度分级与自定义怪物 CR 估算（算法移植自 5e.tools 开源工具集）。
 - 本地游戏存档与战役阶段状态。
 - Director、Rules、阶段 Specialist、Auditor、Narrator 与 Suggestion Agent 协作完成对话、工具调用和剧情推进。
 - 攻击、施法、技能检定、豁免检定、物品和特性使用等本地动作接口。
@@ -16,6 +17,18 @@ DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目
 
 - `backend/`：FastAPI API、LangGraph Agent、规则逻辑、存储、RAG 与测试。
 - `frontend/`：React/Vite 前端应用。
+
+## 第三方来源
+
+`backend/encounter_math.py` 的 XP 预算表、CR 统计表与 CR 折中算法移植自 [5e.tools](https://5e.tools) 开源工具集，只复制数值表和推导逻辑，不包含其 UI、渲染栈或正文内容；出处逐项记录在该模块头部。
+
+`backend/utils/import_5etools_builder_options.py` 可从本地 5e.tools 数据目录增量补齐建卡目录中的物种、背景与起源专长。脚本是幂等的，只追加缺失条目，不改写已有条目：
+
+```powershell
+cd backend
+python utils/import_5etools_builder_options.py --source "E:/5e Tools/data" --dry-run
+python utils/import_5etools_builder_options.py --source "E:/5e Tools/data"
+```
 
 ## 本地数据
 

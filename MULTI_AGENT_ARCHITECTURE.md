@@ -48,13 +48,15 @@ START
 
 ### Specialist
 
-- Setup：队伍、角色与冒险准备。
+- Setup：队伍、角色与冒险准备。读建卡目录、法术库和初始装备，落地并校验角色卡，锁定冒险 hook。
 - Exploration：探索、社交、调查、旅行、场景转换和遭遇建立。
-- Combat：攻击、施法、状态、先攻、当前行动者、败北和遭遇结束。
+- Combat：攻击、施法、状态、先攻、当前行动者、移除战斗员、败北和遭遇结束。
 - Downtime：恢复、物品、奖励与章节整理。
-- Level Up：升级和里程碑选择。
+- Level Up：升级和里程碑选择，可复用只读建卡目录与角色卡校验。
 
-工具全集与所有权以 `backend/agents/specs.py` 为准。`tests/test_agent_factory.py` 检查所有后端 schema 都至少属于一个 Agent，`tests/test_dm_agent_team.py` 检查运行时真实工具表与声明完全一致。
+工具全集与所有权以 `backend/agents/specs.py` 为准。当前共 39 个 schema，全部至少属于一个 Agent，且 phase allowlist 不存在“阶段允许但 Agent 无法执行”的空洞。
+
+`tests/test_agent_factory.py` 检查所有后端 schema 都至少属于一个 Agent 并且每个角色实际拿到的工具与声明逐项一致；`tests/test_dm_agent_team.py` 检查运行时真实工具表与声明完全一致；`tests/test_setup_agent_tools.py` 与 `tests/test_encounter_math.py` 分别覆盖建卡/冒险工具与遭遇数学工具的四处注册。
 
 ## 4. 子图隔离
 
@@ -138,7 +140,15 @@ backend/agents/
   suggestions.py     # Suggestion 子图
 ```
 
-父工作流仍位于 `backend/dm_graph.py`；确定性工具与规则分别位于 `agent_tools.py`、`tool_registry.py` 和 `game_logic.py`。
+父工作流仍位于 `backend/dm_graph.py`；确定性工具与规则分别位于 `agent_tools.py`、`tool_registry.py` 和 `game_logic.py`；遭遇预算与 CR 估算的纯计算层在 `backend/encounter_math.py`。
+
+## 8.1 只读规划工具
+
+`estimate_encounter_difficulty` 与 `estimate_monster_cr` 是给 DM 的判断依据，不是结算结果：它们不写 `GameState`、不产生 state patch，Exploration、Combat 和 Downtime 三个阶段都可调用。
+
+表格与算法移植自 5e.tools 开源工具集（2024 XP 预算表、`data/msbcr.json`、`crcalculator.js` 的双面 CR 折中），只复制数值与推导逻辑，不引入其 UI、渲染或正文内容。移植出处记录在 `backend/encounter_math.py` 模块头部。
+
+即兴敌人（`start_encounter`/`add_enemy` 直接给 HP/AC，没有模板）无法得到权威 CR，只按防御面估算，并在 breakdown 中以 `cr_source` 如实标注 `template` 或 `estimated_from_defense`。
 
 ## 9. 变更门禁
 

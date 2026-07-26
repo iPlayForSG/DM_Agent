@@ -52,6 +52,70 @@
         "Halfling Nimbleness",
         "Luck"
       ]
+    },
+    {
+      "id": "aasimar",
+      "name": "Aasimar",
+      "speed": 30,
+      "traits": [
+        "Celestial Resistance",
+        "Darkvision",
+        "Healing Hands",
+        "Light Bearer",
+        "Celestial Revelation"
+      ]
+    },
+    {
+      "id": "dragonborn",
+      "name": "Dragonborn",
+      "speed": 30,
+      "traits": [
+        "Draconic Ancestry",
+        "Breath Weapon",
+        "Damage Resistance",
+        "Darkvision",
+        "Draconic Flight"
+      ]
+    },
+    {
+      "id": "gnome",
+      "name": "Gnome",
+      "speed": 30,
+      "traits": [
+        "Darkvision",
+        "Gnomish Cunning",
+        "Gnomish Lineage"
+      ]
+    },
+    {
+      "id": "goliath",
+      "name": "Goliath",
+      "speed": 35,
+      "traits": [
+        "Giant Ancestry",
+        "Large Form",
+        "Powerful Build"
+      ]
+    },
+    {
+      "id": "orc",
+      "name": "Orc",
+      "speed": 30,
+      "traits": [
+        "Adrenaline Rush",
+        "Darkvision",
+        "Relentless Endurance"
+      ]
+    },
+    {
+      "id": "tiefling",
+      "name": "Tiefling",
+      "speed": 30,
+      "traits": [
+        "Darkvision",
+        "Fiendish Legacy",
+        "Otherworldly Presence"
+      ]
     }
   ],
   "origin_feats": [
@@ -94,6 +158,18 @@
     {
       "id": "tough",
       "name": "Tough"
+    },
+    {
+      "id": "healer",
+      "name": "Healer"
+    },
+    {
+      "id": "magic_initiate",
+      "name": "Magic Initiate"
+    },
+    {
+      "id": "tavern_brawler",
+      "name": "Tavern Brawler"
     }
   ],
   "backgrounds": [
@@ -186,6 +262,168 @@
       "skill_proficiencies": [
         "Insight",
         "Stealth"
+      ]
+    },
+    {
+      "id": "artisan",
+      "name": "Artisan",
+      "ability_bonuses": {
+        "strength": 2,
+        "dexterity": 1
+      },
+      "ability_options": [
+        "strength",
+        "dexterity",
+        "intelligence"
+      ],
+      "origin_feat": "Crafter",
+      "skill_proficiencies": [
+        "Investigation",
+        "Persuasion"
+      ]
+    },
+    {
+      "id": "charlatan",
+      "name": "Charlatan",
+      "ability_bonuses": {
+        "dexterity": 2,
+        "constitution": 1
+      },
+      "ability_options": [
+        "dexterity",
+        "constitution",
+        "charisma"
+      ],
+      "origin_feat": "Skilled",
+      "skill_proficiencies": [
+        "Deception",
+        "Sleight of Hand"
+      ]
+    },
+    {
+      "id": "guard",
+      "name": "Guard",
+      "ability_bonuses": {
+        "strength": 2,
+        "intelligence": 1
+      },
+      "ability_options": [
+        "strength",
+        "intelligence",
+        "wisdom"
+      ],
+      "origin_feat": "Alert",
+      "skill_proficiencies": [
+        "Athletics",
+        "Perception"
+      ]
+    },
+    {
+      "id": "guide",
+      "name": "Guide",
+      "ability_bonuses": {
+        "dexterity": 2,
+        "constitution": 1
+      },
+      "ability_options": [
+        "dexterity",
+        "constitution",
+        "wisdom"
+      ],
+      "origin_feat": "Magic Initiate (Druid)",
+      "skill_proficiencies": [
+        "Stealth",
+        "Survival"
+      ]
+    },
+    {
+      "id": "hermit",
+      "name": "Hermit",
+      "ability_bonuses": {
+        "constitution": 2,
+        "wisdom": 1
+      },
+      "ability_options": [
+        "constitution",
+        "wisdom",
+        "charisma"
+      ],
+      "origin_feat": "Healer",
+      "skill_proficiencies": [
+        "Medicine",
+        "Religion"
+      ]
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant",
+      "ability_bonuses": {
+        "constitution": 2,
+        "intelligence": 1
+      },
+      "ability_options": [
+        "constitution",
+        "intelligence",
+        "charisma"
+      ],
+      "origin_feat": "Lucky",
+      "skill_proficiencies": [
+        "Animal Handling",
+        "Persuasion"
+      ]
+    },
+    {
+      "id": "noble",
+      "name": "Noble",
+      "ability_bonuses": {
+        "strength": 2,
+        "intelligence": 1
+      },
+      "ability_options": [
+        "strength",
+        "intelligence",
+        "charisma"
+      ],
+      "origin_feat": "Skilled",
+      "skill_proficiencies": [
+        "History",
+        "Persuasion"
+      ]
+    },
+    {
+      "id": "sailor",
+      "name": "Sailor",
+      "ability_bonuses": {
+        "strength": 2,
+        "dexterity": 1
+      },
+      "ability_options": [
+        "strength",
+        "dexterity",
+        "wisdom"
+      ],
+      "origin_feat": "Tavern Brawler",
+      "skill_proficiencies": [
+        "Acrobatics",
+        "Perception"
+      ]
+    },
+    {
+      "id": "scribe",
+      "name": "Scribe",
+      "ability_bonuses": {
+        "dexterity": 2,
+        "intelligence": 1
+      },
+      "ability_options": [
+        "dexterity",
+        "intelligence",
+        "wisdom"
+      ],
+      "origin_feat": "Skilled",
+      "skill_proficiencies": [
+        "Investigation",
+        "Perception"
       ]
     }
   ],

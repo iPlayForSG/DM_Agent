@@ -50,8 +50,8 @@ Setup Agent 能真正完成建卡与选冒险；Combat Agent 能移除战斗员�
 - [x] 建立事实基线与缺口矩阵。
 - [x] Phase A（首轮）：刷新 `NEXT_SESSION_HANDOFF.md`，修正 `common-pitfalls.md` 的过期断言与解释器坑点。
 - [x] Phase B：新增 7 个工具并完成 schema/guardrail/ownership/phase 四处注册。
-- [ ] Phase C：5e Tools 能力抽取与注册。
-- [ ] Phase D：全量验证、文档终稿、推送。
+- [x] Phase C：5e Tools 能力抽取与注册。
+- [x] Phase D：全量验证、文档终稿、推送。
 
 ### Phase B 交付
 
@@ -72,17 +72,39 @@ Setup Agent 能真正完成建卡与选冒险；Combat Agent 能移除战斗员�
 - `test_agent_factory` 的硬编码工具清单改为从 `LANGGRAPH_TOOL_SCHEMAS` 派生，消除同类漂移。
 - 新增 `tests/test_setup_agent_tools.py`（19 项），覆盖成功路径、拒绝路径与四处注册一致性。
 
+### Phase C 交付
+
+- 新增 `backend/encounter_math.py`：移植 5e.tools 的 2024 XP 预算表、`data/msbcr.json` 与 `crcalculator.js` 的双面 CR 折中。只移植数值与推导逻辑，不引入 UI/渲染/正文。
+- 新增工具 `estimate_encounter_difficulty`、`estimate_monster_cr`，只读、无 state patch，归属 exploration / combat / downtime。
+- 即兴敌人（无模板）按防御面估算 CR，并用 `cr_source` 区分 `template` 与 `estimated_from_defense`。
+- 新增 `backend/utils/import_5etools_builder_options.py`：幂等增量导入 XPHB 建卡选项。已执行：物种 4→10、背景 7→16、起源专长 10→13；既有条目未被改写。
+- 新增 `tests/test_encounter_math.py`（26 项），含 CR 折算与 JS `Math.round` 语义的逐值对齐测试。
+
 ## Decisions
 
 - 2026-07-26：多 Agent 重构的真实缺口不是图结构，而是**工具面覆盖**；父图与子图隔离已达标，不重写编排骨架。
+- 2026-07-26：5e Tools 的接入方式是"移植算法与数值表 + 增量导入建卡数据"，不 vendored 其前端栈，也不整体复制 JSON 语料。
+- 2026-07-26：遭遇难度/CR 工具定位为 DM 判断依据，保持只读；不让它们影响回合事务或写入权威状态。
+- 2026-07-26：`_decimal_to_cr` 必须显式实现 JS 的 `Math.round`（`floor(x+0.5)`），Python 的银行家舍入在 0.625 等取值上会分歧。
 
 ## Validation
 
-- 基线：114 tests OK（未验证真实模型/浏览器）。
+2026-07-26 实测：
+
+- 后端 `unittest`：114（基线）→ 133（Phase B）→ **159（Phase C）**，全部通过。
+- 前端 `npm run build` 成功；`npm run lint` 0 errors、2 条既有 Hook dependency warning。
+- `git diff --check` 干净；`backend/.env` 未被跟踪。
+- 工具矩阵闭合：39 个 schema 全部有归属，无 phase/ownership 空洞。
+- 建卡导入脚本重跑为 0 新增，幂等性成立。
+
+**未验证**（单元测试不能替代）：真实 provider smoke、浏览器连续回合回归、本地 GGUF embedding server 启动。
 
 ## Remaining work
 
-见 Progress 未勾选项。
+- 用有效模型档案完成真实 Director → Specialist → Auditor → Narrator 链路 smoke。
+- 浏览器连续回合玩家回归，重点看 Setup Agent 现在能否用新工具走完建卡到选冒险。
+- 复核前端怪物编辑 UI 与只读标准怪物 API 的产品边界（`POST /api/v1/monsters` 固定 405）。
+- 可选：把 `ability_options`（2024 背景的属性加值可选项）接入前端建卡 UI；当前只作为附加字段存在，未被消费。
 
 ## Resume instructions
 

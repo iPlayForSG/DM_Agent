@@ -28,6 +28,7 @@ DM_Agent 是本地优先的 D&D 2024 单人跑团应用。React/Vite 前端通�
 - `backend/agent_tools.py`：供 Agent 调用的确定性状态工具。
 - `backend/action_service.py`：不经过模型的本地确定性动作入口。
 - `backend/game_logic.py`：骰子、检定、攻击、伤害、集中、先攻和遭遇规则。
+- `backend/encounter_math.py`：遭遇 XP 预算与 CR 估算的纯计算层（移植自 5e.tools，见模块头部出处）。
 - `backend/rules_catalog.py`：角色构筑、装备、法术和权威角色卡派生值。
 - `backend/models.py`：Pydantic API 与持久化 schema。
 - `backend/storage.py`：游戏、角色、怪物 JSON 及 rewind snapshot。

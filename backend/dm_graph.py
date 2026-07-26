@@ -613,6 +613,57 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         },
     },
     {
+        "name": "estimate_encounter_difficulty",
+        "description": (
+            "Score an encounter against the party's 2024 XP budget and return the low/moderate/high thresholds. "
+            "Omit enemies to score the currently active encounter. Read-only planning aid; it never changes state."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "enemies": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "challenge_rating": {"type": "string"},
+                            "count": {"type": "integer", "default": 1},
+                        },
+                        "required": ["challenge_rating"],
+                    },
+                    "default": [],
+                },
+                "party_levels": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "default": [],
+                    "description": "Optional override; defaults to the live party levels.",
+                },
+            },
+        },
+    },
+    {
+        "name": "estimate_monster_cr",
+        "description": (
+            "Derive a challenge rating from defensive and offensive statistics before saving or spawning a custom "
+            "monster. Pass save_dc instead of attack_bonus when the creature's main threat forces saving throws. "
+            "Read-only; pass monster_ref to compare against a template's declared CR."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "hp": {"type": "integer"},
+                "ac": {"type": "integer"},
+                "damage_per_round": {"type": "integer"},
+                "attack_bonus": {"type": "integer", "default": 0},
+                "save_dc": {"type": "integer", "default": 0},
+                "monster_ref": {"type": "string", "default": ""},
+            },
+            "required": ["hp", "ac", "damage_per_round"],
+        },
+    },
+    {
         "name": "remove_combatant",
         "description": (
             "Remove one non-party combatant from the active encounter, for example a creature that flees, is dismissed, "
@@ -790,6 +841,8 @@ BASE_TOOL_NAMES = [
     "roll_saving_throw",
     "cast_spell",
     "save_monster_template",
+    "estimate_encounter_difficulty",
+    "estimate_monster_cr",
 ]
 
 COMBAT_TOOL_NAMES = [
@@ -1006,6 +1059,8 @@ TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
     "cast_spell": {"cast_spell", "magic.cast_spell"},
     "set_initiative": {"set_initiative", "encounter.set_initiative"},
     "roll_initiative": {"roll_initiative", "encounter.roll_initiative"},
+    "estimate_encounter_difficulty": {"estimate_encounter_difficulty", "encounter.estimate_difficulty"},
+    "estimate_monster_cr": {"estimate_monster_cr", "monster.estimate_cr"},
     "remove_combatant": {"remove_combatant", "encounter.remove_combatant"},
     "advance_turn": {"advance_turn", "encounter.advance_turn"},
     "end_encounter": {"end_encounter", "encounter.end"},

@@ -55,16 +55,27 @@ git diff --check
 git status --short --branch
 ```
 
+## 数据导入
+
+从本地 5e.tools 数据目录增量补齐建卡目录（幂等，只追加缺失条目）：
+
+```powershell
+Set-Location backend
+python utils/import_5etools_builder_options.py --source "E:/5e Tools/data" --dry-run
+python utils/import_5etools_builder_options.py --source "E:/5e Tools/data"
+```
+
 ## 已验证状态
 
 2026-07-26 在当前工作树实际执行：
 
-- 后端 `unittest`：114 tests，成功（项目 Conda 环境）。
+- 后端 `unittest`：**159 tests**，成功（项目 Conda 环境）。
 - 项目记忆 Hook `unittest`：20 tests，成功。
 - `npm run build`：成功。
 - `npm run lint`：0 errors、2 warnings；警告位于 `App.jsx` 的 Hook dependency。
+- `git diff --check`：干净。
 
-当前修改后的 `git diff --check`、手工 Uvicorn、真实 provider 和浏览器长流程尚未完成，不能标为已验证。
+手工 Uvicorn、真实 provider 和浏览器长流程尚未完成，不能标为已验证。
 
 ## 当前不存在的命令
 

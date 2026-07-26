@@ -4,6 +4,12 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from ability_scores import AbilityScoreService
+from encounter_math import (
+    defensive_challenge_rating,
+    estimate_challenge_rating,
+    estimate_encounter_difficulty,
+    normalize_cr,
+)
 from game_logic import DiceRoller, GameLogic
 from library import Library
 from models import Character, GameState, MonsterTemplate, MonsterTextEntry, SessionEvent, Stats, ToolResult
@@ -1700,6 +1706,138 @@ class AgentToolService:
                     "current_chapter_summary": state.campaign.current_chapter_summary,
                 },
             },
+        )
+
+    # --- Encounter math ------------------------------------------------------
+    # 表格与算法移植自 5e.tools（见 encounter_math 模块头部注释）。这两个工具只做
+    # 计算和建议，不改动任何权威状态：难度是 DM 的判断依据，不是结算结果。
+
+    def _party_levels(self, state: GameState) -> List[int]:
+        return [max(1, int(character.level)) for character in state.characters.values()]
+
+    def _encounter_enemy_groups(self, state: GameState) -> List[Dict[str, Any]]:
+        """Collapse the active encounter's non-party combatants into CR groups."""
+
+        if not (state.encounter and state.encounter.active):
+            return []
+
+        grouped: Dict[tuple, Dict[str, Any]] = {}
+        for combatant in state.encounter.combatants.values():
+            if combatant.linked_character_id:
+                continue
+            if combatant.defeat_state and combatant.defeat_state != "active":
+                continue
+            template = None
+            if combatant.monster_template_id:
+                template = state.monster_templates.get(combatant.monster_template_id)
+                if template is None:
+                    template = self.monster_storage.load_monster(combatant.monster_template_id)
+            challenge_rating = template.challenge_rating if template else ""
+            cr_source = "template"
+            if not normalize_cr(challenge_rating):
+                # start_encounter/add_enemy 允许即兴敌人，它们没有模板也没有伤害输出信息，
+                # 只能按防御面估一个近似 CR，并如实标注来源，避免读者当成权威数据。
+                estimated = defensive_challenge_rating(combatant.hp_max, combatant.ac)
+                challenge_rating = estimated or ""
+                cr_source = "estimated_from_defense" if estimated else "unknown"
+            key = (combatant.name, str(challenge_rating), cr_source)
+            if key in grouped:
+                grouped[key]["count"] += 1
+            else:
+                grouped[key] = {
+                    "name": combatant.name,
+                    "challenge_rating": challenge_rating,
+                    "count": 1,
+                    "cr_source": cr_source,
+                }
+        return list(grouped.values())
+
+    def estimate_encounter_difficulty(
+        self,
+        state: GameState,
+        enemies: Optional[List[Dict[str, Any]]] = None,
+        party_levels: Optional[List[int]] = None,
+    ) -> AgentToolExecution:
+        levels = [int(level) for level in (party_levels or []) if int(level) > 0]
+        if not levels:
+            levels = self._party_levels(state)
+        if not levels:
+            return self._error("No party members are available to budget an encounter against.")
+
+        groups = list(enemies or [])
+        source = "arguments"
+        if not groups:
+            groups = self._encounter_enemy_groups(state)
+            source = "active_encounter"
+        if not groups:
+            return self._error(
+                "Provide enemies with challenge ratings, or run this while an encounter with living enemies is active."
+            )
+
+        try:
+            result = estimate_encounter_difficulty(levels, groups)
+        except ValueError as exc:
+            return self._error(str(exc))
+
+        if not result["breakdown"]:
+            return self._error(
+                "No enemy had a usable challenge rating: " + ", ".join(result["unknown_challenge_ratings"])
+            )
+
+        result["enemy_source"] = source
+        summary = (
+            f"遭遇难度：{result['difficulty_label']}（{result['encounter_xp']} XP / "
+            f"中等预算 {result['budget']['moderate']} XP）"
+        )
+        return self._success(
+            tool_name="encounter.estimate_difficulty",
+            summary=summary,
+            payload=result,
+            event_type="encounter_difficulty_estimated",
+            content=str(result["difficulty"]),
+        )
+
+    def estimate_monster_cr(
+        self,
+        state: GameState,
+        hp: int,
+        ac: int,
+        damage_per_round: int,
+        attack_bonus: int = 0,
+        save_dc: int = 0,
+        monster_ref: str = "",
+    ) -> AgentToolExecution:
+        try:
+            result = estimate_challenge_rating(
+                hp=int(hp),
+                ac=int(ac),
+                damage_per_round=int(damage_per_round),
+                attack_bonus=int(attack_bonus),
+                save_dc=int(save_dc),
+            )
+        except (TypeError, ValueError) as exc:
+            return self._error(str(exc))
+
+        reference = str(monster_ref or "").strip()
+        if reference:
+            template = self._load_monster_template(state, reference)
+            if not template:
+                return self._error(f"Unknown monster template: {reference}")
+            declared = normalize_cr(template.challenge_rating)
+            result["monster_ref"] = reference
+            result["declared_challenge_rating"] = declared or str(template.challenge_rating)
+            result["matches_declared"] = bool(declared) and declared == result["challenge_rating"]
+
+        summary = (
+            f"CR 估算：{result['challenge_rating']}"
+            f"（防御 {result['defensive_cr']} / 攻击 {result['offensive_cr']}，{result['experience_points']} XP）"
+        )
+        return self._success(
+            tool_name="monster.estimate_cr",
+            summary=summary,
+            payload=result,
+            event_type="monster_cr_estimated",
+            content=str(result["challenge_rating"]),
         )
 
     def remove_combatant(self, state: GameState, combatant_ref: str) -> AgentToolExecution:

@@ -20,6 +20,7 @@
 | `backend/agent_tools.py` | Agent 工具执行与统一 `ToolResult` | GameLogic、RuleCatalog | action service 对称行为、timeline、delta |
 | `backend/action_service.py` | 本地动作 API 的确定性执行 | GameLogic、RuleCatalog | agent tool 行为、main routes、action options |
 | `backend/game_logic.py` | 骰子、攻击、伤害、先攻、镜像同步 | models | current actor、action ledger、concentration、combat tests |
+| `backend/encounter_math.py` | 遭遇 XP 预算、难度分级、CR 估算（纯计算，无状态） | 无 | 只读工具 payload、5e.tools 表格出处、`test_encounter_math.py` |
 | `backend/rules_catalog.py` | 构筑目录、派生值、法术/装备校验 | JSON catalog、ability service | builder API、角色保存、攻击/法术工具 |
 | `backend/ability_scores.py` | 购点、标准数组、4d6 去最低和记录验证 | RuleCatalog constants | builder UI、Character schema、相关测试 |
 
@@ -29,6 +30,7 @@
 | --- | --- | --- |
 | `backend/storage.py` | JSON CRUD、完整 rewind snapshot | schema 版本、路径安全、delete/rewrite API |
 | `backend/adventure_service.py` | 固定/AI 冒险生成与 D&D 风格校验 | setup flow、campaign schema、测试 |
+| `backend/utils/import_5etools_builder_options.py` | 从本地 5e.tools 数据增量补齐建卡目录；幂等、只追加 | `character_builder_2024.json`、`validate_character`、builder API |
 | `backend/rag.py` | 多查询、重排、来源去重、上下文截断 | health/status、dm_graph rules stage |
 | `backend/rag_embeddings.py` | GGUF 定位、llama-server 生命周期、embedding | Windows 路径、GPU/CPU 环境、超时与日志 |
 

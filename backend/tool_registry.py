@@ -147,6 +147,8 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
         "risk_level": "medium",
         "needs_active_encounter": True,
     },
+    "estimate_encounter_difficulty": {"side_effect": "read", "risk_level": "low"},
+    "estimate_monster_cr": {"side_effect": "read", "risk_level": "low"},
     "remove_combatant": {
         "side_effect": "combat_write",
         "risk_level": "high",
