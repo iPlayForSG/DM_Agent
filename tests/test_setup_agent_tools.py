@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 
 from agent_tools import AgentToolService
-from agents.specs import AGENT_SPECS, AgentRole
+from agents.specs import PHASE_CAPABILITY_TOOL_NAMES
 from dm_graph import LANGGRAPH_TOOL_SCHEMAS, PHASE_POLICIES, DMGraphRunner
 from models import AdventureHook, GameState
 from rules_catalog import RuleCatalog
@@ -280,10 +280,11 @@ class NewToolRegistrationTests(unittest.TestCase):
         self.assertTrue(registry.get("remove_combatant").needs_active_encounter)
         self.assertEqual(registry.get("list_character_options").side_effect, "read")
 
-    def test_new_tools_reach_the_right_specialists_and_phases(self) -> None:
-        setup_tools = set(AGENT_SPECS[AgentRole.SETUP].tool_names)
-        combat_tools = set(AGENT_SPECS[AgentRole.COMBAT].tool_names)
-        level_up_tools = set(AGENT_SPECS[AgentRole.LEVEL_UP].tool_names)
+    def test_new_tools_reach_the_right_phase_capabilities(self) -> None:
+        setup_tools = set(PHASE_CAPABILITY_TOOL_NAMES["party_creation"])
+        adventure_tools = set(PHASE_CAPABILITY_TOOL_NAMES["adventure_selection"])
+        combat_tools = set(PHASE_CAPABILITY_TOOL_NAMES["combat"])
+        level_up_tools = set(PHASE_CAPABILITY_TOOL_NAMES["level_up"])
 
         self.assertLessEqual(
             {
@@ -292,10 +293,10 @@ class NewToolRegistrationTests(unittest.TestCase):
                 "list_starter_equipment",
                 "validate_character_sheet",
                 "create_party_character",
-                "select_adventure_hook",
             },
             setup_tools,
         )
+        self.assertIn("select_adventure_hook", adventure_tools)
         self.assertIn("remove_combatant", combat_tools)
         self.assertNotIn("remove_combatant", setup_tools)
         self.assertIn("validate_character_sheet", level_up_tools)
@@ -308,17 +309,17 @@ class NewToolRegistrationTests(unittest.TestCase):
         self.assertIn("remove_combatant", PHASE_POLICIES["combat"]["tools"])
         self.assertNotIn("remove_combatant", PHASE_POLICIES["exploration"]["tools"])
 
-    def test_compiled_specialists_expose_the_new_tools_at_runtime(self) -> None:
+    def test_compiled_dm_exposes_phase_tools_at_runtime(self) -> None:
         runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
         try:
             topology = runner.registered_agent_topology()
         finally:
             runner.close()
 
-        self.assertIn("create_party_character", topology["setup"])
-        self.assertIn("select_adventure_hook", topology["setup"])
-        self.assertIn("remove_combatant", topology["combat"])
-        self.assertNotIn("create_party_character", topology["combat"])
+        self.assertIn("create_party_character", topology["dm"])
+        self.assertIn("select_adventure_hook", topology["dm"])
+        self.assertIn("remove_combatant", topology["dm"])
+        self.assertNotIn("set_player_action_suggestions", topology["dm"])
 
 
 if __name__ == "__main__":

@@ -16,54 +16,54 @@ from models import ActionSuggestion, AdventureHook, Character, GameState
 
 
 class DMAgentTeamTests(unittest.TestCase):
-    def test_graph_registers_supervisor_and_specialist_agents(self) -> None:
+    def test_graph_registers_one_persistent_dm_brain(self) -> None:
         runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
         try:
             runner._graph = runner._build_graph()
-            roster = runner.specialist_agents
+            dm = runner.dm_agent
+            graph_nodes = set(runner._graph.get_graph().nodes)
         finally:
             runner.close()
 
+        self.assertIsNotNone(dm)
+        self.assertIn("attack_target", dm.tool_names)
+        self.assertIn("create_party_character", dm.tool_names)
+        self.assertIn("record_chapter_progress", dm.tool_names)
         self.assertEqual(
-            {role.value for role in roster},
+            graph_nodes,
             {
-                "setup",
-                "exploration",
-                "combat",
-                "downtime",
-                "level_up",
+                "__start__",
+                "prepare_turn",
+                "input_gate",
+                "plan_turn",
+                "route_phase",
+                "rules_context",
+                "memory_context",
+                "dm_agent",
+                "finalize_turn",
+                "__end__",
             },
         )
 
-        combat = next(agent for role, agent in roster.items() if role.value == "combat")
-        exploration = next(agent for role, agent in roster.items() if role.value == "exploration")
-        self.assertIn("attack_target", combat.tool_names)
-        self.assertNotIn("attack_target", exploration.tool_names)
-        self.assertEqual(runner.rules_agent.tool_names, frozenset({"lookup_rules"}))
-
-    def test_specialists_register_real_tools_in_distinct_tool_nodes(self) -> None:
+    def test_dm_brain_registers_one_real_tool_node(self) -> None:
         runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
         try:
             runner._graph = runner._build_graph()
-            combat = runner.specialist_agents[AgentRole.COMBAT]
-            exploration = runner.specialist_agents[AgentRole.EXPLORATION]
+            dm = runner.dm_agent
 
-            self.assertIsInstance(combat.tool_node, ToolNode)
-            self.assertIsInstance(exploration.tool_node, ToolNode)
-            self.assertIsNot(combat.tool_node, exploration.tool_node)
-            self.assertEqual(set(combat.tools), set(combat.tool_names))
-            self.assertEqual(set(exploration.tools), set(exploration.tool_names))
-            self.assertTrue(all(isinstance(tool, BaseTool) for tool in combat.tools.values()))
-            self.assertIn("attack_target", combat.tools)
-            self.assertNotIn("attack_target", exploration.tools)
+            self.assertIsInstance(dm.tool_node, ToolNode)
+            self.assertEqual(set(dm.tools), set(dm.tool_names))
+            self.assertTrue(all(isinstance(tool, BaseTool) for tool in dm.tools.values()))
+            self.assertIn("attack_target", dm.tools)
+            self.assertIn("roll_dice", dm.tools)
             self.assertEqual(
-                set(exploration.graph.get_graph().nodes),
-                {"__start__", "scope", "model", "tools", "audit", "__end__"},
+                set(dm.graph.get_graph().nodes),
+                {"__start__", "scope", "model", "tools", "validate", "__end__"},
             )
         finally:
             runner.close()
 
-    def test_combat_specialist_routes_dm_controlled_no_tool_response_to_audit(self) -> None:
+    def test_dm_brain_routes_dm_controlled_no_tool_response_to_validation(self) -> None:
         class MinimalModel:
             def bind_tools(self, tools):
                 return self
@@ -88,8 +88,7 @@ class DMAgentTeamTests(unittest.TestCase):
         logic.advance_turn()
         try:
             runner._graph = runner._build_graph()
-            combat = runner.specialist_agents[AgentRole.COMBAT]
-            route = combat._route_after_model(
+            route = runner.dm_agent._route_after_model(
                 {
                     "game_state": state.model_dump(mode="json"),
                     "messages": [AIMessage(content="地精仍在行动。")],
@@ -102,9 +101,9 @@ class DMAgentTeamTests(unittest.TestCase):
             runner.close()
 
         self.assertEqual(state.encounter.current_combatant_id, enemy.combatant_id)
-        self.assertEqual(route, "audit_state")
+        self.assertEqual(route, "validate_state")
 
-    def test_combat_specialist_audits_and_advances_dm_controlled_turn(self) -> None:
+    def test_dm_brain_validates_and_advances_dm_controlled_turn(self) -> None:
         class EnemyTurnModel:
             def __init__(self):
                 self.calls = 0
@@ -176,7 +175,7 @@ class DMAgentTeamTests(unittest.TestCase):
                     "state_delta": {},
                 }
             )
-            result = runner.specialist_agents[AgentRole.COMBAT].as_parent_node(
+            result = runner.dm_agent.as_parent_node(
                 {
                     **routed,
                     "messages": [],
@@ -202,19 +201,19 @@ class DMAgentTeamTests(unittest.TestCase):
         self.assertIn("dm_controlled_turn", [item["validator"] for item in result["validation_issues"]])
         self.assertIn("execute_tools", [item["node_name"] for item in result["node_traces"]])
 
-    def test_runtime_topology_matches_every_declared_agent_tool(self) -> None:
+    def test_runtime_topology_exposes_dm_and_post_commit_suggestions(self) -> None:
         runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
         try:
             topology = runner.registered_agent_topology()
             expected = {
-                role.value: sorted(AGENT_SPECS[role].tool_names)
-                for role in AgentRole
+                AgentRole.DM.value: sorted(AGENT_SPECS[AgentRole.DM].tool_names),
+                AgentRole.SUGGESTIONS.value: sorted(AGENT_SPECS[AgentRole.SUGGESTIONS].tool_names),
             }
             self.assertEqual(topology, expected)
-            self.assertIsInstance(runner.rules_agent.tool_node, ToolNode)
+            self.assertIsInstance(runner.dm_agent.tool_node, ToolNode)
             self.assertIsInstance(runner.suggestion_agent.tool_node, ToolNode)
             self.assertTrue(
-                all(isinstance(tool, BaseTool) for tool in runner.rules_agent.tools.values())
+                all(isinstance(tool, BaseTool) for tool in runner.dm_agent.tools.values())
             )
             self.assertTrue(
                 all(isinstance(tool, BaseTool) for tool in runner.suggestion_agent.tools.values())
@@ -222,7 +221,7 @@ class DMAgentTeamTests(unittest.TestCase):
         finally:
             runner.close()
 
-    def test_rules_and_suggestion_agents_execute_their_registered_tool_nodes(self) -> None:
+    def test_rules_context_and_suggestion_projection_are_isolated_services(self) -> None:
         class DisabledRAG:
             def is_ready(self):
                 return False
@@ -240,7 +239,7 @@ class DMAgentTeamTests(unittest.TestCase):
         state.scene = "exploration"
         try:
             runner._graph = runner._build_graph()
-            rules_result = runner.rules_agent.as_parent_node(
+            rules_result = runner._retrieve_rules(
                 {
                     "game_state": state.model_dump(mode="json"),
                     "user_input": "擒抱使用什么检定？",
@@ -273,7 +272,7 @@ class DMAgentTeamTests(unittest.TestCase):
         finally:
             runner.close()
 
-    def test_specialist_model_binds_owned_tools_and_executes_through_tool_node(self) -> None:
+    def test_dm_model_binds_phase_scoped_tools_and_executes_through_tool_node(self) -> None:
         class DiceService:
             def roll_dice(self, state, expression, reason=""):
                 return AgentToolExecution(
@@ -314,7 +313,7 @@ class DMAgentTeamTests(unittest.TestCase):
             checkpoint_mode="memory",
         )
         runner._model = model
-        state = GameState(game_id="specialist-tool-node", title="Specialist ToolNode")
+        state = GameState(game_id="dm-tool-node", title="DM ToolNode")
         character = Character(name="艾琳", class_name="Rogue")
         state.characters[character.character_id] = character
         state.active_character_id = character.character_id
@@ -327,8 +326,8 @@ class DMAgentTeamTests(unittest.TestCase):
 
         try:
             runner._graph = runner._build_graph()
-            specialist = runner.specialist_agents[AgentRole.EXPLORATION]
-            result = specialist.graph.invoke(
+            dm = runner.dm_agent
+            result = dm.graph.invoke(
                 {
                     "game_state": state.model_dump(mode="json"),
                     "initial_game_state": state.model_dump(mode="json"),
@@ -358,13 +357,13 @@ class DMAgentTeamTests(unittest.TestCase):
         self.assertEqual([tool.name for tool in model.bound_tool_batches[0]], ["roll_dice"])
         self.assertTrue(any(isinstance(message, ToolMessage) for message in result["messages"]))
         self.assertEqual(result["tool_call_rounds"], 1)
-        self.assertEqual(result["active_agent"], "exploration")
+        self.assertEqual(result["active_agent"], "dm")
 
-    def test_specialist_serialization_removes_unanswered_raw_tool_calls(self) -> None:
+    def test_dm_serialization_removes_unanswered_raw_tool_calls(self) -> None:
         runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
         try:
             runner._graph = runner._build_graph()
-            specialist = runner.specialist_agents[AgentRole.EXPLORATION]
+            dm = runner.dm_agent
             message = AIMessage(
                 content="",
                 additional_kwargs={
@@ -379,7 +378,7 @@ class DMAgentTeamTests(unittest.TestCase):
                 ],
             )
 
-            result = specialist._serialize_tool_batch({"messages": [message], "node_traces": []})
+            result = dm._serialize_tool_batch({"messages": [message], "node_traces": []})
         finally:
             runner.close()
 

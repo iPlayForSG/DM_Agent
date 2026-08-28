@@ -3,6 +3,8 @@
 Status: active
 Updated: 2026-07-26
 
+> 2026-08-28 架构校准：实时运行时已由 [ADR-0002](../../docs/adr/0002-single-dm-brain.md) 收敛为单一 DM Brain。下文 Auditor/Narrator 内容只描述历史修复；后续回归以确定性 validator、`finalize_turn` 和 interrupt 事务边界为准。
+
 ## Goal
 
 完成当前未提交的敌方回合、行动建议和属性生成改动回归，并修复法术豁免目标与 DC 仍由非权威输入驱动的问题。
@@ -19,7 +21,7 @@ Updated: 2026-07-26
 ## Relevant context and files
 
 - `NEXT_SESSION_HANDOFF.md`：原始回归断点，但其状态数字已经过期。
-- `backend/agents/specialist.py`、`backend/dm_graph.py`：敌方回合校验/修复。
+- `backend/agents/game_master.py`、`backend/dm_graph.py`：敌方回合校验/修复。
 - `backend/agents/suggestions.py`、`frontend/src/App.jsx`：建议权利与当前行动者 UI。
 - `backend/ability_scores.py`、`backend/rules_catalog.py`：属性生成与验证。
 - `backend/agent_tools.py`、`backend/action_service.py`、`backend/tool_registry.py`：豁免结算入口。

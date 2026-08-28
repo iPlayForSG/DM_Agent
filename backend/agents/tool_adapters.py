@@ -11,11 +11,11 @@ from agent_tools import merge_patch
 from models import GameState
 
 from .specs import AGENT_SPECS, AgentRole
-from .state import SpecialistState
+from .state import DMBrainState
 
 
-class SpecialistToolFactory:
-    """Create real tools for one Specialist while preserving local guardrails."""
+class AgentToolFactory:
+    """Create real tools for a runtime actor while preserving local guardrails."""
 
     def __init__(self, role: AgentRole, runner: Any):
         self.role = role
@@ -32,7 +32,7 @@ class SpecialistToolFactory:
         if contract is None:
             raise KeyError(f"Unknown registered tool: {tool_name}")
 
-        def execute(runtime: ToolRuntime[None, SpecialistState], **kwargs: Any) -> Command:
+        def execute(runtime: ToolRuntime[None, DMBrainState], **kwargs: Any) -> Command:
             return self._execute(tool_name, runtime, dict(kwargs))
 
         return StructuredTool.from_function(
@@ -45,7 +45,7 @@ class SpecialistToolFactory:
     def _execute(
         self,
         tool_name: str,
-        runtime: ToolRuntime[None, SpecialistState],
+        runtime: ToolRuntime[None, DMBrainState],
         args: Dict[str, Any],
     ) -> Command:
         graph_state = dict(runtime.state)

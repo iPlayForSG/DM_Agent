@@ -1,4 +1,4 @@
-"""Compiled Specialist agents with private state and real ToolNode tools."""
+"""Persistent DM Brain with a private model/tool/validation loop."""
 
 from typing import Any, Dict, Optional
 
@@ -6,33 +6,39 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
+from models import GameState
 
 from .specs import AGENT_SPECS, AgentRole
-from .state import SPECIALIST_PARENT_FIELDS, SpecialistState
-from .tool_adapters import SpecialistToolFactory
+from .state import DM_BRAIN_PARENT_FIELDS, DMBrainState
+from .tool_adapters import AgentToolFactory
 
 
-class SpecialistAgent:
-    """Own one isolated model/ToolNode/audit loop and immutable tool roster."""
+class GameMasterAgent:
+    """One DM identity backed by phase-scoped deterministic tools."""
 
-    def __init__(self, role: AgentRole, runner: Any):
-        self.role = role
+    def __init__(self, runner: Any):
+        self.role = AgentRole.DM
         self.runner = runner
-        self.spec = AGENT_SPECS[role]
+        self.spec = AGENT_SPECS[self.role]
         self.tool_names = frozenset(self.spec.tool_names)
-        self.tools = SpecialistToolFactory(role, runner).create_all()
+        self.tools = AgentToolFactory(self.role, runner).create_all()
         self.tool_node = ToolNode(
             list(self.tools.values()),
-            name=f"{role.value}_tools",
+            name="dm_tools",
             handle_tool_errors=False,
         )
         self.graph = self._build_graph()
 
-    def _scope(self, state: SpecialistState) -> SpecialistState:
+    def _scope(self, state: DMBrainState) -> DMBrainState:
+        game_state = GameState.model_validate(state["game_state"])
+        phase_tools = set(
+            self.runner._allowed_tool_names(game_state, phase=str(state.get("phase") or ""))
+        )
+        # 父图负责给出任务子集，这里再次与权威阶段能力取交集，避免调用方扩大权限。
         scoped = [
             name
             for name in state.get("allowed_tools", [])
-            if name in self.tool_names
+            if name in self.tool_names and name in phase_tools
         ]
         return {
             "allowed_tools": scoped,
@@ -40,13 +46,17 @@ class SpecialistAgent:
             "agent_role": self.role.value,
             "node_traces": self.runner._append_node_trace(
                 state,
-                f"agent.{self.role.value}.entered",
-                f"{self.role.value} Specialist accepted the delegated turn.",
-                {"registered_tools": sorted(self.tool_names), "available_tools": scoped},
+                "agent.dm.entered",
+                "The persistent DM Brain accepted the turn.",
+                {
+                    "phase": str(state.get("phase") or ""),
+                    "registered_tools": sorted(self.tool_names),
+                    "available_tools": scoped,
+                },
             ),
         }
 
-    def _model(self, state: SpecialistState) -> SpecialistState:
+    def _model(self, state: DMBrainState) -> DMBrainState:
         if not self.runner.enable_model:
             return self.runner._draft_response_placeholder(state)
 
@@ -58,11 +68,11 @@ class SpecialistAgent:
         model = self.runner._create_model()
         if available_names:
             model = model.bind_tools([self.tools[name] for name in available_names])
-        result = self.runner._call_model(state, model=model)
+        result = self.runner._run_dm_model_step(state, model=model)
         return self._serialize_tool_batch(result)
 
-    def _serialize_tool_batch(self, result: Dict[str, Any]) -> SpecialistState:
-        """Allow one state-writing call per model step so ToolNode never races GameState."""
+    def _serialize_tool_batch(self, result: Dict[str, Any]) -> DMBrainState:
+        """Allow one state-writing call per step so tools never race GameState."""
 
         messages = list(result.get("messages", []))
         if not messages:
@@ -93,7 +103,7 @@ class SpecialistAgent:
             "messages": [*messages[:-1], serialized_message],
             "node_traces": self.runner._append_node_trace(
                 {**result, "node_traces": result.get("node_traces", [])},
-                f"agent.{self.role.value}.tool_batch_serialized",
+                "agent.dm.tool_batch_serialized",
                 "Multiple requested tools were serialized to preserve atomic state writes.",
                 {
                     "accepted_tool": str(first_call.get("name") or ""),
@@ -102,33 +112,33 @@ class SpecialistAgent:
             ),
         }
 
-    def _audit(self, state: SpecialistState) -> SpecialistState:
+    def _validate(self, state: DMBrainState) -> DMBrainState:
         return self.runner._validate_state(state)
 
-    def _route_after_model(self, state: SpecialistState) -> str:
+    def _route_after_model(self, state: DMBrainState) -> str:
         route = self.runner._should_continue_after_model(state)
         if route != "finalize_turn":
             return route
         if self.runner.enable_model and self.runner._dm_controlled_turn_pending(state):
-            return "audit_state"
+            return "validate_state"
         return "finalize_turn"
 
     def _build_graph(self):
-        builder = StateGraph(SpecialistState)
+        builder = StateGraph(DMBrainState)
         builder.add_node("scope", self._scope)
         builder.add_node("model", self._model)
         builder.add_node("tools", self.tool_node)
-        builder.add_node("audit", self._audit)
+        builder.add_node("validate", self._validate)
         builder.add_edge(START, "scope")
         builder.add_edge("scope", "model")
         builder.add_conditional_edges(
             "model",
             self._route_after_model,
-            {"execute_tools": "tools", "audit_state": "audit", "finalize_turn": END},
+            {"execute_tools": "tools", "validate_state": "validate", "finalize_turn": END},
         )
-        builder.add_edge("tools", "audit")
+        builder.add_edge("tools", "validate")
         builder.add_conditional_edges(
-            "audit",
+            "validate",
             self.runner._should_continue_after_validation,
             {"draft_response": "model", "finalize_turn": END},
         )
@@ -139,32 +149,19 @@ class SpecialistAgent:
         parent_state: Dict[str, Any],
         config: Optional[RunnableConfig] = None,
     ) -> Dict[str, Any]:
-        """Map parent state into private state and return only parent-owned channels."""
-
-        specialist_input: SpecialistState = {
+        dm_input: DMBrainState = {
             key: value
             for key, value in parent_state.items()
-            if key in SPECIALIST_PARENT_FIELDS
+            if key in DM_BRAIN_PARENT_FIELDS
         }
-        specialist_input["agent_role"] = self.role.value
-        specialist_input["instruction"] = (
-            f"Specialist role contract:\n{self.spec.system_prompt}\n\n"
+        dm_input["agent_role"] = self.role.value
+        dm_input["instruction"] = (
+            f"Persistent DM contract:\n{self.spec.system_prompt}\n\n"
             + str(parent_state.get("instruction") or "")
         ).strip()
-        result = self.graph.invoke(specialist_input, config=config)
+        result = self.graph.invoke(dm_input, config=config)
         return {
             key: value
             for key, value in result.items()
-            if key in SPECIALIST_PARENT_FIELDS
+            if key in DM_BRAIN_PARENT_FIELDS
         }
-
-
-def specialist_role_for_phase(phase: str) -> AgentRole:
-    return {
-        "party_creation": AgentRole.SETUP,
-        "character_creation": AgentRole.SETUP,
-        "adventure_selection": AgentRole.SETUP,
-        "combat": AgentRole.COMBAT,
-        "downtime": AgentRole.DOWNTIME,
-        "level_up": AgentRole.LEVEL_UP,
-    }.get(str(phase or "").strip().lower(), AgentRole.EXPLORATION)

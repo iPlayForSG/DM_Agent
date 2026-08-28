@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-DM_Agent 是本地优先的 D&D 2024 单人跑团应用。React/Vite 前端通过 FastAPI API 操作游戏；LangGraph 多 Agent 工作流负责理解、规划和叙事，确定性 Python 规则层负责骰子、战斗、资源和持久化。
+DM_Agent 是本地优先的 D&D 2024 单人跑团应用。React/Vite 前端通过 FastAPI API 操作游戏；LangGraph 中持续身份的 DM Brain 负责理解、规划和叙事，确定性 Python 规则层负责骰子、战斗、资源和持久化。
 
 核心边界：LLM 可以提出意图和工具调用，但不能直接改写权威游戏事实。`GameState` 以及成功执行的确定性工具结果才是运行时事实。
 
@@ -23,8 +23,8 @@ DM_Agent 是本地优先的 D&D 2024 单人跑团应用。React/Vite 前端通�
 ## 目录与模块导航
 
 - `backend/main.py`：FastAPI 入口、REST/SSE、存档回退和本地动作 API。
-- `backend/dm_graph.py`：LangGraph 父图、阶段路由、审计、修复、提交和回滚。
-- `backend/agents/`：Agent 角色、私有子图状态、真实 `StructuredTool` 适配器。
+- `backend/dm_graph.py`：LangGraph 父图、上下文装配、阶段能力、确定性修复、提交和回滚。
+- `backend/agents/`：持续 DM 私有子图、阶段能力、真实 `StructuredTool` 适配器和提交后建议投影。
 - `backend/agent_tools.py`：供 Agent 调用的确定性状态工具。
 - `backend/action_service.py`：不经过模型的本地确定性动作入口。
 - `backend/game_logic.py`：骰子、检定、攻击、伤害、集中、先攻和遭遇规则。
@@ -71,14 +71,14 @@ git diff --check
 - `GameState` 是权威状态；模型不得直接写存档或构造未结算事实。
 - 状态变化必须经过已注册、当前阶段允许且属于当前 Agent 的真实工具。
 - 成功工具才可改变状态；失败工具必须保持输入状态不变。
-- Specialist 的多个写工具调用必须串行，避免从同一旧状态并发覆盖。
+- DM 的多个写工具调用必须串行，避免从同一旧状态并发覆盖。
 - 战斗中必须遵守当前行动者以及 action、bonus action、reaction 槽位。
 - DM 控制的行动者必须结算或明确放弃动作，并推进回合；不能只用叙事跳过。
 - 校验修复使用受限工具，不在 validator 中隐藏修改业务事实。
 - `finalize_turn` 是主回合唯一提交点；失败回合恢复初始快照。
 - 行动建议是提交后的非事务投影，不得影响主回合成功与否；敌方回合不显示玩家建议。
 - 删除和重写消息依赖完整 rewind snapshot，不做仅聊天记录的表面删除。
-- 高风险工具通过 LangGraph interrupt 暂停并恢复，checkpoint 不等同于剧情分支。
+- 高风险工具通过 LangGraph interrupt 暂停并恢复；暂停结果不得发布 staged state，checkpoint 不等同于剧情分支。
 - 前端以服务端 snapshot、action options 和版本守卫为准，不在浏览器复制规则结算。
 - 标准怪物目录当前是只读资产；游戏内新怪物写入 `GameState.monster_templates`。
 - `backend/Game/`、`backend/Characters/`、`backend/Knowledge/`、`backend/Documents/` 和 runtime log 属于本地数据或生成资产，遵守 `.gitignore`。

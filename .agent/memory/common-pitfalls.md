@@ -32,6 +32,7 @@
 ## 容易漏掉的验证
 
 - 单元测试不能替代真实 provider smoke、浏览器回归或本地 GGUF 启动测试。
-- 工具 schema、Agent ownership 和 phase allowlist 三者都要检查；只注册函数并不会让 Agent 实际获得工具。
-- 父图 Auditor 只有明确接受才可进入 Narrator；修复后再次拒绝必须走 `audit_failed` 并由 `finalize_turn` 回滚。
+- 工具 schema、DM runtime ownership 和 `PHASE_CAPABILITY_TOOL_NAMES` 三者都要检查；只注册函数并不会让 DM 在当前阶段实际获得工具。
+- 普通回合没有 Director、LLM Auditor 或独立 Narrator。确定性 validator 只能要求受限工具修复或失败，失败由 `finalize_turn` 恢复 `initial_game_state`。
+- interrupt 前的成功工具仍是 staged transaction；`input_required` 只能发布上次提交快照和 pending 元数据，checkpoint 丢失时不得把“确认”重放成新行动。
 - 跨后端 API 和前端行为修改后需要同时跑后端测试、前端 build/lint 与 `git diff --check`。

@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 
 from agent_tools import AgentToolService
-from agents.specs import AGENT_SPECS, AgentRole
+from agents.specs import PHASE_CAPABILITY_TOOL_NAMES
 from dm_graph import LANGGRAPH_TOOL_SCHEMAS, PHASE_POLICIES
 from encounter_math import (
     MAX_CHARACTER_LEVEL,
@@ -295,11 +295,10 @@ class EncounterMathRegistrationTests(unittest.TestCase):
             self.assertFalse(contract.requires_confirmation)
             self.assertFalse(contract.needs_active_encounter)
 
-            for role in (AgentRole.EXPLORATION, AgentRole.COMBAT, AgentRole.DOWNTIME):
-                self.assertIn(tool_name, AGENT_SPECS[role].tool_names)
             for phase in ("exploration", "combat", "downtime"):
+                self.assertIn(tool_name, PHASE_CAPABILITY_TOOL_NAMES[phase])
                 self.assertIn(tool_name, PHASE_POLICIES[phase]["tools"])
-            self.assertNotIn(tool_name, AGENT_SPECS[AgentRole.SETUP].tool_names)
+            self.assertNotIn(tool_name, PHASE_CAPABILITY_TOOL_NAMES["party_creation"])
 
 
 class ImportedBuilderCatalogTests(unittest.TestCase):

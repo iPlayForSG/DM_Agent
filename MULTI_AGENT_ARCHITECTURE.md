@@ -1,12 +1,14 @@
-# DM_Agent 多 Agent 架构
+# DM Agent Loop 架构
 
-本文档描述当前实现，不记录迁移过程。
+本文档描述当前实现，不记录迁移过程。长期决策见 [ADR-0002](docs/adr/0002-single-dm-brain.md)。
 
-## 1. 架构选择
+## 1. 核心选择
 
-系统采用 LangGraph custom workflow：父图组合确定性节点、结构化控制 Agent 和业务 Specialist 子图。`GameState` 是唯一事实源，所有业务状态变更必须由已注册工具调用 `ToolRegistry`、`AgentToolService` 和 `GameLogic` 完成。
+玩家始终面对一个持续身份的 DM Brain。战役阶段只决定上下文、目标和工具能力，不再把主持权交给 Setup、Exploration、Combat 等不同人格。
 
-确定性准备、路由保护、验证和原子提交不会伪装成 Agent。行动建议在主回合提交后独立运行，不参与剧情事务。
+DM 可以自由进行场景描写、NPC 扮演、节奏控制和临场创作；但机械事实与持久剧情事实必须通过当前阶段允许的确定性工具落地。`GameState` 和成功工具结果仍是权威事实。
+
+在线正确性边界由工具 guardrail、确定性状态不变量和 `finalize_turn` 原子提交组成。运行时没有 Director、LLM Auditor 或独立 Narrator，也不会用第二个模型逐回合审判 DM 的叙事。
 
 ## 2. 父图
 
@@ -14,150 +16,108 @@
 START
   -> prepare_turn
   -> input_gate
-  -> director_agent
+  -> plan_turn
   -> route_phase
-  -> rules_agent
+  -> rules_context
   -> memory_context
-  -> specialist(setup | exploration | combat | downtime | level_up)
-  -> auditor_agent
-       -> selected specialist repair loop
-       -> narrator_agent
-       -> audit_failed -> finalize_turn
+  -> dm_agent
   -> finalize_turn
   -> END
 ```
 
-- `prepare_turn`、`input_gate`、`route_phase`、`memory_context` 和 `finalize_turn` 是确定性节点。
-- Director、Auditor 和 Narrator 使用独立 `create_agent` 图与结构化输出。
-- Rules、五个 Specialist 和 Suggestion 是独立编译的 `StateGraph`。
-- 同一回合只有一个可写 Specialist，禁止多个 Agent 并行修改同一份 `GameState`。
-- Director 的结果受确定性 phase guard 约束，模型不能把活动战斗路由给 Exploration。
+- `plan_turn` 计算意图、工具预算和所需规则上下文，不产生另一个主持人格。
+- `route_phase` 从权威状态确定阶段，并生成当回合工具白名单。
+- `rules_context` 与 `memory_context` 是上下文服务，不是会接管决策的 Agent。
+- `dm_agent` 是唯一在线模型角色，既判断行动，也调用工具并完成玩家可见叙事。
+- `finalize_turn` 是主回合唯一提交点；失败恢复 `initial_game_state`。
 
-## 3. Agent 契约
-
-### 控制 Agent
-
-- Director：输出唯一 route、目标、规则需求和风险；无工具，不叙事、不写状态。
-- Auditor：检查 Specialist 草稿、工具轨迹和权威状态；无工具，首次拒绝把问题送回原 Specialist，修复后仍拒绝则使回合失败并回滚。
-- Narrator：把审计通过的事实整理成玩家正文；无工具，不创造事实或行动菜单。
-
-### 只读 Agent
-
-- Rules：私有 `RulesState`，只注册 `lookup_rules`，通过独立 ToolNode 读取本地规则。
-- Suggestion：私有 `SuggestionState`，只注册 `set_player_action_suggestions`；候选必须再次通过场景锚点验证，失败返回空建议，不撤销主回合。
-
-### Specialist
-
-- Setup：队伍、角色与冒险准备。读建卡目录、法术库和初始装备，落地并校验角色卡，锁定冒险 hook。
-- Exploration：探索、社交、调查、旅行、场景转换和遭遇建立。
-- Combat：攻击、施法、状态、先攻、当前行动者、移除战斗员、败北和遭遇结束。
-- Downtime：恢复、物品、奖励与章节整理。
-- Level Up：升级和里程碑选择，可复用只读建卡目录与角色卡校验。
-
-工具全集与所有权以 `backend/agents/specs.py` 为准。当前共 39 个 schema，全部至少属于一个 Agent，且 phase allowlist 不存在“阶段允许但 Agent 无法执行”的空洞。
-
-`tests/test_agent_factory.py` 检查所有后端 schema 都至少属于一个 Agent 并且每个角色实际拿到的工具与声明逐项一致；`tests/test_dm_agent_team.py` 检查运行时真实工具表与声明完全一致；`tests/test_setup_agent_tools.py` 与 `tests/test_encounter_math.py` 分别覆盖建卡/冒险工具与遭遇数学工具的四处注册。
-
-## 4. 子图隔离
-
-每个 Specialist 拥有：
-
-- 私有 `SpecialistState`。
-- 独立角色提示词。
-- 由 `StructuredTool` 构成的真实工具对象集合。
-- 独立 `ToolNode`。
-- `scope -> model -> tools -> audit -> model` 有界循环。
-
-父图通过 adapter 把必要字段映射到私有状态，并只接收父图拥有的输出字段。模型绑定当前阶段白名单与 Agent 所有权白名单的交集；工具节点再次执行同样的权限和规则检查。
-
-模型一次可能请求多个工具，但可写工具不会并行执行。Specialist 只放行一个调用，再让模型根据 ToolMessage 请求下一项，从而避免多个 `Command` 基于同一旧状态竞争写入。
-
-## 5. 工具执行
-
-`backend/agents/tool_adapters.py` 把已有 JSON schema 转为 LangChain `StructuredTool`。工具通过 `ToolRuntime` 读取私有状态，并返回 `Command(update=...)`：
+## 3. DM 私有循环
 
 ```text
-model
-  -> registered BaseTool
-  -> ToolNode
-  -> ToolRegistry.validate_call
-  -> AgentToolService
-  -> GameLogic / storage / RAG
-  -> ToolMessage + GameState + trace
+scope -> model -> tools -> validate -> model
+                    |          |
+                    +----------+----> END
 ```
 
-执行顺序：
+DM 拥有完整的确定性工具集合，但 `scope` 会把父图任务子集再次与权威阶段能力取交集。模型一次请求多个工具时只执行第一个，后续调用必须基于新的 `ToolMessage` 和状态继续提出，避免多个写入从同一旧快照竞争。
 
-1. Agent 所有权和阶段白名单取交集。
-2. 校验参数 schema、遭遇状态、当前行动者、动作槽、法术位、库存和确认策略。
-3. 高风险工具通过 `interrupt()` 暂停，确认后从原 ToolNode 恢复。
-4. 调用框架无关的 `AgentToolService`。
-5. 合并 `ToolResult`、timeline、state patch 和 trace。
-6. 进入确定性验证；需要修复时仅开放指定工具并回到模型。
+`validate` 只检查机械不变量，例如当前行动者、动作槽、遭遇状态、角色/战斗镜像和必须完成的状态转换。它不评价文风，也不要求每句叙事提供证据。可安全修复的问题只开放指定工具回到 DM；不可安全修复的问题使事务失败。
 
-`validate_state` 和 Auditor 不直接补写业务状态。可以由工具修复的问题回到 Specialist；不能安全修复的问题让整个回合失败并回滚到 `initial_game_state`。
+DM 模型步只保留三类运行边界：
 
-角色法术造成豁免时，`roll_saving_throw` 必须收到施法者和法术名。运行时从职业施法属性、等级、角色属性与法术说明推导 DC 和豁免属性；模型提供的 DC、目标修正值或错误豁免属性不会覆盖权威数据。环境或非角色效果才使用显式 DC，目标与来源引用不存在时直接失败。
+1. 模型调用或输出为空。
+2. 工具轮次预算耗尽。
+3. 确定性校验已要求修复，但 DM 没有调用修复工具。
 
-## 6. 状态与持久化
+行动选项若混入正文会被展示层清理，不会因此回滚已经正确结算的主回合。
 
-- 父图使用 `DMGraphState` 和 SQLite checkpointer。
-- Specialist 使用 `SpecialistState`，Rules 使用 `RulesState`，Suggestion 使用 `SuggestionState`。
-- 子图默认 per-invocation，并在父图调用时继承运行配置，以支持 interrupt 和 durable execution。
-- LangGraph checkpoint 用于回合暂停恢复；玩家消息删除和重写使用存档中的 `_rewind` 快照。
-- `finalize_turn` 是唯一主回合提交点；失败回合不会提交工具产生的中间状态。
+## 4. 工具与事实所有权
 
-## 7. 运行时审计
+`backend/agents/specs.py` 只声明两个运行时角色：
 
-`GET /api/v1/health` 的 `agent_topology` 来自已编译 Agent 的实际工具对象，不再直接回显声明。当前角色包括：
+- `dm`：持有所有阶段能力的并集；实际可见工具由 phase allowlist 收窄。
+- `suggestions`：提交后的 UI 投影，只持有 `set_player_action_suggestions`。
+
+阶段能力保存在 `PHASE_CAPABILITY_TOOL_NAMES`，角色身份与阶段能力不再混为一谈。工具执行链为：
 
 ```text
-director, rules, setup, exploration, combat,
-downtime, level_up, auditor, narrator, suggestions
+DM model
+  -> StructuredTool / ToolNode
+  -> ToolRegistry.validate_call
+  -> AgentToolService
+  -> GameLogic / RuleCatalog / storage / RAG
+  -> ToolMessage + staged GameState
+  -> deterministic validate
+```
+
+工具 guardrail 负责 schema、阶段、当前行动者、动作槽、法术位、库存、遭遇前置条件和高风险确认。模型不能直接 patch `GameState`。
+
+## 5. 事务、interrupt 与恢复
+
+- 工具产生的状态在 `finalize_turn` 前都属于 staged transaction。
+- 高风险工具通过 LangGraph `interrupt()` 暂停，并从同一 checkpoint 恢复。
+- `input_required` 只发布上一次已提交的 `GameState` 加 `pending_turn`；staged delta、timeline 和 tool result 不会作为已提交结果返回或保存。
+- checkpoint 丢失时终止并回滚挂起事务，要求玩家重新描述行动；“确认”不会被重放成一个新玩家行动。
+- checkpoint 只用于执行恢复；剧情分支仍由完整 rewind snapshot 实现。
+
+## 6. 辅助 Agent 协作边界
+
+普通回合不启动额外模型。辅助 Agent 只有在至少满足一项时才值得存在：能引入 DM 当前上下文中没有的新信息、能隔离大量上下文、或能并行完成独立只读工作。
+
+辅助结果必须是只读 brief/artifact，由 DM 决定是否采用；辅助 Agent 不直接写 `GameState`，也不接管玩家对话。当前实现中的 Suggestion Agent 符合这一边界：它在主回合提交后投影三个 UI 行动建议，失败只返回空建议，不影响主事务。
+
+## 7. 运行时拓扑与 trace
+
+`GET /api/v1/health` 的 `agent_topology` 来自已编译工具对象：
+
+```text
+dm, suggestions
 ```
 
 关键 trace：
 
-- `agent.<role>.entered`
-- `execute_tools`，包含 `agent_name`、工具名、guardrail、确认状态和轮次。
+- `agent.dm.entered`
+- `agent.dm.tool_batch_serialized`
+- `execute_tools`
 - `validate_state`
-- `agent.auditor.completed`
-- `agent.auditor.failed`
-- `agent.narrator.completed`
+- `draft_response`
 - `finalize_turn`
+
+trace 用于诊断执行，不是逐回合事实审计流程。
 
 ## 8. 目录
 
 ```text
 backend/agents/
-  contracts.py       # 结构化控制输出
-  factory.py         # create_agent 控制 Agent
-  specs.py           # 角色与工具所有权
-  state.py           # 私有子图状态
-  tool_adapters.py   # BaseTool / ToolRuntime / Command adapter
-  specialist.py      # 五个阶段 Specialist
-  rules.py           # Rules 子图
-  suggestions.py     # Suggestion 子图
+  game_master.py     # 持续 DM 的私有 model/tool/validate 循环
+  specs.py           # 运行时角色与阶段能力
+  state.py           # DM 私有子图状态
+  tool_adapters.py   # StructuredTool / ToolRuntime / Command adapter
+  suggestions.py     # 提交后 Suggestion 投影
 ```
 
-父工作流仍位于 `backend/dm_graph.py`；确定性工具与规则分别位于 `agent_tools.py`、`tool_registry.py` 和 `game_logic.py`；遭遇预算与 CR 估算的纯计算层在 `backend/encounter_math.py`。
-
-## 8.1 只读规划工具
-
-`estimate_encounter_difficulty` 与 `estimate_monster_cr` 是给 DM 的判断依据，不是结算结果：它们不写 `GameState`、不产生 state patch，Exploration、Combat 和 Downtime 三个阶段都可调用。
-
-表格与算法移植自 5e.tools 开源工具集（2024 XP 预算表、`data/msbcr.json`、`crcalculator.js` 的双面 CR 折中），只复制数值与推导逻辑，不引入其 UI、渲染或正文内容。移植出处记录在 `backend/encounter_math.py` 模块头部。
-
-即兴敌人（`start_encounter`/`add_enemy` 直接给 HP/AC，没有模板）无法得到权威 CR，只按防御面估算，并在 breakdown 中以 `cr_source` 如实标注 `template` 或 `estimated_from_defense`。
+父工作流位于 `backend/dm_graph.py`；确定性工具与规则分别位于 `agent_tools.py`、`tool_registry.py`、`game_logic.py` 和 `rules_catalog.py`。
 
 ## 9. 变更门禁
 
-新增或修改工具时必须同时满足：
-
-1. schema、service 实现和 guardrail 同步。
-2. `AGENT_SPECS` 指定合理所有者。
-3. 运行时 topology 与声明一致。
-4. 未授权 Agent 看不到且不能执行该工具。
-5. 写工具保持串行，失败不提交部分状态。
-6. checkpoint 暂停恢复、高风险确认、SSE 和消息重写测试通过。
-7. 后端全量测试、前端 build/lint 和真实运行时 smoke test通过。
+新增或修改工具时必须同步 schema、service、guardrail、阶段能力与测试。写工具必须串行，失败不能提交部分状态；涉及 interrupt 时必须验证暂停结果不发布 staged state，且恢复只能继续原事务。

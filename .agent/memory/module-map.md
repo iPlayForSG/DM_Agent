@@ -6,8 +6,8 @@
 | --- | --- | --- | --- |
 | `backend/main.py` | `/api/v1/*`、SSE、错误映射、存档事务 | agent facade、storage、action service | `models.py`、`frontend/src/api.js`、API 契约测试 |
 | `backend/agent.py` | 模型档案、Agent 生命周期、turn/resume facade | `dm_graph.py`、dotenv | health/config API、密钥脱敏、provider smoke |
-| `backend/dm_graph.py` | LangGraph 父图、路由、审计、提交 | agents、tools、RAG、models | phase policy、工具预算、trace、workflow tests |
-| `backend/agents/` | 角色定义、私有子图、工具适配 | LangChain/LangGraph、tool registry | `specs.py` ownership、runtime topology tests |
+| `backend/dm_graph.py` | LangGraph 父图、上下文、确定性校验、事务提交 | agents、tools、RAG、models | phase policy、工具预算、interrupt、trace、workflow tests |
+| `backend/agents/` | 持续 DM 私有循环、阶段能力、工具适配和建议投影 | LangChain/LangGraph、tool registry | `specs.py` capability、runtime topology tests |
 
 逐端点清单不在 memory 中重复维护：后端定义以 `backend/main.py` 的 FastAPI 路由和 `backend/models.py` 的 schema 为准；浏览器消费契约以 `frontend/src/api.js` 和相关 API 测试为准。
 

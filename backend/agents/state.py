@@ -5,8 +5,8 @@ from typing import Annotated, Any, Dict, List, TypedDict
 from langgraph.graph.message import add_messages
 
 
-class SpecialistState(TypedDict, total=False):
-    """Per-invocation state visible to one phase specialist only."""
+class DMBrainState(TypedDict, total=False):
+    """Private per-invocation state for the model/tool/validation loop."""
 
     agent_role: str
     game_state: Dict[str, Any]
@@ -55,31 +55,8 @@ class SpecialistState(TypedDict, total=False):
     node_traces: List[Dict[str, Any]]
 
 
-SPECIALIST_PARENT_FIELDS = frozenset(
+DM_BRAIN_PARENT_FIELDS = frozenset(
     field_name
-    for field_name in SpecialistState.__annotations__
+    for field_name in DMBrainState.__annotations__
     if field_name != "agent_role"
-)
-
-
-class RulesState(TypedDict, total=False):
-    """Minimal per-invocation state for deterministic rules research."""
-
-    game_state: Dict[str, Any]
-    user_input: str
-    turn_intent: Dict[str, Any]
-    messages: Annotated[List[Any], add_messages]
-    rag_snippets: List[Dict[str, Any]]
-    rag_context: str
-    rag_queries: List[str]
-    rag_intent: str
-    rag_reason: str
-    rag_metadata: Dict[str, Any]
-    node_traces: List[Dict[str, Any]]
-
-
-RULES_PARENT_FIELDS = frozenset(
-    field_name
-    for field_name in RulesState.__annotations__
-    if field_name != "messages"
 )

@@ -15,7 +15,7 @@ from action_service import GameActionService
 from campaign_memory import compile_campaign_memory
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
-from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, MonsterTemplate, ResourcePool, SearchRecord, SpellSlot
+from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, MonsterTemplate, PendingTurnState, ResourcePool, SearchRecord, SpellSlot
 from agent import DMAgent, normalize_openai_base_url
 from agent_tools import AgentToolExecution, AgentToolService
 from langchain_core.messages import AIMessage
@@ -898,7 +898,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(local_result["tool_result"].payload["dc"], 13)
         self.assertEqual(local_result["tool_result"].payload["dc_source"], "character_spellcasting")
 
-    def test_rejected_auditor_never_reaches_narrator_and_rolls_back(self) -> None:
+    def test_failed_deterministic_validation_rolls_back(self) -> None:
         initial = self._build_state(with_selected_adventure=True)
         mutated = initial.model_copy(deep=True)
         mutated.scene = "combat"
@@ -906,21 +906,18 @@ class DMGraphWorkflowTests(unittest.TestCase):
             "game_state": mutated.model_dump(mode="json"),
             "initial_game_state": initial.model_dump(mode="json"),
             "user_input": "我冲向门口。",
-            "audit_result": {"accepted": False, "issues": ["场景与权威状态不一致"]},
-            "audit_attempts": 2,
-            "turn_status": "running",
+            "turn_status": "failed",
+            "final_response": "状态校验发现无法安全自动修复的问题；本回合已回滚。",
             "timeline_append": [],
             "tool_results": [],
             "node_traces": [],
             "validation_notes": [],
         }
 
-        self.assertEqual(self.runner._route_after_auditor(graph_state), "audit_failed")
-        failed = self.runner._fail_rejected_audit(graph_state)
-        finalized = self.runner._finalize_turn({**graph_state, **failed})
+        finalized = self.runner._finalize_turn(graph_state)
         restored = GameState.model_validate(finalized["game_state"])
 
-        self.assertEqual(failed["turn_status"], "failed")
+        self.assertEqual(finalized["turn_status"], "failed")
         self.assertEqual(restored.scene, initial.scene)
         self.assertEqual(restored.turn_number, initial.turn_number)
         self.assertIn("已回滚", finalized["final_response"])
@@ -1637,6 +1634,148 @@ class DMGraphWorkflowTests(unittest.TestCase):
         finally:
             runner.close()
 
+    def test_interrupt_does_not_publish_staged_game_state(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        staged = state.model_copy(deep=True)
+        staged.scene = "combat"
+        staged.campaign.phase = "combat"
+
+        result = self.runner._result_to_turn_result(
+            {
+                "game_state": staged.model_dump(mode="json"),
+                "phase": "combat",
+                "scene": "combat",
+                "state_delta": {"scene": "combat", "campaign": {"phase": "combat"}},
+                "timeline_append": [
+                    {
+                        "type": "state_change",
+                        "summary": "staged",
+                        "content": "staged mutation",
+                        "payload": {},
+                    }
+                ],
+                "node_traces": [],
+                "__interrupt__": [
+                    {
+                        "kind": "tool_confirmation",
+                        "prompt": "是否确认？",
+                        "details": {"tool_name": "end_encounter"},
+                    }
+                ],
+            },
+            state,
+            "结束遭遇。",
+            "pending-staged-state",
+        )
+
+        self.assertEqual(result.turn_status, "input_required")
+        self.assertEqual(result.game_state.scene, "exploration")
+        self.assertEqual(result.game_state.campaign.phase, "exploration")
+        self.assertEqual(result.state_delta, {})
+        self.assertEqual(result.timeline_append, [])
+        self.assertEqual(result.tool_results, [])
+        self.assertEqual(result.turn_trace.state_delta, {})
+
+    def test_staged_tool_writes_commit_only_after_confirmation_resume(self) -> None:
+        class StagedWriteModel:
+            def __init__(self, character_id: str):
+                self.character_id = character_id
+                self.calls = 0
+
+            def bind_tools(self, _tools):
+                return self
+
+            def invoke(self, _messages):
+                self.calls += 1
+                if self.calls == 1:
+                    return AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "id": "call-staged-hp",
+                                "name": "adjust_hp",
+                                "args": {
+                                    "target_ref": self.character_id,
+                                    "amount": -1,
+                                    "reason": "测试暂存写入",
+                                },
+                            }
+                        ],
+                    )
+                if self.calls == 2:
+                    return AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "id": "call-confirm-end",
+                                "name": "end_encounter",
+                                "args": {},
+                            }
+                        ],
+                    )
+                return AIMessage(content="遭遇结束，先前结算的伤势也一并写入存档。")
+
+        state = self._build_state(with_selected_adventure=True)
+        GameLogic(state).start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        character = state.characters[state.active_character_id]
+        initial_hp = character.hp_current
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=True,
+            api_key="test-key",
+            checkpoint_mode="memory",
+        )
+        runner._model = StagedWriteModel(character.character_id)
+        try:
+            paused = runner.run_turn(state, "结算一点伤势，然后结束遭遇。")
+
+            self.assertEqual(paused.turn_status, "input_required")
+            self.assertEqual(
+                paused.game_state.characters[character.character_id].hp_current,
+                initial_hp,
+            )
+            self.assertTrue(paused.game_state.encounter.active)
+            self.assertEqual(paused.state_delta, {})
+
+            resumed = runner.resume_turn(paused.game_state, "确认")
+
+            self.assertEqual(resumed.turn_status, "completed")
+            self.assertEqual(
+                resumed.game_state.characters[character.character_id].hp_current,
+                initial_hp - 1,
+            )
+            self.assertFalse(resumed.game_state.encounter.active)
+        finally:
+            runner.close()
+
+    def test_missing_resume_checkpoint_aborts_without_replaying_confirmation(self) -> None:
+        class MissingCheckpointGraph:
+            def invoke(self, *_args, **_kwargs):
+                raise RuntimeError("checkpoint missing for thread")
+
+        state = self._build_state(with_selected_adventure=True)
+        state.pending_turn = PendingTurnState(
+            thread_id="missing-checkpoint",
+            kind="tool_confirmation",
+            prompt="是否确认结束遭遇？",
+            original_input="结束遭遇。",
+        )
+        self.runner._graph = MissingCheckpointGraph()
+
+        result = self.runner.resume_turn(state, "确认")
+
+        self.assertEqual(result.turn_status, "failed")
+        self.assertIsNone(result.game_state.pending_turn)
+        self.assertEqual(result.game_state.turn_number, 0)
+        self.assertEqual(result.game_state.scene, "exploration")
+        self.assertIn("待确认的变更未提交", result.response)
+        self.assertIn("重新描述行动", result.response)
+
     def test_empty_turn_requests_more_input_without_advancing_turn(self) -> None:
         if not self.runner.is_available:
             self.skipTest("LangGraph is unavailable in this runtime.")
@@ -1648,7 +1787,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(result.game_state.turn_number, 0)
         self.assertIsNotNone(result.game_state.pending_turn)
         self.assertEqual(result.game_state.pending_turn.details.get("reason"), "empty_input")
-        self.assertEqual(len(result.timeline_append), 1)
+        self.assertEqual(result.timeline_append, [])
         self.assertIsNotNone(result.turn_trace)
         self.assertEqual(result.turn_trace.turn_status, "input_required")
         self.assertEqual(len(result.game_state.turn_traces), 1)
@@ -1756,7 +1895,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         )
         runner._model = NoToolModel()
 
-        result = runner._call_model(
+        result = runner._run_dm_model_step(
             {
                 "messages": [AIMessage(content="previous")],
                 "allowed_tools": ["set_scene"],
@@ -1769,11 +1908,11 @@ class DMGraphWorkflowTests(unittest.TestCase):
         )
 
         self.assertEqual(result["turn_status"], "failed")
-        self.assertIn("没有发起必要工具调用", result["final_response"])
+        self.assertIn("未能完成必要的规则结算", result["final_response"])
         self.assertEqual(result["validation_issues"][-1]["validator"], "turn_repair")
         self.assertEqual(result["validation_issues"][-1]["action"], "failed_turn")
 
-    def test_missing_required_tool_after_retry_fails_turn(self) -> None:
+    def test_dm_narration_is_not_retried_by_evidence_heuristics(self) -> None:
         class NoToolModel:
             def __init__(self):
                 self.calls = 0
@@ -1794,7 +1933,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         )
         runner._model = model
 
-        result = runner._call_model(
+        result = runner._run_dm_model_step(
             {
                 "messages": [AIMessage(content="previous")],
                 "user_input": "请调用 roll_dice 掷 1d20",
@@ -1806,9 +1945,9 @@ class DMGraphWorkflowTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(model.calls, 2)
-        self.assertEqual(result["turn_status"], "failed")
-        self.assertEqual(result["validation_issues"][-1]["validator"], "tool_required")
+        self.assertEqual(model.calls, 1)
+        self.assertNotIn("turn_status", result)
+        self.assertEqual(result["final_response"], "我掷骰并告诉你结果。")
 
     def test_normalize_openai_base_url_only_appends_v1_for_root_paths(self) -> None:
         self.assertEqual(normalize_openai_base_url("https://api.example.com"), "https://api.example.com/v1")

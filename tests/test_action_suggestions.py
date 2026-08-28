@@ -283,7 +283,7 @@ class ActionSuggestionTest(unittest.TestCase):
             any(issue["validator"] == "action_suggestion_protocol" for issue in result["validation_issues"])
         )
 
-    def test_inline_action_options_still_fail_player_facing_narration(self) -> None:
+    def test_inline_action_options_are_removed_without_rolling_back_turn(self) -> None:
         state = self._exploration_state()
         runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
 
@@ -300,11 +300,11 @@ class ActionSuggestionTest(unittest.TestCase):
             }
         )
 
-        self.assertEqual(result["turn_status"], "failed")
+        self.assertEqual(result["turn_status"], "completed")
         self.assertEqual(result["action_suggestions"], [])
-        self.assertIn("叙事正文", result["final_response"])
+        self.assertEqual(result["final_response"], "矿坑里传来嗡鸣。")
 
-    def test_action_suggestion_tool_can_run_after_regular_tool_budget(self) -> None:
+    def test_dm_loop_never_runs_post_commit_suggestion_tool(self) -> None:
         runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
         decision = runner._should_continue_after_model(
             {
@@ -333,7 +333,7 @@ class ActionSuggestionTest(unittest.TestCase):
             }
         )
 
-        self.assertEqual(decision, "execute_tools")
+        self.assertEqual(decision, "finalize_turn")
 
     def test_reply_length_preferences_are_prompted_and_measured(self) -> None:
         state = self._exploration_state()
@@ -399,7 +399,7 @@ class ActionSuggestionTest(unittest.TestCase):
         budget_model = ToolBudgetModel()
         runner._model = budget_model
 
-        result = runner._call_model(
+        result = runner._run_dm_model_step(
             {
                 "game_state": state.model_dump(mode="json"),
                 "messages": [runner._human_prompt_message("我辨认礼拜堂石刻。")],

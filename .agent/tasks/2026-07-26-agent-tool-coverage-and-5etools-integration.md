@@ -3,6 +3,8 @@
 Status: active
 Updated: 2026-07-26
 
+> 2026-08-28 架构校准：实时运行时已由 [ADR-0002](../../docs/adr/0002-single-dm-brain.md) 收敛为单一 DM Brain。下文关于 Director、阶段 Specialist、Auditor 和 Narrator 的内容只描述当时基线；未完成的 provider/browser 回归必须验证当前 DM Loop。
+
 ## Goal
 
 1. 让项目文档与工作树事实一致。
@@ -101,11 +103,11 @@ Setup Agent 能真正完成建卡与选冒险；Combat Agent 能移除战斗员�
 
 ## Remaining work
 
-- 用有效模型档案完成真实 Director → Specialist → Auditor → Narrator 链路 smoke。
-- 浏览器连续回合玩家回归，重点看 Setup Agent 现在能否用新工具走完建卡到选冒险。
+- 用有效模型档案完成当前单一 DM Brain 的工具、叙事、确定性修复与 interrupt smoke。
+- 浏览器连续回合玩家回归，重点看 DM 能否在 setup 阶段用能力白名单走完建卡到选冒险。
 - 复核前端怪物编辑 UI 与只读标准怪物 API 的产品边界（`POST /api/v1/monsters` 固定 405）。
 - 可选：把 `ability_options`（2024 背景的属性加值可选项）接入前端建卡 UI；当前只作为附加字段存在，未被消费。
 
 ## Resume instructions
 
-用 `C:\Users\iPlayForSG\.conda\envs\DM_Agent\python.exe -m unittest discover -s tests` 复核；新增工具必须同步 schema、service、guardrail、`AGENT_SPECS`、phase allowlist 与测试。
+用 `C:\Users\iPlayForSG\.conda\envs\DM_Agent\python.exe -m unittest discover -s tests` 复核；新增工具必须同步 schema、service、guardrail、`PHASE_CAPABILITY_TOOL_NAMES`、DM runtime ownership 与测试。

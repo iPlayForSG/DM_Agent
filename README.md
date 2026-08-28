@@ -1,14 +1,14 @@
 # DM_Agent
 
-DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目由 FastAPI 后端、React/Vite 前端、LangGraph 多 Agent 编排层和一组确定性的本地规则工具组成，用于维护角色、遭遇、掷骰、物品、证物、时间线和章节进度。
+DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目由 FastAPI 后端、React/Vite 前端、LangGraph DM Loop 和一组确定性的本地规则工具组成，用于维护角色、遭遇、掷骰、物品、证物、时间线和章节进度。
 
 ## 功能概览
 
-- 规则目录驱动的角色创建流程；Setup Agent 可直接读取目录、落地并校验角色卡、锁定冒险。
+- 规则目录驱动的角色创建流程；DM 可直接读取目录、落地并校验角色卡、锁定冒险。
 - 标准怪物模板读取、游戏内自定义怪物与遭遇实例化。
 - 遭遇 XP 预算难度分级与自定义怪物 CR 估算（算法移植自 5e.tools 开源工具集）。
 - 本地游戏存档与战役阶段状态。
-- Director、Rules、阶段 Specialist、Auditor、Narrator 与 Suggestion Agent 协作完成对话、工具调用和剧情推进。
+- 一个持续身份的 DM Brain 负责判断、工具调用和叙事；阶段只收窄上下文与能力，Suggestion Agent 在提交后独立投影行动建议。
 - 攻击、施法、技能检定、豁免检定、物品和特性使用等本地动作接口。
 - 基于本地文档、Chroma 和 GGUF embedding 模型的规则 RAG。
 - LangGraph checkpoint、回合暂停恢复、SSE 回合流和轻量 turn trace。
