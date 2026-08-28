@@ -135,7 +135,7 @@ class AgentToolFactory:
             ],
         }
         tool_message = ToolMessage(
-            content=self.runner._tool_message_content(execution),
+            content=self.runner._tool_message_content(execution, confirmation_status),
             tool_call_id=runtime.tool_call_id or tool_name,
             name=tool_name,
         )

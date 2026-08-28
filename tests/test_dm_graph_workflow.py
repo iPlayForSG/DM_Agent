@@ -31,12 +31,14 @@ class DummyRAGEngine:
 class EndEncounterModel:
     def __init__(self):
         self.calls = 0
+        self.messages = []
 
     def bind_tools(self, tool_schemas):
         return self
 
     def invoke(self, messages):
         self.calls += 1
+        self.messages.append(list(messages))
         if self.calls == 1:
             return AIMessage(
                 content="",
@@ -387,6 +389,38 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("roll_skill_check", intent.suggested_tools)
         self.assertEqual(routed["turn_profile"], "action_resolution")
         self.assertIn("roll_skill_check", routed["allowed_tools"])
+
+    def test_natural_listening_and_lockpicking_stays_action_resolution(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        player_input = "我贴着门缝倾听，再尝试无声地撬开侧门。"
+
+        intent = self.runner._plan_turn_intent(
+            state,
+            player_input,
+            "exploration",
+            "exploration",
+        )
+        routed = self.runner._classify_turn_profile(
+            state,
+            player_input,
+            "exploration",
+            intent.model_dump(mode="json"),
+        )
+        advice = self.runner._build_turn_advice(
+            state,
+            player_input,
+            "exploration",
+            routed["turn_profile"],
+            routed["allowed_tools"],
+            intent.model_dump(mode="json"),
+        )
+
+        self.assertEqual(intent.turn_type, "action_resolution")
+        self.assertIn("roll_skill_check", intent.suggested_tools)
+        self.assertEqual(routed["turn_profile"], "action_resolution")
+        self.assertEqual(advice["suggested_tools"], ["roll_skill_check"])
+        self.assertEqual(advice["allowed_tools"][0], "roll_skill_check")
+        self.assertTrue(any("call it now" in item for item in advice["turn_checklist"]))
 
     def test_rules_question_uses_lookup_only_profile(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -1617,6 +1651,8 @@ class DMGraphWorkflowTests(unittest.TestCase):
             self.assertEqual(paused.pending_input["kind"], "tool_confirmation")
             self.assertEqual(paused.pending_input["details"]["tool_name"], "end_encounter")
             self.assertTrue(paused.pending_input["details"]["guardrail"]["requires_confirmation"])
+            self.assertIn("结束当前遭遇", paused.response)
+            self.assertNotIn("end_encounter", paused.response)
             self.assertTrue(paused.game_state.encounter.active)
 
             resumed = runner.resume_turn(paused.game_state, "确认")
@@ -1631,6 +1667,11 @@ class DMGraphWorkflowTests(unittest.TestCase):
             self.assertEqual(tool_trace["tool_name"], "end_encounter")
             self.assertEqual(tool_trace["confirmation_status"], "confirmed")
             self.assertEqual(tool_trace["guardrail"]["risk_level"], "high")
+            resumed_model_context = "\n".join(
+                str(getattr(message, "content", ""))
+                for message in runner._model.messages[-1]
+            )
+            self.assertIn("confirmation was already accepted", resumed_model_context)
         finally:
             runner.close()
 

@@ -54,6 +54,7 @@ React/Vite UI
 - phase allowlist 与 DM runtime ownership 取交集决定实际工具面。
 - DM 使用私有 state；多个写工具串行执行。
 - 状态摘要、近期历史、长期记忆和检索内容各自受独立提示词预算约束，近期历史截断时保留最新内容，避免长战役上下文挤占当前回合契约。
+- 玩家输入不是世界事实源；DM 必须在先前权威状态、自己的已确认叙事或成功工具结算支持后，主动用 `record_evidence` 等工具持久化关键线索。前端状态页只投影已持久化的结构化证据。
 - deterministic validator 不能直接 patch 业务事实，只能要求工具修复或失败。
 - interrupt 只发布上次已提交快照和 pending 元数据，staged transaction 留在 checkpoint 中。
 - checkpoint 用于 interrupt 恢复，不提供剧情分支；剧情分支由 rewind snapshot 实现。

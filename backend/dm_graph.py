@@ -932,6 +932,12 @@ ACTION_RESOLUTION_TERMS = [
     "\u6d1e\u6089",
     "\u641c\u7d22",
     "\u7ffb\u627e",
+    "\u503e\u542c",
+    "\u5077\u542c",
+    "\u6f5c\u5165",
+    "\u64ac",
+    "\u5f00\u9501",
+    "\u65e0\u58f0",
     "\u6295\u9ab0",
     "\u68c0\u5b9a",
     "\u8c41\u514d",
@@ -1012,7 +1018,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
             "set_scene",
             "set_active_character",
         ],
-        "guidance": "Prefer a direct in-world reply. Only call tools if the player clearly creates a durable clue, loot, chapter update, or scene transition.",
+        "guidance": "Prefer a direct in-world reply. Proactively persist an important clue, loot, chapter update, or scene transition only when the fiction establishes it; do not wait for bookkeeping language from the player.",
     },
     "rules_reference": {
         "tool_round_limit": 1,
@@ -1520,12 +1526,22 @@ class DMGraphRunner:
                 "perception",
                 "investigation",
                 "stealth",
+                "listen",
+                "sneak",
+                "pick lock",
+                "lockpick",
                 "insight",
                 "persuasion",
                 "deception",
                 "\u611f\u77e5",
                 "\u8c03\u67e5",
                 "\u6f5c\u884c",
+                "\u503e\u542c",
+                "\u5077\u542c",
+                "\u6f5c\u5165",
+                "\u64ac",
+                "\u5f00\u9501",
+                "\u65e0\u58f0",
                 "\u6d1e\u6089",
                 "\u8bf4\u670d",
                 "\u6b3a\u7792",
@@ -1742,6 +1758,7 @@ class DMGraphRunner:
             expectation = "Direct in-world reply first; skip tools unless something durable or stateful is actually created."
             checklist = [
                 "Do not turn a simple social beat into a mechanical resolution unless the player clearly pushes for one.",
+                "When the conversation itself confirms an important clue, persist it proactively; never promote a player's unsupported assertion into world fact.",
             ]
         elif profile_name == "rules_reference":
             expectation = "Answer the rules question in one pass, ideally with a single lookup if needed."
@@ -1754,6 +1771,7 @@ class DMGraphRunner:
             expectation = "Resolve the attempted action with the minimum necessary tool chain, then narrate once."
             checklist = [
                 "Prefer one core resolution tool before considering persistence tools.",
+                "If the uncertain action needs a check and roll_skill_check is available, call it now; never merely say that a check is needed or unavailable.",
                 "Only persist evidence, loot, or chapter progress if the fiction actually establishes it.",
             ]
         elif profile_name == "combat_resolution":
@@ -3832,12 +3850,25 @@ class DMGraphRunner:
         if interrupt is None:
             return False, f"Tool requires confirmation before execution: {tool_name}"
 
+        confirmation_actions = {
+            "create_party_character": "把新角色正式加入队伍",
+            "select_adventure_hook": "选定这条冒险并开始记录进度",
+            "record_chapter_progress": (
+                "结束当前章节并保存结算"
+                if args.get("completed") is True
+                else "更新当前章节进度"
+            ),
+            "set_defeat_state": "确认角色或生物的最终败北状态",
+            "remove_combatant": "从当前遭遇中移除目标",
+            "end_encounter": "结束当前遭遇并保存结果",
+        }
+        action_description = confirmation_actions.get(tool_name, "执行这项不可自动撤销的决定")
         payload = {
             "kind": "tool_confirmation",
             "phase": str(graph_state.get("phase") or ""),
             "prompt": (
-                f"工具 `{tool_name}` 会执行高风险状态变更。"
-                "请回复“确认”执行，或回复“取消”跳过。"
+                f"即将{action_description}，这一决定会写入本局进度。"
+                "请回复“确认”继续，或回复“取消”保留当前状态。"
             ),
             "details": {
                 "reason": "high_risk_tool_confirmation",
@@ -3880,8 +3911,18 @@ class DMGraphRunner:
             return self._tool_error_execution(tool_name, f"Tool failed: {exc}")
 
     @staticmethod
-    def _tool_message_content(execution: AgentToolExecution) -> str:
-        return json.dumps(execution.response(), ensure_ascii=False, default=str)
+    def _tool_message_content(
+        execution: AgentToolExecution,
+        confirmation_status: str = "",
+    ) -> str:
+        payload = execution.response()
+        if confirmation_status == "confirmed" and execution.ok:
+            # interrupt 已消费本次玩家确认；把事务事实交回模型，避免最终叙事再次索要确认。
+            payload["confirmation"] = {
+                "status": "confirmed",
+                "instruction": "Player confirmation was already accepted and the tool succeeded. Do not ask for confirmation again.",
+            }
+        return json.dumps(payload, ensure_ascii=False, default=str)
 
     @staticmethod
     def _build_validation_message(notes: List[str]) -> Optional[Any]:

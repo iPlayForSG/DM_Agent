@@ -7,6 +7,7 @@ os.environ.setdefault("LANGGRAPH_CHECKPOINT_MODE", "memory")
 
 from agent_tools import AgentToolExecution
 from dm_graph import DMGraphRunner, PROMPT_CONTEXT_MAX_CHARS
+from game_logic import GameLogic
 from langchain_core.messages import AIMessage
 from models import AdventureHook, Character, ChatMessage, GameState
 
@@ -36,13 +37,31 @@ class RecordingModel:
         return self.responses.pop(0)
 
 
-class AdventureLogService:
-    def append_adventure_log(self, state, entry):
-        state.adventure_log.append(entry)
+class EvidenceService:
+    def record_evidence(
+        self,
+        state,
+        title,
+        summary,
+        holder_ref="",
+        source_ref="",
+        location="",
+        tags=None,
+        add_to_inventory=True,
+    ):
+        result = GameLogic(state).record_evidence(
+            title=title,
+            summary=summary,
+            holder_ref=holder_ref,
+            source_ref=source_ref,
+            location=location,
+            tags=tags,
+            add_to_inventory=add_to_inventory,
+        )
         return AgentToolExecution(
             ok=True,
-            payload={"entry": entry},
-            state_patch={"adventure_log": list(state.adventure_log)},
+            payload=result["evidence"].model_dump(mode="json"),
+            state_patch=result["patch"],
         )
 
 
@@ -85,44 +104,76 @@ class DMLoopAcceptanceTests(unittest.TestCase):
             any(name.startswith(("agent.director", "agent.auditor", "agent.narrator")) for name in node_names)
         )
 
-    def test_one_tool_round_requires_only_tool_call_and_final_narration(self) -> None:
-        entry = "守卫证实旧塔昨夜出现异常灯光。"
+    def test_dm_proactively_persists_confirmed_clue_in_one_tool_round(self) -> None:
+        title = "守卫的午夜证词"
+        summary = "守卫亲眼看见旧塔在午夜后亮起异常蓝光。"
         model = RecordingModel(
             [
                 AIMessage(
                     content="",
                     tool_calls=[
                         {
-                            "id": "call-log-clue",
-                            "name": "append_adventure_log",
-                            "args": {"entry": entry},
+                            "id": "call-record-evidence",
+                            "name": "record_evidence",
+                            "args": {
+                                "title": title,
+                                "summary": summary,
+                                "source_ref": "守卫",
+                                "location": "旧塔外",
+                                "tags": ["目击证词", "蓝光"],
+                                "add_to_inventory": False,
+                            },
                         }
                     ],
                 ),
-                AIMessage(content="这条证词已经记下；旧塔昨夜确实亮过灯。"),
+                AIMessage(content="守卫压低声音：昨夜午夜过后，塔顶确实亮起过一阵不自然的蓝光。"),
             ]
         )
         runner = DMGraphRunner(
             rag_engine=DisabledRAG(),
-            tool_service=AdventureLogService(),
+            tool_service=EvidenceService(),
             enable_model=True,
             api_key="test-key",
             checkpoint_mode="memory",
         )
         runner._model = model
         try:
-            result = runner.run_turn(self.build_state(), "把守卫关于旧塔灯光的证词记下来。")
+            result = runner.run_turn(self.build_state(), "我问守卫，昨夜他是否亲眼看见旧塔亮灯。")
         finally:
             runner.close()
 
         self.assertEqual(result.turn_status, "completed")
         self.assertEqual(len(model.calls), 2)
-        self.assertIn(entry, result.game_state.adventure_log)
+        self.assertTrue(any(item.title == title for item in result.game_state.evidence_records))
         execute_trace = next(
             item for item in result.turn_trace.node_traces if item.node_name == "execute_tools"
         )
         self.assertEqual(execute_trace.metadata["agent_name"], "dm")
-        self.assertEqual(execute_trace.metadata["tools"][0]["tool_name"], "append_adventure_log")
+        self.assertEqual(execute_trace.metadata["tools"][0]["tool_name"], "record_evidence")
+
+    def test_player_assertion_is_not_treated_as_authoritative_evidence(self) -> None:
+        model = RecordingModel(
+            [AIMessage(content="老人此前并没有说过蓝灯会闪三次；你需要先向他核实。")]
+        )
+        runner = DMGraphRunner(
+            rag_engine=DisabledRAG(),
+            tool_service=EvidenceService(),
+            enable_model=True,
+            api_key="test-key",
+            checkpoint_mode="memory",
+        )
+        runner._model = model
+        try:
+            result = runner.run_turn(
+                self.build_state(),
+                "我记得老人说蓝灯会闪三次，把这条线索记下来。",
+            )
+        finally:
+            runner.close()
+
+        self.assertEqual(result.turn_status, "completed")
+        self.assertEqual(result.game_state.evidence_records, [])
+        self.assertFalse(any(item.node_name == "execute_tools" for item in result.turn_trace.node_traces))
 
     def test_committed_narration_is_available_to_the_next_turn(self) -> None:
         first_response = "守卫说，旧塔的灯总在午夜后亮起。"

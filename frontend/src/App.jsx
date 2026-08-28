@@ -467,6 +467,27 @@ function TimelinePanel({ timeline, title = "时间线", emptyText = "还没有�
     </section>
   );
 }
+function EvidencePanel({ evidence = [] }) {
+  return (
+    <section className="panel-card timeline-panel">
+      <h3>线索与证据</h3>
+      <div className="timeline-list">
+        {evidence.length === 0 && <p className="empty-text">DM 尚未确认需要长期保留的线索。</p>}
+        {evidence.map((item) => {
+          const provenance = [item.source_ref, item.location].filter(Boolean).join(" · ");
+          return (
+            <div key={item.evidence_id} className="timeline-item">
+              <div className="timeline-summary">{item.title}</div>
+              {item.summary && <div className="timeline-content">{item.summary}</div>}
+              {provenance && <div className="timeline-type">{provenance}</div>}
+              {item.tags?.length > 0 && <div className="timeline-content">标签：{item.tags.join("、")}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant }) {
   return (
     <section className="side-section combat-panel">
@@ -2199,6 +2220,7 @@ export default function App() {
   const encounter = gameState?.encounter;
   const combatants = encounter?.initiative_order?.map((id) => encounter.combatants[id]).filter(Boolean) || [];
   const timeline = (gameState?.timeline || []).slice(-12).reverse();
+  const evidenceRecords = gameState?.evidence_records || [];
   const partyCharacters = Object.values(gameState?.characters || {});
   const activeCharacterId = gameState?.active_character_id || partyCharacters[0]?.character_id || "";
   const characterActorById = Object.fromEntries(charActors.map((actor) => [actor.ref, actor]));
@@ -3248,15 +3270,18 @@ export default function App() {
           <div className="status-screen anime-fade-in">
             <div className="status-layout">
               <TimelinePanel timeline={timeline} title="时间线" emptyText="这局游戏还没有时间线记录。" />
-              <CombatantPanel
-                encounter={encounter}
-                combatants={combatants}
-                initiativeDrafts={initiativeDrafts}
-                setInitiativeDrafts={setInitiativeDrafts}
-                saveEncounterInitiative={saveEncounterInitiative}
-                rerollEncounterInitiative={rerollEncounterInitiative}
-                dropEncounterCombatant={dropEncounterCombatant}
-              />
+              <div className="status-side-stack">
+                <EvidencePanel evidence={evidenceRecords} />
+                <CombatantPanel
+                  encounter={encounter}
+                  combatants={combatants}
+                  initiativeDrafts={initiativeDrafts}
+                  setInitiativeDrafts={setInitiativeDrafts}
+                  saveEncounterInitiative={saveEncounterInitiative}
+                  rerollEncounterInitiative={rerollEncounterInitiative}
+                  dropEncounterCombatant={dropEncounterCombatant}
+                />
+              </div>
             </div>
           </div>
         )}

@@ -43,6 +43,9 @@ Updated: 2026-08-28
 - [x] 创建 Accepted ADR，并同步架构文档和长期 memory。
 - [x] 增加离线 Loop 验收基线：普通叙事 1 次模型调用、单工具回合 2 次调用、提交叙事跨回合可见、phase 工具隔离。
 - [x] 为状态摘要、近期历史、长期记忆和 RAG 上下文设置独立预算，并在 trace 中记录长度与截断项。
+- [x] 明确持久事实所有权：玩家输入只是行动、问题、回忆或假设；DM 主动记录已确认线索，不接受玩家用“记下来”创造世界事实。
+- [x] 状态页增加“线索与证据”投影，展示 DM 已持久化的结构化 evidence。
+- [x] 使用 Codex CLI `gpt-5.6-terra` medium 作为真实模型适配器，完成合成状态下的自然线索、连续探索、技能工具链与 interrupt/resume 黑盒测试。
 
 ## Decisions
 
@@ -60,6 +63,10 @@ Updated: 2026-08-28
 - 当前目标测试在本机 `.venv` 可运行，但缺少被忽略的 `backend/data/spells.json`，导致 4 个法术数据相关失败。
 - 原 `_call_model` 中约千行叙事证据启发式与重试已从代码删除；grounding/turn-claim helper 只保留为离线或独立测试能力，不进入实时 DM Loop。
 - `GameLogic.get_recent_history()` 原先只限制消息条数，单条超长消息仍可无限放大提示词；现在上下文装配层保留最新历史并执行字符预算。
+- “让玩家要求记住线索”不是有效验收：它既暴露系统记账术语，也允许玩家把未经 DM 确认的说法注入权威事实。真实验收必须从自然行动开始，由 DM 判断何时调用 `record_evidence`。
+- 真实模型把“贴门倾听、无声撬门”误分为普通对话后只口头要求检定；补充自然动作词与 action-resolution guidance 后，重跑会串行执行倾听和开锁两次技能检定。
+- interrupt 成功恢复后，模型曾再次索要确认；确认成功状态现通过内部 ToolMessage 明示给 DM，玩家侧确认文案也改为语义动作，不再泄露工具名。
+- 当前本地 DM_Agent 原生 provider 没有配置 API key/base URL；真实模型测试通过临时 Codex CLI 适配器完成，因此尚不能替代 ChatOpenAI provider 集成和浏览器测试。
 
 ## Validation
 
@@ -72,13 +79,18 @@ Updated: 2026-08-28
 - [x] `git diff --check` — 实现与文档变更后通过。
 - [x] `tests.test_dm_loop_acceptance` 与既有 campaign-memory 定向测试 — 6 项全部通过。
 - [x] 完整后端 167 项测试 — 154 项通过；13 项仍均由缺少 ignored `backend/data/spells.json` 引起，没有新增失败。
-- [ ] 真实 provider 与连续玩家回归；本次未改前端或 API 契约，不要求前端 build/lint。
+- [x] 自然线索真实模型回合（Codex CLI GPT-5.6-Terra medium）— 玩家只拾取查看场景中已存在的蓝蜡封片；DM 主动调用 `record_evidence`，2 个模型步骤后自然叙事，无旧控制 Agent trace。
+- [x] 连续探索真实模型回归 — 自然对话、对照观察、倾听、开锁、谨慎侦察及章节 interrupt/resume 全部经过单一 DM；修复后潜入回合串行执行 2 次技能检定，确认恢复不再二次索要确认。
+- [x] 前端 `npm run build` — 通过；`npm run lint` — 0 error，保留既有 2 条 Hook dependency warning。
+- [x] 完整后端 169 项测试 — 156 项通过；13 项仍均由缺少 ignored `backend/data/spells.json` 引起，没有新增失败。
+- [ ] 原生 Chat Completions provider 与浏览器连续玩家回归；本轮前端证据面板已完成 build/lint，尚未做浏览器视觉走查。
 
 ## Remaining work
 
 ### Stage 2：真实运行验收
 
 - 使用真实 provider 做连续多回合人格、叙事连续性、工具调用、interrupt/resume 和延迟 smoke test。
+- 配置原生 Chat Completions provider 后，复跑同一组自然玩家输入；Codex CLI 每个模型步启动独立进程，其绝对耗时不能作为产品延迟基线。
 - 记录普通对话、单工具回合和战斗回合的模型调用数与端到端耗时，确认相较旧流水线的实际收益。
 - 恢复或生成本地 `backend/data/spells.json` 后重跑完整测试，消除环境性失败。
 

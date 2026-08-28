@@ -2338,6 +2338,11 @@ button[class^="btn-"] {
   gap: 10px;
 }
 
+.status-side-stack {
+  display: grid;
+  gap: 18px;
+}
+
 .status-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
