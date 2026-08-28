@@ -46,6 +46,7 @@ Updated: 2026-08-28
 - [x] 明确持久事实所有权：玩家输入只是行动、问题、回忆或假设；DM 主动记录已确认线索，不接受玩家用“记下来”创造世界事实。
 - [x] 状态页增加“线索与证据”投影，展示 DM 已持久化的结构化 evidence。
 - [x] 使用 Codex CLI `gpt-5.6-terra` medium 作为真实模型适配器，完成合成状态下的自然线索、连续探索、技能工具链与 interrupt/resume 黑盒测试。
+- [ ] 重构玩家确认边界：内部工具风险不再自动转化为玩家侧 interrupt，只有意图不明确且真正涉及玩家决定权的分叉才请求选择。
 
 ## Decisions
 
@@ -54,6 +55,7 @@ Updated: 2026-08-28
 - 2026-08-28：辅助 Agent 只有在能引入独立新信息、隔离大量上下文或真正并行时才启动；默认只读，返回结构化 brief/artifact，不写权威状态。
 - 2026-08-28：叙事自由分为短暂表现层、可持久剧情事实和机械事实三层；后两层分别通过受限语义事件工具和确定性规则工具落地。
 - 2026-08-28：session event log、harness 和工具执行环境应解耦；pending interrupt 不得把 staged state 当作已提交存档。
+- 2026-08-28：`risk_level` 描述内部副作用、校验和回滚要求，不等于玩家侧确认策略。明确玩家指令已经构成授权；确定性结算和 DM 记账应静默执行；只有缺少明确意图的玩家命运或剧情分叉才用自然语言请求选择。
 
 ## Discoveries / surprises
 
@@ -66,6 +68,7 @@ Updated: 2026-08-28
 - “让玩家要求记住线索”不是有效验收：它既暴露系统记账术语，也允许玩家把未经 DM 确认的说法注入权威事实。真实验收必须从自然行动开始，由 DM 判断何时调用 `record_evidence`。
 - 真实模型把“贴门倾听、无声撬门”误分为普通对话后只口头要求检定；补充自然动作词与 action-resolution guidance 后，重跑会串行执行倾听和开锁两次技能检定。
 - interrupt 成功恢复后，模型曾再次索要确认；确认成功状态现通过内部 ToolMessage 明示给 DM，玩家侧确认文案也改为语义动作，不再泄露工具名。
+- 当前 `requires_confirmation` 静态绑定在 `create_party_character`、`select_adventure_hook`、`record_chapter_progress`、`set_defeat_state`、`remove_combatant` 和 `end_encounter` 六个工具上。它把“写入权威状态”误当成“需要玩家二次授权”，即使玩家已明确选择或只是结束遭遇、清理单位，也会弹出通用确认卡片，打断叙事并暴露实现边界。
 - 当前本地 DM_Agent 原生 provider 没有配置 API key/base URL；真实模型测试通过临时 Codex CLI 适配器完成，因此尚不能替代 ChatOpenAI provider 集成和浏览器测试。
 
 ## Validation
@@ -87,20 +90,40 @@ Updated: 2026-08-28
 
 ## Remaining work
 
-### Stage 2：真实运行验收
+### Stage 2：沉浸式授权与玩家决定权
+
+- 盘点六个静态确认工具在聊天、建卡、冒险选择和本地动作 UI 中的调用入口，区分以下三类语义：
+  - 玩家已经明确下令或点击选择：直接执行，不做重复确认。
+  - 规则结算或 DM 内部记账：自动执行，例如结束已分出胜负的遭遇、移除已离场单位、记录已成立的章节进度。
+  - 意图不明确且会替玩家决定命运或重大剧情方向：执行前请求真正的玩家选择。
+- 将工具 `risk_level` 保留为内部 guardrail、trace 和事务恢复信息；解除它与玩家侧 `requires_confirmation` 的等价关系。不要削弱 phase allowlist、当前行动者、资源、原子提交或回滚约束。
+- 不再按工具名统一弹出“会写入本局进度”的确认。若确实需要 interrupt，payload 应表达待决定的剧情语义和具体选项，而不是工具名、风险等级、持久化或“高风险操作”。
+- `create_party_character` 与 `select_adventure_hook`：前端明确提交/选择即为授权；DM 对话中若目标不明确，应先询问具体选择，而不是先构造工具调用再确认。
+- `record_chapter_progress`：玩家明确离开并结束章节时直接结算；DM 仅在玩家是否真的要结束仍有歧义时自然追问。
+- `remove_combatant` 与 `end_encounter`：作为确定性战斗收尾和状态维护自动执行，不向玩家索要技术确认。
+- `set_defeat_state`：规则已确定的后果直接结算；只有系统提供“接受最终结局 / 使用可用挽回机会 / 回到安全节点”等真实选项时，才暂停并让玩家选择。不要用确认框伪装尚未建模的规则选项。
+- 保持真正的产品级破坏操作（删除存档、删除角色、覆盖或重写分支）在独立 UI 中确认，不把它们混入 DM 对话的工具策略。
+- 增加回归测试：
+  - “我要离开旧塔，结束这一章”在同一回合完成章节结算，无 pending confirmation。
+  - 最后一名敌人失去战斗能力后可自动结束遭遇和清理单位，无确认卡片。
+  - UI 选择冒险或提交角色后不出现第二次确认。
+  - 玩家意图含糊且确有重大命运分叉时，返回自然的具体选项；payload 和界面不出现工具名或通用“高风险”措辞。
+  - 真正 interrupt 的取消、恢复、checkpoint 丢失回滚和 staged state 隔离保持有效。
+
+### Stage 3：真实运行验收
 
 - 使用真实 provider 做连续多回合人格、叙事连续性、工具调用、interrupt/resume 和延迟 smoke test。
 - 配置原生 Chat Completions provider 后，复跑同一组自然玩家输入；Codex CLI 每个模型步启动独立进程，其绝对耗时不能作为产品延迟基线。
 - 记录普通对话、单工具回合和战斗回合的模型调用数与端到端耗时，确认相较旧流水线的实际收益。
 - 恢复或生成本地 `backend/data/spells.json` 后重跑完整测试，消除环境性失败。
 
-### Stage 3：DM 叙事自由与持久事实
+### Stage 4：DM 叙事自由与持久事实
 
 - 用实际跑团样本检查“即时描写 / 可持久剧情事实 / 机械事实”的分层是否足够自然。
 - 只有现有日志、线索、章节与场景工具无法表达明确用例时，才新增最小语义事件契约；模型仍不能直接 patch `GameState`。
 - 增加长战役回归样本，验证上下文预算下当前场景、最新决定和未解决线索不会丢失。
 
-### Stage 4：按需协作能力
+### Stage 5：按需协作能力
 
 - 从真实复杂任务中识别需要独立新信息、上下文隔离或并行计算的用例，例如规则调研、章节规划或大量素材整理。
 - 针对首个明确用例定义只读 assistant 的最小 brief/artifact schema、超时/失败降级和引用方式；不预建常驻角色或恢复流水线接棒。
@@ -110,4 +133,5 @@ Updated: 2026-08-28
 
 1. 读取本计划、`architecture-map.md` 与 `common-pitfalls.md`。
 2. 不恢复已删除的控制 Agent 流水线；在线正确性继续放在确定性工具和事务边界。
-3. 下一步从 Stage 2 的真实 provider smoke 开始；未配置时如实记录未验证，不用单元测试替代。
+3. 下一步先完成 Stage 2 的确认策略重构；重点检查 `backend/tool_registry.py`、`backend/dm_graph.py`、`backend/agents/tool_adapters.py`、`frontend/src/App.jsx` 与现有 interrupt/workflow tests。
+4. Stage 2 通过目标测试和浏览器确认后，再进入 Stage 3 原生 provider smoke；未配置时如实记录未验证，不用单元测试替代。
