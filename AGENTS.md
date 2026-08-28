@@ -147,7 +147,7 @@ ADR 位于 `docs/adr/`。适合记录持久化方式、模块边界、外部依�
 
 项目级配置在 `.codex/hooks.json`，实现位于 `.codex/hooks/`：
 
-- `SessionStart` 建立/恢复 Git 基线并提醒按需读取记忆。
+- `SessionStart` 在启动/清空时建立 Git 基线，在恢复/压缩时沿用基线，并提醒按需读取记忆。
 - `PostToolUse` 只做确定性变化观察，不调用 AI、不修改文档。
 - `Stop` 对高信号变化打开一次记忆维护 continuation。
 - 临时状态优先写入 `git rev-parse --git-path codex-memory-hook`；若 Git 目录在沙箱中只读，则降级到按 worktree 路径哈希隔离的系统临时目录，不进入工作树。

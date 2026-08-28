@@ -1,0 +1,99 @@
+import os
+import sys
+import unittest
+from unittest.mock import patch
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+os.environ["DM_AGENT_SKIP_DOTENV"] = "1"
+
+from agent import DMAgent
+
+
+class _Runner:
+    def close(self):
+        return None
+
+
+def profile_agent() -> DMAgent:
+    agent = DMAgent.__new__(DMAgent)
+    agent.model_provider = "openai-compatible"
+    agent.api_key = "api-secret"
+    agent.raw_base_url = "https://example.test"
+    agent.base_url = "https://example.test/v1"
+    agent.model_name = "test-model"
+    agent.cli_command = ""
+    agent.cli_timeout_s = 300
+    agent.active_profile_id = "api-profile"
+    agent.llm_profiles = [{
+        "profile_id": "api-profile",
+        "label": "API",
+        "provider": "openai-compatible",
+        "model_name": "test-model",
+        "raw_base_url": "https://example.test",
+        "api_key": "api-secret",
+        "cli_command": "",
+        "cli_timeout_s": 300,
+    }]
+    agent.dm_graph_runner = _Runner()
+    return agent
+
+
+class LLMProfileTests(unittest.TestCase):
+    def test_cli_profile_does_not_require_api_fields_or_expose_api_key(self) -> None:
+        agent = profile_agent()
+        payload = agent.upsert_llm_profile(
+            profile_label="Codex local",
+            provider="codex-cli",
+            model_name="",
+            base_url="",
+            cli_command="codex",
+            activate=False,
+            persist=False,
+        )
+
+        cli_profile = next(profile for profile in payload["profiles"] if profile["label"] == "Codex local")
+        self.assertEqual(cli_profile["provider"], "codex-cli")
+        self.assertEqual(cli_profile["cli_command"], "codex")
+        self.assertNotIn("api_key", cli_profile)
+        self.assertFalse(cli_profile["api_key_configured"])
+
+    def test_switching_to_cli_clears_api_credentials_from_child_environment(self) -> None:
+        agent = profile_agent()
+        cli_profile = {
+            "profile_id": "codex-local",
+            "label": "Codex local",
+            "provider": "codex-cli",
+            "model_name": "",
+            "raw_base_url": "",
+            "api_key": "",
+            "cli_command": "codex",
+            "cli_timeout_s": 120,
+        }
+        agent.llm_profiles.append(cli_profile)
+        agent._create_dm_graph_runner = lambda: _Runner()
+        with patch.dict(os.environ, {
+            "OPENAI_API_KEY": "must-not-leak",
+            "OPENAI_API_BASE": "https://old.test/v1",
+        }, clear=False):
+            payload = agent.select_llm_profile("codex-local", persist=False)
+            self.assertNotIn("OPENAI_API_KEY", os.environ)
+            self.assertNotIn("OPENAI_API_BASE", os.environ)
+
+        self.assertEqual(payload["provider"], "codex-cli")
+        self.assertTrue(payload["configured"])
+
+    def test_unknown_provider_is_rejected(self) -> None:
+        agent = profile_agent()
+        with self.assertRaisesRegex(ValueError, "Unsupported model provider"):
+            agent.upsert_llm_profile(
+                profile_label="Unknown",
+                provider="shell",
+                model_name="",
+                base_url="",
+                activate=False,
+                persist=False,
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

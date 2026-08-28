@@ -6,6 +6,7 @@
 | --- | --- | --- | --- |
 | `backend/main.py` | `/api/v1/*`、SSE、错误映射、存档事务 | agent facade、storage、action service | `models.py`、`frontend/src/api.js`、API 契约测试 |
 | `backend/agent.py` | 模型档案、Agent 生命周期、turn/resume facade | `dm_graph.py`、dotenv | health/config API、密钥脱敏、provider smoke |
+| `backend/model_backends.py` | OpenAI-compatible/Claude Code/Codex provider 常量与 CLI `BaseChatModel` 适配 | LangChain、CLI subprocess | 临时目录、结构化 schema、凭据隔离、真实 CLI smoke |
 | `backend/dm_graph.py` | LangGraph 父图、路由、审计、提交 | agents、tools、RAG、models | phase policy、工具预算、trace、workflow tests |
 | `backend/agents/` | 角色定义、私有子图、工具适配 | LangChain/LangGraph、tool registry | `specs.py` ownership、runtime topology tests |
 
@@ -30,9 +31,13 @@
 | --- | --- | --- |
 | `backend/storage.py` | JSON CRUD、完整 rewind snapshot | schema 版本、路径安全、delete/rewrite API |
 | `backend/adventure_service.py` | 固定/AI 冒险生成与 D&D 风格校验 | setup flow、campaign schema、测试 |
+| `backend/campaign_memory.py` | 从 `GameState` 派生有界的剧情提示上下文，不另存业务事实 | `dm_graph.py` memory context、prompts、工作流测试 |
 | `backend/utils/import_5etools_builder_options.py` | 从本地 5e.tools 数据增量补齐建卡目录；幂等、只追加 | `character_builder_2024.json`、`validate_character`、builder API |
-| `backend/rag.py` | 多查询、重排、来源去重、上下文截断 | health/status、dm_graph rules stage |
-| `backend/rag_embeddings.py` | GGUF 定位、llama-server 生命周期、embedding | Windows 路径、GPU/CPU 环境、超时与日志 |
+| `backend/rag.py` | 向量优先、词法降级、多查询、来源去重与上下文截断 | health/status、dm_graph rules stage、`lexical_rag.py` |
+| `backend/lexical_rag.py` | heading-aware Markdown/text 词法索引 | 规范化语料、中文/英文术语、fallback tests |
+| `backend/rule_document_normalizer.py`、`backend/utils/normalize_rule_documents.py` | 原始规则书只读规范化、manifest 与 overrides | `docs/RULE_DOCUMENT_STANDARD.md`、ignored corpus、检索质量抽查 |
+| `backend/rag_embeddings.py` | GGUF 定位、跨平台 llama-server 生命周期、embedding | Windows/macOS 路径、CUDA/Metal/CPU、超时与日志 |
+| `backend/rag_ingest.py` | 将本地规则文档切片并写入 Chroma 索引 | `rag_embeddings.py`、源目录、collection/manifest、构建命令 |
 
 ## 前端
 

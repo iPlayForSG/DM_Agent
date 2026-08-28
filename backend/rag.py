@@ -4,8 +4,10 @@ import os
 import re
 import sys
 import site
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from lexical_rag import LexicalRuleIndex
 from rag_embeddings import DEFAULT_RAG_COLLECTION, DEFAULT_RAG_EMBEDDING_MODEL, get_query_embedder
 
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
@@ -41,6 +43,7 @@ class RAGEngine:
     def __init__(self) -> None:
         self.db_path = self._resolve_db_path()
         self.source_root = self._resolve_source_root()
+        self.lexical_root = self._resolve_lexical_root()
         self.collection_name = os.getenv("RAG_COLLECTION_NAME", DEFAULT_RAG_COLLECTION).strip() or DEFAULT_RAG_COLLECTION
         self.embedding_model = os.getenv("RAG_EMBEDDING_MODEL", DEFAULT_RAG_EMBEDDING_MODEL).strip()
         self.max_context_chars = self._env_int("RAG_MAX_CONTEXT_CHARS", 6000)
@@ -51,8 +54,15 @@ class RAGEngine:
         self.collection: Optional[Collection] = None
         self.collection_count = 0
         self.last_error = ""
+        self.vector_error = ""
+        self.lexical_error = ""
         self.backend = "unavailable"
+        self.lexical_index = LexicalRuleIndex(
+            [Path(self.lexical_root), Path(self.source_root)],
+            max_chunk_chars=self.max_snippet_chars,
+        )
         self._load_collection()
+        self._load_lexical_index()
 
     def _load_collection(self) -> None:
         self.client = None
@@ -60,12 +70,15 @@ class RAGEngine:
         self.collection_count = 0
         self.backend = "unavailable"
         self.last_error = ""
+        self.vector_error = ""
         if chromadb is None:
-            self.last_error = "chromadb is not installed"
+            self.vector_error = "chromadb is not installed"
+            self.last_error = self.vector_error
             return
 
         if not self.db_path or not os.path.exists(self.db_path):
-            self.last_error = "vector db path not found"
+            self.vector_error = "vector db path not found"
+            self.last_error = self.vector_error
             return
 
         try:
@@ -74,12 +87,26 @@ class RAGEngine:
             self.collection_count = self.collection.count()
             if self.collection_count == 0:
                 self.collection = None
-                self.last_error = f"{self.collection_name} collection is empty"
+                self.vector_error = f"{self.collection_name} collection is empty"
+                self.last_error = self.vector_error
             else:
                 self.backend = "chroma-llama-cpp-gguf"
         except Exception as exc:
             self.collection = None
-            self.last_error = str(exc)
+            self.vector_error = str(exc)
+            self.last_error = self.vector_error
+
+    def _load_lexical_index(self) -> None:
+        ready = self.lexical_index.refresh()
+        self.lexical_error = self.lexical_index.last_error
+        if self.collection is not None:
+            self.backend = "chroma-llama-cpp-gguf"
+        elif ready:
+            self.backend = "lexical-grep"
+        else:
+            self.backend = "unavailable"
+        if not self.last_error and not ready:
+            self.last_error = self.lexical_error
 
     @staticmethod
     def _env_int(name: str, default: int) -> int:
@@ -115,6 +142,12 @@ class RAGEngine:
                 return candidate
         return candidates[0]
 
+    def _resolve_lexical_root(self) -> str:
+        explicit_path = os.getenv("RAG_LEXICAL_ROOT", "").strip()
+        if explicit_path:
+            return self._resolve_config_path(explicit_path)
+        return os.path.join(os.path.dirname(__file__), "Knowledge", "grep_corpus")
+
     @staticmethod
     def _resolve_config_path(path: str) -> str:
         if os.path.isabs(path):
@@ -122,18 +155,24 @@ class RAGEngine:
         return os.path.join(os.path.dirname(__file__), path)
 
     def is_ready(self) -> bool:
-        return self.collection is not None
+        return self.collection is not None or bool(self.lexical_index.chunks)
 
     def refresh(self) -> bool:
         self.db_path = self._resolve_db_path()
         self.source_root = self._resolve_source_root()
+        self.lexical_root = self._resolve_lexical_root()
         self.collection_name = os.getenv("RAG_COLLECTION_NAME", DEFAULT_RAG_COLLECTION).strip() or DEFAULT_RAG_COLLECTION
         self.embedding_model = os.getenv("RAG_EMBEDDING_MODEL", DEFAULT_RAG_EMBEDDING_MODEL).strip()
         self.max_context_chars = self._env_int("RAG_MAX_CONTEXT_CHARS", self.max_context_chars)
         self.max_snippet_chars = self._env_int("RAG_MAX_SNIPPET_CHARS", self.max_snippet_chars)
         self.max_results_per_source = max(1, self._env_int("RAG_MAX_RESULTS_PER_SOURCE", self.max_results_per_source))
         self.rerank_enabled = os.getenv("RAG_RERANK_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+        self.lexical_index = LexicalRuleIndex(
+            [Path(self.lexical_root), Path(self.source_root)],
+            max_chunk_chars=self.max_snippet_chars,
+        )
         self._load_collection()
+        self._load_lexical_index()
         return self.is_ready()
 
     def status_payload(self) -> Dict[str, Any]:
@@ -141,11 +180,19 @@ class RAGEngine:
             "enabled": self.is_ready(),
             "db_path": self.db_path,
             "source_root": self.source_root,
+            "lexical_root": self.lexical_root,
             "collection_name": self.collection_name,
             "collection_count": self.collection_count,
             "embedding_model": self.embedding_model,
             "backend": self.backend,
             "error": self.last_error,
+            "vector_ready": self.collection is not None,
+            "vector_error": self.vector_error,
+            "lexical_ready": bool(self.lexical_index.chunks),
+            "lexical_error": self.lexical_error,
+            "lexical_document_count": self.lexical_index.document_count,
+            "lexical_active_root": str(self.lexical_index.active_root or ""),
+            "fallback_reason": self.vector_error if self.collection is None and self.lexical_index.chunks else "",
             "max_context_chars": self.max_context_chars,
             "max_snippet_chars": self.max_snippet_chars,
             "rerank_enabled": self.rerank_enabled,
@@ -158,23 +205,44 @@ class RAGEngine:
         normalized_queries = self._normalize_queries(queries)
         if not normalized_queries:
             return []
-        if not self.collection:
-            if not self.refresh():
-                return []
+        if not self.is_ready():
+            self.refresh()
 
         requested = max(1, min(int(n_results or 3), 8))
         query_limit = max(requested, min(requested * 4, 24))
         merged: Dict[str, Dict[str, Any]] = {}
 
-        try:
-            for query in normalized_queries:
-                for candidate in self._query_collection(query, query_limit):
-                    key = f"{candidate.get('source', 'unknown')}::{candidate.get('chunk_index', '0')}"
-                    existing = merged.get(key)
-                    if not existing or candidate["_distance_value"] < existing["_distance_value"]:
-                        merged[key] = candidate
-        except Exception as exc:
-            self.last_error = str(exc)
+        if self.collection is not None:
+            try:
+                for query in normalized_queries:
+                    for candidate in self._query_collection(query, query_limit):
+                        key = f"{candidate.get('source', 'unknown')}::{candidate.get('chunk_index', '0')}"
+                        existing = merged.get(key)
+                        if not existing or candidate["_distance_value"] < existing["_distance_value"]:
+                            merged[key] = candidate
+            except Exception as exc:
+                # 向量库存在但嵌入服务失效时，本回合仍可通过词法索引查阅同一规则源。
+                self.vector_error = str(exc)
+                self.last_error = self.vector_error
+                self.backend = "lexical-grep" if self.lexical_index.chunks else "unavailable"
+
+        if not merged:
+            lexical = self.lexical_index.search(normalized_queries, query_limit)
+            if lexical:
+                self.backend = "lexical-grep" if self.collection is None or self.vector_error else self.backend
+                cleaned = [
+                    {
+                        "source": str(item.get("source", "unknown")),
+                        "chunk_index": str(item.get("chunk_index", "")),
+                        "heading": str(item.get("heading", "")),
+                        "start_line": str(item.get("start_line", "")),
+                        "end_line": str(item.get("end_line", "")),
+                        "distance": "",
+                        "content": self._truncate_text(str(item.get("content", "")), self.max_snippet_chars),
+                    }
+                    for item in lexical
+                ]
+                return self._select_diverse(cleaned, requested)
             return []
 
         ordered = self._rerank_candidates(list(merged.values()), normalized_queries)

@@ -31,6 +31,10 @@ from models import (
     TurnTrace,
     ValidationIssue,
 )
+from model_backends import (
+    OPENAI_COMPATIBLE_PROVIDER,
+    CodingAgentCLIChatModel,
+)
 from prompts import build_dm_instruction
 from tool_registry import ToolGuardrailResult, ToolRegistry
 
@@ -1166,6 +1170,9 @@ class DMGraphRunner:
         model_name: str = "",
         api_key: str = "",
         base_url: str = "",
+        model_provider: str = OPENAI_COMPATIBLE_PROVIDER,
+        cli_command: str = "",
+        cli_timeout_s: int = 300,
         enable_model: bool = False,
         max_tool_rounds: int = 6,
         checkpoint_mode: str = "",
@@ -1176,6 +1183,9 @@ class DMGraphRunner:
         self.model_name = model_name
         self.api_key = api_key
         self.base_url = base_url
+        self.model_provider = model_provider or OPENAI_COMPATIBLE_PROVIDER
+        self.cli_command = cli_command
+        self.cli_timeout_s = cli_timeout_s
         self.enable_model = enable_model
         self.max_tool_rounds = max_tool_rounds
         self.library = Library()
@@ -1298,6 +1308,14 @@ class DMGraphRunner:
 
     def _create_model(self):
         if self._model is not None:
+            return self._model
+        if self.model_provider != OPENAI_COMPATIBLE_PROVIDER:
+            self._model = CodingAgentCLIChatModel(
+                provider=self.model_provider,
+                command=self.cli_command,
+                model_name=self.model_name,
+                timeout_s=self.cli_timeout_s,
+            )
             return self._model
         if ChatOpenAI is None:
             raise LangGraphUnavailableError("langchain-openai is not installed.")

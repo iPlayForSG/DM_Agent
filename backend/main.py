@@ -172,9 +172,12 @@ class AbilityScoreRequest(BaseModel):
 class LLMConfigUpdateRequest(BaseModel):
     profile_id: str = ""
     profile_label: str = ""
+    provider: str = "openai-compatible"
     model_name: str = ""
     base_url: str = ""
     api_key: Optional[str] = None
+    cli_command: str = ""
+    cli_timeout_s: int = 300
     activate: bool = True
 
 
@@ -885,9 +888,12 @@ async def update_llm_config(req: LLMConfigUpdateRequest):
         payload = agent.upsert_llm_profile(
             profile_id=req.profile_id,
             profile_label=req.profile_label,
+            provider=req.provider,
             model_name=req.model_name,
             base_url=req.base_url,
             api_key=req.api_key,
+            cli_command=req.cli_command,
+            cli_timeout_s=req.cli_timeout_s,
             activate=req.activate,
         )
     except ValueError as exc:
@@ -917,7 +923,7 @@ async def get_config():
         "checkpoint_backend": agent.checkpoint_backend,
         "checkpoint_db_path": agent.checkpoint_db_path,
         "checkpoint_warning": agent.checkpoint_warning,
-        "model_provider": "openai-compatible",
+        "model_provider": agent.model_provider,
         "llm": agent.llm_runtime_payload(),
     }
 

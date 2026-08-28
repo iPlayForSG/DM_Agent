@@ -4,6 +4,8 @@ import atexit
 import json
 import math
 import os
+import platform
+import shutil
 import socket
 import subprocess
 import time
@@ -43,7 +45,8 @@ class Qwen3EmbeddingFunction:
             or os.getenv("RAG_MODEL_CACHE", os.path.join(os.path.dirname(__file__), "Knowledge", "hf_cache"))
         )
         self.batch_size = int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", str(batch_size)) or batch_size)
-        self.device = (device or os.getenv("RAG_EMBEDDING_DEVICE", "cuda") or "cuda").strip().lower()
+        default_device = "auto" if platform.system() == "Darwin" else "cuda"
+        self.device = (device or os.getenv("RAG_EMBEDDING_DEVICE", default_device) or default_device).strip().lower()
         self.port = int(os.getenv("RAG_LLAMA_SERVER_PORT", "8092") or 8092)
         self.host = os.getenv("RAG_LLAMA_SERVER_HOST", "127.0.0.1").strip() or "127.0.0.1"
         self.base_url = (
@@ -71,10 +74,9 @@ class Qwen3EmbeddingFunction:
         if configured:
             return resolve_config_path(configured)
 
-        candidates = [
-            os.path.join(os.path.dirname(__file__), "Knowledge", "llama_cpp", "b8833-cuda12"),
-            os.path.join(os.path.dirname(__file__), "Knowledge", "llama_cpp"),
-        ]
+        generic = os.path.join(os.path.dirname(__file__), "Knowledge", "llama_cpp")
+        legacy_cuda = os.path.join(generic, "b8833-cuda12")
+        candidates = [generic, legacy_cuda] if platform.system() == "Darwin" else [legacy_cuda, generic]
         for candidate in candidates:
             if os.path.exists(candidate):
                 return candidate
@@ -86,11 +88,19 @@ class Qwen3EmbeddingFunction:
             resolved = resolve_config_path(configured)
             if os.path.exists(resolved):
                 return resolved
+            discovered = shutil.which(configured)
+            if discovered:
+                return discovered
 
         if self.llama_cpp_dir:
-            server_path = os.path.join(self.llama_cpp_dir, "llama-server.exe")
-            if os.path.exists(server_path):
-                return server_path
+            for filename in ("llama-server", "llama-server.exe"):
+                server_path = os.path.join(self.llama_cpp_dir, filename)
+                if os.path.exists(server_path):
+                    return server_path
+        for command in ("llama-server", "llama-server.exe"):
+            discovered = shutil.which(command)
+            if discovered:
+                return discovered
         return ""
 
     def _resolve_model_path(self) -> str:
@@ -149,7 +159,8 @@ class Qwen3EmbeddingFunction:
     def _start_local_server(self) -> None:
         if not self.llama_server_path or not os.path.exists(self.llama_server_path):
             raise FileNotFoundError(
-                "llama-server.exe not found. Set RAG_LLAMA_SERVER_PATH or place llama.cpp binaries under backend/Knowledge/llama_cpp."
+                "llama-server was not found. Set RAG_LLAMA_SERVER_PATH, add it to PATH, "
+                "or place the platform binary under backend/Knowledge/llama_cpp."
             )
 
         args = [
