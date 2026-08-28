@@ -1032,6 +1032,14 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
 }
 
 
+PROMPT_CONTEXT_MAX_CHARS = {
+    "state_summary": 8000,
+    "recent_history": 6000,
+    "campaign_memory": 3600,
+    "rag_context": 6000,
+}
+
+
 class DMGraphState(TypedDict, total=False):
     game_state: Dict[str, Any]
     initial_game_state: Dict[str, Any]
@@ -3073,18 +3081,55 @@ class DMGraphRunner:
             ),
         }
 
+    @staticmethod
+    def _truncate_context_block(value: str, max_chars: int, *, keep: str = "middle") -> str:
+        text = str(value or "")
+        limit = max(0, int(max_chars or 0))
+        if not limit or len(text) <= limit:
+            return text
+        marker = "\n…[context truncated]…\n"
+        if limit <= len(marker):
+            return text[-limit:] if keep == "tail" else text[:limit]
+        available = limit - len(marker)
+        if keep == "tail":
+            return marker + text[-available:]
+        if keep == "head":
+            return text[:available] + marker
+        head_chars = available // 2
+        tail_chars = available - head_chars
+        return text[:head_chars] + marker + text[-tail_chars:]
+
     def _prepare_context(self, graph_state: DMGraphState) -> DMGraphState:
         state = GameState.model_validate(graph_state["game_state"])
         logic = GameLogic(state)
-        state_summary = logic.get_state_summary()
-        recent_history = logic.get_recent_history()
-        campaign_memory = compile_campaign_memory(state)
+        raw_state_summary = logic.get_state_summary()
+        raw_recent_history = logic.get_recent_history()
+        raw_rag_context = str(graph_state.get("rag_context", "") or "")
+        # 单一 DM 会长期积累上下文；每类信息独立限额，避免旧历史挤掉当前状态和工具契约。
+        state_summary = self._truncate_context_block(
+            raw_state_summary,
+            PROMPT_CONTEXT_MAX_CHARS["state_summary"],
+        )
+        recent_history = self._truncate_context_block(
+            raw_recent_history,
+            PROMPT_CONTEXT_MAX_CHARS["recent_history"],
+            keep="tail",
+        )
+        campaign_memory = compile_campaign_memory(
+            state,
+            max_chars=PROMPT_CONTEXT_MAX_CHARS["campaign_memory"],
+        )
+        rag_context = self._truncate_context_block(
+            raw_rag_context,
+            PROMPT_CONTEXT_MAX_CHARS["rag_context"],
+            keep="head",
+        )
         instruction = build_dm_instruction(
             state_summary=state_summary,
             recent_history=recent_history,
             campaign_memory=campaign_memory,
-            rag_enabled=self.rag_engine.is_ready(),
-            retrieved_context=graph_state.get("rag_context", ""),
+            rag_enabled=bool(self.rag_engine and self.rag_engine.is_ready()),
+            retrieved_context=rag_context,
             phase_name=graph_state.get("phase", ""),
             phase_objective=graph_state.get("phase_objective", ""),
             phase_constraints=list(graph_state.get("phase_constraints", [])),
@@ -3114,8 +3159,20 @@ class DMGraphRunner:
                 "prepare_context",
                 "Prompt context prepared.",
                 {
-                    "rag_context_chars": len(graph_state.get("rag_context", "") or ""),
+                    "state_summary_chars": len(state_summary),
+                    "recent_history_chars": len(recent_history),
+                    "rag_context_chars": len(rag_context),
                     "campaign_memory_chars": len(campaign_memory),
+                    "instruction_chars": len(instruction),
+                    "truncated_contexts": [
+                        name
+                        for name, raw_value, bounded_value in (
+                            ("state_summary", raw_state_summary, state_summary),
+                            ("recent_history", raw_recent_history, recent_history),
+                            ("rag_context", raw_rag_context, rag_context),
+                        )
+                        if len(raw_value) > len(bounded_value)
+                    ],
                     "suggested_tool_count": len(graph_state.get("suggested_tools", [])),
                     "reply_min_chars": int(state.campaign.reply_min_chars or 0),
                     "reply_max_chars": int(state.campaign.reply_max_chars or 0),

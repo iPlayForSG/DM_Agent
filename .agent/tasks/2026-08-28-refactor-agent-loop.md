@@ -41,6 +41,8 @@ Updated: 2026-08-28
 - [x] 行动选项正文清理改为非事务展示处理，不再回滚正确主回合。
 - [x] 补充新架构、事务边界和无证据审计 characterization tests。
 - [x] 创建 Accepted ADR，并同步架构文档和长期 memory。
+- [x] 增加离线 Loop 验收基线：普通叙事 1 次模型调用、单工具回合 2 次调用、提交叙事跨回合可见、phase 工具隔离。
+- [x] 为状态摘要、近期历史、长期记忆和 RAG 上下文设置独立预算，并在 trace 中记录长度与截断项。
 
 ## Decisions
 
@@ -57,6 +59,7 @@ Updated: 2026-08-28
 - 重构前 `input_required` 结果会被 API 无条件保存；若 interrupt 前已有成功写工具，可能暴露未经过 `finalize_turn` 的 staged state。
 - 当前目标测试在本机 `.venv` 可运行，但缺少被忽略的 `backend/data/spells.json`，导致 4 个法术数据相关失败。
 - 原 `_call_model` 中约千行叙事证据启发式与重试已从代码删除；grounding/turn-claim helper 只保留为离线或独立测试能力，不进入实时 DM Loop。
+- `GameLogic.get_recent_history()` 原先只限制消息条数，单条超长消息仍可无限放大提示词；现在上下文装配层保留最新历史并执行字符预算。
 
 ## Validation
 
@@ -67,15 +70,32 @@ Updated: 2026-08-28
 - [x] 非法术数据依赖的 81 项测试 — 全部通过。
 - [x] 完整后端 162 项测试 — 149 项通过；13 项失败均由本地缺少 ignored `backend/data/spells.json` 引起，包含 4 项施法测试和 9 项建卡/法术目录级联测试。
 - [x] `git diff --check` — 实现与文档变更后通过。
+- [x] `tests.test_dm_loop_acceptance` 与既有 campaign-memory 定向测试 — 6 项全部通过。
+- [x] 完整后端 167 项测试 — 154 项通过；13 项仍均由缺少 ignored `backend/data/spells.json` 引起，没有新增失败。
 - [ ] 真实 provider 与连续玩家回归；本次未改前端或 API 契约，不要求前端 build/lint。
 
 ## Remaining work
 
-- 使用真实 provider 做连续多回合人格、工具调用、interrupt 和延迟 smoke test。
-- 出现明确复杂任务后，再为只读 assistant brief/artifact 定义最小 schema；不预建空角色。
+### Stage 2：真实运行验收
+
+- 使用真实 provider 做连续多回合人格、叙事连续性、工具调用、interrupt/resume 和延迟 smoke test。
+- 记录普通对话、单工具回合和战斗回合的模型调用数与端到端耗时，确认相较旧流水线的实际收益。
+- 恢复或生成本地 `backend/data/spells.json` 后重跑完整测试，消除环境性失败。
+
+### Stage 3：DM 叙事自由与持久事实
+
+- 用实际跑团样本检查“即时描写 / 可持久剧情事实 / 机械事实”的分层是否足够自然。
+- 只有现有日志、线索、章节与场景工具无法表达明确用例时，才新增最小语义事件契约；模型仍不能直接 patch `GameState`。
+- 增加长战役回归样本，验证上下文预算下当前场景、最新决定和未解决线索不会丢失。
+
+### Stage 4：按需协作能力
+
+- 从真实复杂任务中识别需要独立新信息、上下文隔离或并行计算的用例，例如规则调研、章节规划或大量素材整理。
+- 针对首个明确用例定义只读 assistant 的最小 brief/artifact schema、超时/失败降级和引用方式；不预建常驻角色或恢复流水线接棒。
+- 将辅助结果作为 DM 的可选上下文，不授予其权威状态写权限，也不增加每回合强制审计。
 
 ## Resume instructions
 
 1. 读取本计划、`architecture-map.md` 与 `common-pitfalls.md`。
 2. 不恢复已删除的控制 Agent 流水线；在线正确性继续放在确定性工具和事务边界。
-3. 先完成验证；真实 provider 未配置时如实记录未验证，不用单元测试替代。
+3. 下一步从 Stage 2 的真实 provider smoke 开始；未配置时如实记录未验证，不用单元测试替代。
