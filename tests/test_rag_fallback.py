@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
+from lexical_rag import LexicalRuleIndex
 from rag import RAGEngine
 from rag_embeddings import Qwen3EmbeddingFunction
 from rule_document_normalizer import normalize_corpus
@@ -37,6 +38,88 @@ class RuleDocumentNormalizationTests(unittest.TestCase):
             self.assertIn("## Grapple", normalized)
             self.assertIn("- Make a check.", normalized)
             self.assertNotIn("\r", normalized)
+
+    def test_disambiguates_duplicate_default_titles_with_parent_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source"
+            output = root / "output"
+            (source / "Player Handbook").mkdir(parents=True)
+            (source / "Rules Glossary").mkdir(parents=True)
+            (source / "Player Handbook" / "Actions.md").write_text("## Attack\n", encoding="utf-8")
+            (source / "Rules Glossary" / "Actions.md").write_text("## Help\n", encoding="utf-8")
+
+            manifest = normalize_corpus(source, output, root / "missing-overrides.json")
+
+            self.assertEqual(
+                [document["title"] for document in manifest["documents"]],
+                ["Player Handbook — Actions", "Rules Glossary — Actions"],
+            )
+            self.assertTrue((output / "Player Handbook" / "Actions.md").read_text(encoding="utf-8").startswith(
+                "# Player Handbook — Actions\n"
+            ))
+
+    def test_inherits_directory_aliases_and_deduplicates_document_aliases(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source"
+            output = root / "output"
+            document_root = source / "Core" / "Player Handbook"
+            document_root.mkdir(parents=True)
+            (document_root / "Combat.md").write_text("## Combat\n", encoding="utf-8")
+            overrides = root / "overrides.json"
+            overrides.write_text(json.dumps({
+                "directories": {
+                    "Core": {"aliases": ["core rules"]},
+                    "Core/Player Handbook": {"aliases": ["PHB 2024"]},
+                },
+                "documents": {
+                    "Core/Player Handbook/Combat.md": {"aliases": ["phb 2024", "战斗规则"]},
+                },
+            }), encoding="utf-8")
+
+            manifest = normalize_corpus(source, output, overrides)
+            normalized = (document_root.relative_to(source) / "Combat.md")
+            normalized_text = (output / normalized).read_text(encoding="utf-8")
+
+            self.assertEqual(manifest["documents"][0]["aliases"], ["core rules", "PHB 2024", "战斗规则"])
+            self.assertIn("> Search aliases: core rules, PHB 2024, 战斗规则", normalized_text)
+
+    def test_repairs_generated_table_separator_without_editing_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source"
+            output = root / "output"
+            source.mkdir()
+            original = "| d100 | Anchor | Destination | Key |\n| --- | --- | --- |\n| 1 | Arch | Sigil | Coin |\n"
+            source_path = source / "Portals.md"
+            source_path.write_text(original, encoding="utf-8")
+
+            normalize_corpus(source, output, root / "missing-overrides.json")
+
+            self.assertEqual(source_path.read_text(encoding="utf-8"), original)
+            normalized = (output / "Portals.md").read_text(encoding="utf-8")
+            self.assertIn("| --- | --- | --- | --- |", normalized)
+
+    def test_separates_flattened_table_from_heading_and_reports_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source"
+            output = root / "output"
+            source.mkdir()
+            flattened_table = " | ".join(["cell"] * 260)
+            (source / "Weapons.md").write_text(
+                f"### Weapons | {flattened_table} |\n",
+                encoding="utf-8",
+            )
+
+            manifest = normalize_corpus(source, output, root / "missing-overrides.json")
+            normalized = (output / "Weapons.md").read_text(encoding="utf-8")
+
+            self.assertIn("\n### Weapons\n| cell", normalized)
+            self.assertNotIn("### Weapons | cell", normalized)
+            self.assertEqual(manifest["quality_warning_counts"], {"flattened-table-line": 1})
+            self.assertEqual(manifest["documents"][0]["quality_warnings"], ["flattened-table-line:6"])
 
 
 class RAGFallbackTests(unittest.TestCase):
@@ -94,6 +177,25 @@ class RAGFallbackTests(unittest.TestCase):
             self.assertTrue(results)
             self.assertEqual(engine.backend, "lexical-grep")
             self.assertIn("embedding missing", engine.vector_error)
+
+    def test_document_aliases_are_scored_for_every_heading_chunk(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "monster.md").write_text(
+                "# Red Dragon\n\n> Source: monster.md\n> Search aliases: MM 2025, Monster Manual 2025\n\n"
+                "## Red Dragon Lairs\nA dragon guards its lair.\n",
+                encoding="utf-8",
+            )
+            (root / "spell.md").write_text(
+                "# Summon Dragon\n\nA dragon spell mentions dragon several times.\n",
+                encoding="utf-8",
+            )
+            index = LexicalRuleIndex([root])
+
+            results = index.search(["MM dragon"], limit=2)
+
+            self.assertEqual(results[0]["source"], "monster.md")
+            self.assertIn("Red Dragon Lairs", results[0]["heading"])
 
 
 class CrossPlatformLlamaServerTests(unittest.TestCase):

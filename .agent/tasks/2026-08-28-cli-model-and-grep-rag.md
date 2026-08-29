@@ -1,7 +1,7 @@
 # CLI 模型接入与 Grep 规则检索降级
 
-Status: active
-Updated: 2026-08-28
+Status: completed
+Updated: 2026-08-29
 
 ## Goal
 
@@ -26,13 +26,15 @@ Updated: 2026-08-28
 
 ## Progress
 
-- [x] 创建并切换分支 `feat-cli-model-and-grep-rag`，保留会话开始前已有记忆系统改动。
+- [x] 创建功能分支；远端现已规范命名为 `feat/cli-model-and-grep-rag`。
 - [x] 读取项目约束和相关 memory，定位 API profile、LangGraph model、RAG 与前端配置入口。
 - [x] 检查本机 CLI：`codex-cli 0.146.0`、Claude Code `2.1.238` 均可执行。
 - [x] 确认本机 `backend/Documents/` 当前没有规则书文件，不能虚构已完成正文整理。
 - [x] 核对 Codex/Claude 官方非交互与结构化输出契约，形成 provider 设计。
 - [x] 实现 provider、配置/UI、grep fallback、规范化工具和测试。
 - [x] 完成后端/前端/跨平台验证与文档维护；实际规则书人工复核等待本地语料。
+- [x] 在 Windows 工作区确认 `backend/Documents/DND5e 2024/` 已有 2,948 个 Markdown 文档（约 12.7 MB）。
+- [x] 生成规范化词法语料并完成标题、aliases、OCR 与表格质量抽查。
 
 ## Decisions
 
@@ -41,6 +43,9 @@ Updated: 2026-08-28
 - 2026-08-28：CLI 只能作为模型传输层，必须返回 LangChain 可消费的内容/工具调用；不能授权 CLI 自行执行游戏写操作。
 - 2026-08-28：运行时词法降级使用纯 Python heading-aware 索引，不依赖系统 `grep`/`rg`，以保证 Windows/macOS 的转义、编码和安装一致性。
 - 2026-08-28：CLI 健康检查只验证本机安装与版本，不触发付费模型请求；UI 明确说明登录态在首次真实调用时验证。
+- 2026-08-29：同名文件的生成标题使用最短必要父目录消歧；显式 document title override 仍保持最高优先级。
+- 2026-08-29：书名和 PHB/DMG/MM 等公共别名使用可继承的 directory aliases，并让词法索引把 aliases 应用于文档的每个 heading chunk。
+- 2026-08-29：原始规则书继续只读；能确定列数的表格分隔错误只在生成副本修复，不能可靠自动还原的折叠表格与过短来源写入 manifest quality warnings。
 
 ## Discoveries / surprises
 
@@ -50,6 +55,10 @@ Updated: 2026-08-28
 - 全量后端 169 个测试当前有 13 个既有失败，均因被 `.gitignore` 排除的 `backend/data/spells.json` 在这台 Mac 缺失，表现为法术目录为空；新增 10 个目标测试全部通过。
 - 初次 macOS 启动 smoke 暴露了“未配置 API 时 health 构建模型并抛错”的旧路径；runner 现按档案完整性决定是否启用模型节点，无配置启动与健康接口已通过。
 - Codex 的严格 output schema 首次拒绝任意对象型工具参数；协议改为 `args_json` 字符串后，Codex/Claude 真实文本调用与 Codex 真实 `lookup_rules` tool call 均通过。
+- 原计划所在 Mac 没有规则语料，但当前 Windows 工作区已有完整 Markdown 集合；应以本机实际文件继续规范化，不再把“目录为空”视为当前阻塞。
+- Windows 语料初次生成出现 317 个重复标题组中的同名文档、2 个可确定修复的表格分隔错误，以及 5 条折叠表格长行；标题消歧和分隔修复后，manifest 中 2,948 个标题全部唯一，折叠表格不再污染 heading。
+- 全语料未发现 Unicode replacement character、常见乱码、HTML 标签或 HTML entity 残留；4 个不足 40 字符的来源和 5 条仍折叠的表格长行由 manifest 持续提示人工维护。
+- 目录 aliases 若只写入文档头部，无法影响后续 heading chunk；索引需在所有 chunk 上继承并单独加权，`MM dragon` 才能稳定命中核心怪物图鉴。
 
 ## Validation
 
@@ -62,14 +71,19 @@ Updated: 2026-08-28
 - [x] macOS `start.sh`、health/config/RAG status smoke
 - [x] Codex/Claude Code 真实结构化文本 smoke；Codex 真实 tool-call smoke
 - [x] `git diff --check`
-- [x] `git status --short --branch`（确认仍在 `feat-cli-model-and-grep-rag`，继承的 memory/hook dirty changes 未被覆盖）
+- [x] `git status --short --branch`（历史验证时仍在旧名分支；当前分支名为 `feat/cli-model-and-grep-rag`）
+- [x] Windows 规则语料规范化：2,948 documents、2,948 unique titles、1,149 aliased documents；重复执行 manifest SHA-256 均为 `AEE9637A14A6CC3E4772E3364292DFEC26E3CD5CA1CFB2FF998A32804D243FB5`。
+- [x] 全语料质量扫描：0 encoding/HTML artifacts、0 output/header mismatch、0 table header/separator mismatch；manifest 保留 5 个 `flattened-table-line` 与 4 个 `short-source` 警告。
+- [x] 真实词法索引：2,948 documents、8,727 chunks；中文/英文术语及 `PHB combat`、`DMG magic items`、`MM dragon` 查询命中对应核心规则来源。
+- [x] `python -m unittest tests.test_rag_fallback -v`（9 tests 通过）。
+- [x] 项目 Conda Python `python -m unittest discover -s tests -v`（174 tests 通过）。
+- [x] 项目 Conda Python `python -m unittest discover -s .codex/hooks/tests -v`（25 tests 通过）。
+- [x] Windows `npm run build`；`npm run lint`（0 error，2 个既有 hooks dependency warning）。
 
 ## Remaining work
 
-- 将规则书放入 `backend/Documents/DND5e 2024/` 后运行规范化脚本，并人工复核标题、aliases、OCR 和表格；当前目录为空，无法在本次会话执行正文整理。
+- 无必需工程工作。被忽略的本地原始语料仍有 5 条折叠表格长行和 4 个过短来源；后续人工修订这些来源后重新运行规范化脚本，并以 manifest quality warnings 归零为目标。
 
 ## Resume instructions
 
-1. 读取本计划与 `.agent/memory/architecture-map.md`、`module-map.md`、`common-pitfalls.md`。
-2. 继续最终验证、diff review、memory 最小更新；不要修改缺失的本地法术资产来掩盖基线失败。
-3. 不读取或输出 `backend/.env`；测试使用 `DM_AGENT_SKIP_DOTENV=1`、临时目录和 fake subprocess。
+任务已完成。未来本地规则来源变化时，运行 `python backend/utils/normalize_rule_documents.py`，检查 manifest 的 `quality_warning_counts`，再用核心中英文术语和 PHB/DMG/MM 缩写做词法 smoke；不要提交原始或生成的规则书正文。
