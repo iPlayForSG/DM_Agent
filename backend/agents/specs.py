@@ -24,7 +24,10 @@ SETUP_CATALOG_TOOL_NAMES = (
     "validate_character_sheet",
 )
 
+PLAYER_CHOICE_TOOL_NAMES = ("request_player_choice",)
+
 BASE_DM_TOOL_NAMES = (
+    *PLAYER_CHOICE_TOOL_NAMES,
     "lookup_rules",
     "roll_dice",
     "adjust_hp",
@@ -63,18 +66,21 @@ COMBAT_DM_TOOL_NAMES = (
 
 PHASE_CAPABILITY_TOOL_NAMES: Dict[str, Tuple[str, ...]] = {
     "party_creation": (
+        *PLAYER_CHOICE_TOOL_NAMES,
         "lookup_rules",
         "generate_ability_scores",
         *SETUP_CATALOG_TOOL_NAMES,
         "create_party_character",
     ),
     "character_creation": (
+        *PLAYER_CHOICE_TOOL_NAMES,
         "lookup_rules",
         "generate_ability_scores",
         *SETUP_CATALOG_TOOL_NAMES,
         "create_party_character",
     ),
     "adventure_selection": (
+        *PLAYER_CHOICE_TOOL_NAMES,
         "lookup_rules",
         "append_adventure_log",
         *SETUP_CATALOG_TOOL_NAMES,
@@ -84,6 +90,7 @@ PHASE_CAPABILITY_TOOL_NAMES: Dict[str, Tuple[str, ...]] = {
     "combat": (*BASE_DM_TOOL_NAMES, *COMBAT_DM_TOOL_NAMES),
     "downtime": (*BASE_DM_TOOL_NAMES, "start_encounter"),
     "level_up": (
+        *PLAYER_CHOICE_TOOL_NAMES,
         "lookup_rules",
         "append_adventure_log",
         "record_major_experience",

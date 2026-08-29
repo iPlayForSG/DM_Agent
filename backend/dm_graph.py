@@ -33,7 +33,7 @@ from model_backends import (
     CodingAgentCLIChatModel,
 )
 from prompts import build_dm_instruction
-from tool_registry import ToolGuardrailResult, ToolRegistry
+from tool_registry import ToolRegistry
 
 try:
     from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
@@ -220,6 +220,27 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         },
     },
     {
+        "name": "request_player_choice",
+        "description": (
+            "Pause for the player only when a consequential in-world branch genuinely lacks their decision. "
+            "When the turn must wait for that decision, call this tool instead of asking for the choice in normal prose. "
+            "Provide a natural prompt and two to four concrete options. Never use this for an action the player "
+            "already stated, deterministic rules resolution, DM bookkeeping, or generic confirmation of a state write. "
+            "Call it before any state mutation whose outcome depends on the missing choice."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "options": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            },
+            "required": ["prompt", "options"],
+        },
+    },
+    {
         "name": "select_adventure_hook",
         "description": (
             "Lock in one adventure hook already offered in campaign.available_adventures and advance the campaign into "
@@ -372,7 +393,11 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "record_evidence",
-        "description": "Persist a clue or document as structured evidence.",
+        "description": (
+            "Persist a named clue, document, or investigation artifact as structured evidence. Call it when "
+            "authoritative context establishes that the party obtains, accepts, or keeps the artifact and no "
+            "matching evidence record exists."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
@@ -708,7 +733,6 @@ RULE_QUESTION_TERMS = [
     "什么意思",
     "规则",
     "解释",
-    "说明",
     "rule",
     "rules",
 ]
@@ -850,7 +874,7 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
         "constraints": [
             "Do not begin active exploration or combat until an adventure hook is selected.",
             "Keep the turn centered on clarifying the available hooks, stakes, and tone.",
-            "If the player wants fast setup, recommend one hook and ask for confirmation instead of re-explaining every option.",
+            "If the player wants fast setup, recommend one hook; once they name or click it, select it without a second confirmation.",
         ],
         "blockers": [
             "No selected adventure is locked in yet.",
@@ -1013,6 +1037,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
     "conversation": {
         "tool_round_limit": 1,
         "tool_subset": [
+            "request_player_choice",
             "lookup_rules",
             "append_adventure_log",
             "add_inventory_item",
@@ -1022,7 +1047,11 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
             "set_scene",
             "set_active_character",
         ],
-        "guidance": "Prefer a direct in-world reply. Proactively persist an important clue, loot, chapter update, or scene transition only when the fiction establishes it; do not wait for bookkeeping language from the player.",
+        "guidance": (
+            "Prefer a direct in-world reply. Proactively persist an important clue, loot, chapter update, or scene "
+            "transition only when the fiction establishes it; do not wait for bookkeeping language from the player. "
+            "An already-confirmed named clue being handed to, accepted by, or kept by the party is a persist-now event."
+        ),
     },
     "rules_reference": {
         "tool_round_limit": 1,
@@ -1635,6 +1664,41 @@ class DMGraphRunner:
             ]
         ):
             suggestions.append("advance_turn")
+        acquisition_terms = [
+            "take",
+            "keep",
+            "accept",
+            "pick up",
+            "接过",
+            "收好",
+            "拾起",
+            "捡起",
+            "拿起",
+            "保管",
+        ]
+        evidence_artifact_terms = [
+            "clue",
+            "evidence",
+            "fragment",
+            "document",
+            "letter",
+            "token",
+            "线索",
+            "证据",
+            "封片",
+            "碎片",
+            "残片",
+            "文书",
+            "信件",
+            "残页",
+            "令牌",
+            "徽记",
+        ]
+        if any(term in lowered for term in acquisition_terms) and any(
+            term in lowered for term in evidence_artifact_terms
+        ):
+            # 这里只提示模型检查是否应落库；玩家文本仍不是事实源，实际调用必须由权威上下文支持。
+            suggestions.append("record_evidence")
         if self._chapter_completion_requested(normalized) or any(
             term in lowered
             for term in [
@@ -1693,6 +1757,12 @@ class DMGraphRunner:
         rule_intent = self._classify_rule_intent(state, normalized_input)
         action_terms = self._action_terms_for_input(normalized_input)
         question_shape = self._looks_like_question(normalized_input)
+        suggested_tools = self._suggested_resolution_tools(state, normalized_input, phase_name)
+        # 明示或可确定映射到写工具的玩家指令本身就是行动信号；不能因为措辞里同时出现“解释/规则”
+        # 就降级成只允许 lookup_rules 的问答回合。
+        has_resolution_action = bool(
+            action_terms or [tool_name for tool_name in suggested_tools if tool_name != "lookup_rules"]
+        )
 
         if phase_name in {"party_creation", "character_creation", "adventure_selection", "level_up"}:
             turn_type = "setup_guidance"
@@ -1703,10 +1773,14 @@ class DMGraphRunner:
         elif not normalized_input:
             turn_type = "conversation"
             reason = "empty or whitespace-only player input"
-        elif phase_name == "combat" and action_terms and not question_shape:
+        elif phase_name == "combat" and has_resolution_action and not question_shape:
             turn_type = "combat_resolution"
             reason = "active encounter action should resolve directly instead of detouring into a rules-only turn"
-        elif rule_intent.get("should_retrieve") and action_terms and not self._looks_like_rule_question(normalized_input):
+        elif (
+            rule_intent.get("should_retrieve")
+            and has_resolution_action
+            and not self._looks_like_rule_question(normalized_input)
+        ):
             turn_type = "action_resolution"
             reason = "the turn references rules-sensitive mechanics, but the player is attempting a concrete action"
         elif phase_name == "combat" and not rule_intent.get("should_retrieve"):
@@ -1718,7 +1792,7 @@ class DMGraphRunner:
         elif phase_name == "combat":
             turn_type = "combat_resolution"
             reason = "active encounter turn should stay focused on concrete combat resolution"
-        elif action_terms:
+        elif has_resolution_action:
             turn_type = "action_resolution"
             reason = "player attempted an action that likely needs adjudication or tracked consequences"
         elif question_shape:
@@ -1728,7 +1802,6 @@ class DMGraphRunner:
             turn_type = "conversation"
             reason = "player input reads like low-friction narrative conversation"
 
-        suggested_tools = self._suggested_resolution_tools(state, normalized_input, phase_name)
         if turn_type == "rules_reference":
             suggested_tools = ["lookup_rules"]
         suggested_tools = self._unique_texts(suggested_tools, limit=4)
@@ -1747,7 +1820,8 @@ class DMGraphRunner:
             action_terms=action_terms,
             matched_spells=list(rule_intent.get("matched_spells", [])),
             suggested_tools=suggested_tools,
-            requires_confirmation=risk_level == "high",
+            # 风险等级只服务内部 guardrail/trace，不能推导玩家是否还欠一个决定。
+            requires_confirmation=False,
         )
 
     def _build_turn_advice(
@@ -2472,6 +2546,13 @@ class DMGraphRunner:
         lowered = " ".join((user_input or "").split()).strip().casefold()
         if not lowered:
             return False
+        explicit_values = re.findall(
+            r"\bcompleted\b[\"']?\s*(?:=|:)\s*(true|false)\b",
+            lowered,
+        )
+        if explicit_values:
+            # 工具参数里的显式布尔值优先于附近自然语言中的“完成记录后”等流程措辞。
+            return explicit_values[-1] == "true"
         chapter_terms = ["chapter", "\u7ae0", "\u5927\u7ae0", "\u672c\u7ae0"]
         completion_terms = [
             "complete",
@@ -2692,7 +2773,6 @@ class DMGraphRunner:
                 "ruling",
                 "\u89c4\u5219",
                 "\u89e3\u91ca",
-                "\u8bf4\u660e",
                 "\u5224\u5b9a",
             ],
             "combat_resolution": [
@@ -2799,7 +2879,6 @@ class DMGraphRunner:
             "\u89c4\u5219",
             "\u5224\u5b9a",
             "\u89e3\u91ca",
-            "\u8bf4\u660e",
             "rule",
             "rules",
             "ruling",
@@ -3112,6 +3191,13 @@ class DMGraphRunner:
                     "phase": phase,
                     "scene": scene,
                     "turn_profile": turn_profile["turn_profile"],
+                    "turn_intent": {
+                        "turn_type": str(turn_intent.get("turn_type") or ""),
+                        "reason": str(turn_intent.get("reason") or ""),
+                        "needs_rules": bool(turn_intent.get("needs_rules")),
+                        "rag_intent": str(turn_intent.get("rag_intent") or "none"),
+                        "suggested_tools": list(turn_intent.get("suggested_tools") or []),
+                    },
                     "allowed_tool_count": len(turn_advice["allowed_tools"]),
                 },
             ),
@@ -3649,6 +3735,7 @@ class DMGraphRunner:
         if output_token_limit:
             model = model.bind(max_tokens=output_token_limit)
 
+        model_call_count = 1
         try:
             response = model.invoke(messages)
         except Exception as exc:
@@ -3662,7 +3749,7 @@ class DMGraphRunner:
                 severity="error",
                 action="failed_turn",
                 summary=f"Model invocation failed: {detail}",
-                metadata={"detail": detail},
+                metadata={"detail": detail, "model_call_count": model_call_count},
             )
             rag_metadata = dict(graph_state.get("rag_metadata", {}))
             rag_metadata["model_error"] = detail
@@ -3676,7 +3763,7 @@ class DMGraphRunner:
                     graph_state,
                     "draft_response",
                     "DM model invocation failed.",
-                    {"error": detail},
+                    {"error": detail, "model_call_count": model_call_count},
                     status="failed",
                 ),
             }
@@ -3696,6 +3783,7 @@ class DMGraphRunner:
                 "给出简体中文的最终主持叙事。"
             )
             try:
+                model_call_count += 1
                 response = model.invoke([*messages, final_instruction])
                 tool_calls = self._last_message_tool_calls([response])
                 final_response = self.clean_player_response(
@@ -3710,7 +3798,11 @@ class DMGraphRunner:
                         graph_state,
                         "draft_response",
                         "DM final response after the tool budget failed.",
-                        {"error": detail, "tool_round_limit": tool_round_limit},
+                        {
+                            "error": detail,
+                            "tool_round_limit": tool_round_limit,
+                            "model_call_count": model_call_count,
+                        },
                         status="failed",
                     ),
                 }
@@ -3736,6 +3828,7 @@ class DMGraphRunner:
                 metadata={
                     "tool_call_count": len(tool_calls),
                     "tool_round_limit": tool_round_limit,
+                    "model_call_count": model_call_count,
                 },
             )
             return {
@@ -3752,6 +3845,7 @@ class DMGraphRunner:
                         "tool_call_count": len(tool_calls),
                         "tool_round_limit": tool_round_limit,
                         "repair_required": repair_required,
+                        "model_call_count": model_call_count,
                     },
                     status="failed",
                 ),
@@ -3767,6 +3861,7 @@ class DMGraphRunner:
             {
                 "tool_call_count": len(tool_calls),
                 "response_chars": len(final_response),
+                "model_call_count": model_call_count,
             },
         )
         return result
@@ -3788,7 +3883,10 @@ class DMGraphRunner:
 
     @staticmethod
     def _should_continue_after_validation(graph_state: DMGraphState) -> str:
-        if str(graph_state.get("validation_status") or "") == "failed":
+        if (
+            str(graph_state.get("turn_status") or "") == "failed"
+            or str(graph_state.get("validation_status") or "") == "failed"
+        ):
             return "finalize_turn"
         return "draft_response"
 
@@ -3808,98 +3906,71 @@ class DMGraphRunner:
         )
 
     @staticmethod
-    def _is_confirmation_affirmative(value: Any) -> bool:
-        if isinstance(value, dict):
-            for key in ["confirmed", "confirm", "approved", "approve", "allow", "execute"]:
-                if key in value:
-                    return bool(value.get(key))
-            text = value.get("message") or value.get("input") or value.get("content") or ""
-        else:
-            text = str(value or "")
-
-        normalized = " ".join(str(text or "").split()).strip().casefold()
-        if not normalized:
-            return False
-        negative_terms = {
-            "no",
-            "n",
+    def _is_player_choice_cancelled(value: str) -> bool:
+        normalized = " ".join(str(value or "").split()).strip().casefold()
+        return normalized in {
             "cancel",
-            "deny",
-            "decline",
-            "stop",
-            "否",
-            "不",
-            "不要",
+            "cancel this choice",
+            "not now",
+            "decide later",
             "取消",
-            "拒绝",
-            "停止",
+            "暂不决定",
+            "先不决定",
+            "以后再说",
         }
-        if normalized in negative_terms:
-            return False
-        affirmative_terms = {
-            "yes",
-            "y",
-            "ok",
-            "okay",
-            "confirm",
-            "confirmed",
-            "approve",
-            "approved",
-            "execute",
-            "go ahead",
-            "确认",
-            "是",
-            "可以",
-            "同意",
-            "执行",
-            "继续",
-        }
-        return normalized in affirmative_terms
 
-    def _confirm_tool_execution(
+    def _request_player_choice(
         self,
         graph_state: DMGraphState,
-        tool_name: str,
         args: Dict[str, Any],
-        guardrail: ToolGuardrailResult,
-    ) -> tuple[bool, str]:
-        if not guardrail.metadata.get("requires_confirmation"):
-            return True, ""
+    ) -> AgentToolExecution:
         if interrupt is None:
-            return False, f"Tool requires confirmation before execution: {tool_name}"
+            return self._tool_error_execution(
+                "request_player_choice",
+                "Player choice interrupt support is unavailable.",
+            )
 
-        confirmation_actions = {
-            "create_party_character": "把新角色正式加入队伍",
-            "select_adventure_hook": "选定这条冒险并开始记录进度",
-            "record_chapter_progress": (
-                "结束当前章节并保存结算"
-                if args.get("completed") is True
-                else "更新当前章节进度"
-            ),
-            "set_defeat_state": "确认角色或生物的最终败北状态",
-            "remove_combatant": "从当前遭遇中移除目标",
-            "end_encounter": "结束当前遭遇并保存结果",
-        }
-        action_description = confirmation_actions.get(tool_name, "执行这项不可自动撤销的决定")
+        prompt = " ".join(str(args.get("prompt") or "").split()).strip()
+        options = self._unique_texts(list(args.get("options") or []), limit=4)
         payload = {
-            "kind": "tool_confirmation",
+            "kind": "player_choice",
             "phase": str(graph_state.get("phase") or ""),
-            "prompt": (
-                f"即将{action_description}，这一决定会写入本局进度。"
-                "请回复“确认”继续，或回复“取消”保留当前状态。"
-            ),
+            "prompt": prompt,
             "details": {
-                "reason": "high_risk_tool_confirmation",
-                "tool_name": tool_name,
-                "args": dict(args or {}),
-                "guardrail": dict(guardrail.metadata),
-                "turn_intent": dict(graph_state.get("turn_intent") or {}),
+                "reason": "player_decision_required",
+                "options": options,
+                "allow_cancel": True,
             },
         }
-        resumed = interrupt(payload)
-        if self._is_confirmation_affirmative(resumed):
-            return True, ""
-        return False, f"Tool execution cancelled by confirmation guardrail: {tool_name}"
+        # LangGraph 恢复 interrupt 时会从当前节点开头重跑；暂停前只组装纯数据，不写状态或外部资源。
+        selected = self._coerce_resume_input(interrupt(payload))
+        if not selected or self._is_player_choice_cancelled(selected):
+            return AgentToolExecution(
+                ok=False,
+                error="Player deferred the requested decision.",
+                error_response={
+                    "ok": False,
+                    "cancelled": True,
+                    "message": "The player chose not to decide now. Do not apply any staged consequences.",
+                },
+            )
+
+        choice_payload = {"selection": selected, "options": options}
+        return AgentToolExecution(
+            ok=True,
+            payload=choice_payload,
+            tool_result=ToolResult(
+                tool_name="interaction.player_choice",
+                summary=f"玩家选择：{selected}",
+                payload=choice_payload,
+            ),
+            timeline_event=self._build_event(
+                event_type="player_choice",
+                summary="Player choice",
+                content=selected,
+                payload=choice_payload,
+            ),
+        )
 
     def _execute_single_tool(
         self,
@@ -3931,15 +4002,8 @@ class DMGraphRunner:
     @staticmethod
     def _tool_message_content(
         execution: AgentToolExecution,
-        confirmation_status: str = "",
     ) -> str:
         payload = execution.response()
-        if confirmation_status == "confirmed" and execution.ok:
-            # interrupt 已消费本次玩家确认；把事务事实交回模型，避免最终叙事再次索要确认。
-            payload["confirmation"] = {
-                "status": "confirmed",
-                "instruction": "Player confirmation was already accepted and the tool succeeded. Do not ask for confirmation again.",
-            }
         return json.dumps(payload, ensure_ascii=False, default=str)
 
     @staticmethod
@@ -4274,10 +4338,10 @@ class DMGraphRunner:
             if validation_message is not None:
                 messages.append(validation_message)
 
-        final_response = ""
+        final_response = str(graph_state.get("final_response") or "")
         turn_status = str(graph_state.get("turn_status") or "running")
         if validation_status == "failed":
-            final_response = "状态校验发现无法安全自动修复的问题；为避免叙事和状态不一致，本回合未提交。"
+            final_response = final_response or "状态校验发现无法安全自动修复的问题；为避免叙事和状态不一致，本回合未提交。"
             turn_status = "failed"
 
         return {
@@ -4378,7 +4442,9 @@ class DMGraphRunner:
                 "game_state": state.model_dump(mode="json"),
                 "history_append": [item.model_dump(mode="json") for item in history_append],
                 "timeline_append": timeline_append,
-                "tool_results": [item.model_dump(mode="json") for item in tool_results],
+                # 失败事务的工具执行和 delta 都是暂存事实，不能作为已提交结果发布给客户端。
+                "tool_results": [],
+                "state_delta": {},
                 "final_response": final_response,
                 "action_suggestions": [],
                 "turn_status": turn_status,
@@ -4694,16 +4760,25 @@ class DMGraphRunner:
             raise RuntimeError("LangGraph resume support is unavailable in this runtime.")
 
         thread_id = state.pending_turn.thread_id
+        graph_config = self._graph_config(thread_id)
         try:
+            if state.pending_turn.kind == "tool_confirmation":
+                raise RuntimeError("legacy tool_confirmation interrupt policy is no longer resumable")
+            get_graph_state = getattr(self._graph, "get_state", None)
+            if callable(get_graph_state):
+                checkpoint = get_graph_state(graph_config)
+                checkpoint_values = getattr(checkpoint, "values", None) or {}
+                if "game_state" not in checkpoint_values:
+                    raise RuntimeError("checkpoint missing for pending thread")
             result = self._graph.invoke(
                 Command(resume={"message": user_input}),
-                config=self._graph_config(thread_id),
+                config=graph_config,
             )
         except Exception as exc:
             error_text = str(exc).lower()
             if not any(token in error_text for token in ("checkpoint", "thread", "resume", "interrupt")):
                 raise
-            # checkpoint 丢失时无法证明上次执行到哪一步；安全终止事务，绝不把“确认”重放成新行动。
+            # checkpoint 丢失或旧确认策略失效时无法证明上次执行到哪一步；安全终止事务，绝不重放输入。
             failed_payload = self._finalize_turn(
                 {
                     "game_state": state.model_dump(mode="json"),
@@ -4713,11 +4788,11 @@ class DMGraphRunner:
                     "phase": state.campaign.phase,
                     "scene": state.scene,
                     "turn_status": "failed",
-                    "final_response": "挂起回合的执行检查点不可用；待确认的变更未提交，请重新描述行动。",
+                    "final_response": "挂起回合的执行检查点不可用或已失效；其中的暂存变化未提交，请重新描述行动。",
                     "timeline_append": [],
                     "tool_results": [],
                     "state_delta": {},
-                    "validation_notes": ["Pending turn checkpoint was unavailable; staged changes were discarded."],
+                    "validation_notes": ["Pending turn checkpoint or policy was unavailable; staged changes were discarded."],
                     "validation_issues": [],
                     "node_traces": [],
                 }

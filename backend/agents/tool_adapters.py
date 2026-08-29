@@ -61,7 +61,7 @@ class AgentToolFactory:
             args=args,
             allowed_tools=allowed_tools,
         )
-        confirmation_status = ""
+        player_choice_cancelled = False
 
         if not guardrail.ok:
             execution = self.runner._tool_error_execution(
@@ -81,23 +81,9 @@ class AgentToolFactory:
                     repair_error,
                     guardrail.metadata,
                 )
-            elif guardrail.metadata.get("requires_confirmation"):
-                confirmed, confirmation_error = self.runner._confirm_tool_execution(
-                    graph_state,
-                    tool_name,
-                    guardrail.args,
-                    guardrail,
-                )
-                confirmation_status = "confirmed" if confirmed else "cancelled"
-                execution = (
-                    self.runner._execute_single_tool(state, tool_name, guardrail.args, allowed_tools)
-                    if confirmed
-                    else self.runner._tool_error_execution(
-                        tool_name,
-                        confirmation_error,
-                        guardrail.metadata,
-                    )
-                )
+            elif tool_name == "request_player_choice":
+                execution = self.runner._request_player_choice(graph_state, guardrail.args)
+                player_choice_cancelled = bool(execution.error_response.get("cancelled"))
             else:
                 execution = self.runner._execute_single_tool(
                     state,
@@ -130,31 +116,39 @@ class AgentToolFactory:
                     "ok": execution.ok,
                     "error": execution.error,
                     "guardrail": dict(guardrail.metadata),
-                    "confirmation_status": confirmation_status,
                 }
             ],
         }
         tool_message = ToolMessage(
-            content=self.runner._tool_message_content(execution, confirmation_status),
+            content=self.runner._tool_message_content(execution),
             tool_call_id=runtime.tool_call_id or tool_name,
             name=tool_name,
         )
+        update = {
+            "game_state": state.model_dump(mode="json"),
+            "messages": [tool_message],
+            "tool_results": tool_results,
+            "timeline_append": timeline_append,
+            "state_delta": state_delta,
+            "tool_call_rounds": tool_round,
+            "allowed_tools": allowed_tools,
+            "active_agent": self.role.value,
+            "node_traces": self.runner._append_node_trace(
+                graph_state,
+                "execute_tools",
+                f"{self.role.value} ToolNode executed one registered tool.",
+                trace_metadata,
+                status="cancelled" if player_choice_cancelled else "completed" if execution.ok else "failed",
+            ),
+        }
+        if player_choice_cancelled:
+            # 玩家暂缓真正的剧情选择时，整个 staged transaction 回滚，不能留下选择前的依赖写入。
+            update.update(
+                {
+                    "turn_status": "failed",
+                    "final_response": "你暂时没有作出这个决定；本回合的待定变化均未提交。",
+                }
+            )
         return Command(
-            update={
-                "game_state": state.model_dump(mode="json"),
-                "messages": [tool_message],
-                "tool_results": tool_results,
-                "timeline_append": timeline_append,
-                "state_delta": state_delta,
-                "tool_call_rounds": tool_round,
-                "allowed_tools": allowed_tools,
-                "active_agent": self.role.value,
-                "node_traces": self.runner._append_node_trace(
-                    graph_state,
-                    "execute_tools",
-                    f"{self.role.value} ToolNode executed one registered tool.",
-                    trace_metadata,
-                    status="completed" if execution.ok else "failed",
-                ),
-            }
+            update=update
         )

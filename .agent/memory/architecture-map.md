@@ -59,7 +59,9 @@ React/Vite UI
 - 状态摘要、近期历史、长期记忆和检索内容各自受独立提示词预算约束，近期历史截断时保留最新内容，避免长战役上下文挤占当前回合契约。
 - 玩家输入不是世界事实源；DM 必须在先前权威状态、自己的已确认叙事或成功工具结算支持后，主动用 `record_evidence` 等工具持久化关键线索。前端状态页只投影已持久化的结构化证据。
 - deterministic validator 不能直接 patch 业务事实，只能要求工具修复或失败。
+- `risk_level` 只服务内部 guardrail、trace 与事务恢复，不等于玩家授权策略；明确指令和确定性结算直接执行，只有真实且尚未明确的玩家决定才使用语义化 `request_player_choice`。
 - interrupt 只发布上次已提交快照和 pending 元数据，staged transaction 留在 checkpoint 中。
+- 玩家选择 interrupt 只公开自然语言问题和具体选项，不公开工具名、风险等级或持久化实现；取消、失败和 checkpoint 丢失均回滚整笔 staged transaction。
 - checkpoint 用于 interrupt 恢复，不提供剧情分支；剧情分支由 rewind snapshot 实现。
 - SSE 当前在回合完成后从 trace 派生事件，不是真实 token/tool 实时流。
 - CLI 仅传输消息和应用工具调用：独立临时目录、Claude 禁用自身工具、Codex ephemeral/read-only；确定性工具仍是状态变化唯一入口。

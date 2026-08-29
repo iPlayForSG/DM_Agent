@@ -9,7 +9,7 @@ from agent_tools import AgentToolExecution
 from dm_graph import DMGraphRunner, PROMPT_CONTEXT_MAX_CHARS
 from game_logic import GameLogic
 from langchain_core.messages import AIMessage
-from models import AdventureHook, Character, ChatMessage, GameState
+from models import AdventureHook, Character, ChatMessage, EvidenceRecord, GameState
 
 
 class DisabledRAG:
@@ -98,6 +98,8 @@ class DMLoopAcceptanceTests(unittest.TestCase):
         self.assertEqual(result.turn_status, "completed")
         self.assertEqual(len(model.calls), 1)
         node_names = [item.node_name for item in result.turn_trace.node_traces]
+        model_trace = next(item for item in result.turn_trace.node_traces if item.node_name == "draft_response")
+        self.assertEqual(model_trace.metadata["model_call_count"], 1)
         self.assertIn("agent.dm.entered", node_names)
         self.assertNotIn("execute_tools", node_names)
         self.assertFalse(
@@ -148,8 +150,18 @@ class DMLoopAcceptanceTests(unittest.TestCase):
         execute_trace = next(
             item for item in result.turn_trace.node_traces if item.node_name == "execute_tools"
         )
+        traced_model_calls = sum(
+            int(item.metadata.get("model_call_count", 0))
+            for item in result.turn_trace.node_traces
+            if item.node_name == "draft_response"
+        )
+        self.assertEqual(traced_model_calls, 2)
         self.assertEqual(execute_trace.metadata["agent_name"], "dm")
         self.assertEqual(execute_trace.metadata["tools"][0]["tool_name"], "record_evidence")
+        first_turn_context = "\n".join(
+            str(getattr(message, "content", "")) for message in model.calls[0]
+        )
+        self.assertIn("handed to, accepted by, or kept", first_turn_context)
 
     def test_player_assertion_is_not_treated_as_authoritative_evidence(self) -> None:
         model = RecordingModel(
@@ -269,6 +281,60 @@ class DMLoopAcceptanceTests(unittest.TestCase):
         self.assertEqual(
             set(trace["metadata"]["truncated_contexts"]),
             {"state_summary", "recent_history", "rag_context"},
+        )
+
+    def test_long_history_keeps_current_scene_latest_decision_and_unresolved_clue(self) -> None:
+        state = self.build_state()
+        state.campaign.current_chapter_number = 2
+        state.campaign.current_chapter_title = "第二章：西侧回廊"
+        state.campaign.current_chapter_summary = "队伍正在断钟塔西侧回廊搜寻失踪的书记员。"
+        active = state.get_active_char()
+        self.assertIsNotNone(active)
+        active.major_experiences.append("队伍最新决定：先救书记员，不追黑袍人。")
+        state.evidence_records.extend(
+            EvidenceRecord(title=f"旧线索 {index}", summary="只用于挤压长期上下文预算。" + "旧" * 260)
+            for index in range(12)
+        )
+        state.evidence_records.append(
+            EvidenceRecord(
+                title="西墙冷风",
+                summary="第三块石砖后持续渗出冷风，来源尚未解决。",
+                location="断钟塔西侧回廊",
+                tags=["未解决"],
+            )
+        )
+        state.chat_history = [
+            ChatMessage(
+                role="assistant" if index % 2 else "user",
+                content=f"过往闲谈 {index}：" + "噪" * 900,
+            )
+            for index in range(12)
+        ]
+
+        runner = DMGraphRunner(rag_engine=DisabledRAG(), checkpoint_mode="memory")
+        try:
+            routed = runner._route_phase(
+                {
+                    "game_state": state.model_dump(mode="json"),
+                    "user_input": "回想我们现在的位置、最新决定和未解决线索。",
+                    "state_delta": {},
+                }
+            )
+            prepared = runner._prepare_context({**routed, "rag_context": ""})
+        finally:
+            runner.close()
+
+        instruction = prepared["instruction"]
+        self.assertIn("第二章：西侧回廊", instruction)
+        self.assertIn("先救书记员", instruction)
+        self.assertIn("第三块石砖", instruction)
+        self.assertLessEqual(
+            len(prepared["recent_history"]),
+            PROMPT_CONTEXT_MAX_CHARS["recent_history"],
+        )
+        self.assertIn(
+            "recent_history",
+            prepared["node_traces"][-1]["metadata"]["truncated_contexts"],
         )
 
 

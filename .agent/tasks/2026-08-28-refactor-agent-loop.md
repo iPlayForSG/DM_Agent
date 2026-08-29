@@ -1,7 +1,7 @@
 # DM Agent Loop 重构
 
-Status: active
-Updated: 2026-08-28
+Status: completed
+Updated: 2026-08-30
 
 ## Goal
 
@@ -46,7 +46,11 @@ Updated: 2026-08-28
 - [x] 明确持久事实所有权：玩家输入只是行动、问题、回忆或假设；DM 主动记录已确认线索，不接受玩家用“记下来”创造世界事实。
 - [x] 状态页增加“线索与证据”投影，展示 DM 已持久化的结构化 evidence。
 - [x] 使用 Codex CLI `gpt-5.6-terra` medium 作为真实模型适配器，完成合成状态下的自然线索、连续探索、技能工具链与 interrupt/resume 黑盒测试。
-- [ ] 重构玩家确认边界：内部工具风险不再自动转化为玩家侧 interrupt，只有意图不明确且真正涉及玩家决定权的分叉才请求选择。
+- [x] 重构玩家确认边界：内部工具风险不再自动转化为玩家侧 interrupt，只有意图不明确且真正涉及玩家决定权的分叉才请求选择。
+- [x] 使用原生 OpenAI-compatible provider 与本地浏览器完成合成玩家选择 interrupt/resume、缺失 checkpoint 回滚和界面视觉走查。
+- [x] 使用原生 provider 完成普通对话、确定性章节写入和战斗收尾的统一模型调用数/核心 Loop 耗时矩阵。
+- [x] 使用原生 provider 完成即时描写、可持久剧情事实、机械事实和长上下文回忆的四步 Stage 4 验收。
+- [x] 复核按需协作边界：提交后的 Suggestion Agent 是当前唯一满足上下文隔离条件的明确辅助用例；没有预建第二个无真实任务的角色。
 
 ## Decisions
 
@@ -56,6 +60,10 @@ Updated: 2026-08-28
 - 2026-08-28：叙事自由分为短暂表现层、可持久剧情事实和机械事实三层；后两层分别通过受限语义事件工具和确定性规则工具落地。
 - 2026-08-28：session event log、harness 和工具执行环境应解耦；pending interrupt 不得把 staged state 当作已提交存档。
 - 2026-08-28：`risk_level` 描述内部副作用、校验和回滚要求，不等于玩家侧确认策略。明确玩家指令已经构成授权；确定性结算和 DM 记账应静默执行；只有缺少明确意图的玩家命运或剧情分叉才用自然语言请求选择。
+- 2026-08-29：以低风险编排工具 `request_player_choice` 作为唯一的新式玩家决策 interrupt；它必须在相关写工具之前调用，公开 payload 只包含自然问题和 2–4 个具体选项，不能暴露工具名、风险或持久化术语。
+- 2026-08-29：旧版 `tool_confirmation` checkpoint 不继续重放，因为 LangGraph 恢复会从节点开头重启且旧语义已失效；恢复请求返回安全失败并发布初始快照，前端提供“清理并返回”入口。
+- 2026-08-30：已由权威上下文建立的命名线索在“交给/接过/收好”等取得动作中应立即用 `record_evidence` 落库；意图层只提供窄范围工具建议，不能把玩家措辞提升为事实源。
+- 2026-08-30：首个明确只读辅助用例沿用提交后 Suggestion Agent：输入已提交状态与叙事，输出三个 `ActionSuggestion`，45 秒模型超时，非法结果走确定性 fallback 或空列表；不进入主事务。未发现需要新增章节规划/规则研究 Agent 的真实用例。
 
 ## Discoveries / surprises
 
@@ -67,9 +75,20 @@ Updated: 2026-08-28
 - `GameLogic.get_recent_history()` 原先只限制消息条数，单条超长消息仍可无限放大提示词；现在上下文装配层保留最新历史并执行字符预算。
 - “让玩家要求记住线索”不是有效验收：它既暴露系统记账术语，也允许玩家把未经 DM 确认的说法注入权威事实。真实验收必须从自然行动开始，由 DM 判断何时调用 `record_evidence`。
 - 真实模型把“贴门倾听、无声撬门”误分为普通对话后只口头要求检定；补充自然动作词与 action-resolution guidance 后，重跑会串行执行倾听和开锁两次技能检定。
-- interrupt 成功恢复后，模型曾再次索要确认；确认成功状态现通过内部 ToolMessage 明示给 DM，玩家侧确认文案也改为语义动作，不再泄露工具名。
-- 当前 `requires_confirmation` 静态绑定在 `create_party_character`、`select_adventure_hook`、`record_chapter_progress`、`set_defeat_state`、`remove_combatant` 和 `end_encounter` 六个工具上。它把“写入权威状态”误当成“需要玩家二次授权”，即使玩家已明确选择或只是结束遭遇、清理单位，也会弹出通用确认卡片，打断叙事并暴露实现边界。
-- 当前本地 DM_Agent 原生 provider 没有配置 API key/base URL；真实模型测试通过临时 Codex CLI 适配器完成，因此尚不能替代 ChatOpenAI provider 集成和浏览器测试。
+- 原静态确认绑定覆盖六个权威写工具，把副作用风险错误地提升成玩家授权。现已解除绑定并保留 `risk_level=high`，明确选择、章节收尾、败北结算、移除离场单位与结束遭遇均可在同一回合完成。
+- 只恢复 `GameState` 不足以保证失败回合隔离：旧失败路径仍会在图输出中泄露 staged `tool_results` 和 `state_delta`。`finalize_turn` 现同时清空这两类投影，取消玩家选择也走同一事务回滚。
+- 从 LangGraph interrupt 恢复时节点会从开头重跑，因此 interrupt 前不能放不可重复副作用；`request_player_choice` 在暂停前只组装纯 payload，实际状态工具必须等待选择结果后再执行。
+- 合并 `origin/main` 时发现两个 `0002` ADR；单一 DM Brain ADR 已顺延为 `0003`，相关索引、架构文档和任务引用已同步。
+- 实际 SQLite checkpointer 对不存在的 thread 返回空状态，随后会表现为 `KeyError('game_state')`，不一定抛出带 `checkpoint` 字样的异常。恢复前现显式检查 checkpoint values，真实后端回归确认会安全清除 pending 并回滚。
+- 原生 provider 首次面对重大分叉时只在普通正文中表示“由你决定”，没有产出结构化选项；把契约加强为“必须等待玩家决定时必须调用工具、不能只用正文询问”后，同一输入稳定返回 `player_choice`。
+- 当前工作副本的原生 OpenAI-compatible provider 已配置并完成合成回归；未读取或输出凭据，测试只使用虚构状态与文本。
+- 真实状态写入基准暴露两个重叠误判：单独的“说明”被当作规则问答，明示工具名却未作为行动信号；现已收窄规则词表，并让非 `lookup_rules` 的建议工具参与行动分类。
+- `completed=false` 原先仍会因同一句中的“章节/完成记录后”触发章节完成修复，反向要求 `completed=true`；显式布尔参数现在优先于自然语言启发式。
+- 战斗击倒最后敌人后，`encounter_end_condition` 会先留下 `repair_required` 审计记录，再由 `end_encounter` 确定性修复；成功回合保留这条历史 issue 属于预期，不代表最终提交失败。
+- 战斗收尾后权威 phase 会切回 exploration，因此最终 trace profile 可与初始路由不同；延迟报告分别记录初始与最终 profile，比较时以初始路由为准。
+- Stage 4 首轮真实样本中，普通闲聊、机械检定和长上下文回忆均通过，但模型没有把权威日志里的蓝蜡封片交接持久化；加强“命名线索取得”意图提示后复跑，`record_evidence` 成功执行且没有新增 schema。
+- 长历史合成状态将 recent history 压到 6000 字符预算，DM 仍能从独立 state/campaign memory 块准确回忆“西侧回廊”“先救书记员”和“第三块石砖后的冷风”。
+- Suggestions 已满足最小辅助契约、隔离执行、超时和失败降级；规则 RAG 与 campaign memory 是确定性服务，新增 Agent 不会带来独立信息增量，故 Stage 5 不扩运行时拓扑。
 
 ## Validation
 
@@ -86,52 +105,52 @@ Updated: 2026-08-28
 - [x] 连续探索真实模型回归 — 自然对话、对照观察、倾听、开锁、谨慎侦察及章节 interrupt/resume 全部经过单一 DM；修复后潜入回合串行执行 2 次技能检定，确认恢复不再二次索要确认。
 - [x] 前端 `npm run build` — 通过；`npm run lint` — 0 error，保留既有 2 条 Hook dependency warning。
 - [x] 完整后端 169 项测试 — 156 项通过；13 项仍均由缺少 ignored `backend/data/spells.json` 引起，没有新增失败。
-- [ ] 原生 Chat Completions provider 与浏览器连续玩家回归；本轮前端证据面板已完成 build/lint，尚未做浏览器视觉走查。
+- [x] Stage 2 目标测试 `tests.test_dm_graph_workflow tests.test_setup_agent_tools tests.test_agent_factory tests.test_dm_agent_team` — 100 项全部通过。
+- [x] 完整后端测试 — 192 项全部通过；当前工作副本已具备本地法术数据，先前 13 项环境性失败不再出现。
+- [x] 前端 `npm run build` — 通过；`npm run lint` — 0 error，仍为既有 2 条 Hook dependency warning。
+- [x] `python -m compileall -q backend` 与 `git diff --check` — 通过；后者仅报告 Git 的 LF/CRLF 工作区提示。
+- [x] 浏览器合成玩家选择状态 — 桌面布局、自然问题、四个具体选项、“暂不决定”和自由输入占位均正常；实际 SQLite checkpoint 缺失时修复后会清除 pending 并展示安全回滚说明。
+- [x] 原生 provider 合成 interrupt/resume — 加强契约后 9.48 秒返回 `player_choice`，不推进回合且不发布工具结果/差异；14.92 秒恢复完成，记录 `interaction.player_choice`、推进至回合 1 并清除 pending。
+- [x] 所有走查产物均已清理：合成游戏 JSON、rewind、临时 Vite env/进程、临时后端，以及按精确 thread id 生成的 checkpoint rows；未触碰既有游戏和 23333 进程。
+- [x] 原生 provider 核心 Loop 最终报告 `backend/runtime-logs/dm_loop_latency_eval_20260830_003959.json`：普通对话 1 次模型调用 / 7.437 秒，章节写入 2 次 / 3.114 秒，战斗攻击并结束遭遇 4 次 / 8.447 秒；三类回合均完成、状态检查通过、报告 issue 为 0。
+- [x] 相对重构前 `6f514b4` 图结构可证明的最少调用数，三类样本分别由 4→1、5→2、6→4，减少 75%、60%、33.3%。比较只覆盖 `DMAgent.run_turn` 核心图（含 provider 与确定性工具），不含 HTTP 传输和提交后 UI suggestions 投影，也不伪造旧版未实测耗时。
+- [x] Stage 3 最终完整后端测试 — 194 项全部通过；首次沙箱运行的 tempfile/SQLite 权限错误已在沙箱外用同一命令复跑排除。
+- [x] Stage 3 最终 `python -m compileall -q backend`、前端 `npm run build`、`npm run lint` 与 `git diff --check` — 全部通过；lint 仍只有既有 2 条 Hook dependency warning，diff check 仅有 LF/CRLF 提示。
+- [x] Stage 4 最终报告 `backend/runtime-logs/narrative_fact_eval_20260830_005406.json` — 四步 issue 为 0：即时描写 1 次模型调用 / 6.565 秒且持久状态不变；命名线索 2 次 / 9.471 秒并写入 `story.record_evidence`；机械结算 3 次 / 11.699 秒并执行 `check.skill` 后持久化新证据；长上下文回忆 1 次 / 4.994 秒且三个锚点全部命中。
+- [x] Stage 4 确定性长历史测试确认 recent history 截断后，当前场景、最新决定和未解决线索仍存在于最终 DM instruction。
+- [x] 最终完整后端测试 — 196 项全部通过；Stage 2–5 的新增意图、真实评估与长历史回归均包含在内。
 
 ## Remaining work
 
-### Stage 2：沉浸式授权与玩家决定权
+### Stage 2：沉浸式授权与玩家决定权（2026-08-29 完成）
 
-- 盘点六个静态确认工具在聊天、建卡、冒险选择和本地动作 UI 中的调用入口，区分以下三类语义：
-  - 玩家已经明确下令或点击选择：直接执行，不做重复确认。
-  - 规则结算或 DM 内部记账：自动执行，例如结束已分出胜负的遭遇、移除已离场单位、记录已成立的章节进度。
-  - 意图不明确且会替玩家决定命运或重大剧情方向：执行前请求真正的玩家选择。
-- 将工具 `risk_level` 保留为内部 guardrail、trace 和事务恢复信息；解除它与玩家侧 `requires_confirmation` 的等价关系。不要削弱 phase allowlist、当前行动者、资源、原子提交或回滚约束。
-- 不再按工具名统一弹出“会写入本局进度”的确认。若确实需要 interrupt，payload 应表达待决定的剧情语义和具体选项，而不是工具名、风险等级、持久化或“高风险操作”。
-- `create_party_character` 与 `select_adventure_hook`：前端明确提交/选择即为授权；DM 对话中若目标不明确，应先询问具体选择，而不是先构造工具调用再确认。
-- `record_chapter_progress`：玩家明确离开并结束章节时直接结算；DM 仅在玩家是否真的要结束仍有歧义时自然追问。
-- `remove_combatant` 与 `end_encounter`：作为确定性战斗收尾和状态维护自动执行，不向玩家索要技术确认。
-- `set_defeat_state`：规则已确定的后果直接结算；只有系统提供“接受最终结局 / 使用可用挽回机会 / 回到安全节点”等真实选项时，才暂停并让玩家选择。不要用确认框伪装尚未建模的规则选项。
-- 保持真正的产品级破坏操作（删除存档、删除角色、覆盖或重写分支）在独立 UI 中确认，不把它们混入 DM 对话的工具策略。
-- 增加回归测试：
-  - “我要离开旧塔，结束这一章”在同一回合完成章节结算，无 pending confirmation。
-  - 最后一名敌人失去战斗能力后可自动结束遭遇和清理单位，无确认卡片。
-  - UI 选择冒险或提交角色后不出现第二次确认。
-  - 玩家意图含糊且确有重大命运分叉时，返回自然的具体选项；payload 和界面不出现工具名或通用“高风险”措辞。
-  - 真正 interrupt 的取消、恢复、checkpoint 丢失回滚和 staged state 隔离保持有效。
+- 六个静态确认工具已解除 `requires_confirmation`，内部高风险标记、phase allowlist、规则校验和事务边界保持不变。
+- 新增语义化 `request_player_choice`：明确指令和确定性收尾不暂停，真正含糊的重大决定才给出具体选项；取消、恢复、checkpoint 丢失和 staged state 隔离已有回归覆盖。
+- 前端显示“轮到你选择”的自然选项卡；旧 `tool_confirmation` 暂停可安全清理。存档、角色等产品级删除确认仍保留在原独立 UI。
+- 代码、目标测试、完整后端测试、前端 build/lint、浏览器视觉走查与原生 provider interrupt/resume 均已通过。
 
 ### Stage 3：真实运行验收
 
-- 使用真实 provider 做连续多回合人格、叙事连续性、工具调用、interrupt/resume 和延迟 smoke test。
-- 配置原生 Chat Completions provider 后，复跑同一组自然玩家输入；Codex CLI 每个模型步启动独立进程，其绝对耗时不能作为产品延迟基线。
-- 记录普通对话、单工具回合和战斗回合的模型调用数与端到端耗时，确认相较旧流水线的实际收益。
-- 恢复或生成本地 `backend/data/spells.json` 后重跑完整测试，消除环境性失败。
+- [x] 使用原生真实 provider 验证叙事响应、玩家选择工具、interrupt/resume、原子提交和端到端耗时。
+- [x] 使用 OpenAI-compatible 原生传输复跑自然玩家输入；不再用 Codex CLI 独立进程耗时代替产品基线。
+- [x] 补齐普通对话、确定性状态写工具与战斗回合的统一模型调用数/核心 Loop 耗时表，并与旧流水线可证明的最少调用数比较；最终采样见 Validation。
+- [x] 当前本地法术数据可用，完整后端 192 项已通过，先前环境性失败已消除。
 
-### Stage 4：DM 叙事自由与持久事实
+### Stage 4：DM 叙事自由与持久事实（2026-08-30 完成）
 
-- 用实际跑团样本检查“即时描写 / 可持久剧情事实 / 机械事实”的分层是否足够自然。
-- 只有现有日志、线索、章节与场景工具无法表达明确用例时，才新增最小语义事件契约；模型仍不能直接 patch `GameState`。
-- 增加长战役回归样本，验证上下文预算下当前场景、最新决定和未解决线索不会丢失。
+- 四步原生 provider 样本已覆盖即时描写、命名线索持久化、机械检定与长上下文回忆；最终 issue 为 0。
+- 现有 `record_evidence` 与 `roll_skill_check` 足以表达本轮明确用例，仅加强工具描述、prompt 和自然取得意图，不新增 schema，模型仍不能直接 patch `GameState`。
+- 长历史确定性测试和真实回忆回合均确认当前场景、最新决定、未解决线索不被 recent history 截断挤掉。
 
-### Stage 5：按需协作能力
+### Stage 5：按需协作能力（2026-08-30 完成）
 
-- 从真实复杂任务中识别需要独立新信息、上下文隔离或并行计算的用例，例如规则调研、章节规划或大量素材整理。
-- 针对首个明确用例定义只读 assistant 的最小 brief/artifact schema、超时/失败降级和引用方式；不预建常驻角色或恢复流水线接棒。
-- 将辅助结果作为 DM 的可选上下文，不授予其权威状态写权限，也不增加每回合强制审计。
+- 当前唯一明确用例是提交后的 UI suggestions 投影，它隔离独立生成上下文且失败不应影响主事务；现有 Suggestion Agent 已满足。
+- 最小 artifact 为三个 `ActionSuggestion(label, action)`；输入只读已提交状态/叙事/玩家输入，模型上限 45 秒，非法输出走确定性 fallback 或空列表。
+- Suggestions 通过独立 API 在提交后运行，不拥有 `GameState` 写工具；规则检索和 campaign memory 保持确定性服务。未发现第二个有独立信息增量的真实任务，因此不新增常驻 Agent。
 
 ## Resume instructions
 
 1. 读取本计划、`architecture-map.md` 与 `common-pitfalls.md`。
 2. 不恢复已删除的控制 Agent 流水线；在线正确性继续放在确定性工具和事务边界。
-3. 下一步先完成 Stage 2 的确认策略重构；重点检查 `backend/tool_registry.py`、`backend/dm_graph.py`、`backend/agents/tool_adapters.py`、`frontend/src/App.jsx` 与现有 interrupt/workflow tests。
-4. Stage 2 通过目标测试和浏览器确认后，再进入 Stage 3 原生 provider smoke；未配置时如实记录未验证，不用单元测试替代。
+3. Stage 2–5 均已完成；后续若出现需要独立新信息、隔离大量上下文或真并行的具体任务，再以只读 artifact 方式扩展，不预建角色。
+4. 真实回归继续使用纯合成状态与内存 checkpoint；不要读取或复用玩家私有存档内容，也不要在报告保存完整 transcript。

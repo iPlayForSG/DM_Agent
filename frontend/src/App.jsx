@@ -367,7 +367,6 @@ const compactWorkflowMetadata = (metadata = {}) => {
   if (metadata.action) fields.push(`动作: ${metadata.action}`);
   if (metadata.allowed_tools_count !== undefined) fields.push(`工具: ${metadata.allowed_tools_count}`);
   if (metadata.tool_results_count !== undefined) fields.push(`结果: ${metadata.tool_results_count}`);
-  if (metadata.confirmation_status) fields.push(`确认: ${metadata.confirmation_status}`);
   if (metadata.note_index !== undefined) fields.push(`备注: ${Number(metadata.note_index) + 1}`);
   return fields.join(" · ");
 };
@@ -961,7 +960,11 @@ export default function App() {
     || Number(actionDraft.item.quantity || 1) <= 0
     || Number(actionDraft.item.quantity || 1) > Number(selectedItemOption.quantity || 0);
   const pendingTurn = gameState?.pending_turn || null;
-  const isToolConfirmationPending = pendingTurn?.kind === "tool_confirmation";
+  const isPlayerChoicePending = pendingTurn?.kind === "player_choice";
+  const isLegacyConfirmationPending = pendingTurn?.kind === "tool_confirmation";
+  const playerChoiceOptions = isPlayerChoicePending && Array.isArray(pendingTurn?.details?.options)
+    ? pendingTurn.details.options.map((option) => String(option || "").trim()).filter(Boolean)
+    : [];
   const chatComposerDisabled = gameState?.campaign?.phase === "adventure_selection";
   const isGameMutationBusy = isLoading || isReplyLengthSaving;
   const chatSubmitDisabled = chatComposerDisabled || isGameMutationBusy;
@@ -2972,13 +2975,24 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {isToolConfirmationPending && (
+                {isPlayerChoicePending && (
                   <div className="pending-turn-card">
-                    <div className="pending-turn-title">需要你确认</div>
-                    <div className="pending-turn-prompt">{pendingTurn.prompt || "当前回合需要确认后才能继续。"}</div>
+                    <div className="pending-turn-title">轮到你选择</div>
+                    <div className="pending-turn-prompt">{pendingTurn.prompt || "DM 正在等待你决定接下来的方向。"}</div>
                     <div className="pending-turn-actions">
-                      <button className="btn-danger" onClick={() => respondToPendingTurn("取消")} disabled={isGameMutationBusy}>取消</button>
-                      <button className="btn-primary" onClick={() => respondToPendingTurn("确认")} disabled={isGameMutationBusy}>确认</button>
+                      <button className="btn-text" onClick={() => respondToPendingTurn("暂不决定")} disabled={isGameMutationBusy}>暂不决定</button>
+                      {playerChoiceOptions.map((option) => (
+                        <button key={option} className="btn-primary" onClick={() => respondToPendingTurn(option)} disabled={isGameMutationBusy}>{option}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {isLegacyConfirmationPending && (
+                  <div className="pending-turn-card">
+                    <div className="pending-turn-title">需要重新描述行动</div>
+                    <div className="pending-turn-prompt">这个暂停来自旧版交互策略，其中的暂存变化不会提交。清理后即可重新描述你的决定。</div>
+                    <div className="pending-turn-actions">
+                      <button className="btn-primary" onClick={() => respondToPendingTurn("清理旧暂停")} disabled={isGameMutationBusy}>清理并返回</button>
                     </div>
                   </div>
                 )}
@@ -3329,7 +3343,7 @@ export default function App() {
               {replyLengthMessage && <div className="chat-control-note">{replyLengthMessage}</div>}
             </details>
             <div className="input-area">
-              <textarea ref={chatInputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isToolConfirmationPending ? "可直接确认或取消，也可以输入补充说明。" : rewriteTarget ? "修改这条行动，然后从这里重新开始..." : isLoading ? "可以先写下下一步行动..." : "描述你的行动..."} disabled={chatComposerDisabled} />
+              <textarea ref={chatInputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={gameState?.campaign?.phase === "adventure_selection" ? "请先选择冒险。" : isPlayerChoicePending ? "可点击上方选项，也可以输入你自己的决定。" : rewriteTarget ? "修改这条行动，然后从这里重新开始..." : isLoading ? "可以先写下下一步行动..." : "描述你的行动..."} disabled={chatComposerDisabled} />
               <button onClick={sendMessage} disabled={chatSubmitDisabled || llmAuthorizationFailed || !input.trim()}>{rewriteTarget ? "重写" : "发送"}</button>
             </div>
           </div>

@@ -37,5 +37,8 @@
 - 单元测试不能替代真实 provider smoke、浏览器回归或本地 GGUF 启动测试。
 - 工具 schema、DM runtime ownership 和 `PHASE_CAPABILITY_TOOL_NAMES` 三者都要检查；只注册函数并不会让 DM 在当前阶段实际获得工具。
 - 普通回合没有 Director、LLM Auditor 或独立 Narrator。确定性 validator 只能要求受限工具修复或失败，失败由 `finalize_turn` 恢复 `initial_game_state`。
-- interrupt 前的成功工具仍是 staged transaction；`input_required` 只能发布上次提交快照和 pending 元数据，checkpoint 丢失时不得把“确认”重放成新行动。
+- interrupt 前的成功工具仍是 staged transaction；`input_required` 只能发布上次提交快照和 pending 元数据，取消、失败或 checkpoint 丢失时必须同时清空对外 `tool_results` / `state_delta`，不能只回滚 `GameState`。
+- SQLite checkpointer 查不到 thread 时可能返回空 `StateSnapshot`，随后才以 `KeyError('game_state')` 失败；不要依赖异常文案识别 checkpoint 丢失，resume 前先检查 snapshot values 是否包含 `game_state`。
+- 不要把 `risk_level` 或写入权威状态等同于玩家侧确认。明确指令、规则结算和 DM 记账直接执行；只有真正缺少玩家决定时才调用 `request_player_choice`，其公开 payload 只能包含剧情语义和具体选项。
+- 若 DM 必须等待玩家在后果性选项中决定，提示词要明确要求调用 `request_player_choice`，不能允许只在普通正文里说“由你决定”，否则前端拿不到结构化选项和可恢复 interrupt。
 - 跨后端 API 和前端行为修改后需要同时跑后端测试、前端 build/lint 与 `git diff --check`。

@@ -1,6 +1,6 @@
 # 开发命令
 
-更新时间：2026-08-28。
+更新时间：2026-08-30。
 
 ## 安装与启动
 
@@ -74,6 +74,17 @@ python utils/import_5etools_builder_options.py --source "E:/5e Tools/data" --dry
 python utils/import_5etools_builder_options.py --source "E:/5e Tools/data"
 ```
 
+## DM Loop 真实模型验收
+
+以下命令调用当前已配置的原生 provider，以纯合成状态测量普通对话、确定性章节写入和战斗收尾。评估强制使用内存 checkpoint，不写玩家存档或共享 SQLite；报告写入被忽略的 `backend/runtime-logs/`。
+
+```powershell
+python backend/utils/dm_loop_latency_eval.py
+python backend/utils/narrative_fact_eval.py
+```
+
+第一条报告耗时范围是 `DMAgent.run_turn` 核心图（含 provider 与确定性工具），不含 HTTP 传输和提交后 UI suggestions 投影。第二条验证即时描写、命名线索持久化、机械检定和长上下文回忆；只输出指标与布尔检查，不保存完整回复或 transcript。
+
 ## RAG 索引构建
 
 以下命令依据 `README.md` 与 `backend/rag_ingest.py`。它们依赖未提交的本地规则资料和 GGUF embedding 模型；2026-08-28 本次记忆系统审计未执行。
@@ -116,6 +127,8 @@ python backend/utils/normalize_rule_documents.py
 2026-08-28 当前功能分支实际执行：CLI/RAG/规范化目标测试 10 个成功；macOS `start.sh` 与 health/config/RAG status smoke 成功；Codex/Claude Code 真实结构化文本调用成功，Codex 真实应用工具调用成功；前端 build 成功、lint 0 errors/2 warnings。全量后端 169 个测试中 13 个失败，原因是当前 Mac 缺少 ignored `backend/data/spells.json`，相关法术/建卡 fixture 无法解析，不是本分支行为回归。
 
 浏览器交互长流程与本地 GGUF/Metal 向量查询尚未完成，不能标为已验证。
+
+2026-08-30 `refactor/agent_loop` 实际执行：最终完整后端 196 项全部成功；`python -m compileall -q backend` 与前端 build 成功；lint 0 errors/2 条既有 Hook dependency warning；`git diff --check` 通过，仅有 LF/CRLF 工作区提示。原生 provider 的核心 Loop 三类矩阵与叙事事实四步验收报告 issue 均为 0。
 
 ## 当前不存在的命令
 

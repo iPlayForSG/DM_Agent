@@ -45,17 +45,16 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "list_class_spells": {"side_effect": "read", "risk_level": "low"},
     "list_starter_equipment": {"side_effect": "read", "risk_level": "low"},
     "validate_character_sheet": {"side_effect": "read", "risk_level": "low"},
+    "request_player_choice": {"side_effect": "interaction", "risk_level": "low"},
     "create_party_character": {
-        # 建卡是不可逆的队伍事实，和 record_chapter_progress 一样需要玩家确认。
+        # 高风险只描述事务与校验强度；玩家明确提交建卡时已经给出授权。
         "side_effect": "state_write",
         "risk_level": "high",
-        "requires_confirmation": True,
         "blocks_active_encounter": True,
     },
     "select_adventure_hook": {
         "side_effect": "campaign_write",
         "risk_level": "high",
-        "requires_confirmation": True,
         "blocks_active_encounter": True,
     },
     "set_player_action_suggestions": {"side_effect": "ui_write", "risk_level": "low"},
@@ -88,12 +87,10 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "record_chapter_progress": {
         "side_effect": "campaign_write",
         "risk_level": "high",
-        "requires_confirmation": True,
     },
     "set_defeat_state": {
         "side_effect": "combat_write",
         "risk_level": "high",
-        "requires_confirmation": True,
     },
     "set_scene": {"side_effect": "state_write", "risk_level": "medium"},
     "set_active_character": {"side_effect": "state_write", "risk_level": "low"},
@@ -152,7 +149,6 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "remove_combatant": {
         "side_effect": "combat_write",
         "risk_level": "high",
-        "requires_confirmation": True,
         "needs_active_encounter": True,
     },
     "advance_turn": {
@@ -163,7 +159,6 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "end_encounter": {
         "side_effect": "combat_write",
         "risk_level": "high",
-        "requires_confirmation": True,
         "needs_active_encounter": True,
     },
 }
@@ -222,6 +217,10 @@ class ToolRegistry:
             suggestion_error = self._validate_player_action_suggestions(normalized_args)
             if suggestion_error:
                 return self._reject(tool_name, suggestion_error, contract=contract)
+        if tool_name == "request_player_choice":
+            choice_error = self._validate_player_choice_request(normalized_args)
+            if choice_error:
+                return self._reject(tool_name, choice_error, contract=contract)
 
         encounter_active = bool(state.encounter and state.encounter.active)
         if contract.needs_active_encounter and not encounter_active:
@@ -349,6 +348,50 @@ class ToolRegistry:
                 return "set_player_action_suggestions suggestions must be distinct."
             seen_labels.add(label_key)
             seen_actions.add(action_key)
+        return ""
+
+    @staticmethod
+    def _validate_player_choice_request(args: Dict[str, Any]) -> str:
+        prompt = " ".join(str(args.get("prompt") or "").split()).strip()
+        options = args.get("options")
+        if not prompt:
+            return "request_player_choice requires a player-facing prompt."
+        if len(prompt) > 400:
+            return "request_player_choice prompt is too long; state the decision and stakes concisely."
+        if not isinstance(options, list) or not 2 <= len(options) <= 4:
+            return "request_player_choice requires two to four concrete options."
+
+        normalized_options: List[str] = []
+        for index, raw_option in enumerate(options, start=1):
+            if not isinstance(raw_option, str):
+                return f"Player choice option {index} must be a string."
+            option = " ".join(str(raw_option or "").split()).strip()
+            if not option:
+                return f"Player choice option {index} cannot be empty."
+            if len(option) > 160:
+                return f"Player choice option {index} is too long."
+            normalized_options.append(option)
+        if len({option.casefold() for option in normalized_options}) != len(normalized_options):
+            return "request_player_choice options must be distinct."
+
+        # 玩家只应看到剧情语义；内部策略、风险字段或持久化术语必须留在 trace 中。
+        public_text = f"{prompt} {' '.join(normalized_options)}".casefold()
+        internal_terms = [
+            "risk_level",
+            "requires_confirmation",
+            "guardrail",
+            "tool_name",
+            "high_risk",
+            "高风险操作",
+            "通用确认",
+            "工具名",
+            "写入本局进度",
+            "持久化操作",
+        ]
+        if any(term.casefold() in public_text for term in internal_terms):
+            return "Player choice text must describe only the in-world decision and concrete options."
+        args["prompt"] = prompt
+        args["options"] = normalized_options
         return ""
 
     @staticmethod
