@@ -275,10 +275,20 @@ class NewToolRegistrationTests(unittest.TestCase):
         for tool_name in self.NEW_TOOLS:
             self.assertIsNotNone(registry.get(tool_name), msg=f"{tool_name} has no tool contract")
 
-        self.assertTrue(registry.get("create_party_character").requires_confirmation)
-        self.assertTrue(registry.get("select_adventure_hook").requires_confirmation)
+        for tool_name in (
+            "create_party_character",
+            "select_adventure_hook",
+            "record_chapter_progress",
+            "set_defeat_state",
+            "remove_combatant",
+            "end_encounter",
+        ):
+            contract = registry.get(tool_name)
+            self.assertEqual(contract.risk_level, "high")
+            self.assertFalse(contract.requires_confirmation)
         self.assertTrue(registry.get("remove_combatant").needs_active_encounter)
         self.assertEqual(registry.get("list_character_options").side_effect, "read")
+        self.assertEqual(registry.get("request_player_choice").side_effect, "interaction")
 
     def test_new_tools_reach_the_right_phase_capabilities(self) -> None:
         setup_tools = set(PHASE_CAPABILITY_TOOL_NAMES["party_creation"])
@@ -299,6 +309,8 @@ class NewToolRegistrationTests(unittest.TestCase):
         self.assertIn("select_adventure_hook", adventure_tools)
         self.assertIn("remove_combatant", combat_tools)
         self.assertNotIn("remove_combatant", setup_tools)
+        for phase_tools in PHASE_CAPABILITY_TOOL_NAMES.values():
+            self.assertIn("request_player_choice", phase_tools)
         self.assertIn("validate_character_sheet", level_up_tools)
         self.assertNotIn("create_party_character", level_up_tools)
 

@@ -70,6 +70,76 @@ class EndEncounterToolService:
         )
 
 
+class PlayerChoiceModel:
+    def __init__(self):
+        self.calls = 0
+        self.messages = []
+
+    def bind_tools(self, _tools):
+        return self
+
+    def invoke(self, messages):
+        self.calls += 1
+        self.messages.append(list(messages))
+        if self.calls == 1:
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "call-player-choice",
+                        "name": "request_player_choice",
+                        "args": {
+                            "prompt": "摄政王把王冠递到你面前：你要亲自继位，还是把权力交给自由议会？",
+                            "options": ["亲自继位", "交给自由议会"],
+                        },
+                    }
+                ],
+            )
+        return AIMessage(content="你把王冠推向自由议会，厅中先是寂静，随后响起低沉的赞同声。")
+
+
+class StagedWriteThenChoiceModel:
+    def __init__(self, character_id: str):
+        self.character_id = character_id
+        self.calls = 0
+
+    def bind_tools(self, _tools):
+        return self
+
+    def invoke(self, _messages):
+        self.calls += 1
+        if self.calls == 1:
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "call-staged-hp",
+                        "name": "adjust_hp",
+                        "args": {
+                            "target_ref": self.character_id,
+                            "amount": -1,
+                            "reason": "测试暂存写入",
+                        },
+                    }
+                ],
+            )
+        if self.calls == 2:
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "call-story-choice",
+                        "name": "request_player_choice",
+                        "args": {
+                            "prompt": "受伤后，你要继续追赶逃敌，还是退回门厅包扎？",
+                            "options": ["继续追赶", "退回门厅包扎"],
+                        },
+                    }
+                ],
+            )
+        return AIMessage(content="你忍住伤口的刺痛，继续追向黑暗的回廊。")
+
+
 class DMGraphWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.runner = DMGraphRunner(
@@ -441,6 +511,58 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(routed["suggested_tools"], ["lookup_rules"])
         self.assertIn("Answer the rules question in one pass", routed["turn_expectation"])
 
+    def test_explicit_state_write_is_not_misclassified_by_narration_wording(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        player_input = (
+            "请调用 record_chapter_progress 记录第一章，completed=false。"
+            "完成后用一句简体中文说明队伍已经进入前厅。"
+        )
+
+        intent = self.runner._plan_turn_intent(
+            state,
+            player_input,
+            "exploration",
+            "exploration",
+        )
+        routed = self.runner._classify_turn_profile(
+            state,
+            player_input,
+            "exploration",
+            intent.model_dump(mode="json"),
+        )
+
+        self.assertEqual(intent.turn_type, "action_resolution")
+        self.assertFalse(intent.needs_rules)
+        self.assertIn("record_chapter_progress", intent.suggested_tools)
+        self.assertIn("record_chapter_progress", routed["allowed_tools"])
+
+    def test_named_clue_acquisition_suggests_evidence_without_granting_fact_authority(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        state.adventure_log.append("守夜人把门槛下拾到的蓝蜡封片交给角色。")
+
+        intent = self.runner._plan_turn_intent(
+            state,
+            "我接过蓝蜡封片并收好。",
+            "exploration",
+            "exploration",
+        )
+
+        self.assertEqual(intent.turn_type, "action_resolution")
+        self.assertIn("record_evidence", intent.suggested_tools)
+        self.assertFalse(intent.needs_rules)
+
+    def test_explicit_incomplete_chapter_argument_does_not_request_completion_repair(self) -> None:
+        self.assertFalse(
+            self.runner._chapter_completion_requested(
+                "请记录第一章，completed=false。完成记录后简短回复。"
+            )
+        )
+        self.assertTrue(
+            self.runner._chapter_completion_requested(
+                "请记录第一章，completed=true。"
+            )
+        )
+
     def test_plan_turn_produces_action_intent_before_routing(self) -> None:
         state = self._build_state(with_selected_adventure=True)
 
@@ -456,6 +578,19 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("search", planned["turn_intent"]["action_terms"])
         self.assertEqual(planned["turn_intent"]["phase"], "exploration")
         self.assertEqual(planned["turn_intent"]["risk_level"], "low")
+
+    def test_high_risk_intent_does_not_imply_missing_player_choice(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+
+        intent = self.runner._plan_turn_intent(
+            state,
+            "我要离开旧塔，结束这一章。",
+            "exploration",
+            "exploration",
+        )
+
+        self.assertEqual(intent.risk_level, "high")
+        self.assertFalse(intent.requires_confirmation)
 
     def test_combat_action_uses_combat_resolution_profile(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -493,6 +628,32 @@ class DMGraphWorkflowTests(unittest.TestCase):
         response = execution.response()
         self.assertIn("Missing required tool argument `amount`", response["error"])
         self.assertEqual(response["guardrail"]["risk_level"], "medium")
+
+    def test_player_choice_guardrail_requires_concrete_story_only_options(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+
+        accepted = self.runner.tool_registry.validate_call(
+            state=state,
+            tool_name="request_player_choice",
+            args={
+                "prompt": "你要接受王冠，还是交给自由议会？",
+                "options": ["接受王冠", "交给自由议会"],
+            },
+            allowed_tools=["request_player_choice"],
+        )
+        leaked = self.runner.tool_registry.validate_call(
+            state=state,
+            tool_name="request_player_choice",
+            args={
+                "prompt": "这个 high_risk 工具会写入本局进度，请确认。",
+                "options": ["确认", "取消"],
+            },
+            allowed_tools=["request_player_choice"],
+        )
+
+        self.assertTrue(accepted.ok, accepted.error)
+        self.assertFalse(leaked.ok)
+        self.assertIn("in-world decision", leaked.error)
 
     def test_tool_guardrail_rejects_invalid_argument_type(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -1631,7 +1792,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("draft_response", node_names)
         self.assertIn("finalize_turn", node_names)
 
-    def test_high_risk_tool_requires_confirmation_before_execution(self) -> None:
+    def test_explicit_end_encounter_executes_without_duplicate_confirmation(self) -> None:
         if not self.runner.is_available:
             self.skipTest("LangGraph is unavailable in this runtime.")
         state = self._build_state(with_selected_adventure=True)
@@ -1644,34 +1805,125 @@ class DMGraphWorkflowTests(unittest.TestCase):
         )
         runner._model = EndEncounterModel()
         try:
-            paused = runner.run_turn(state, "End the encounter.")
+            result = runner.run_turn(state, "End the encounter.")
 
-            self.assertEqual(paused.turn_status, "input_required")
-            self.assertIsNotNone(paused.game_state.pending_turn)
-            self.assertEqual(paused.pending_input["kind"], "tool_confirmation")
-            self.assertEqual(paused.pending_input["details"]["tool_name"], "end_encounter")
-            self.assertTrue(paused.pending_input["details"]["guardrail"]["requires_confirmation"])
-            self.assertIn("结束当前遭遇", paused.response)
-            self.assertNotIn("end_encounter", paused.response)
-            self.assertTrue(paused.game_state.encounter.active)
-
-            resumed = runner.resume_turn(paused.game_state, "确认")
-
-            self.assertEqual(resumed.turn_status, "completed")
-            self.assertIsNone(resumed.game_state.pending_turn)
-            self.assertFalse(resumed.game_state.encounter.active)
+            self.assertEqual(result.turn_status, "completed")
+            self.assertIsNone(result.game_state.pending_turn)
+            self.assertFalse(result.game_state.encounter.active)
             execute_trace = next(
-                node for node in resumed.turn_trace.node_traces if node.node_name == "execute_tools"
+                node for node in result.turn_trace.node_traces if node.node_name == "execute_tools"
             )
             tool_trace = execute_trace.metadata["tools"][0]
             self.assertEqual(tool_trace["tool_name"], "end_encounter")
-            self.assertEqual(tool_trace["confirmation_status"], "confirmed")
             self.assertEqual(tool_trace["guardrail"]["risk_level"], "high")
-            resumed_model_context = "\n".join(
-                str(getattr(message, "content", ""))
-                for message in runner._model.messages[-1]
-            )
-            self.assertIn("confirmation was already accepted", resumed_model_context)
+            self.assertFalse(tool_trace["guardrail"]["requires_confirmation"])
+        finally:
+            runner.close()
+
+    def test_explicit_chapter_completion_finishes_in_the_same_turn(self) -> None:
+        class ChapterCompletionModel:
+            def __init__(self):
+                self.calls = 0
+
+            def bind_tools(self, _tools):
+                return self
+
+            def invoke(self, _messages):
+                self.calls += 1
+                if self.calls == 1:
+                    return AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "id": "call-complete-chapter",
+                                "name": "record_chapter_progress",
+                                "args": {
+                                    "chapter_title": "旧塔余响",
+                                    "summary": "队伍离开旧塔，带走已确认的线索。",
+                                    "chapter_number": 1,
+                                    "completed": True,
+                                },
+                            }
+                        ],
+                    )
+                return AIMessage(content="你们走出旧塔，身后的石门在暮色中合拢。第一章到此结束。")
+
+        state = self._build_state(with_selected_adventure=True)
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=True,
+            api_key="test-key",
+        )
+        runner._model = ChapterCompletionModel()
+        try:
+            result = runner.run_turn(state, "我要离开旧塔，结束这一章。")
+
+            self.assertEqual(result.turn_status, "completed")
+            self.assertIsNone(result.game_state.pending_turn)
+            self.assertEqual(len(result.game_state.campaign.completed_chapters), 1)
+            self.assertEqual(result.game_state.campaign.completed_chapters[0].title, "旧塔余响")
+        finally:
+            runner.close()
+
+    def test_last_enemy_defeat_can_end_encounter_without_confirmation(self) -> None:
+        class DefeatThenEndModel:
+            def __init__(self):
+                self.calls = 0
+
+            def bind_tools(self, _tools):
+                return self
+
+            def invoke(self, _messages):
+                self.calls += 1
+                if self.calls == 1:
+                    return AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "id": "call-defeat-last-enemy",
+                                "name": "set_defeat_state",
+                                "args": {"target_ref": "Goblin", "defeat_state": "unconscious"},
+                            }
+                        ],
+                    )
+                if self.calls == 2:
+                    return AIMessage(
+                        content="",
+                        tool_calls=[{"id": "call-auto-end", "name": "end_encounter", "args": {}}],
+                    )
+                return AIMessage(content="最后的地精倒下，战斗随即结束。")
+
+        state = self._build_state(with_selected_adventure=True)
+        GameLogic(state).start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=True,
+            api_key="test-key",
+        )
+        runner._model = DefeatThenEndModel()
+        try:
+            result = runner.run_turn(state, "我击倒最后一个地精。")
+
+            self.assertEqual(result.turn_status, "completed")
+            self.assertIsNone(result.game_state.pending_turn)
+            self.assertFalse(result.game_state.encounter.active)
+            executed = [
+                item["tool_name"]
+                for trace in result.turn_trace.node_traces
+                if trace.node_name == "execute_tools"
+                for item in trace.metadata.get("tools", [])
+            ]
+            self.assertEqual(executed, ["set_defeat_state", "end_encounter"])
         finally:
             runner.close()
 
@@ -1698,9 +1950,9 @@ class DMGraphWorkflowTests(unittest.TestCase):
                 "node_traces": [],
                 "__interrupt__": [
                     {
-                        "kind": "tool_confirmation",
-                        "prompt": "是否确认？",
-                        "details": {"tool_name": "end_encounter"},
+                        "kind": "player_choice",
+                        "prompt": "你要接受王冠，还是把它交给议会？",
+                        "details": {"options": ["接受王冠", "交给议会"]},
                     }
                 ],
             },
@@ -1717,47 +1969,41 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(result.tool_results, [])
         self.assertEqual(result.turn_trace.state_delta, {})
 
-    def test_staged_tool_writes_commit_only_after_confirmation_resume(self) -> None:
-        class StagedWriteModel:
-            def __init__(self, character_id: str):
-                self.character_id = character_id
-                self.calls = 0
-
-            def bind_tools(self, _tools):
-                return self
-
-            def invoke(self, _messages):
-                self.calls += 1
-                if self.calls == 1:
-                    return AIMessage(
-                        content="",
-                        tool_calls=[
-                            {
-                                "id": "call-staged-hp",
-                                "name": "adjust_hp",
-                                "args": {
-                                    "target_ref": self.character_id,
-                                    "amount": -1,
-                                    "reason": "测试暂存写入",
-                                },
-                            }
-                        ],
-                    )
-                if self.calls == 2:
-                    return AIMessage(
-                        content="",
-                        tool_calls=[
-                            {
-                                "id": "call-confirm-end",
-                                "name": "end_encounter",
-                                "args": {},
-                            }
-                        ],
-                    )
-                return AIMessage(content="遭遇结束，先前结算的伤势也一并写入存档。")
-
+    def test_consequential_branch_uses_story_choice_without_internal_policy_leak(self) -> None:
         state = self._build_state(with_selected_adventure=True)
-        GameLogic(state).start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=object(),
+            enable_model=True,
+            api_key="test-key",
+            checkpoint_mode="memory",
+        )
+        runner._model = PlayerChoiceModel()
+        try:
+            paused = runner.run_turn(state, "我不知道该不该接过王冠。")
+
+            self.assertEqual(paused.turn_status, "input_required")
+            self.assertEqual(paused.pending_input["kind"], "player_choice")
+            self.assertEqual(paused.pending_input["details"]["options"], ["亲自继位", "交给自由议会"])
+            public_payload = str(paused.pending_input)
+            for internal_term in ["request_player_choice", "tool_name", "risk_level", "高风险", "写入本局进度"]:
+                self.assertNotIn(internal_term, public_payload)
+
+            resumed = runner.resume_turn(paused.game_state, "交给自由议会")
+
+            self.assertEqual(resumed.turn_status, "completed")
+            self.assertIsNone(resumed.game_state.pending_turn)
+            self.assertIn("自由议会", resumed.response)
+            resumed_context = "\n".join(
+                str(getattr(message, "content", ""))
+                for message in runner._model.messages[-1]
+            )
+            self.assertIn("交给自由议会", resumed_context)
+        finally:
+            runner.close()
+
+    def test_staged_tool_writes_commit_only_after_player_choice_resume(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
         character = state.characters[state.active_character_id]
         initial_hp = character.hp_current
         runner = DMGraphRunner(
@@ -1771,30 +2017,57 @@ class DMGraphWorkflowTests(unittest.TestCase):
             api_key="test-key",
             checkpoint_mode="memory",
         )
-        runner._model = StagedWriteModel(character.character_id)
+        runner._model = StagedWriteThenChoiceModel(character.character_id)
         try:
-            paused = runner.run_turn(state, "结算一点伤势，然后结束遭遇。")
+            paused = runner.run_turn(state, "我检查伤口，结算一点伤势，但还没决定是否继续追赶。")
 
             self.assertEqual(paused.turn_status, "input_required")
+            self.assertEqual(paused.pending_input["kind"], "player_choice")
             self.assertEqual(
                 paused.game_state.characters[character.character_id].hp_current,
                 initial_hp,
             )
-            self.assertTrue(paused.game_state.encounter.active)
             self.assertEqual(paused.state_delta, {})
 
-            resumed = runner.resume_turn(paused.game_state, "确认")
+            resumed = runner.resume_turn(paused.game_state, "继续追赶")
 
             self.assertEqual(resumed.turn_status, "completed")
             self.assertEqual(
                 resumed.game_state.characters[character.character_id].hp_current,
                 initial_hp - 1,
             )
-            self.assertFalse(resumed.game_state.encounter.active)
         finally:
             runner.close()
 
-    def test_missing_resume_checkpoint_aborts_without_replaying_confirmation(self) -> None:
+    def test_cancelling_player_choice_rolls_back_all_staged_writes(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        initial_hp = character.hp_current
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=True,
+            api_key="test-key",
+            checkpoint_mode="memory",
+        )
+        runner._model = StagedWriteThenChoiceModel(character.character_id)
+        try:
+            paused = runner.run_turn(state, "我检查伤口，结算一点伤势，但还没决定是否继续追赶。")
+            cancelled = runner.resume_turn(paused.game_state, "暂不决定")
+
+            self.assertEqual(cancelled.turn_status, "failed")
+            self.assertIsNone(cancelled.game_state.pending_turn)
+            self.assertEqual(cancelled.game_state.characters[character.character_id].hp_current, initial_hp)
+            self.assertEqual(cancelled.state_delta, {})
+            self.assertIn("暂时没有作出这个决定", cancelled.response)
+        finally:
+            runner.close()
+
+    def test_missing_resume_checkpoint_aborts_without_replaying_choice(self) -> None:
         class MissingCheckpointGraph:
             def invoke(self, *_args, **_kwargs):
                 raise RuntimeError("checkpoint missing for thread")
@@ -1802,20 +2075,60 @@ class DMGraphWorkflowTests(unittest.TestCase):
         state = self._build_state(with_selected_adventure=True)
         state.pending_turn = PendingTurnState(
             thread_id="missing-checkpoint",
-            kind="tool_confirmation",
-            prompt="是否确认结束遭遇？",
-            original_input="结束遭遇。",
+            kind="player_choice",
+            prompt="你要接受王冠，还是交给议会？",
+            original_input="我还没决定王冠的归属。",
         )
         self.runner._graph = MissingCheckpointGraph()
 
-        result = self.runner.resume_turn(state, "确认")
+        result = self.runner.resume_turn(state, "交给议会")
 
         self.assertEqual(result.turn_status, "failed")
         self.assertIsNone(result.game_state.pending_turn)
         self.assertEqual(result.game_state.turn_number, 0)
         self.assertEqual(result.game_state.scene, "exploration")
-        self.assertIn("待确认的变更未提交", result.response)
+        self.assertIn("暂存变化未提交", result.response)
         self.assertIn("重新描述行动", result.response)
+
+    def test_real_checkpointer_missing_resume_state_aborts_safely(self) -> None:
+        if not self.runner.is_available:
+            self.skipTest("LangGraph is unavailable in this runtime.")
+        state = self._build_state(with_selected_adventure=True)
+        state.pending_turn = PendingTurnState(
+            thread_id="missing-real-checkpoint",
+            kind="player_choice",
+            prompt="你要接受王冠，还是交给议会？",
+            original_input="我还没决定王冠的归属。",
+            details={"options": ["接受王冠", "交给议会"]},
+        )
+
+        result = self.runner.resume_turn(state, "交给议会")
+
+        self.assertEqual(result.turn_status, "failed")
+        self.assertIsNone(result.game_state.pending_turn)
+        self.assertEqual(result.game_state.turn_number, 0)
+        self.assertEqual(result.state_delta, {})
+        self.assertEqual(result.tool_results, [])
+        self.assertIn("暂存变化未提交", result.response)
+
+    def test_legacy_tool_confirmation_is_invalidated_without_execution(self) -> None:
+        if not self.runner.is_available:
+            self.skipTest("LangGraph is unavailable in this runtime.")
+        state = self._build_state(with_selected_adventure=True)
+        state.pending_turn = PendingTurnState(
+            thread_id="legacy-confirmation",
+            kind="tool_confirmation",
+            prompt="旧版技术确认",
+            original_input="结束遭遇。",
+        )
+
+        result = self.runner.resume_turn(state, "清理旧暂停")
+
+        self.assertEqual(result.turn_status, "failed")
+        self.assertIsNone(result.game_state.pending_turn)
+        self.assertEqual(result.game_state.scene, "exploration")
+        self.assertIn("已失效", result.response)
+        self.assertIn("暂存变化未提交", result.response)
 
     def test_empty_turn_requests_more_input_without_advancing_turn(self) -> None:
         if not self.runner.is_available:

@@ -86,6 +86,8 @@ DM model
 
 辅助结果必须是只读 brief/artifact，由 DM 决定是否采用；辅助 Agent 不直接写 `GameState`，也不接管玩家对话。当前实现中的 Suggestion Agent 符合这一边界：它在主回合提交后投影三个 UI 行动建议，失败只返回空建议，不影响主事务。
 
+当前首个且唯一明确用例是提交后的 UI suggestions 投影：输入是已提交 `GameState`、最终叙事和本回合玩家输入；输出契约是恰好三个 `ActionSuggestion(label, action)`。模型调用上限 45 秒，非法或未落地的候选先走确定性 fallback，仍不可用时返回空列表；投影经独立 API 调用执行，不进入 `finalize_turn`，不拥有任何 `GameState` 写工具。规则检索与 campaign memory 继续作为确定性上下文服务，不包装成 Agent。尚未出现第二个同时满足新信息、上下文隔离或真并行条件的真实用例，因此不预建章节规划或规则研究角色。
+
 ## 7. 运行时拓扑与 trace
 
 `GET /api/v1/health` 的 `agent_topology` 来自已编译工具对象：

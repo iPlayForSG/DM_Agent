@@ -78,7 +78,8 @@ git diff --check
 - `finalize_turn` 是主回合唯一提交点；失败回合恢复初始快照。
 - 行动建议是提交后的非事务投影，不得影响主回合成功与否；敌方回合不显示玩家建议。
 - 删除和重写消息依赖完整 rewind snapshot，不做仅聊天记录的表面删除。
-- 高风险工具通过 LangGraph interrupt 暂停并恢复；暂停结果不得发布 staged state，checkpoint 不等同于剧情分支。
+- `risk_level` 只描述内部校验、事务和回滚要求，不自动触发玩家确认；只有缺少明确意图且真正涉及玩家决定权的分叉才通过 LangGraph interrupt 请求具体选择。
+- interrupt 暂停结果不得发布 staged state；取消、失败或 checkpoint 丢失都必须恢复初始快照，checkpoint 不等同于剧情分支。
 - 前端以服务端 snapshot、action options 和版本守卫为准，不在浏览器复制规则结算。
 - 标准怪物目录当前是只读资产；游戏内新怪物写入 `GameState.monster_templates`。
 - `backend/Game/`、`backend/Characters/`、`backend/Knowledge/`、`backend/Documents/` 和 runtime log 属于本地数据或生成资产，遵守 `.gitignore`。

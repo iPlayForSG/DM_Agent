@@ -279,10 +279,7 @@ class ChapterReplayRunner:
             result = await self.execute_turn(message)
             resume_count = 0
             while result.turn_status == "input_required" and resume_count < 5:
-                pending_kind = str(result.pending_input.get("kind") or "")
-                if pending_kind == "tool_confirmation":
-                    resume_message = "确认"
-                elif step.resume_message:
+                if step.resume_message:
                     resume_message = step.resume_message.format(**(setup_refs or {}))
                     self.issues.append(f"{step.label}: required clarification before completion")
                 else:
@@ -371,7 +368,6 @@ class ChapterReplayRunner:
                     "全程用简体中文。"
                 ),
                 expected_tools=["campaign.record_chapter_progress"],
-                resume_message="确认完成第一章记录。",
             ),
             EvalStep(
                 label="chapter2_start",
@@ -426,7 +422,6 @@ class ChapterReplayRunner:
                     "全程用简体中文。"
                 ),
                 expected_tools=["campaign.record_chapter_progress"],
-                resume_message="确认完成第二章记录。",
             ),
             EvalStep(
                 label="chapter3_start",
@@ -480,7 +475,6 @@ class ChapterReplayRunner:
                     "全程用简体中文。"
                 ),
                 expected_tools=["campaign.record_chapter_progress"],
-                resume_message="确认完成第三章记录。",
             ),
         ]
 
