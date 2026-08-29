@@ -20,6 +20,7 @@ class LexicalChunk:
     start_line: int
     end_line: int
     content: str
+    aliases: str
     searchable: str
 
 
@@ -82,12 +83,15 @@ class LexicalRuleIndex:
         for chunk in self.chunks:
             source = chunk.source.casefold()
             heading = chunk.heading.casefold()
+            aliases = chunk.aliases
             content = chunk.searchable
             score = 0
             for query in normalized_queries:
                 if query and query in content:
                     score += 16
             for term in terms:
+                if term in aliases:
+                    score += 9
                 if term in heading:
                     score += 7
                 if term in source:
@@ -130,6 +134,12 @@ class LexicalRuleIndex:
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         lines = text.splitlines()
         source = path.relative_to(root).as_posix()
+        document_aliases = " ".join(
+            match.group(1).strip()
+            for line in lines
+            if (match := re.match(r"^>\s*Search aliases:\s*(.+?)\s*$", line, re.IGNORECASE))
+        )
+        normalized_aliases = unicodedata.normalize("NFKC", document_aliases).casefold()
         heading_stack: List[str] = []
         chunks: List[LexicalChunk] = []
         buffer: List[str] = []
@@ -150,7 +160,11 @@ class LexicalRuleIndex:
                             start_line=start_line + part_start,
                             end_line=min(end_line, start_line + part_start + part_line_count - 1),
                             content=part,
-                            searchable=unicodedata.normalize("NFKC", f"{source}\n{' > '.join(heading_stack)}\n{part}").casefold(),
+                            aliases=normalized_aliases,
+                            searchable=unicodedata.normalize(
+                                "NFKC",
+                                f"{source}\n{' > '.join(heading_stack)}\n{document_aliases}\n{part}",
+                            ).casefold(),
                         )
                     )
             buffer = []

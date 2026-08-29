@@ -35,7 +35,7 @@
 | `backend/utils/import_5etools_builder_options.py` | 从本地 5e.tools 数据增量补齐建卡目录；幂等、只追加 | `character_builder_2024.json`、`validate_character`、builder API |
 | `backend/rag.py` | 向量优先、词法降级、多查询、来源去重与上下文截断 | health/status、dm_graph rules stage、`lexical_rag.py` |
 | `backend/lexical_rag.py` | heading-aware Markdown/text 词法索引 | 规范化语料、中文/英文术语、fallback tests |
-| `backend/rule_document_normalizer.py`、`backend/utils/normalize_rule_documents.py` | 原始规则书只读规范化、manifest 与 overrides | `docs/RULE_DOCUMENT_STANDARD.md`、ignored corpus、检索质量抽查 |
+| `backend/rule_document_normalizer.py`、`backend/utils/normalize_rule_documents.py` | 原始规则书只读规范化、重复标题消歧、可继承目录 aliases、manifest quality warnings | `docs/RULE_DOCUMENT_STANDARD.md`、ignored corpus、检索质量抽查 |
 | `backend/rag_embeddings.py` | GGUF 定位、跨平台 llama-server 生命周期、embedding | Windows/macOS 路径、CUDA/Metal/CPU、超时与日志 |
 | `backend/rag_ingest.py` | 将本地规则文档切片并写入 Chroma 索引 | `rag_embeddings.py`、源目录、collection/manifest、构建命令 |
 
