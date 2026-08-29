@@ -1,6 +1,6 @@
 # DM Agent Loop 架构
 
-本文档描述当前实现，不记录迁移过程。长期决策见 [ADR-0002](docs/adr/0002-single-dm-brain.md)。
+本文档描述当前实现，不记录迁移过程。长期决策见 [ADR-0003](docs/adr/0003-single-dm-brain.md)。
 
 ## 1. 核心选择
 

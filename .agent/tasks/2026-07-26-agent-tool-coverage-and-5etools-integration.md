@@ -3,7 +3,7 @@
 Status: active
 Updated: 2026-07-26
 
-> 2026-08-28 架构校准：实时运行时已由 [ADR-0002](../../docs/adr/0002-single-dm-brain.md) 收敛为单一 DM Brain。下文关于 Director、阶段 Specialist、Auditor 和 Narrator 的内容只描述当时基线；未完成的 provider/browser 回归必须验证当前 DM Loop。
+> 2026-08-28 架构校准：实时运行时已由 [ADR-0003](../../docs/adr/0003-single-dm-brain.md) 收敛为单一 DM Brain。下文关于 Director、阶段 Specialist、Auditor 和 Narrator 的内容只描述当时基线；未完成的 provider/browser 回归必须验证当前 DM Loop。
 
 ## Goal
 

@@ -76,9 +76,12 @@
       "id": "rules-state-and-persistence",
       "patterns": [
         "backend/game_logic.py",
+        "backend/encounter_math.py",
         "backend/rules_catalog.py",
         "backend/ability_scores.py",
-        "backend/storage.py"
+        "backend/storage.py",
+        "backend/adventure_service.py",
+        "backend/campaign_memory.py"
       ],
       "suggested_docs": [
         ".agent/memory/architecture-map.md",
@@ -92,7 +95,7 @@
       "patterns": [
         "backend/rag.py",
         "backend/rag_embeddings.py",
-        "backend/build_rag_index.py"
+        "backend/rag_ingest.py"
       ],
       "suggested_docs": [
         ".agent/memory/architecture-map.md",

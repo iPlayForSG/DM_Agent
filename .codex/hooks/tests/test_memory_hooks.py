@@ -33,7 +33,11 @@ class MemoryHookTests(unittest.TestCase):
         initial_files = {
             "backend/main.py": "API = 'v1'\n",
             "backend/models.py": "SCHEMA = 1\n",
+            "backend/adventure_service.py": "ADVENTURE = 1\n",
+            "backend/campaign_memory.py": "MEMORY = 1\n",
+            "backend/encounter_math.py": "BUDGET = 1\n",
             "backend/helper.py": "VALUE = 1\n",
+            "backend/rag_ingest.py": "INDEX_VERSION = 1\n",
             "frontend/package.json": '{"scripts":{"build":"vite build"}}\n',
             "frontend/src/api.js": "export const API = '/api/v1';\n",
             "frontend/src/helper.js": "export const value = 1;\n",
@@ -146,6 +150,14 @@ class MemoryHookTests(unittest.TestCase):
         self.assertIn("commands-and-ci", payload["reason"])
         self.assertIn(".agent/memory/commands.md", payload["reason"])
 
+    def test_rag_ingest_change_suggests_commands_memory(self) -> None:
+        self._write("backend/rag_ingest.py", "INDEX_VERSION = 2\n")
+        self._observe()
+        payload = self._stop()
+        self.assert_blocked(payload)
+        self.assertIn("rag-infrastructure", payload["reason"])
+        self.assertIn(".agent/memory/commands.md", payload["reason"])
+
     def test_api_and_schema_change_triggers_architecture_review(self) -> None:
         self._write("backend/models.py", "SCHEMA = 2\n")
         self._observe()
@@ -153,6 +165,28 @@ class MemoryHookTests(unittest.TestCase):
         self.assert_blocked(payload)
         self.assertIn("api-and-schema", payload["reason"])
         self.assertIn("architecture-map.md", payload["reason"])
+
+    def test_rules_and_adventure_boundaries_trigger_architecture_review(self) -> None:
+        for relative_path, content in (
+            ("backend/encounter_math.py", "BUDGET = 2\n"),
+            ("backend/adventure_service.py", "ADVENTURE = 2\n"),
+            ("backend/campaign_memory.py", "MEMORY = 2\n"),
+        ):
+            with self.subTest(relative_path=relative_path):
+                core.handle_session_start(self.session_event)
+                self._write(relative_path, content)
+                self._observe()
+                payload = self._stop()
+                self.assert_blocked(payload)
+                self.assertIn("rules-state-and-persistence", payload["reason"])
+                self.assertIn("architecture-map.md", payload["reason"])
+                self._git("restore", relative_path)
+
+    def test_clear_starts_a_new_observation_baseline(self) -> None:
+        self._write("backend/main.py", "API = 'dirty-before-clear'\n")
+        core.handle_session_start({**self.session_event, "source": "clear"})
+        self._observe()
+        self.assertEqual(self._stop(), {"continue": True})
 
     def test_small_style_or_markdown_copy_change_does_not_trigger(self) -> None:
         self._write("frontend/src/index.css", "body { color: navy; }\n")
@@ -253,6 +287,42 @@ class MemoryHookTests(unittest.TestCase):
             )
             parsed = json.loads(result.stdout.decode("ascii"))
             self.assertIsInstance(parsed, dict)
+
+    def test_entry_scripts_degrade_malformed_json_safely(self) -> None:
+        expected = {
+            "memory_session.py": {"continue": True},
+            "memory_observe.py": {},
+            "memory_stop.py": {"continue": True},
+        }
+        for script, required_fields in expected.items():
+            with self.subTest(script=script):
+                result = subprocess.run(
+                    [sys.executable, str(HOOKS_DIR / script)],
+                    cwd=self.root,
+                    input=b"not-json",
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                )
+                payload = json.loads(result.stdout.decode("ascii"))
+                for field, value in required_fields.items():
+                    self.assertEqual(payload.get(field), value)
+
+    def test_hooks_config_references_cross_platform_entry_scripts(self) -> None:
+        config = json.loads((PROJECT_CODEX_DIR / "hooks.json").read_text(encoding="utf-8"))
+        expected = {
+            "SessionStart": "memory_session.py",
+            "PostToolUse": "memory_observe.py",
+            "Stop": "memory_stop.py",
+        }
+        for event_name, script in expected.items():
+            with self.subTest(event_name=event_name):
+                handler = config["hooks"][event_name][0]["hooks"][0]
+                self.assertTrue((HOOKS_DIR / script).is_file())
+                self.assertIn(script, handler["command"])
+                self.assertIn(script, handler["commandWindows"])
+                self.assertIn("git rev-parse --show-toplevel", handler["command"])
+        self.assertIn("clear", config["hooks"]["SessionStart"][0]["matcher"])
 
     def test_stop_script_escapes_continuation_prompt_as_valid_json(self) -> None:
         session_id = "escaped-continuation"

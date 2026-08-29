@@ -1,0 +1,17 @@
+{
+  "directories": {
+    "核心规则/玩家手册2024": {
+      "aliases": ["PHB 2024", "Player's Handbook 2024", "玩家手册"]
+    },
+    "核心规则/城主指南2024": {
+      "aliases": ["DMG 2024", "Dungeon Master's Guide 2024", "地下城主指南", "城主指南"]
+    },
+    "核心规则/怪物图鉴2025": {
+      "aliases": ["MM 2025", "Monster Manual 2025", "怪物手册", "怪物图鉴"]
+    },
+    "核心规则/贤者谏言2025": {
+      "aliases": ["Sage Advice 2025", "贤者建议", "规则答疑"]
+    }
+  },
+  "documents": {}
+}

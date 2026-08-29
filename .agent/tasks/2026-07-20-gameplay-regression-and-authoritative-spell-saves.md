@@ -3,7 +3,7 @@
 Status: active
 Updated: 2026-07-26
 
-> 2026-08-28 架构校准：实时运行时已由 [ADR-0002](../../docs/adr/0002-single-dm-brain.md) 收敛为单一 DM Brain。下文 Auditor/Narrator 内容只描述历史修复；后续回归以确定性 validator、`finalize_turn` 和 interrupt 事务边界为准。
+> 2026-08-28 架构校准：实时运行时已由 [ADR-0003](../../docs/adr/0003-single-dm-brain.md) 收敛为单一 DM Brain。下文 Auditor/Narrator 内容只描述历史修复；后续回归以确定性 validator、`finalize_turn` 和 interrupt 事务边界为准。
 
 ## Goal
 
