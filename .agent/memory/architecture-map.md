@@ -27,12 +27,14 @@ React/Vite UI
 - 规则执行层：`agent_tools.py` / `action_service.py` 组织操作，`game_logic.py` 结算，`rules_catalog.py` 提供角色卡和目录事实，`encounter_math.py` 提供无状态的遭遇预算与 CR 估算。
 - 数据层 `models.py`：API、存档和图状态共享的 Pydantic schema。
 - 持久化层 `storage.py`：每游戏/角色/怪物一个 JSON；rewind 保存完整 `GameState`。
-- 检索层 `rag.py`：Chroma 检索；`rag_embeddings.py` 按需启动本地 llama.cpp embedding server。
+- 剧情记忆层 `campaign_memory.py`：只从权威 `GameState` 派生有限提示上下文，不拥有独立业务状态。
+- 模型传输层 `model_backends.py`：把 OpenAI-compatible API 或受限 Claude Code/Codex CLI 适配为 LangChain chat model；CLI 不拥有游戏工具或状态。
+- 检索层 `rag.py`：优先 Chroma，embedding/查询失败时降级到 `lexical_rag.py` 的确定性词法索引；`rag_embeddings.py` 按需启动本地 llama.cpp，`rag_ingest.py` 构建向量索引。
 - UI 层：`App.jsx` 消费服务端快照，`api.js` 管理请求和 SSE 解析。
 
 ## 外部依赖
 
-- OpenAI-compatible Chat Completions 模型端点，经 `langchain-openai` 调用。
+- OpenAI-compatible Chat Completions 端点，或本机已安装登录的 Claude Code/Codex CLI。
 - LangGraph / LangChain：工作流、Agent、ToolNode、interrupt 和 checkpoint。
 - FastAPI / Uvicorn / Pydantic：HTTP 与数据契约。
 - React 19 / Vite 5：前端。
@@ -45,6 +47,7 @@ React/Vite UI
 - `backend/Monsters/*.json`：跟踪的标准怪物资产。
 - `backend/runtime/checkpoints.sqlite3` 或配置路径：LangGraph checkpoint。
 - `backend/Knowledge/vector_db/`：生成的 Chroma 索引。
+- `backend/Knowledge/grep_corpus/`：由原始规则书生成的规范化词法语料与 manifest。
 - 模型档案保存在 `backend/.env`，不得进入文档或日志。
 
 ## 关键架构约束
@@ -59,5 +62,7 @@ React/Vite UI
 - interrupt 只发布上次已提交快照和 pending 元数据，staged transaction 留在 checkpoint 中。
 - checkpoint 用于 interrupt 恢复，不提供剧情分支；剧情分支由 rewind snapshot 实现。
 - SSE 当前在回合完成后从 trace 派生事件，不是真实 token/tool 实时流。
+- CLI 仅传输消息和应用工具调用：独立临时目录、Claude 禁用自身工具、Codex ephemeral/read-only；确定性工具仍是状态变化唯一入口。
+- 向量与词法检索共享规则来源但能力不同；fallback 必须公开 vector error，不得把降级伪装成向量成功。
 
 详细父图和角色契约见 [MULTI_AGENT_ARCHITECTURE.md](../../MULTI_AGENT_ARCHITECTURE.md)。

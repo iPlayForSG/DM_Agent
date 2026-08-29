@@ -47,11 +47,30 @@ const STATS = ["strength", "dexterity", "constitution", "intelligence", "wisdom"
 
 function formatLlmHealthMessage(health) {
   if (!health || health.ready) return "";
+  if (health.reason === "cli_not_found") return "模型连接失败：未找到所选 Coding Agent CLI，请检查命令或 PATH。";
+  if (health.reason === "cli_probe_failed") return "模型连接失败：CLI 无法正常启动，请检查本机安装。";
   if (!health.configured) return "模型档案尚未完整配置，请补全 Base URL、模型名称和 API Key。";
   if (Number(health.status_code) === 401) return "模型连接失败：API Key 无效或已被服务拒绝。";
   if (health.status_code) return `模型连接失败（HTTP ${health.status_code}），请检查服务地址和模型档案。`;
   return "暂时无法验证模型连接，请检查模型服务是否可访问。";
 }
+
+const MODEL_PROVIDER_LABELS = {
+  "openai-compatible": "API（OpenAI-compatible）",
+  "claude-code": "Claude Code CLI",
+  "codex-cli": "Codex CLI",
+};
+
+const EMPTY_LLM_DRAFT = {
+  profile_id: "",
+  profile_label: "",
+  provider: "openai-compatible",
+  model_name: "",
+  base_url: "",
+  api_key: "",
+  cli_command: "",
+  cli_timeout_s: 300,
+};
 
 const STAT_LABELS = {
   strength: "力量",
@@ -803,7 +822,7 @@ export default function App() {
   const [replyLengthMessage, setReplyLengthMessage] = useState("");
   const [llmConfig, setLlmConfig] = useState(null);
   const [llmHealth, setLlmHealth] = useState(null);
-  const [llmDraft, setLlmDraft] = useState({ profile_id: "", profile_label: "", model_name: "", base_url: "", api_key: "" });
+  const [llmDraft, setLlmDraft] = useState({ ...EMPTY_LLM_DRAFT });
   const [isLlmSaving, setIsLlmSaving] = useState(false);
   const [llmStatusMessage, setLlmStatusMessage] = useState("");
   const [pendingAdventureId, setPendingAdventureId] = useState(null);
@@ -957,7 +976,7 @@ export default function App() {
   const llmConnectionLabel = isLobbyLoading
     ? "读取中"
     : llmHealth?.ready
-      ? "可用"
+      ? llmConfig?.provider === "openai-compatible" ? "可用" : "CLI 已安装"
       : llmConfig?.configured
         ? "连接失败"
         : "未完整配置";
@@ -1034,9 +1053,12 @@ export default function App() {
     setLlmDraft({
       profile_id: activeProfile.profile_id || "",
       profile_label: activeProfile.label || "",
+      provider: activeProfile.provider || nextConfig.provider || "openai-compatible",
       model_name: activeProfile.model_name || nextConfig.model_name || "",
       base_url: activeProfile.raw_base_url || nextConfig.raw_base_url || nextConfig.base_url || "",
       api_key: "",
+      cli_command: activeProfile.cli_command || nextConfig.cli_command || "",
+      cli_timeout_s: activeProfile.cli_timeout_s || nextConfig.cli_timeout_s || 300,
     });
   }
 
@@ -1085,11 +1107,12 @@ export default function App() {
   async function saveLlmConfig(event) {
     event.preventDefault();
     const profileLabel = llmDraft.profile_label.trim();
+    const provider = llmDraft.provider || "openai-compatible";
     const modelName = llmDraft.model_name.trim();
     const baseUrl = llmDraft.base_url.trim();
     if (!profileLabel) return setLlmStatusMessage("请填写条目名称。");
-    if (!modelName) return setLlmStatusMessage("请填写模型名称。");
-    if (!baseUrl) return setLlmStatusMessage("请填写 Base URL。");
+    if (provider === "openai-compatible" && !modelName) return setLlmStatusMessage("请填写模型名称。");
+    if (provider === "openai-compatible" && !baseUrl) return setLlmStatusMessage("请填写 Base URL。");
 
     setIsLlmSaving(true);
     setLlmStatusMessage("");
@@ -1098,8 +1121,11 @@ export default function App() {
       const payload = {
         profile_id: llmDraft.profile_id,
         profile_label: profileLabel,
+        provider,
         model_name: modelName,
         base_url: baseUrl,
+        cli_command: llmDraft.cli_command.trim(),
+        cli_timeout_s: Number(llmDraft.cli_timeout_s) || 300,
         activate: true,
       };
       const nextKey = llmDraft.api_key.trim();
@@ -1109,7 +1135,7 @@ export default function App() {
       const health = await loadModelHealth();
       setLlmHealth(health);
       setLlmStatusMessage(health.ready
-        ? "模型档案已保存并启用，连接验证成功。"
+        ? provider === "openai-compatible" ? "模型档案已保存并启用，连接验证成功。" : "模型档案已保存并启用，CLI 安装检查成功；登录态将在首次调用时验证。"
         : `模型档案已保存，但${formatLlmHealthMessage(health)}`);
     } catch (err) {
       setLlmStatusMessage(err.message || "保存模型配置失败。");
@@ -1129,7 +1155,7 @@ export default function App() {
       const health = await loadModelHealth();
       setLlmHealth(health);
       setLlmStatusMessage(health.ready
-        ? "模型档案已切换，连接验证成功。"
+        ? (health.provider === "openai-compatible" ? "模型档案已切换，连接验证成功。" : "模型档案已切换，CLI 安装检查成功；登录态将在首次调用时验证。")
         : `模型档案已切换，但${formatLlmHealthMessage(health)}`);
     } catch (err) {
       setLlmStatusMessage(err.message || "切换模型档案失败。");
@@ -1139,7 +1165,7 @@ export default function App() {
   }
 
   function beginNewLlmProfile() {
-    setLlmDraft({ profile_id: "", profile_label: "", model_name: "", base_url: "", api_key: "" });
+    setLlmDraft({ ...EMPTY_LLM_DRAFT });
     setLlmStatusMessage("正在创建新模型档案。");
   }
 
@@ -2336,7 +2362,8 @@ export default function App() {
                     <option value="" disabled>{llmProfiles.length === 0 ? "暂无已保存档案" : "选择一个模型档案"}</option>
                     {llmProfiles.map((profile) => (
                       <option key={profile.profile_id} value={profile.profile_id}>
-                        {profile.label}{profile.active ? "（当前）" : ""}{profile.api_key_configured ? "" : " · 未保存密钥"}
+                        {profile.label}{profile.active ? "（当前）" : ""}
+                        {profile.provider === "openai-compatible" && !profile.api_key_configured ? " · 未保存密钥" : ""}
                       </option>
                     ))}
                     <option value="__new__">新建模型档案...</option>
@@ -2356,37 +2383,80 @@ export default function App() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Base URL</label>
-                    <input
-                      value={llmDraft.base_url}
-                      onChange={(e) => setLlmDraft((prev) => ({ ...prev, base_url: e.target.value }))}
-                      placeholder="https://api.deepseek.com"
+                    <label>接入方式</label>
+                    <select
+                      value={llmDraft.provider}
+                      onChange={(e) => setLlmDraft((prev) => ({
+                        ...prev,
+                        provider: e.target.value,
+                        cli_command: e.target.value === "claude-code" ? "claude" : e.target.value === "codex-cli" ? "codex" : "",
+                      }))}
                       disabled={isLlmSaving}
-                    />
+                    >
+                      {Object.entries(MODEL_PROVIDER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
                   </div>
                   <div className="form-group">
                     <label>模型名称</label>
                     <input
                       value={llmDraft.model_name}
                       onChange={(e) => setLlmDraft((prev) => ({ ...prev, model_name: e.target.value }))}
-                      placeholder="deepseek-v4-flash"
+                      placeholder={llmDraft.provider === "openai-compatible" ? "deepseek-v4-flash" : "可留空，使用 CLI 默认模型"}
                       disabled={isLlmSaving}
                     />
                   </div>
-                  <div className="form-group">
-                    <label>API Key</label>
-                    <input
-                      type="password"
-                      value={llmDraft.api_key}
-                      onChange={(e) => setLlmDraft((prev) => ({ ...prev, api_key: e.target.value }))}
-                      placeholder={editingLlmProfile?.api_key_configured ? "留空保持该档案密钥" : "填写 API Key"}
-                      autoComplete="new-password"
-                      disabled={isLlmSaving}
-                    />
-                  </div>
+                  {llmDraft.provider === "openai-compatible" ? (
+                    <>
+                      <div className="form-group">
+                        <label>Base URL</label>
+                        <input
+                          value={llmDraft.base_url}
+                          onChange={(e) => setLlmDraft((prev) => ({ ...prev, base_url: e.target.value }))}
+                          placeholder="https://api.deepseek.com"
+                          disabled={isLlmSaving}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>API Key</label>
+                        <input
+                          type="password"
+                          value={llmDraft.api_key}
+                          onChange={(e) => setLlmDraft((prev) => ({ ...prev, api_key: e.target.value }))}
+                          placeholder={editingLlmProfile?.api_key_configured ? "留空保持该档案密钥" : "填写 API Key"}
+                          autoComplete="new-password"
+                          disabled={isLlmSaving}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="form-group">
+                        <label>CLI 命令</label>
+                        <input
+                          value={llmDraft.cli_command}
+                          onChange={(e) => setLlmDraft((prev) => ({ ...prev, cli_command: e.target.value }))}
+                          placeholder={llmDraft.provider === "claude-code" ? "claude" : "codex"}
+                          disabled={isLlmSaving}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>单次调用超时（秒）</label>
+                        <input
+                          type="number"
+                          min="10"
+                          max="1800"
+                          value={llmDraft.cli_timeout_s}
+                          onChange={(e) => setLlmDraft((prev) => ({ ...prev, cli_timeout_s: e.target.value }))}
+                          disabled={isLlmSaving}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="model-settings-footer">
-                  <p className="info-text">{llmStatusMessage || llmHealthMessage || "API Key 不会显示；编辑已有档案时留空会保留该档案当前密钥。"}</p>
+                  <p className="info-text">{llmStatusMessage || llmHealthMessage || (llmDraft.provider === "openai-compatible"
+                    ? "API Key 不会显示；编辑已有档案时留空会保留该档案当前密钥。"
+                    : "CLI 使用本机已有登录态；运行时被限制在临时只读工作目录中。")}</p>
                   <button type="submit" className="btn-primary" disabled={isLlmSaving}>
                     {isLlmSaving ? "保存中..." : "保存并启用"}
                   </button>

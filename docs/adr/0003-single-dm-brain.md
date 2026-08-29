@@ -1,4 +1,4 @@
-# ADR-0002：实时回合采用单一 DM Brain
+# ADR-0003：实时回合采用单一 DM Brain
 
 Status: Accepted
 Date: 2026-08-28

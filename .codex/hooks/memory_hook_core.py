@@ -455,8 +455,8 @@ def handle_session_start(event: Mapping[str, Any]) -> Dict[str, Any]:
             with _state_lock(path):
                 state = load_state(path)
                 source = str(event.get("source") or "startup")
-                # resume/compact 必须保留原始基线；startup 则代表新的观察窗口。
-                if source == "startup" or not state:
+                # resume/compact 必须保留原始基线；startup/clear 则代表新的观察窗口。
+                if source in {"startup", "clear"} or not state:
                     state = new_state(root, session_id)
                     save_state(path, state)
     return {

@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import site
 import shutil
 import subprocess
@@ -259,7 +260,9 @@ def cuda_available() -> bool:
 
 def enforce_cpu_guard(args: argparse.Namespace, chunk_count: int) -> None:
     requested_device = (args.device or os.getenv("RAG_EMBEDDING_DEVICE", "")).strip().lower()
-    if requested_device in {"cuda", "gpu"}:
+    if requested_device in {"cuda", "gpu", "metal"}:
+        return
+    if platform.system() == "Darwin" and requested_device in {"", "auto"}:
         return
     if cuda_available():
         return
@@ -268,8 +271,8 @@ def enforce_cpu_guard(args: argparse.Namespace, chunk_count: int) -> None:
     if chunk_count <= args.cpu_chunk_limit:
         return
     raise RuntimeError(
-        "Qwen3-Embedding-4B-GGUF is running without CUDA acceleration and the requested ingestion is too large. "
-        f"Chunk count: {chunk_count}. Set RAG_EMBEDDING_DEVICE=cuda on a CUDA machine, "
+        "Qwen3-Embedding-4B-GGUF is running without detected GPU acceleration and the requested ingestion is too large. "
+        f"Chunk count: {chunk_count}. Set RAG_EMBEDDING_DEVICE=cuda or metal on a supported machine, "
         "use --max-chunks for a smoke test, or pass --allow-slow-cpu if you intentionally "
         "want a very long CPU run."
     )
