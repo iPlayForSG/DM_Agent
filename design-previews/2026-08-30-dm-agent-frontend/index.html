@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DM_Agent 前端设计方向预览 · 四方向</title>
+<style>
+:root{
+  --bg:#141210; --panel:#1d1a16; --line:rgba(217,205,178,.14);
+  --paper:#d9d2c1; --dim:#9a9282; --brass:#b8a16a; --ease:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--paper);font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;line-height:1.6;padding:24px}
+.shell-note{max-width:1280px;margin:0 auto 16px;color:var(--dim);font-size:13px}
+.shell-note strong{color:var(--brass)}
+.grid{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .2s var(--ease)}
+.stage.selected{border-color:var(--brass);box-shadow:0 0 0 1px var(--brass)}
+.stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.stage-head h2{font-size:15px;font-weight:600}
+.stage-head .tagchip{font-size:11px;color:var(--dim);border:1px solid var(--line);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.stage-head .rec{color:#d6c17d;border-color:#d6c17d}
+.mock{flex:1;min-height:340px;position:relative;overflow:hidden}
+.pickbar{padding:12px 16px;border-top:1px solid var(--line)}
+.pick-button{width:100%;padding:10px;font:inherit;font-size:14px;color:#141210;background:var(--brass);border:none;border-radius:8px;cursor:pointer;transition:transform .1s var(--ease)}
+.pick-button:active{transform:scale(.97)}
+.dials{max-width:1280px;margin:24px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:900px){.dials{grid-template-columns:1fr}}
+.dial{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.dial label{display:flex;justify-content:space-between;font-size:13px;color:var(--dim)}
+.dial label output{color:var(--brass);font-variant-numeric:tabular-nums}
+.dial input{width:100%;accent-color:var(--brass)}
+.notes{max-width:1280px;margin:28px auto;color:var(--dim);font-size:13px}
+.notes h3{color:var(--paper);font-size:14px;margin:14px 0 6px}
+dialog{border:1px solid var(--brass);border-radius:12px;background:var(--panel);color:var(--paper);padding:24px;max-width:420px;width:90%}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h3{margin-bottom:8px}
+dialog textarea{width:100%;min-height:70px;margin:12px 0;background:#141210;border:1px solid var(--line);color:var(--paper);border-radius:8px;padding:8px;font:inherit}
+dialog .row{display:flex;gap:8px;justify-content:flex-end}
+dialog button{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font:inherit}
+#confirmBtn{background:var(--brass);color:#141210}
+#cancelBtn{background:transparent;border:1px solid var(--line);color:var(--paper)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--brass);color:#141210;padding:8px 18px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease)}
+.toast.show{opacity:1}
+
+/* ============ 方向 A · 烛下账本（亮色羊皮纸印刷） ============ */
+.dirA{position:absolute;inset:0;background:#efe7d3;color:#2b2418;font-family:"Georgia","Songti SC","SimSun",serif;display:flex;flex-direction:column}
+.dirA-top{display:flex;justify-content:space-between;align-items:baseline;padding:14px 22px;border-bottom:2px solid #2b2418}
+.dirA-top .t{font-size:17px;font-weight:700;letter-spacing:.04em}
+.dirA-top .s{font-size:11px;color:#6d5f45;font-variant-numeric:tabular-nums}
+.dirA-body{flex:1;display:grid;grid-template-columns:1fr 168px;min-height:0}
+.dirA-chat{padding:18px 22px;overflow:hidden;display:flex;flex-direction:column;gap:14px}
+.dirA-msg{max-width:82%;border-left:2px solid #b8a16a;padding:2px 0 2px 12px}
+.dirA-msg.dm{border-left-color:#2b2418}
+.dirA-msg .who{font-size:10px;letter-spacing:.18em;color:#6d5f45;text-transform:uppercase;margin-bottom:3px}
+.dirA-msg p{font-size:13px;line-height:1.7}
+.dirA-msg.player{align-self:flex-end;text-align:right;border-left:none;border-right:2px solid #9f3d34;padding:2px 12px 2px 0}
+.dirA-side{border-left:1px solid #c9bb98;padding:14px;display:flex;flex-direction:column;gap:10px;background:#e8dec6}
+.dirA-side h4{font-size:10px;letter-spacing:.16em;color:#6d5f45;border-bottom:1px solid #c9bb98;padding-bottom:4px}
+.dirA-char{font-size:12px}
+.dirA-char .nm{font-weight:700}
+.dirA-hp{height:5px;background:#d3c6a6;border:1px solid #a5956f;margin-top:4px}
+.dirA-hp i{display:block;height:100%;width:72%;background:#7d3b32}
+.dirA-input{border-top:2px solid #2b2418;padding:10px 22px;display:flex;gap:10px;align-items:center}
+.dirA-input span{flex:1;font-size:12px;color:#8a7a58;font-style:normal}
+.dirA-input b{font-size:11px;border:1px solid #2b2418;padding:3px 12px;border-radius:2px;letter-spacing:.1em}
+
+/* ============ 方向 B · 战术桌面（暗色高密度工具） ============ */
+.dirB{position:absolute;inset:0;background:#101512;color:#cfe0d6;font-family:"Segoe UI","Microsoft YaHei",sans-serif;display:flex;flex-direction:column}
+.dirB-top{display:flex;gap:14px;align-items:center;padding:10px 16px;background:#0b0e0c;border-bottom:1px solid #1f2b24;font-size:12px}
+.dirB-top .live{color:#80b49e;font-family:Consolas,monospace;font-size:11px}
+.dirB-top .phase{background:#1a2a20;color:#80b49e;padding:2px 10px;border-radius:3px;font-family:Consolas,monospace;font-size:11px}
+.dirB-body{flex:1;display:grid;grid-template-columns:1fr 200px;min-height:0}
+.dirB-feed{padding:12px 16px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.dirB-ev{display:grid;grid-template-columns:56px 1fr;gap:10px;font-size:12px;padding:7px 10px;background:#141b17;border:1px solid #1f2b24;border-radius:4px}
+.dirB-ev .k{color:#5c7a6a;font-family:Consolas,monospace;font-size:11px}
+.dirB-ev .k.roll{color:#d6c17d}
+.dirB-ev strong{color:#e8f2ec;font-weight:600}
+.dirB-narr{border-left:2px solid #b8a16a;padding-left:10px;color:#b9cabf;font-size:12.5px;line-height:1.6}
+.dirB-side{border-left:1px solid #1f2b24;background:#0d1210;padding:12px;display:flex;flex-direction:column;gap:6px;font-size:11.5px}
+.dirB-side h4{font-size:10px;color:#5c7a6a;font-family:Consolas,monospace;letter-spacing:.08em;margin-bottom:2px}
+.dirB-row{display:flex;justify-content:space-between;font-family:Consolas,monospace;color:#9db8aa}
+.dirB-row.act{color:#d6c17d}
+.dirB-hp{height:3px;background:#1f2b24;margin:2px 0 6px}
+.dirB-hp i{display:block;height:100%;width:64%;background:#4b806a}
+.dirB-hp.enemy i{background:#9f3d34}
+.dirB-input{border-top:1px solid #1f2b24;padding:9px 16px;display:flex;gap:8px}
+.dirB-input span{flex:1;font-size:12px;color:#4a5d52}
+.dirB-input b{background:#4b806a;color:#0b0e0c;font-size:11px;padding:4px 14px;border-radius:3px;font-weight:600}
+
+/* ============ 方向 C · 篝火说书（烛光沉浸叙事）【推荐】 ============ */
+.dirC{position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,#2e2114,#171009 60%,#0d0906);color:#e9ddc4;display:flex;flex-direction:column}
+.dirC::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 82% 88%,rgba(214,170,90,.13),transparent 40%);pointer-events:none}
+.dirC-top{text-align:center;padding:20px 20px 12px}
+.dirC-top .chap{font-size:10px;letter-spacing:.42em;color:#a8895a;margin-bottom:4px}
+.dirC-top .t{font-family:Georgia,"Songti SC","SimSun",serif;font-size:20px;font-weight:700;letter-spacing:.08em}
+.dirC-body{flex:1;padding:6px 48px 0;display:flex;flex-direction:column;gap:16px;overflow:hidden;position:relative;z-index:1}
+.dirC-msg{text-align:center;max-width:60ch;margin:0 auto}
+.dirC-msg.dm{font-family:Georgia,"Songti SC","SimSun",serif;font-size:14.5px;line-height:1.9;color:#e9ddc4}
+.dirC-msg.dm::first-line{font-weight:700}
+.dirC-msg.player{font-size:13px;color:#b9a274;border-top:1px solid rgba(184,161,106,.25);border-bottom:1px solid rgba(184,161,106,.25);padding:8px 0;letter-spacing:.05em}
+.dirC-dice{text-align:center;font-family:Georgia,serif;color:#d6aa5a;font-size:15px;letter-spacing:.3em}
+.dirC-dice small{display:block;font-size:10px;color:#8a734a;letter-spacing:.2em;margin-top:2px}
+.dirC-party{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.dirC-pc{background:rgba(23,16,9,.82);border:1px solid rgba(184,161,106,.35);border-radius:3px 12px 3px 12px;padding:8px 12px;font-size:11px;min-width:130px;backdrop-filter:blur(2px)}
+.dirC-pc .nm{font-family:Georgia,"Songti SC",serif;font-size:12.5px;letter-spacing:.06em}
+.dirC-pc .hp{color:#b08a54;font-variant-numeric:tabular-nums;font-size:10.5px;margin-top:2px}
+.dirC-pc .bar{height:3px;background:rgba(184,161,106,.18);margin-top:4px;border-radius:2px}
+.dirC-pc .bar i{display:block;height:100%;width:81%;background:linear-gradient(90deg,#8a5a2b,#d6aa5a);border-radius:2px}
+.dirC-input{border-top:1px solid rgba(184,161,106,.28);padding:14px 48px;text-align:center;position:relative;z-index:1}
+.dirC-input span{font-size:13px;color:#7d6a48;letter-spacing:.1em}
+.dirC-input b{display:block;margin-top:3px;font-size:10px;color:#5c4e35;letter-spacing:.28em;font-weight:400}
+
+/* ============ 方向 D · 冒险面板（现代跑团平台） ============ */
+.dirD{position:absolute;inset:0;background:#f7f5f1;color:#26221c;display:flex;flex-direction:column;font-family:"Segoe UI Variable","Segoe UI","Microsoft YaHei",sans-serif}
+.dirD-top{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid #e4ddd0}
+.dirD-logo{width:30px;height:30px;border-radius:9px;background:#9f3d34;color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
+.dirD-top .t{font-weight:700;font-size:14.5px}
+.dirD-top .pill{margin-left:auto;background:#eef0ea;color:#4b806a;font-size:11px;font-weight:600;padding:3px 11px;border-radius:99px}
+.dirD-body{flex:1;display:grid;grid-template-columns:1fr 176px;min-height:0}
+.dirD-chat{padding:16px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.dirD-card{background:#fff;border:1px solid #e8e2d5;border-radius:12px;padding:10px 14px;box-shadow:0 1px 2px rgba(38,34,28,.05);max-width:86%;font-size:12.5px;line-height:1.65}
+.dirD-card.dm{border-top:3px solid #b8a16a}
+.dirD-card.player{align-self:flex-end;background:#4b806a;color:#fff;border-color:#4b806a}
+.dirD-card .who{font-size:10px;font-weight:700;color:#9a8c6d;margin-bottom:3px;letter-spacing:.06em}
+.dirD-card.player .who{color:rgba(255,255,255,.7)}
+.dirD-side{padding:12px;display:flex;flex-direction:column;gap:8px}
+.dirD-pc{background:#fff;border:1px solid #e8e2d5;border-radius:12px;padding:9px 12px;font-size:11.5px}
+.dirD-pc .top{display:flex;justify-content:space-between;font-weight:600}
+.dirD-pc .hp{color:#9f3d34;font-variant-numeric:tabular-nums;font-size:10.5px}
+.dirD-pc .bar{height:5px;background:#f0ebe0;border-radius:99px;margin-top:5px}
+.dirD-pc .bar i{display:block;height:100%;width:58%;background:#9f3d34;border-radius:99px}
+.dirD-input{border-top:1px solid #e4ddd0;background:#fff;padding:10px 14px;display:flex;gap:8px}
+.dirD-input span{flex:1;font-size:12px;color:#a89f8d}
+.dirD-input b{background:#9f3d34;color:#fff;font-size:12px;padding:7px 16px;border-radius:99px;font-weight:600}
+</style>
+</head>
+<body>
+<p class="shell-note">这是<strong>设计方向样机</strong>，用于选择视觉与交互气质，不是最终 App；选择或混搭确认后才进入正式实现。快捷键 1-4 选择方向。</p>
+
+<div class="grid">
+  <section class="stage" id="stage-a">
+    <div class="stage-head"><h2>A · 烛下账本</h2><span class="tagchip">亮色 · 印刷 · 衬线</span></div>
+    <div class="mock">
+      <div class="dirA">
+        <div class="dirA-top"><span class="t">黑冢初探 · 第三章</span><span class="s">第 12 回合 · 探索</span></div>
+        <div class="dirA-body">
+          <div class="dirA-chat">
+            <div class="dirA-msg dm"><div class="who">主持人</div><p>火把在潮湿的石壁上投下摇晃的影。甬道尽头，一扇青铜门虚掩着，门缝里渗出淡淡的薰衣草气味——这与地下墓穴格格不入。</p></div>
+            <div class="dirA-msg player"><div class="who">玩家</div><p>我贴近门缝，检查门后有没有埋伏（察觉检定）。</p></div>
+            <div class="dirA-msg dm"><div class="who">主持人 · 掷骰</div><p>察觉检定 d20：14 + 5 = 19。你听见门后两声短促的呼吸——有人，且不止一个。</p></div>
+          </div>
+          <aside class="dirA-side">
+            <h4>队伍名册</h4>
+            <div class="dirA-char"><div class="nm">伊莎贝尔 · 牧师 3</div><div class="hp"><i></i></div></div>
+            <div class="dirA-char"><div class="nm">科多 · 战士 3</div><div class="hp"><i style="width:46%"></i></div></div>
+            <h4 style="margin-top:6px">状态</h4>
+            <div class="dirA-char">激励 · 无伤</div>
+          </aside>
+        </div>
+        <div class="dirA-input"><span>在这个界面上，写下你的行动……</span><b>宣告</b></div>
+      </div>
+    </div>
+    <div class="pickbar"><button class="pick-button qmdp-pick-button" data-dir="A" data-name="烛下账本">选择 A · 烛下账本</button></div>
+  </section>
+
+  <section class="stage" id="stage-b">
+    <div class="stage-head"><h2>B · 战术桌面</h2><span class="tagchip">暗色 · 高密度 · 等宽数据</span></div>
+    <div class="mock">
+      <div class="dirB">
+        <div class="dirB-top"><span class="t" style="font-weight:600;font-size:13px">黑冢初探</span><span class="phase">COMBAT · R12 · INIT 14/22</span><span class="live">● DM 已连接 · codex-cli</span></div>
+        <div class="dirB-body">
+          <div class="dirB-feed">
+            <div class="dirB-ev"><span class="k roll">CHECK</span><span><strong>察觉 19 ≥ DC 15</strong> · 门后有两名伏击者，持短弓</span></div>
+            <div class="dirB-narr">青铜门虚掩，薰衣草的气味与地下墓穴格格不入。你屏住呼吸，指尖扣上了门沿。</div>
+            <div class="dirB-ev"><span class="k">HP</span><span>科多 21/32（-11 · 箭伤）</span></div>
+            <div class="dirB-ev"><span class="k">TURN</span><span>轮到 伊莎贝尔（party）· action 可用</span></div>
+          </div>
+          <aside class="dirB-side">
+            <h4>先攻顺序</h4>
+            <div class="dirB-row act"><span>▲ 伊莎贝尔</span><span>AC17</span></div><div class="dirB-hp"><i style="width:88%"></i></div>
+            <div class="dirB-row"><span>伏击者 A</span><span>AC13</span></div><div class="dirB-hp enemy"><i></i></div>
+            <div class="dirB-row"><span>科多</span><span>AC16</span></div><div class="dirB-hp"><i style="width:46%"></i></div>
+            <h4 style="margin-top:6px">资源</h4>
+            <div class="dirB-row"><span>1环法术位</span><span>2/2</span></div>
+            <div class="dirB-row"><span>圣疗之手</span><span>7/15</span></div>
+          </aside>
+        </div>
+        <div class="dirB-input"><span>输入行动，或 /attack /cast /check</span><b>执行</b></div>
+      </div>
+    </div>
+    <div class="pickbar"><button class="pick-button qmdp-pick-button" data-dir="B" data-name="战术桌面">选择 B · 战术桌面</button></div>
+  </section>
+
+  <section class="stage" id="stage-c">
+    <div class="stage-head"><h2>C · 篝火说书</h2><span class="tagchip rec">暗色 · 烛光 · 沉浸叙事 · 推荐</span></div>
+    <div class="mock">
+      <div class="dirC">
+        <div class="dirC-top"><div class="chap">第 三 章 · 青 铜 门</div><div class="t">黑冢初探</div></div>
+        <div class="dirC-body">
+          <div class="dirC-msg dm">火把在潮湿的石壁上投下摇晃的影。甬道尽头，一扇青铜门虚掩着，门缝里渗出淡淡的薰衣草气味——这与地下墓穴格格不入。</div>
+          <div class="dirC-dice">⬢ 19<small>察觉 · 14 + 5</small></div>
+          <div class="dirC-msg dm">你听见门后两声短促的呼吸。有人，且不止一个。</div>
+          <div class="dirC-msg player">「我推门，盾在前。」</div>
+        </div>
+        <div class="dirC-party">
+          <div class="dirC-pc"><div class="nm">伊莎贝尔 · 牧师</div><div class="hp">18/18 · 激励</div><div class="bar"><i></i></div></div>
+          <div class="dirC-pc"><div class="nm">科多 · 战士</div><div class="hp">21/32 · 中伤</div><div class="bar"><i style="width:46%"></i></div></div>
+        </div>
+        <div class="dirC-input"><span>写下你的行动……</span><b>回 车 宣 告</b></div>
+      </div>
+    </div>
+    <div class="pickbar"><button class="pick-button qmdp-pick-button" data-dir="C" data-name="篝火说书">选择 C · 篝火说书</button></div>
+  </section>
+
+  <section class="stage" id="stage-d">
+    <div class="stage-head"><h2>D · 冒险面板</h2><span class="tagchip">亮色 · 现代 · 平台化卡片</span></div>
+    <div class="mock">
+      <div class="dirD">
+        <div class="dirD-top"><div class="dirD-logo">D20</div><span class="t">黑冢初探</span><span class="pill">第 12 回合</span></div>
+        <div class="dirD-body">
+          <div class="dirD-chat">
+            <div class="dirD-card dm"><div class="who">DM</div>青铜门虚掩着，门缝里渗出淡淡的薰衣草气味——这与地下墓穴格格不入。你要做什么？</div>
+            <div class="dirD-card player"><div class="who">你</div>我贴近门缝检查有没有埋伏。</div>
+            <div class="dirD-card dm"><div class="who">DM · 掷骰结果</div>察觉检定 <strong>19</strong>（14+5）。门后有两名持短弓的伏击者——他们还没发现你。</div>
+            <div class="dirD-card" style="border-left:3px solid #4b806a;font-size:11.5px;color:#6d6a5f">💡 建议行动：先发制人突袭 · 偷偷绕后 · 伪装成送葬人</div>
+          </div>
+          <aside class="dirD-side">
+            <div class="dirD-pc"><div class="top"><span>伊莎贝尔</span></div><div class="hp">牧师 3 · 18/18</div><div class="bar"><i style="width:100%;background:#4b806a"></i></div></div>
+            <div class="dirD-pc"><div class="top"><span>科多</span></div><div class="hp">战士 3 · 21/32</div><div class="bar"><i></i></div></div>
+          </aside>
+        </div>
+        <div class="dirD-input"><span>描述你的行动，DM 会结算……</span><b>发送</b></div>
+      </div>
+    </div>
+    <div class="pickbar"><button class="pick-button qmdp-pick-button" data-dir="D" data-name="冒险面板">选择 D · 冒险面板</button></div>
+  </section>
+</div>
+
+<div class="dials">
+  <div class="dial"><label>视觉冒险度 <output id="dv">7</output>/10</label><input type="range" id="variance" min="1" max="10" value="7"></div>
+  <div class="dial"><label>动效强度 <output id="dm">5</output>/10</label><input type="range" id="motion" min="1" max="10" value="5"></div>
+  <div class="dial"><label>信息密度 <output id="dd">5</output>/10</label><input type="range" id="density" min="1" max="10" value="5"></div>
+</div>
+
+<div class="notes">
+  <h3>诊断摘要（现状）</h3>
+  <p>现状是"深绿+黄铜的暗色工作台"：样式与功能其实相当完整（token 体系、状态、异步守卫都在），但气质是"DM 的后台管理系统"而不是"玩家的冒险"——侧边栏导航表单化、聊天窗被大量控件包围、角色卡以数据行罗列为主、叙事文本与骰子结果没有戏剧化层级。四方向针对"沉浸感 × 可用性"给出不同的取舍。</p>
+  <h3>各方向记忆点与适用场景</h3>
+  <p><strong>A 烛下账本</strong>：像一本被翻旧的冒险日志，衬线+羊皮纸，适合喜欢"纸上跑团"仪式感的玩家；代价是数据密集的战斗界面要在亮色下重新做对比。<strong>B 战术桌面</strong>：像专业 VTT，等宽数字、事件流、先攻队列一目了然，适合重度规则玩家；代价是沉浸感最弱。<strong>C 篝火说书（推荐）</strong>：叙事居中如听人说书，骰子结果是舞台上的高光，角色状态退到烛光边缘；面向"满怀热忱的跑团玩家"最贴切，且与现有暗色 token 谱系（黄铜/羊皮纸/暗底）迁移成本最低。<strong>D 冒险面板</strong>：D&amp;D Beyond 式现代平台，新手友好、建议行动卡片化；代价是气质最"产品化"，容易失去桌前感。</p>
+  <p style="margin-top:8px">选择某个方向后可以附带调整建议（例如"C 的叙事 + B 的先攻队列"），确认后会回传给实现阶段。</p>
+</div>
+
+<dialog id="confirmDlg">
+  <h3 id="dlgTitle">确认方向</h3>
+  <p id="dlgMeta" style="font-size:12px;color:var(--dim)"></p>
+  <textarea id="dlgNotes" placeholder="调整建议（可选）：例如「要 C 的叙事 + B 的先攻队列」「更稳一点」"></textarea>
+  <div class="row"><button id="cancelBtn">再看看</button><button id="confirmBtn">确认选择</button></div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+const dials={variance:7,motion:5,density:5};
+for(const k of Object.keys(dials)){const el=document.getElementById(k);el.addEventListener("input",()=>{dials[k]=Number(el.value);document.getElementById(k[0]==="v"?"dv":k[0]==="m"?"dm":"dd").textContent=el.value;});}
+const dlg=document.getElementById("confirmDlg");let pending=null;
+function pick(dir){pending=dir;document.getElementById("dlgTitle").textContent=`确认选择方向 ${dir.id} · ${dir.name}`;
+document.getElementById("dlgMeta").textContent=`视觉冒险度 ${dials.variance}/10 · 动效强度 ${dials.motion}/10 · 信息密度 ${dials.density}/10`;
+document.getElementById("dlgNotes").value="";dlg.showModal();}
+document.querySelectorAll(".qmdp-pick-button").forEach(b=>b.addEventListener("click",()=>pick({id:b.dataset.dir,name:b.dataset.name})));
+addEventListener("keydown",e=>{if(dlg.open)return;const m={"1":"A","2":"B","3":"C","4":"D"}[e.key];if(!m)return;const b=document.querySelector(`[data-dir="${m}"]`);pick({id:m,name:b.dataset.name});});
+document.getElementById("cancelBtn").addEventListener("click",()=>dlg.close());
+document.getElementById("confirmBtn").addEventListener("click",async()=>{
+  const payload={id:pending.id,label:`方向 ${pending.id}`,name:pending.name,notes:document.getElementById("dlgNotes").value.trim(),dials:{...dials},adjustments:document.getElementById("dlgNotes").value.trim()};
+  dlg.close();
+  try{await fetch("/api/select",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});}catch(_){}
+  const t=document.getElementById("toast");t.textContent=`已选择：方向 ${pending.id} · ${pending.name}`;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);
+  document.querySelectorAll(".stage").forEach(s=>s.classList.remove("selected"));
+  document.getElementById("stage-"+pending.id.toLowerCase()).classList.add("selected");
+});
+</script>
+</body>
+</html>

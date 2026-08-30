@@ -385,7 +385,9 @@ def classes_payload():
 
 
 def spells_payload(class_name: str):
-    return {"spells": library.get_spells_by_class(rule_catalog.resolve_spell_library_key(class_name))}
+    return _add_display_fields(
+        {"spells": library.get_spells_by_class(rule_catalog.resolve_spell_library_key(class_name))}
+    )
 
 
 def builder_payload():
@@ -598,6 +600,7 @@ def _add_display_fields(value):
         "name",
         "label",
         "description",
+        "notes",
         "title",
         "summary",
         "tone",
@@ -613,6 +616,7 @@ def _add_display_fields(value):
         "class_name",
         "background_name",
         "species",
+        "school",
     }
     for key in display_keys:
         raw = value.get(key)
@@ -621,7 +625,7 @@ def _add_display_fields(value):
         display = library.localize_game_terms(raw)
         if display != raw:
             localized[f"{key}_display"] = display
-    for key in ("properties", "tags", "status_effects", "cantrips", "prepared"):
+    for key in ("properties", "tags", "traits", "status_effects", "cantrips", "prepared"):
         raw_values = value.get(key)
         if not isinstance(raw_values, list):
             continue
