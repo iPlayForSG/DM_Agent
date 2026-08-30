@@ -22,6 +22,7 @@ from adventure_service import (
 )
 from game_logic import GameLogic
 from library import Library
+from model_backends import DEFAULT_MODEL_PROVIDER
 from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from storage import CharacterStorage, GameStorage, MonsterStorage
@@ -172,8 +173,9 @@ class AbilityScoreRequest(BaseModel):
 class LLMConfigUpdateRequest(BaseModel):
     profile_id: str = ""
     profile_label: str = ""
-    provider: str = "openai-compatible"
+    provider: str = DEFAULT_MODEL_PROVIDER
     model_name: str = ""
+    reasoning_effort: str = ""
     base_url: str = ""
     api_key: Optional[str] = None
     cli_command: str = ""
@@ -890,6 +892,7 @@ async def update_llm_config(req: LLMConfigUpdateRequest):
             profile_label=req.profile_label,
             provider=req.provider,
             model_name=req.model_name,
+            reasoning_effort=req.reasoning_effort,
             base_url=req.base_url,
             api_key=req.api_key,
             cli_command=req.cli_command,

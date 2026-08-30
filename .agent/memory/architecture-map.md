@@ -28,8 +28,8 @@ React/Vite UI
 - 数据层 `models.py`：API、存档和图状态共享的 Pydantic schema。
 - 持久化层 `storage.py`：每游戏/角色/怪物一个 JSON；rewind 保存完整 `GameState`。
 - 剧情记忆层 `campaign_memory.py`：只从权威 `GameState` 派生有限提示上下文，不拥有独立业务状态。
-- 模型传输层 `model_backends.py`：把 OpenAI-compatible API 或受限 Claude Code/Codex CLI 适配为 LangChain chat model；CLI 不拥有游戏工具或状态。
-- 检索层 `rag.py`：优先 Chroma，embedding/查询失败时降级到 `lexical_rag.py` 的确定性词法索引；`rag_embeddings.py` 按需启动本地 llama.cpp，`rag_ingest.py` 构建向量索引。
+- 模型传输层 `model_backends.py`：默认把本机 Codex CLI（`gpt-5.6-terra` / `high`）适配为 LangChain chat model，也支持 OpenAI-compatible API 与 Claude Code；CLI 不拥有游戏工具或状态。
+- 检索层 `rag.py`：默认使用 `lexical_rag.py` 的确定性词法索引；仅在 `RAG_RETRIEVAL_MODE=vector` 时优先 Chroma，并在 embedding/查询失败时降级词法。`rag_embeddings.py` 按需启动本地 llama.cpp，`rag_ingest.py` 构建可选向量索引。
 - UI 层：`App.jsx` 消费服务端快照，`api.js` 管理请求和 SSE 解析。
 
 ## 外部依赖
@@ -64,7 +64,7 @@ React/Vite UI
 - 玩家选择 interrupt 只公开自然语言问题和具体选项，不公开工具名、风险等级或持久化实现；取消、失败和 checkpoint 丢失均回滚整笔 staged transaction。
 - checkpoint 用于 interrupt 恢复，不提供剧情分支；剧情分支由 rewind snapshot 实现。
 - SSE 当前在回合完成后从 trace 派生事件，不是真实 token/tool 实时流。
-- CLI 仅传输消息和应用工具调用：独立临时目录、Claude 禁用自身工具、Codex ephemeral/read-only；确定性工具仍是状态变化唯一入口。
-- 向量与词法检索共享规则来源但能力不同；fallback 必须公开 vector error，不得把降级伪装成向量成功。
+- CLI 仅传输消息和应用工具调用：独立临时目录、Claude 禁用自身工具、Codex ephemeral/read-only 且忽略用户配置/规则（仅复用登录态）；确定性工具仍是状态变化唯一入口。
+- 向量与词法检索共享规则来源但能力不同；默认词法模式不探测向量，显式 vector 模式的 fallback 必须公开 vector error，不得把降级伪装成向量成功。
 
 详细父图和角色契约见 [MULTI_AGENT_ARCHITECTURE.md](../../MULTI_AGENT_ARCHITECTURE.md)。

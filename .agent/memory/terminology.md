@@ -17,5 +17,5 @@
 | Action suggestion | 主回合提交后的三个场景化可编辑输入建议；非事务、非合法动作枚举。 |
 | Game-scoped monster | 保存在当前 `GameState.monster_templates` 的怪物，与只读标准怪物资产区分。 |
 | Model provider | 模型传输方式：OpenAI-compatible API、Claude Code CLI 或 Codex CLI；不改变 Agent 工具所有权。 |
-| RAG | 从本地 D&D 文档检索规则片段，仅用于上下文；向量优先，embedding 不可用时降级到词法索引。 |
-| Lexical fallback | 对规范化 Markdown/text 做 heading-aware 确定性词法检索；类似 grep，但不依赖操作系统命令。 |
+| RAG | 从本地 D&D 文档检索规则片段，仅用于上下文；默认词法检索，可显式启用向量优先模式。 |
+| Lexical retrieval | 对规范化 Markdown/text 做 heading-aware 确定性词法检索；类似 grep，但不依赖操作系统命令，也是默认运行路径。 |

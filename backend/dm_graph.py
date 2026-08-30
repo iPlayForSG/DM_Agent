@@ -1139,6 +1139,7 @@ class DMGraphRunner:
         base_url: str = "",
         model_provider: str = OPENAI_COMPATIBLE_PROVIDER,
         cli_command: str = "",
+        reasoning_effort: str = "",
         cli_timeout_s: int = 300,
         enable_model: bool = False,
         max_tool_rounds: int = 6,
@@ -1152,6 +1153,7 @@ class DMGraphRunner:
         self.base_url = base_url
         self.model_provider = model_provider or OPENAI_COMPATIBLE_PROVIDER
         self.cli_command = cli_command
+        self.reasoning_effort = reasoning_effort
         self.cli_timeout_s = cli_timeout_s
         self.enable_model = enable_model
         self.max_tool_rounds = max_tool_rounds
@@ -1270,6 +1272,7 @@ class DMGraphRunner:
                 provider=self.model_provider,
                 command=self.cli_command,
                 model_name=self.model_name,
+                reasoning_effort=self.reasoning_effort,
                 timeout_s=self.cli_timeout_s,
             )
             return self._model

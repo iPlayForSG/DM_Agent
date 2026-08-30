@@ -10,7 +10,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from langchain_core.messages import HumanMessage
 
-from model_backends import CodingAgentCLIChatModel, probe_cli
+from model_backends import (
+    DEFAULT_CODEX_MODEL,
+    DEFAULT_CODEX_REASONING_EFFORT,
+    CodingAgentCLIChatModel,
+    probe_cli,
+)
 
 
 class CodingAgentCLIChatModelTests(unittest.TestCase):
@@ -33,7 +38,13 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
                 stderr="",
             )
 
-        model = CodingAgentCLIChatModel(provider="codex-cli", command="codex", timeout_s=30)
+        model = CodingAgentCLIChatModel(
+            provider="codex-cli",
+            command="codex",
+            model_name=DEFAULT_CODEX_MODEL,
+            reasoning_effort=DEFAULT_CODEX_REASONING_EFFORT,
+            timeout_s=30,
+        )
         tools = [{
             "type": "function",
             "function": {
@@ -52,6 +63,13 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
         self.assertIn("exec", captured["command"])
         self.assertIn("read-only", captured["command"])
         self.assertIn("--ephemeral", captured["command"])
+        self.assertIn("--ignore-user-config", captured["command"])
+        self.assertIn("--ignore-rules", captured["command"])
+        self.assertEqual(captured["command"][captured["command"].index("--model") + 1], "gpt-5.6-terra")
+        self.assertEqual(
+            captured["command"][captured["command"].index("--config") + 1],
+            'model_reasoning_effort="high"',
+        )
         self.assertIn("Do not inspect files", captured["prompt"])
         self.assertIn("lookup_rules", captured["prompt"])
 

@@ -25,7 +25,7 @@
 ## 本地环境与生成内容
 
 - 不读取或输出 `backend/.env`。模型配置 API 必须脱敏。
-- RAG 查询可能按需启动 `llama-server`/`llama-server.exe`；首次调用受 GGUF 路径、CUDA/Metal/CPU、端口和启动超时影响。向量失败后会词法降级，排障要看 status 的 `vector_error`，不能只看 RAG 是否 enabled。
+- 默认 `RAG_RETRIEVAL_MODE=lexical` 不会启动 `llama-server`。只有显式 vector 模式的查询才可能按需启动 `llama-server`/`llama-server.exe`，其首次调用受 GGUF 路径、CUDA/Metal/CPU、端口和启动超时影响；向量失败后会词法降级，排障要同时看 status 的 `retrieval_mode` 与 `vector_error`。
 - `start.cmd`/`start.sh` 会写本地 runtime state 和 Vite env；这些不应成为 Git 变化。macOS 默认 `python3` 可能仍是 3.8，必须选择 Python 3.10+。
 - 本地规则书与 `backend/data/spells.json` 均被忽略；缺文件会分别表现为 lexical/RAG 未就绪或法术/建卡测试失败，不要把它误判成算法回归。
 - 规则规范化 manifest 会报告 `flattened-table-line` 与 `short-source`；原始规则书保持只读，先修本地来源再重新生成，不要在生成目录手改正文或忽略仍会污染 chunk 的长表格。

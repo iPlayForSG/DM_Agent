@@ -61,14 +61,19 @@ const MODEL_PROVIDER_LABELS = {
   "codex-cli": "Codex CLI",
 };
 
+const CODEX_DEFAULT_MODEL = "gpt-5.6-terra";
+const CODEX_DEFAULT_REASONING_EFFORT = "high";
+const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultra"];
+
 const EMPTY_LLM_DRAFT = {
   profile_id: "",
   profile_label: "",
-  provider: "openai-compatible",
-  model_name: "",
+  provider: "codex-cli",
+  model_name: CODEX_DEFAULT_MODEL,
+  reasoning_effort: CODEX_DEFAULT_REASONING_EFFORT,
   base_url: "",
   api_key: "",
-  cli_command: "",
+  cli_command: "codex",
   cli_timeout_s: 300,
 };
 
@@ -1052,15 +1057,17 @@ export default function App() {
     const nextConfig = payload || {};
     const nextProfiles = nextConfig.profiles || [];
     const activeProfile = nextProfiles.find((profile) => profile.profile_id === nextConfig.active_profile_id) || nextProfiles[0] || {};
+    const provider = activeProfile.provider || nextConfig.provider || "codex-cli";
     setLlmConfig(nextConfig);
     setLlmDraft({
       profile_id: activeProfile.profile_id || "",
       profile_label: activeProfile.label || "",
-      provider: activeProfile.provider || nextConfig.provider || "openai-compatible",
-      model_name: activeProfile.model_name || nextConfig.model_name || "",
+      provider,
+      model_name: activeProfile.model_name || nextConfig.model_name || (provider === "codex-cli" ? CODEX_DEFAULT_MODEL : ""),
+      reasoning_effort: activeProfile.reasoning_effort || nextConfig.reasoning_effort || (provider === "codex-cli" ? CODEX_DEFAULT_REASONING_EFFORT : ""),
       base_url: activeProfile.raw_base_url || nextConfig.raw_base_url || nextConfig.base_url || "",
       api_key: "",
-      cli_command: activeProfile.cli_command || nextConfig.cli_command || "",
+      cli_command: activeProfile.cli_command || nextConfig.cli_command || (provider === "codex-cli" ? "codex" : provider === "claude-code" ? "claude" : ""),
       cli_timeout_s: activeProfile.cli_timeout_s || nextConfig.cli_timeout_s || 300,
     });
   }
@@ -1126,6 +1133,7 @@ export default function App() {
         profile_label: profileLabel,
         provider,
         model_name: modelName,
+        reasoning_effort: llmDraft.reasoning_effort || "",
         base_url: baseUrl,
         cli_command: llmDraft.cli_command.trim(),
         cli_timeout_s: Number(llmDraft.cli_timeout_s) || 300,
@@ -2389,11 +2397,16 @@ export default function App() {
                     <label>接入方式</label>
                     <select
                       value={llmDraft.provider}
-                      onChange={(e) => setLlmDraft((prev) => ({
-                        ...prev,
-                        provider: e.target.value,
-                        cli_command: e.target.value === "claude-code" ? "claude" : e.target.value === "codex-cli" ? "codex" : "",
-                      }))}
+                      onChange={(e) => setLlmDraft((prev) => {
+                        const provider = e.target.value;
+                        return {
+                          ...prev,
+                          provider,
+                          model_name: provider === "codex-cli" ? CODEX_DEFAULT_MODEL : "",
+                          reasoning_effort: provider === "codex-cli" ? CODEX_DEFAULT_REASONING_EFFORT : "",
+                          cli_command: provider === "claude-code" ? "claude" : provider === "codex-cli" ? "codex" : "",
+                        };
+                      })}
                       disabled={isLlmSaving}
                     >
                       {Object.entries(MODEL_PROVIDER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -2404,7 +2417,7 @@ export default function App() {
                     <input
                       value={llmDraft.model_name}
                       onChange={(e) => setLlmDraft((prev) => ({ ...prev, model_name: e.target.value }))}
-                      placeholder={llmDraft.provider === "openai-compatible" ? "deepseek-v4-flash" : "可留空，使用 CLI 默认模型"}
+                      placeholder={llmDraft.provider === "openai-compatible" ? "deepseek-v4-flash" : llmDraft.provider === "codex-cli" ? CODEX_DEFAULT_MODEL : "可留空，使用 CLI 默认模型"}
                       disabled={isLlmSaving}
                     />
                   </div>
@@ -2453,13 +2466,27 @@ export default function App() {
                           disabled={isLlmSaving}
                         />
                       </div>
+                      {llmDraft.provider === "codex-cli" && (
+                        <div className="form-group">
+                          <label>推理强度</label>
+                          <select
+                            value={llmDraft.reasoning_effort}
+                            onChange={(e) => setLlmDraft((prev) => ({ ...prev, reasoning_effort: e.target.value }))}
+                            disabled={isLlmSaving}
+                          >
+                            {CODEX_REASONING_EFFORTS.map((effort) => <option key={effort} value={effort}>{effort}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
                 <div className="model-settings-footer">
                   <p className="info-text">{llmStatusMessage || llmHealthMessage || (llmDraft.provider === "openai-compatible"
                     ? "API Key 不会显示；编辑已有档案时留空会保留该档案当前密钥。"
-                    : "CLI 使用本机已有登录态；运行时被限制在临时只读工作目录中。")}</p>
+                    : llmDraft.provider === "codex-cli"
+                      ? "Codex CLI 默认使用 gpt-5.6-terra / high；仅复用本机登录态，并在隔离的临时只读目录中运行。"
+                      : "CLI 使用本机已有登录态；运行时被限制在临时只读工作目录中。")}</p>
                   <button type="submit" className="btn-primary" disabled={isLlmSaving}>
                     {isLlmSaving ? "保存中..." : "保存并启用"}
                   </button>

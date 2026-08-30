@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 os.environ["DM_AGENT_SKIP_DOTENV"] = "1"
 
 from agent import DMAgent
+from model_backends import DEFAULT_CODEX_MODEL, DEFAULT_CODEX_REASONING_EFFORT
 
 
 class _Runner:
@@ -21,6 +22,7 @@ def profile_agent() -> DMAgent:
     agent.raw_base_url = "https://example.test"
     agent.base_url = "https://example.test/v1"
     agent.model_name = "test-model"
+    agent.reasoning_effort = ""
     agent.cli_command = ""
     agent.cli_timeout_s = 300
     agent.active_profile_id = "api-profile"
@@ -29,6 +31,7 @@ def profile_agent() -> DMAgent:
         "label": "API",
         "provider": "openai-compatible",
         "model_name": "test-model",
+        "reasoning_effort": "",
         "raw_base_url": "https://example.test",
         "api_key": "api-secret",
         "cli_command": "",
@@ -53,6 +56,8 @@ class LLMProfileTests(unittest.TestCase):
 
         cli_profile = next(profile for profile in payload["profiles"] if profile["label"] == "Codex local")
         self.assertEqual(cli_profile["provider"], "codex-cli")
+        self.assertEqual(cli_profile["model_name"], DEFAULT_CODEX_MODEL)
+        self.assertEqual(cli_profile["reasoning_effort"], DEFAULT_CODEX_REASONING_EFFORT)
         self.assertEqual(cli_profile["cli_command"], "codex")
         self.assertNotIn("api_key", cli_profile)
         self.assertFalse(cli_profile["api_key_configured"])
@@ -63,7 +68,8 @@ class LLMProfileTests(unittest.TestCase):
             "profile_id": "codex-local",
             "label": "Codex local",
             "provider": "codex-cli",
-            "model_name": "",
+            "model_name": DEFAULT_CODEX_MODEL,
+            "reasoning_effort": DEFAULT_CODEX_REASONING_EFFORT,
             "raw_base_url": "",
             "api_key": "",
             "cli_command": "codex",
@@ -80,7 +86,47 @@ class LLMProfileTests(unittest.TestCase):
             self.assertNotIn("OPENAI_API_BASE", os.environ)
 
         self.assertEqual(payload["provider"], "codex-cli")
+        self.assertEqual(payload["model_name"], DEFAULT_CODEX_MODEL)
+        self.assertEqual(payload["reasoning_effort"], DEFAULT_CODEX_REASONING_EFFORT)
         self.assertTrue(payload["configured"])
+
+    def test_unconfigured_runtime_defaults_to_codex_terra_high(self) -> None:
+        empty_model_env = {
+            "LLM_PROVIDER": "",
+            "LLM_MODEL": "",
+            "LLM_REASONING_EFFORT": "",
+            "LLM_CLI_COMMAND": "",
+            "LLM_ACTIVE_PROFILE_ID": "",
+            "LLM_PROFILES_B64": "",
+            "OPENAI_API_KEY": "",
+            "OPENAI_API_BASE": "",
+            "OPENAI_BASE_URL": "",
+        }
+        with patch.dict(os.environ, empty_model_env, clear=False), patch("agent.MonsterStorage"), patch(
+            "agent.RuleCatalog"
+        ), patch("agent.RAGEngine"), patch("agent.AgentToolService"), patch.object(
+            DMAgent,
+            "_create_dm_graph_runner",
+            return_value=_Runner(),
+        ):
+            agent = DMAgent()
+
+        self.assertEqual(agent.model_provider, "codex-cli")
+        self.assertEqual(agent.model_name, DEFAULT_CODEX_MODEL)
+        self.assertEqual(agent.reasoning_effort, DEFAULT_CODEX_REASONING_EFFORT)
+        self.assertEqual(agent.cli_command, "codex")
+
+    def test_invalid_codex_reasoning_effort_is_rejected(self) -> None:
+        agent = profile_agent()
+        with self.assertRaisesRegex(ValueError, "Unsupported Codex reasoning effort"):
+            agent.upsert_llm_profile(
+                profile_label="Invalid Codex",
+                provider="codex-cli",
+                model_name=DEFAULT_CODEX_MODEL,
+                reasoning_effort="extreme",
+                base_url="",
+                persist=False,
+            )
 
     def test_unknown_provider_is_rejected(self) -> None:
         agent = profile_agent()

@@ -2327,6 +2327,22 @@ class DMGraphWorkflowTests(unittest.TestCase):
             {"thinking": {"type": "disabled"}},
         )
 
+    def test_codex_runner_passes_explicit_model_and_reasoning_effort(self) -> None:
+        with patch("dm_graph.CodingAgentCLIChatModel") as cli_model:
+            runner = DMGraphRunner(
+                rag_engine=DummyRAGEngine(),
+                tool_service=object(),
+                model_provider="codex-cli",
+                model_name="gpt-5.6-terra",
+                reasoning_effort="high",
+                cli_command="codex",
+                enable_model=False,
+            )
+            runner._create_model()
+
+        self.assertEqual(cli_model.call_args.kwargs["model_name"], "gpt-5.6-terra")
+        self.assertEqual(cli_model.call_args.kwargs["reasoning_effort"], "high")
+
 
 if __name__ == "__main__":
     unittest.main()
