@@ -2,7 +2,7 @@
 
 ## Status
 
-代码与验证已完成，等待远程推送授权。
+已完成。
 
 ## Goal
 
@@ -42,7 +42,7 @@
 - [x] 用暂停状态的原始输入恢复玩家上下文消息。
 - [x] 实现玩家消息乐观插入、权威快照对账和失败恢复。
 - [x] 完成浏览器两轮检查与前端门禁。
-- [ ] 提交并推送 `refactor/frontend-design`（本地已提交，推送待授权）。
+- [x] 提交并推送 `refactor/frontend-design`。
 
 ## Decisions
 
@@ -70,8 +70,8 @@
 
 ## Remaining work
 
-将本地提交推送到 `origin/refactor/frontend-design`。
+无。
 
 ## Resume instructions
 
-本地修复已提交；获得远程推送授权后推送 `refactor/frontend-design`。后续调整暂停交互时继续保持 `chat_history` 的权威边界，并把 `pending_turn.original_input` 仅作为只读显示上下文。
+任务已完成；后续调整暂停交互时继续保持 `chat_history` 的权威边界，并把 `pending_turn.original_input` 仅作为只读显示上下文。
