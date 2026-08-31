@@ -21,6 +21,10 @@ from pydantic import Field
 OPENAI_COMPATIBLE_PROVIDER = "openai-compatible"
 CLAUDE_CODE_PROVIDER = "claude-code"
 CODEX_CLI_PROVIDER = "codex-cli"
+DEFAULT_MODEL_PROVIDER = CODEX_CLI_PROVIDER
+DEFAULT_CODEX_MODEL = "gpt-5.6-terra"
+DEFAULT_CODEX_REASONING_EFFORT = "high"
+CODEX_REASONING_EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 SUPPORTED_MODEL_PROVIDERS = (
     OPENAI_COMPATIBLE_PROVIDER,
     CLAUDE_CODE_PROVIDER,
@@ -56,6 +60,18 @@ def default_cli_command(provider: str) -> str:
     if provider == CODEX_CLI_PROVIDER:
         return "codex"
     return ""
+
+
+def default_model_name(provider: str) -> str:
+    if provider == CODEX_CLI_PROVIDER:
+        return DEFAULT_CODEX_MODEL
+    if provider == OPENAI_COMPATIBLE_PROVIDER:
+        return "gpt-5.1"
+    return ""
+
+
+def default_reasoning_effort(provider: str) -> str:
+    return DEFAULT_CODEX_REASONING_EFFORT if provider == CODEX_CLI_PROVIDER else ""
 
 
 def resolve_cli_command(provider: str, configured: str = "") -> str:
@@ -112,6 +128,7 @@ class CodingAgentCLIChatModel(BaseChatModel):
     provider: str
     command: str = ""
     model_name: str = ""
+    reasoning_effort: str = ""
     timeout_s: int = Field(default=300, ge=10, le=1800)
 
     @property
@@ -124,6 +141,7 @@ class CodingAgentCLIChatModel(BaseChatModel):
             "provider": self.provider,
             "command": self.command,
             "model_name": self.model_name,
+            "reasoning_effort": self.reasoning_effort,
         }
 
     def bind_tools(
@@ -198,6 +216,8 @@ class CodingAgentCLIChatModel(BaseChatModel):
                 executable,
                 "exec",
                 "--ephemeral",
+                "--ignore-user-config",
+                "--ignore-rules",
                 "--sandbox",
                 "read-only",
                 "--skip-git-repo-check",
@@ -206,6 +226,8 @@ class CodingAgentCLIChatModel(BaseChatModel):
             ]
             if self.model_name:
                 command.extend(["--model", self.model_name])
+            if self.reasoning_effort:
+                command.extend(["--config", f'model_reasoning_effort="{self.reasoning_effort}"'])
             command.append("-")
             return command
         if self.provider == CLAUDE_CODE_PROVIDER:

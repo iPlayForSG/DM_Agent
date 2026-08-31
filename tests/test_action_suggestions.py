@@ -422,6 +422,11 @@ class ActionSuggestionTest(unittest.TestCase):
         class EditorModel:
             def __init__(self) -> None:
                 self.calls = []
+                self.bind_calls = []
+
+            def bind(self, **kwargs):
+                self.bind_calls.append(kwargs)
+                return self
 
             def invoke(self, messages):
                 self.calls.append(messages)
@@ -441,9 +446,143 @@ class ActionSuggestionTest(unittest.TestCase):
         rewritten, attempts = runner._rewrite_response_to_length("冗长的原始叙事。" * 100, state)
 
         self.assertEqual(len(editor_model.calls), 1)
+        self.assertEqual(editor_model.bind_calls, [{"max_tokens": 192}])
         self.assertEqual(len(attempts), 1)
         self.assertIsNone(DMGraphRunner._reply_length_issue(rewritten, state))
         self.assertNotIn("冗长的原始叙事", rewritten)
+        self.assertIn("压缩", editor_model.calls[0][-1].content)
+        self.assertIn("唯一验收标准", editor_model.calls[0][-1].content)
+
+    def test_finalize_rewrites_short_response_before_committing(self) -> None:
+        state = self._exploration_state()
+        state.campaign.reply_min_chars = 1000
+        state.campaign.reply_max_chars = 2000
+
+        class EditorModel:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def bind(self, **_kwargs):
+                return self
+
+            def invoke(self, messages):
+                self.calls.append(messages)
+                return type(
+                    "EditorResponse",
+                    (),
+                    {
+                        "content": "钟楼石阶上的血迹仍未干涸，祭司确认三名失踪者都曾听见无月钟声。" * 40,
+                        "tool_calls": [],
+                    },
+                )()
+
+        runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
+        editor_model = EditorModel()
+        runner._model = editor_model
+
+        result = runner._finalize_turn(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "initial_game_state": state.model_dump(mode="json"),
+                "user_input": "我检查钟楼石阶。",
+                "final_response": "石阶上有血迹。",
+                "tool_results": [],
+                "timeline_append": [],
+            }
+        )
+
+        committed = GameState.model_validate(result["game_state"])
+        self.assertEqual(result["turn_status"], "completed")
+        self.assertIsNone(DMGraphRunner._reply_length_issue(result["final_response"], committed))
+        self.assertNotEqual(result["final_response"], "石阶上有血迹。")
+        self.assertEqual(committed.chat_history[-1].content, result["final_response"])
+        self.assertIn("扩写", editor_model.calls[0][-1].content)
+        self.assertIn("唯一验收标准", editor_model.calls[0][-1].content)
+        length_trace = next(item for item in result["node_traces"] if item["node_name"] == "enforce_reply_length")
+        self.assertEqual(length_trace["status"], "completed")
+        self.assertEqual(length_trace["metadata"]["attempt_count"], 1)
+
+    def test_finalize_keeps_completed_turn_when_length_expansion_remains_short(self) -> None:
+        initial_state = self._exploration_state()
+        initial_state.turn_number = 7
+        initial_state.campaign.reply_min_chars = 80
+        initial_state.campaign.reply_max_chars = 160
+        staged_state = initial_state.model_copy(deep=True)
+        staged_state.scene = "combat"
+
+        class ShortEditorModel:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def bind(self, **_kwargs):
+                return self
+
+            def invoke(self, _messages):
+                self.calls += 1
+                return type(
+                    "EditorResponse",
+                    (),
+                    {"content": "你进入钟楼，湿冷石阶上方传来一阵急促脚步声。", "tool_calls": []},
+                )()
+
+        runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
+        editor_model = ShortEditorModel()
+        runner._model = editor_model
+
+        result = runner._finalize_turn(
+            {
+                "game_state": staged_state.model_dump(mode="json"),
+                "initial_game_state": initial_state.model_dump(mode="json"),
+                "user_input": "我冲进钟楼。",
+                "final_response": "你进入钟楼。",
+                "tool_results": [],
+                "timeline_append": [],
+            }
+        )
+
+        committed = GameState.model_validate(result["game_state"])
+        self.assertEqual(editor_model.calls, 3)
+        self.assertEqual(result["turn_status"], "completed")
+        self.assertNotIn("长度要求", result["final_response"])
+        self.assertEqual(committed.turn_number, staged_state.turn_number + 1)
+        self.assertEqual(committed.scene, staged_state.scene)
+        length_issue = next(issue for issue in result["validation_issues"] if issue["validator"] == "reply_length")
+        self.assertEqual(length_issue["severity"], "warning")
+        self.assertEqual(length_issue["action"], "accept_best_effort")
+        length_trace = next(item for item in result["node_traces"] if item["node_name"] == "enforce_reply_length")
+        self.assertEqual(length_trace["status"], "warning")
+
+    def test_failed_turn_skips_reply_length_rewrite(self) -> None:
+        state = self._exploration_state()
+        state.campaign.reply_min_chars = 80
+        state.campaign.reply_max_chars = 160
+
+        class UnexpectedEditorModel:
+            def bind(self, **_kwargs):
+                return self
+
+            def invoke(self, _messages):
+                raise AssertionError("Failed turns must not invoke the reply-length editor.")
+
+        runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
+        runner._model = UnexpectedEditorModel()
+        failure_message = "规则校验失败，本回合没有提交。"
+
+        result = runner._finalize_turn(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "initial_game_state": state.model_dump(mode="json"),
+                "user_input": "我发动攻击。",
+                "final_response": failure_message,
+                "turn_status": "failed",
+                "tool_results": [],
+                "timeline_append": [],
+            }
+        )
+
+        self.assertEqual(result["turn_status"], "failed")
+        self.assertEqual(result["final_response"], failure_message)
+        self.assertFalse(any(item["node_name"] == "enforce_reply_length" for item in result["node_traces"]))
 
     def test_action_suggestion_projection_returns_scene_specific_items(self) -> None:
         state = self._exploration_state()

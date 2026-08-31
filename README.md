@@ -10,8 +10,8 @@ DM_Agent 是一个本地优先的 D&D 2024 单人跑团 DM Agent 原型。项目
 - 本地游戏存档与战役阶段状态。
 - 一个持续身份的 DM Brain 负责判断、工具调用和叙事；阶段只收窄上下文与能力，Suggestion Agent 在提交后独立投影行动建议。
 - 攻击、施法、技能检定、豁免检定、物品和特性使用等本地动作接口。
-- 基于本地文档、Chroma/GGUF embedding 与确定性词法降级的规则 RAG。
-- 支持 OpenAI-compatible API、Claude Code CLI 与 Codex CLI 三种模型接入方式。
+- 默认基于本地规范化文档做确定性词法规则检索，可显式启用 Chroma/GGUF embedding 向量模式。
+- 默认通过本机 Codex CLI 使用 `gpt-5.6-terra` / `high`，也支持 OpenAI-compatible API 与 Claude Code CLI。
 - LangGraph checkpoint、回合暂停恢复、SSE 回合流和轻量 turn trace。
 
 ## 目录结构
@@ -64,11 +64,11 @@ npm install
 npm run dev
 ```
 
-模型设置页可以保存 OpenAI-compatible API、Claude Code CLI 或 Codex CLI 档案。API 密钥只应放在本地环境文件中，不要提交到仓库；CLI 模式复用本机 CLI 登录态，不保存额外凭据。CLI 作为受限模型传输层运行，不能绕过 LangGraph 的工具所有权和确定性状态结算。
+模型设置页可以保存 OpenAI-compatible API、Claude Code CLI 或 Codex CLI 档案。未配置时默认选择 Codex CLI、`gpt-5.6-terra` 与 `high` 推理强度。API 密钥只应放在本地环境文件中，不要提交到仓库；CLI 模式只复用本机 CLI 登录态，不加载用户级 Codex 插件、MCP 或规则，也不保存额外凭据。CLI 作为受限模型传输层运行，不能绕过 LangGraph 的工具所有权和确定性状态结算。
 
 ## RAG 知识库
 
-RAG 使用 `backend/Documents/DND5e 2024` 下的本地规则文档构建 Chroma 向量库，默认 embedding 模型为 `Qwen/Qwen3-Embedding-4B-GGUF` 的 `Qwen3-Embedding-4B-Q6_K.gguf`。生成结果写入 `backend/Knowledge/vector_db`，不会进入 Git。
+RAG 默认使用 `backend/Knowledge/grep_corpus` 的 heading-aware 词法索引；该路径只读本地文本，不启动或调用 embedding 模型。若规范化语料不存在，会直接读取 `backend/Documents/DND5e 2024` 下的本地 Markdown/text。设置 `RAG_RETRIEVAL_MODE=vector` 后才会优先使用 Chroma/GGUF embedding；向量查询失败时仍回退词法索引。
 
 先生成适合词法检索的规范化副本：
 
@@ -76,7 +76,7 @@ RAG 使用 `backend/Documents/DND5e 2024` 下的本地规则文档构建 Chroma 
 python backend/utils/normalize_rule_documents.py
 ```
 
-格式要求与人工整理边界见 [`docs/RULE_DOCUMENT_STANDARD.md`](docs/RULE_DOCUMENT_STANDARD.md)。向量库、embedding 模型或 llama.cpp 服务缺失时，后端自动降级到该规范化语料的 heading-aware 词法检索；规范化副本也不存在时才直接读取原始 Markdown/text。
+格式要求与人工整理边界见 [`docs/RULE_DOCUMENT_STANDARD.md`](docs/RULE_DOCUMENT_STANDARD.md)。默认运行只需要规范化语料；以下向量索引构建步骤均为可选能力。
 
 正式构建：
 
@@ -86,6 +86,8 @@ $env:PYTHONNOUSERSITE="1"
 $env:RAG_EMBEDDING_DEVICE="cuda"
 python rag_ingest.py --reset
 ```
+
+构建完成后，在 `backend/.env` 中设置 `RAG_RETRIEVAL_MODE=vector` 才会让运行时使用该索引；保持默认 `lexical` 时不会加载 Chroma 或 embedding。
 
 只验证切片：
 

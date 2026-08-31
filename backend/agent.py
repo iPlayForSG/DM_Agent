@@ -18,9 +18,14 @@ except ImportError:
 from agent_tools import AgentToolService
 from dm_graph import DMGraphRunner
 from model_backends import (
+    CODEX_CLI_PROVIDER,
+    CODEX_REASONING_EFFORTS,
+    DEFAULT_MODEL_PROVIDER,
     OPENAI_COMPATIBLE_PROVIDER,
     SUPPORTED_MODEL_PROVIDERS,
     default_cli_command,
+    default_model_name,
+    default_reasoning_effort,
     probe_cli,
 )
 from models import ActionSuggestion, AdventureHook, Character, GameState, TurnResult
@@ -38,6 +43,7 @@ LLM_ENV_KEYS = (
     "OPENAI_API_BASE",
     "OPENAI_BASE_URL",
     "LLM_MODEL",
+    "LLM_REASONING_EFFORT",
     "LLM_PROVIDER",
     "LLM_CLI_COMMAND",
     "LLM_CLI_TIMEOUT_S",
@@ -70,13 +76,18 @@ class DMAgent:
     """
 
     def __init__(self):
-        self.model_provider = os.getenv("LLM_PROVIDER", OPENAI_COMPATIBLE_PROVIDER).strip() or OPENAI_COMPATIBLE_PROVIDER
+        self.model_provider = self._validate_provider(
+            os.getenv("LLM_PROVIDER", DEFAULT_MODEL_PROVIDER).strip() or DEFAULT_MODEL_PROVIDER
+        )
         self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.raw_base_url = os.getenv("OPENAI_API_BASE") or os.getenv("OPENAI_BASE_URL", "")
         self.base_url = normalize_openai_base_url(self.raw_base_url)
-        default_model = "gpt-5.1" if self.model_provider == OPENAI_COMPATIBLE_PROVIDER else ""
-        self.model_name = os.getenv("LLM_MODEL", default_model)
-        self.cli_command = os.getenv("LLM_CLI_COMMAND", "").strip()
+        self.model_name = os.getenv("LLM_MODEL", "").strip() or default_model_name(self.model_provider)
+        self.reasoning_effort = self._validate_reasoning_effort(
+            self.model_provider,
+            os.getenv("LLM_REASONING_EFFORT", ""),
+        )
+        self.cli_command = os.getenv("LLM_CLI_COMMAND", "").strip() or default_cli_command(self.model_provider)
         self.cli_timeout_s = self._parse_cli_timeout(os.getenv("LLM_CLI_TIMEOUT_S", "300"))
         self.active_profile_id = os.getenv("LLM_ACTIVE_PROFILE_ID", "")
         self.llm_profiles = self._load_llm_profiles()
@@ -129,9 +140,13 @@ class DMAgent:
         model_name: str,
         base_url: str,
         provider: str = OPENAI_COMPATIBLE_PROVIDER,
+        reasoning_effort: str = "",
     ) -> str:
         if provider != OPENAI_COMPATIBLE_PROVIDER:
-            return f"{provider} · {model_name or 'CLI default'}"
+            parts = [provider, model_name or "CLI default"]
+            if provider == CODEX_CLI_PROVIDER:
+                parts.append(reasoning_effort or default_reasoning_effort(provider))
+            return " · ".join(parts)
         model = str(model_name or "model").strip()
         parsed = urllib_parse.urlparse(str(base_url or "").strip())
         host = parsed.netloc or parsed.path or "provider"
@@ -166,6 +181,12 @@ class DMAgent:
                 continue
             label = self._validate_env_value("profile_label", profile.get("label", ""))
             model_name = self._validate_env_value("LLM_MODEL", profile.get("model_name", ""))
+            if provider == CODEX_CLI_PROVIDER and not model_name:
+                model_name = default_model_name(provider)
+            reasoning_effort = self._validate_reasoning_effort(
+                provider,
+                profile.get("reasoning_effort", ""),
+            )
             raw_base_url = self._validate_env_value("OPENAI_API_BASE", profile.get("raw_base_url") or profile.get("base_url", ""))
             api_key = self._validate_env_value("OPENAI_API_KEY", profile.get("api_key", ""))
             cli_command = self._validate_env_value("LLM_CLI_COMMAND", profile.get("cli_command", ""))
@@ -181,6 +202,7 @@ class DMAgent:
                     "label": label,
                     "provider": provider,
                     "model_name": model_name,
+                    "reasoning_effort": reasoning_effort,
                     "raw_base_url": raw_base_url,
                     "api_key": api_key,
                     "cli_command": cli_command,
@@ -201,19 +223,29 @@ class DMAgent:
             self.model_provider = active_profile.get("provider", OPENAI_COMPATIBLE_PROVIDER)
             self.api_key = active_profile.get("api_key", "")
             self.raw_base_url = active_profile.get("raw_base_url", "")
-            self.model_name = active_profile.get("model_name", "")
-            self.cli_command = active_profile.get("cli_command", "")
+            self.model_name = active_profile.get("model_name", "") or default_model_name(self.model_provider)
+            self.reasoning_effort = self._validate_reasoning_effort(
+                self.model_provider,
+                active_profile.get("reasoning_effort", ""),
+            )
+            self.cli_command = active_profile.get("cli_command", "") or default_cli_command(self.model_provider)
             self.cli_timeout_s = self._parse_cli_timeout(active_profile.get("cli_timeout_s", 300))
             self.base_url = normalize_openai_base_url(self.raw_base_url)
             return
 
-        label = self._default_profile_label(self.model_name, self.raw_base_url, self.model_provider)
+        label = self._default_profile_label(
+            self.model_name,
+            self.raw_base_url,
+            self.model_provider,
+            self.reasoning_effort,
+        )
         profile_id = self.active_profile_id or self._profile_id_from_label(label)
         profile = {
             "profile_id": profile_id,
             "label": label,
             "provider": self.model_provider,
             "model_name": self.model_name,
+            "reasoning_effort": self.reasoning_effort,
             "raw_base_url": self.raw_base_url,
             "api_key": self.api_key,
             "cli_command": self.cli_command,
@@ -231,6 +263,7 @@ class DMAgent:
             "label": profile.get("label", ""),
             "provider": profile.get("provider", OPENAI_COMPATIBLE_PROVIDER),
             "model_name": profile.get("model_name", ""),
+            "reasoning_effort": profile.get("reasoning_effort", ""),
             "base_url": normalize_openai_base_url(raw_base_url),
             "raw_base_url": raw_base_url,
             "api_key_configured": bool(profile.get("api_key", "")),
@@ -249,6 +282,7 @@ class DMAgent:
             "active_profile_id": self.active_profile_id,
             "provider": self.model_provider,
             "model_name": self.model_name,
+            "reasoning_effort": self.reasoning_effort,
             "base_url": self.base_url,
             "raw_base_url": self.raw_base_url,
             "base_url_normalized": self.base_url_normalized,
@@ -326,6 +360,7 @@ class DMAgent:
             rag_engine=self.rag_engine,
             tool_service=self.tool_service,
             model_name=self.model_name,
+            reasoning_effort=self.reasoning_effort,
             api_key=self.api_key,
             base_url=self.base_url,
             model_provider=self.model_provider,
@@ -338,6 +373,10 @@ class DMAgent:
         os.environ["LLM_PROVIDER"] = self.model_provider
         os.environ["LLM_CLI_COMMAND"] = self.cli_command
         os.environ["LLM_CLI_TIMEOUT_S"] = str(self.cli_timeout_s)
+        if self.reasoning_effort:
+            os.environ["LLM_REASONING_EFFORT"] = self.reasoning_effort
+        else:
+            os.environ.pop("LLM_REASONING_EFFORT", None)
         if self.model_provider != OPENAI_COMPATIBLE_PROVIDER:
             # 避免上一 API 档案的凭据被无关 CLI 子进程继承；CLI 使用各自已有登录态。
             for key in ("OPENAI_API_KEY", "OPENAI_API_BASE", "OPENAI_BASE_URL"):
@@ -349,6 +388,8 @@ class DMAgent:
             os.environ["OPENAI_BASE_URL"] = self.base_url
         if self.model_name:
             os.environ["LLM_MODEL"] = self.model_name
+        else:
+            os.environ.pop("LLM_MODEL", None)
 
     @staticmethod
     def _validate_env_value(name: str, value: str) -> str:
@@ -363,6 +404,16 @@ class DMAgent:
         if provider not in SUPPORTED_MODEL_PROVIDERS:
             raise ValueError(f"Unsupported model provider: {provider}")
         return provider
+
+    @staticmethod
+    def _validate_reasoning_effort(provider: str, value: str) -> str:
+        if provider != CODEX_CLI_PROVIDER:
+            return ""
+        effort = str(value or default_reasoning_effort(provider)).strip().lower()
+        if effort not in CODEX_REASONING_EFFORTS:
+            allowed = ", ".join(CODEX_REASONING_EFFORTS)
+            raise ValueError(f"Unsupported Codex reasoning effort: {effort}. Expected one of: {allowed}")
+        return effort
 
     @staticmethod
     def _parse_cli_timeout(value: Any) -> int:
@@ -413,6 +464,7 @@ class DMAgent:
                 "OPENAI_API_BASE": self.raw_base_url,
                 "OPENAI_BASE_URL": self.raw_base_url,
                 "LLM_MODEL": self.model_name,
+                "LLM_REASONING_EFFORT": self.reasoning_effort,
                 "LLM_PROVIDER": self.model_provider,
                 "LLM_CLI_COMMAND": self.cli_command,
                 "LLM_CLI_TIMEOUT_S": str(self.cli_timeout_s),
@@ -426,6 +478,12 @@ class DMAgent:
         api_key = profile.get("api_key", "")
         raw_base_url = profile.get("raw_base_url", "")
         model_name = profile.get("model_name", "")
+        if provider == CODEX_CLI_PROVIDER and not model_name:
+            model_name = default_model_name(provider)
+        reasoning_effort = self._validate_reasoning_effort(
+            provider,
+            profile.get("reasoning_effort", ""),
+        )
         if provider == OPENAI_COMPATIBLE_PROVIDER:
             if not api_key:
                 raise ValueError("API Key is required for the selected model profile.")
@@ -441,7 +499,8 @@ class DMAgent:
         self.raw_base_url = raw_base_url
         self.base_url = normalize_openai_base_url(raw_base_url)
         self.model_name = model_name
-        self.cli_command = profile.get("cli_command", "")
+        self.reasoning_effort = reasoning_effort
+        self.cli_command = profile.get("cli_command", "") or default_cli_command(provider)
         self.cli_timeout_s = self._parse_cli_timeout(profile.get("cli_timeout_s", 300))
         self._apply_llm_environment()
         self.dm_graph_runner = self._create_dm_graph_runner()
@@ -463,6 +522,7 @@ class DMAgent:
         profile_label: str,
         provider: str = OPENAI_COMPATIBLE_PROVIDER,
         model_name: str,
+        reasoning_effort: str = "",
         base_url: str,
         api_key: Optional[str] = None,
         cli_command: str = "",
@@ -473,6 +533,9 @@ class DMAgent:
         label = self._validate_env_value("profile_label", profile_label)
         next_provider = self._validate_provider(provider)
         next_model_name = self._validate_env_value("LLM_MODEL", model_name)
+        if next_provider == CODEX_CLI_PROVIDER and not next_model_name:
+            next_model_name = default_model_name(next_provider)
+        next_reasoning_effort = self._validate_reasoning_effort(next_provider, reasoning_effort)
         next_raw_base_url = self._validate_env_value("OPENAI_API_BASE", base_url)
         provided_api_key = self._validate_env_value("OPENAI_API_KEY", api_key) if api_key is not None else ""
         next_cli_command = self._validate_env_value("LLM_CLI_COMMAND", cli_command)
@@ -498,6 +561,7 @@ class DMAgent:
             "label": label,
             "provider": next_provider,
             "model_name": next_model_name,
+            "reasoning_effort": next_reasoning_effort,
             "raw_base_url": next_raw_base_url,
             "api_key": next_api_key,
             "cli_command": next_cli_command or default_cli_command(next_provider),

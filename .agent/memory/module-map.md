@@ -33,7 +33,7 @@
 | `backend/adventure_service.py` | 固定/AI 冒险生成与 D&D 风格校验 | setup flow、campaign schema、测试 |
 | `backend/campaign_memory.py` | 从 `GameState` 派生有界的剧情提示上下文，不另存业务事实 | `dm_graph.py` memory context、prompts、工作流测试 |
 | `backend/utils/import_5etools_builder_options.py` | 从本地 5e.tools 数据增量补齐建卡目录；幂等、只追加 | `character_builder_2024.json`、`validate_character`、builder API |
-| `backend/rag.py` | 向量优先、词法降级、多查询、来源去重与上下文截断 | health/status、dm_graph rules stage、`lexical_rag.py` |
+| `backend/rag.py` | 默认词法、显式向量模式及失败降级、多查询、来源去重与上下文截断 | health/status、dm_graph rules stage、`lexical_rag.py` |
 | `backend/lexical_rag.py` | heading-aware Markdown/text 词法索引 | 规范化语料、中文/英文术语、fallback tests |
 | `backend/rule_document_normalizer.py`、`backend/utils/normalize_rule_documents.py` | 原始规则书只读规范化、重复标题消歧、可继承目录 aliases、manifest quality warnings | `docs/RULE_DOCUMENT_STANDARD.md`、ignored corpus、检索质量抽查 |
 | `backend/rag_embeddings.py` | GGUF 定位、跨平台 llama-server 生命周期、embedding | Windows/macOS 路径、CUDA/Metal/CPU、超时与日志 |

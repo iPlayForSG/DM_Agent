@@ -85,14 +85,14 @@ python backend/utils/narrative_fact_eval.py
 
 第一条报告耗时范围是 `DMAgent.run_turn` 核心图（含 provider 与确定性工具），不含 HTTP 传输和提交后 UI suggestions 投影。第二条验证即时描写、命名线索持久化、机械检定和长上下文回忆；只输出指标与布尔检查，不保存完整回复或 transcript。
 
-## RAG 索引构建
+## RAG 语料与可选向量索引
 
-以下命令依据 `README.md` 与 `backend/rag_ingest.py`。它们依赖未提交的本地规则资料和 GGUF embedding 模型；2026-08-28 本次记忆系统审计未执行。
+运行时默认 `RAG_RETRIEVAL_MODE=lexical`，只读取规范化词法语料，不加载 embedding。以下向量构建命令依据 `README.md` 与 `backend/rag_ingest.py`，依赖未提交的本地规则资料和 GGUF embedding 模型；构建后仍需显式设置 `RAG_RETRIEVAL_MODE=vector` 才会让运行时优先使用向量索引。
 
 ```powershell
 Set-Location backend
 
-# 正式构建；默认写入 Knowledge/vector_db
+# 可选向量构建；默认写入 Knowledge/vector_db
 $env:PYTHONNOUSERSITE="1"
 $env:RAG_EMBEDDING_DEVICE="cuda"
 python rag_ingest.py --reset
@@ -129,6 +129,10 @@ python backend/utils/normalize_rule_documents.py
 浏览器交互长流程与本地 GGUF/Metal 向量查询尚未完成，不能标为已验证。
 
 2026-08-30 `refactor/agent_loop` 实际执行：最终完整后端 196 项全部成功；`python -m compileall -q backend` 与前端 build 成功；lint 0 errors/2 条既有 Hook dependency warning；`git diff --check` 通过，仅有 LF/CRLF 工作区提示。原生 provider 的核心 Loop 三类矩阵与叙事事实四步验收报告 issue 均为 0。
+
+2026-08-30 Codex 默认传输变更实际执行：本机 `codex-cli 0.147.0` 通过 `gpt-5.6-terra` / `high` 真实调用；项目 `CodingAgentCLIChatModel` 结构化 smoke 返回预期文本且无工具调用。完整后端 199 项成功，前端 build 成功，lint 0 errors/2 条既有 Hook dependency warning。
+
+2026-08-30 词法检索默认化实际执行：本机规范化语料 smoke 报告 `retrieval_mode=lexical`、`backend=lexical-grep`、`vector_ready=false`、无 vector error/fallback，并返回规则结果；RAG 目标测试 10 项、完整后端 200 项成功。前端 build 成功，lint 0 errors/2 条既有 Hook dependency warning。
 
 ## 当前不存在的命令
 

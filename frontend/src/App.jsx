@@ -31,6 +31,7 @@ import {
   selectAdventure,
   skillCheckAction,
   removeEncounterCombatant,
+  retryGameMessage,
   rollEncounterInitiative,
   rewriteGameMessage,
   spawnEncounterTemplate,
@@ -61,14 +62,19 @@ const MODEL_PROVIDER_LABELS = {
   "codex-cli": "Codex CLI",
 };
 
+const CODEX_DEFAULT_MODEL = "gpt-5.6-terra";
+const CODEX_DEFAULT_REASONING_EFFORT = "high";
+const CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultra"];
+
 const EMPTY_LLM_DRAFT = {
   profile_id: "",
   profile_label: "",
-  provider: "openai-compatible",
-  model_name: "",
+  provider: "codex-cli",
+  model_name: CODEX_DEFAULT_MODEL,
+  reasoning_effort: CODEX_DEFAULT_REASONING_EFFORT,
   base_url: "",
   api_key: "",
-  cli_command: "",
+  cli_command: "codex",
   cli_timeout_s: 300,
 };
 
@@ -132,6 +138,12 @@ const SPECIES_NAME_LABELS = {
   Elf: "精灵",
   Dwarf: "矮人",
   Halfling: "半身人",
+  Aasimar: "神裔",
+  Dragonborn: "龙裔",
+  Gnome: "侏儒",
+  Goliath: "歌利亚",
+  Orc: "兽人",
+  Tiefling: "提夫林",
 };
 const BACKGROUND_NAME_LABELS = {
   Acolyte: "侍祭",
@@ -141,6 +153,15 @@ const BACKGROUND_NAME_LABELS = {
   Sage: "贤者",
   Soldier: "士兵",
   Wayfarer: "浪人",
+  Artisan: "工匠",
+  Charlatan: "骗子",
+  Guard: "守卫",
+  Guide: "向导",
+  Hermit: "隐士",
+  Merchant: "商人",
+  Noble: "贵族",
+  Sailor: "水手",
+  Scribe: "抄写员",
 };
 const ORIGIN_FEAT_LABELS = {
   Alert: "警觉",
@@ -153,6 +174,9 @@ const ORIGIN_FEAT_LABELS = {
   "Savage Attacker": "狂野攻击手",
   Skilled: "技艺娴熟",
   Tough: "坚韧",
+  Healer: "医者",
+  "Magic Initiate": "魔法学徒",
+  "Tavern Brawler": "酒馆斗殴者",
 };
 const STAT_ABBREVIATION_TO_KEY = {
   str: "strength",
@@ -286,17 +310,23 @@ const EMPTY_ENCOUNTER_DRAFT = { enemy_names: "", enemy_hp: 10, enemy_ac: 10, mon
 const parseEntries = (text, prefix) => text.split("\n").map((x) => x.trim()).filter(Boolean).map((description, i) => ({ name: `${prefix} ${i + 1}`, description }));
 const entriesToText = (entries = []) => entries.map((x) => x.description).join("\n");
 const localizeSceneText = (text = "") => text.replace(/\b(adventure_selection|preparation|setup|exploration|social|combat|encounter)\b/g, (value) => SCENE_LABELS[value] || value);
-const mapMessages = (history = []) => history.reduce((items, m, chatIndex) => {
-  if (m.kind === "tool_result") return items;
-  items.push({
-    index: items.length,
-    chatIndex,
-    role: m.role,
-    sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
-    text: m.role === "system" ? localizeSceneText(m.content) : m.content,
-  });
-  return items;
-}, []);
+const mapMessages = (history = [], timeline = []) => {
+  const assistantEvents = timeline.filter((event) => event?.type === "assistant_response");
+  let assistantEventIndex = 0;
+  return history.reduce((items, m, chatIndex) => {
+    if (m.kind === "tool_result") return items;
+    const assistantEvent = m.role === "assistant" ? assistantEvents[assistantEventIndex++] : null;
+    items.push({
+      index: items.length,
+      chatIndex,
+      role: m.role,
+      sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
+      text: m.role === "system" ? localizeSceneText(m.content) : m.content,
+      turnStatus: String(assistantEvent?.payload?.turn_status || ""),
+    });
+    return items;
+  }, []);
+};
 const EVENT_LABELS = {
   player_action: "玩家",
   assistant_response: "主持",
@@ -416,7 +446,7 @@ const localizeEquipmentType = (type) => EQUIPMENT_TYPE_LABELS[type] || type || "
 const localizeDefeatState = (state) => DEFEAT_STATE_LABELS[state] || state || "正常";
 const formatEquipmentLine = (item) => {
   const details = [];
-  if (item.quantity && item.quantity > 1) details.push(`x${item.quantity}`);
+  if (item.quantity && item.quantity > 1) details.push(`数量 ${item.quantity}`);
   if (item.type_display || item.type) details.push(item.type_display || localizeEquipmentType(item.type));
   if (item.damage_expression) details.push(item.damage_expression);
   if (item.damage_type_display || item.damage_type) details.push(item.damage_type_display || item.damage_type);
@@ -425,14 +455,14 @@ const formatEquipmentLine = (item) => {
   return details.join(" · ");
 };
 const formatShopItemMeta = (item) => {
-  const details = [`${Number(item.cost_gp || 0)} gp`];
+  const details = [formatGoldLine(item.cost_gp)];
   if (Number(item.bundle_size || 1) > 1) details.push(`每份 ${item.bundle_size}`);
   if (item.damage_die) details.push(item.damage_die);
   if (item.armor_class_bonus) details.push(`护甲 +${item.armor_class_bonus}`);
   details.push(item.type_display || localizeEquipmentType(item.type));
   return details.join(" · ");
 };
-const formatResourceRecovery = (resource) => resource.recovery === "short_rest" ? "短休" : resource.recovery === "long_rest" ? "长休" : resource.recovery;
+const formatResourceRecovery = (resource) => resource.recovery_display || (resource.recovery === "short_rest" ? "短休" : resource.recovery === "long_rest" ? "长休" : resource.recovery);
 const formatSpellSlotLine = ([level, total]) => `${level}环法术位 · ${total}`;
 const formatGoldLine = (goldGp) => `${Number(goldGp || 0)} 金币`;
 const localizeEquipmentMode = (mode) => mode === "starter_package" ? "标准套装" : mode === "custom_purchase" ? "自定义购买" : "未记录";
@@ -462,8 +492,168 @@ function ChoiceButton({ selected = false, disabled = false, className = "", chil
 function SpellChoiceButton({ selected = false, disabled = false, className = "", children, ...props }) {
   return <button type="button" className={choiceClassName("spell-card", selected, disabled, className)} aria-pressed={selected} disabled={disabled} {...props}>{children}</button>;
 }
-function MarkdownBlock({ children }) {
-  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{String(children || "")}</ReactMarkdown>;
+function ShopCarousel({ group, quantities, onQuantityChange }) {
+  const pageSize = 3;
+  const [page, setPage] = useState(0);
+  const categoryLabel = group.items[0]?.type_display || localizeEquipmentType(group.type);
+  const pageCount = Math.max(1, Math.ceil(group.items.length / pageSize));
+  // 商品目录会随职业刷新；派生安全页码可避免保留的局部页码落到空页。
+  const safePage = Math.min(page, pageCount - 1);
+  const start = safePage * pageSize;
+  const visibleItems = group.items.slice(start, start + pageSize);
+  const end = start + visibleItems.length;
+  const titleId = `shop-carousel-${group.type}`;
+
+  return (
+    <section className="builder-preview-card shop-section" aria-labelledby={titleId}>
+      <div className="shop-carousel-header">
+        <h3 id={titleId}>{categoryLabel}</h3>
+        <div className="shop-carousel-controls">
+          <span className="shop-carousel-range" aria-live="polite" aria-atomic="true">
+            {pageCount > 1 ? `${start + 1}–${end} / ${group.items.length}` : `共 ${group.items.length} 项`}
+          </span>
+          {pageCount > 1 && (
+            <>
+              <button
+                type="button"
+                className="shop-carousel-button"
+                aria-label={`查看${categoryLabel}的上一组商品`}
+                title="上一组"
+                disabled={safePage === 0}
+                onClick={() => setPage(Math.max(0, safePage - 1))}
+              >
+                <span aria-hidden="true">‹</span>
+              </button>
+              <button
+                type="button"
+                className="shop-carousel-button"
+                aria-label={`查看${categoryLabel}的下一组商品`}
+                title="下一组"
+                disabled={safePage === pageCount - 1}
+                onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
+              >
+                <span aria-hidden="true">›</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="timeline-list shop-carousel-page">
+        {visibleItems.map((item) => {
+          const itemName = item.name_display || item.name;
+          const quantity = Number(quantities?.[item.id] || 0);
+          return (
+            <article key={item.id} className={`shop-card ${quantity > 0 ? "selected" : ""}`}>
+              <div className="shop-card-copy">
+                <div className="timeline-summary">{itemName}</div>
+                <div className="timeline-content">{formatShopItemMeta(item)}</div>
+              </div>
+              <div className="quantity-stepper" aria-label={`${itemName}数量`}>
+                <button
+                  type="button"
+                  aria-label={`减少${itemName}数量`}
+                  disabled={quantity === 0}
+                  onClick={() => onQuantityChange(item.id, quantity - 1)}
+                >
+                  −
+                </button>
+                <output aria-label={`${itemName}当前数量`}>{quantity}</output>
+                <button
+                  type="button"
+                  aria-label={`增加${itemName}数量`}
+                  onClick={() => onQuantityChange(item.id, quantity + 1)}
+                >
+                  +
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+const QUOTE_PAIRS = new Map([
+  ['"', '"'],
+  ["'", "'"],
+  ["“", "”"],
+  ["‘", "’"],
+  ["「", "」"],
+  ["『", "』"],
+  ["《", "》"],
+  ["〈", "〉"],
+]);
+
+function findClosingQuote(text, openingIndex, openingQuote, closingQuote) {
+  for (let index = openingIndex + 1; index < text.length; index += 1) {
+    if (text[index] !== closingQuote || text[index - 1] === "\\") continue;
+    // 英文缩写中的撇号不是引语边界；中文直引号不受这一限制。
+    if (openingQuote === "'" && /[A-Za-z0-9]/.test(text[index + 1] || "")) continue;
+    return index;
+  }
+  return -1;
+}
+
+function highlightQuotedText(text) {
+  const source = String(text || "");
+  const parts = [];
+  let plainStart = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const openingQuote = source[index];
+    const closingQuote = QUOTE_PAIRS.get(openingQuote);
+    if (!closingQuote) continue;
+    if (openingQuote === "'" && /[A-Za-z0-9]/.test(source[index - 1] || "")) continue;
+
+    const closingIndex = findClosingQuote(source, index, openingQuote, closingQuote);
+    if (closingIndex <= index + 1) continue;
+    if (plainStart < index) parts.push(source.slice(plainStart, index));
+    parts.push(
+      <span className="quoted-phrase" key={`quote-${index}`}>
+        {source.slice(index, closingIndex + 1)}
+      </span>,
+    );
+    index = closingIndex;
+    plainStart = closingIndex + 1;
+  }
+
+  if (plainStart < source.length) parts.push(source.slice(plainStart));
+  return parts.length ? parts : source;
+}
+
+function highlightQuotedChildren(children) {
+  return React.Children.map(children, (child) => {
+    if (typeof child === "string") return highlightQuotedText(child);
+    if (!React.isValidElement(child) || child.type === "code" || child.type === "pre") return child;
+    return React.cloneElement(child, {
+      children: highlightQuotedChildren(child.props.children),
+    });
+  });
+}
+
+const HIGHLIGHTED_MARKDOWN_COMPONENTS = {
+  p: ({ children }) => <p>{highlightQuotedChildren(children)}</p>,
+  li: ({ children }) => <li>{highlightQuotedChildren(children)}</li>,
+  blockquote: ({ children }) => <blockquote>{highlightQuotedChildren(children)}</blockquote>,
+  h1: ({ children }) => <h1>{highlightQuotedChildren(children)}</h1>,
+  h2: ({ children }) => <h2>{highlightQuotedChildren(children)}</h2>,
+  h3: ({ children }) => <h3>{highlightQuotedChildren(children)}</h3>,
+  h4: ({ children }) => <h4>{highlightQuotedChildren(children)}</h4>,
+  h5: ({ children }) => <h5>{highlightQuotedChildren(children)}</h5>,
+  h6: ({ children }) => <h6>{highlightQuotedChildren(children)}</h6>,
+  th: ({ children }) => <th>{highlightQuotedChildren(children)}</th>,
+  td: ({ children }) => <td>{highlightQuotedChildren(children)}</td>,
+};
+
+function MarkdownBlock({ children, highlightQuotes = false }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={highlightQuotes ? HIGHLIGHTED_MARKDOWN_COMPONENTS : undefined}
+    >
+      {String(children || "")}
+    </ReactMarkdown>
+  );
 }
 function TimelinePanel({ timeline, title = "时间线", emptyText = "还没有记录。" }) {
   return (
@@ -832,6 +1022,7 @@ export default function App() {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [isCharacterLoading, setIsCharacterLoading] = useState(false);
   const [rewriteTarget, setRewriteTarget] = useState(null);
+  const [retryingMessageIndex, setRetryingMessageIndex] = useState(null);
   const [deleteRequest, setDeleteRequest] = useState(null);
   const [gameDeleteMode, setGameDeleteMode] = useState(false);
   const [selectedGameDeleteIds, setSelectedGameDeleteIds] = useState([]);
@@ -844,6 +1035,7 @@ export default function App() {
   const actionSuggestionRequestRef = useRef(0);
   const gameLifecycleRef = useRef(0);
   const gameSyncRequestRef = useRef(0);
+  const optimisticMessageIdRef = useRef(0);
 
   useEffect(() => { refreshLobby(); }, []);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, workflowEvents, isLoading]);
@@ -910,7 +1102,7 @@ export default function App() {
     name: charDraft.custom_pending_item.name.trim(),
     quantity: Number(charDraft.custom_pending_item.quantity || 1),
     type: "gear",
-    notes: charDraft.custom_pending_item.notes?.trim() || "由 DM 在角色创建后补充具体属性",
+    notes: charDraft.custom_pending_item.notes?.trim() || "由主持人在角色创建后补充具体属性",
   } : null;
   const finalEquipmentPreview = [
     ...(charDraft.equipment_mode === "custom_purchase" ? customPurchasePreviewItems.map((item) => ({
@@ -965,6 +1157,30 @@ export default function App() {
   const playerChoiceOptions = isPlayerChoicePending && Array.isArray(pendingTurn?.details?.options)
     ? pendingTurn.details.options.map((option) => String(option || "").trim()).filter(Boolean)
     : [];
+  const pendingOriginalInput = String(pendingTurn?.original_input || "").trim();
+  const lastAuthoritativeMessage = messages.reduce((last, item) => item.optimistic ? last : item, null);
+  const pendingInputAlreadyRecorded = pendingOriginalInput
+    && lastAuthoritativeMessage?.sender === "player"
+    && String(lastAuthoritativeMessage.text || "").trim() === pendingOriginalInput;
+  let visibleMessages = messages;
+  if (pendingOriginalInput && !pendingInputAlreadyRecorded) {
+    const firstOptimisticIndex = messages.findIndex((item) => item.optimistic);
+    const insertionIndex = firstOptimisticIndex < 0 ? messages.length : firstOptimisticIndex;
+    const pendingContextMessage = {
+      index: insertionIndex,
+      chatIndex: null,
+      role: "user",
+      sender: "player",
+      text: pendingOriginalInput,
+      pendingContext: true,
+      renderKey: `pending-player-${activeGameId}-${pendingOriginalInput}`,
+    };
+    visibleMessages = [
+      ...messages.slice(0, insertionIndex),
+      pendingContextMessage,
+      ...messages.slice(insertionIndex),
+    ];
+  }
   const chatComposerDisabled = gameState?.campaign?.phase === "adventure_selection";
   const isGameMutationBusy = isLoading || isReplyLengthSaving;
   const chatSubmitDisabled = chatComposerDisabled || isGameMutationBusy;
@@ -1052,15 +1268,17 @@ export default function App() {
     const nextConfig = payload || {};
     const nextProfiles = nextConfig.profiles || [];
     const activeProfile = nextProfiles.find((profile) => profile.profile_id === nextConfig.active_profile_id) || nextProfiles[0] || {};
+    const provider = activeProfile.provider || nextConfig.provider || "codex-cli";
     setLlmConfig(nextConfig);
     setLlmDraft({
       profile_id: activeProfile.profile_id || "",
       profile_label: activeProfile.label || "",
-      provider: activeProfile.provider || nextConfig.provider || "openai-compatible",
-      model_name: activeProfile.model_name || nextConfig.model_name || "",
+      provider,
+      model_name: activeProfile.model_name || nextConfig.model_name || (provider === "codex-cli" ? CODEX_DEFAULT_MODEL : ""),
+      reasoning_effort: activeProfile.reasoning_effort || nextConfig.reasoning_effort || (provider === "codex-cli" ? CODEX_DEFAULT_REASONING_EFFORT : ""),
       base_url: activeProfile.raw_base_url || nextConfig.raw_base_url || nextConfig.base_url || "",
       api_key: "",
-      cli_command: activeProfile.cli_command || nextConfig.cli_command || "",
+      cli_command: activeProfile.cli_command || nextConfig.cli_command || (provider === "codex-cli" ? "codex" : provider === "claude-code" ? "claude" : ""),
       cli_timeout_s: activeProfile.cli_timeout_s || nextConfig.cli_timeout_s || 300,
     });
   }
@@ -1126,6 +1344,7 @@ export default function App() {
         profile_label: profileLabel,
         provider,
         model_name: modelName,
+        reasoning_effort: llmDraft.reasoning_effort || "",
         base_url: baseUrl,
         cli_command: llmDraft.cli_command.trim(),
         cli_timeout_s: Number(llmDraft.cli_timeout_s) || 300,
@@ -1358,7 +1577,7 @@ export default function App() {
   function applyGameSnapshot(state, options, { preserveRewrite = false } = {}) {
     latestTurnNumberRef.current = Number(state?.turn_number || 0);
     setGameState(state);
-    setMessages(mapMessages(state.chat_history || []));
+    setMessages(mapMessages(state.chat_history || [], state.timeline || []));
     if (options) setActionOptions(options);
     setReplyLengthDraft(replyLengthDraftFromState(state));
     if (!preserveRewrite) setRewriteTarget(null);
@@ -1381,6 +1600,7 @@ export default function App() {
     gameSyncRequestRef.current += 1;
     activeGameIdRef.current = gameId;
     setActiveGameId(gameId);
+    setRetryingMessageIndex(null);
     return lifecycleToken;
   }
 
@@ -1402,6 +1622,7 @@ export default function App() {
     setMessages([]);
     setWorkflowEvents([]);
     setRewriteTarget(null);
+    setRetryingMessageIndex(null);
     setInput("");
     setReplyLengthDraft({ min_chars: "", max_chars: "" });
     setReplyLengthMessage("");
@@ -1855,7 +2076,7 @@ export default function App() {
       if (charDraft.equipment_mode === "custom_purchase" && customPurchaseBudgetGp <= 0) return "当前职业没有可用的自定义购买预算。";
       if (!hasPendingCustomItem && pendingCustomTouched) return "自定义待定装备需要先填写名称。";
       if (hasPendingCustomItem && Number(charDraft.custom_pending_item?.quantity || 0) <= 0) return "自定义待定装备的数量必须大于 0。";
-      if (equipmentRemainingGp < 0) return `装备花费超出预算 ${Math.abs(equipmentRemainingGp)} gp，请减少购买或降低预留预算。`;
+      if (equipmentRemainingGp < 0) return `装备花费超出预算 ${Math.abs(equipmentRemainingGp)} 金币，请减少购买或降低预留预算。`;
     }
 
     if (stepIndex === 3) {
@@ -1987,6 +2208,25 @@ export default function App() {
     if (!message || !gameId || isGameMutationBusy || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
     if (gameState?.campaign?.phase === "adventure_selection") return setError("请先选择冒险。");
 
+    const optimisticMessageId = `${gameId}-${++optimisticMessageIdRef.current}`;
+    // 玩家需要在网络回合开始前确认自己的发言已经进入对话；权威快照返回后会替换这条临时消息。
+    setMessages((current) => {
+      const settledMessages = current.filter((item) => !item.optimistic);
+      return [
+        ...settledMessages,
+        {
+          index: settledMessages.length,
+          chatIndex: null,
+          role: "user",
+          sender: "player",
+          text: message,
+          optimistic: true,
+          optimisticMessageId,
+          renderKey: `pending-player-${gameId}-${message}`,
+          deliveryState: "sending",
+        },
+      ];
+    });
     setIsLoading(true);
     setError("");
     setWorkflowEvents([]);
@@ -2051,16 +2291,75 @@ export default function App() {
       });
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
       const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && result.turn_status === "completed"
+        && normalizedSuggestions.length !== 3
+      ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
         setError(err.message || "发送消息失败。");
-        if (options.clearInput) setInput((current) => current.trim() ? current : message);
+        setMessages((current) => current.map((item) => item.optimisticMessageId === optimisticMessageId
+          ? { ...item, deliveryState: "failed" }
+          : item));
+        setInput((current) => current.trim() ? current : message);
       }
     } finally {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsLoading(false);
+    }
+  }
+
+  async function retryDmMessage(message) {
+    const gameId = activeGameId;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (
+      message?.sender !== "dm"
+      || !Number.isInteger(message.index)
+      || !gameId
+      || rewriteTarget
+      || isGameMutationBusy
+      || !isCurrentGameLifecycle(gameId, lifecycleToken)
+    ) return;
+
+    const hasLaterMessages = messages.some((item) => (
+      !item.optimistic && Number.isInteger(item.index) && item.index > message.index
+    ));
+    if (
+      hasLaterMessages
+      && !window.confirm("重试会回到这条主持回复之前，并移除之后的剧情、状态变化和时间线记录。继续？")
+    ) return;
+
+    setRetryingMessageIndex(message.index);
+    setIsLoading(true);
+    setError("");
+    setWorkflowEvents([]);
+    invalidateActionSuggestionProjection();
+    setActionSuggestions([]);
+    try {
+      const result = await retryGameMessage(gameId, message.index);
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      const normalizedSuggestions = await syncGame(gameId, result.game_state, {
+        actionSuggestions: result.action_suggestions,
+        lifecycleToken,
+      });
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && result.turn_status === "completed"
+        && normalizedSuggestions.length !== 3
+      ) {
+        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
+      }
+    } catch (err) {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setError(err.message || "重试本回合失败。请稍后再试。");
+      }
+    } finally {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setIsLoading(false);
+        setRetryingMessageIndex(null);
+      }
     }
   }
 
@@ -2123,7 +2422,11 @@ export default function App() {
       const result = await rewriteGameMessage(gameId, rewriteTarget.index, message);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
       const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && result.turn_status === "completed"
+        && normalizedSuggestions.length !== 3
+      ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
@@ -2389,11 +2692,16 @@ export default function App() {
                     <label>接入方式</label>
                     <select
                       value={llmDraft.provider}
-                      onChange={(e) => setLlmDraft((prev) => ({
-                        ...prev,
-                        provider: e.target.value,
-                        cli_command: e.target.value === "claude-code" ? "claude" : e.target.value === "codex-cli" ? "codex" : "",
-                      }))}
+                      onChange={(e) => setLlmDraft((prev) => {
+                        const provider = e.target.value;
+                        return {
+                          ...prev,
+                          provider,
+                          model_name: provider === "codex-cli" ? CODEX_DEFAULT_MODEL : "",
+                          reasoning_effort: provider === "codex-cli" ? CODEX_DEFAULT_REASONING_EFFORT : "",
+                          cli_command: provider === "claude-code" ? "claude" : provider === "codex-cli" ? "codex" : "",
+                        };
+                      })}
                       disabled={isLlmSaving}
                     >
                       {Object.entries(MODEL_PROVIDER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -2404,7 +2712,7 @@ export default function App() {
                     <input
                       value={llmDraft.model_name}
                       onChange={(e) => setLlmDraft((prev) => ({ ...prev, model_name: e.target.value }))}
-                      placeholder={llmDraft.provider === "openai-compatible" ? "deepseek-v4-flash" : "可留空，使用 CLI 默认模型"}
+                      placeholder={llmDraft.provider === "openai-compatible" ? "deepseek-v4-flash" : llmDraft.provider === "codex-cli" ? CODEX_DEFAULT_MODEL : "可留空，使用 CLI 默认模型"}
                       disabled={isLlmSaving}
                     />
                   </div>
@@ -2453,13 +2761,27 @@ export default function App() {
                           disabled={isLlmSaving}
                         />
                       </div>
+                      {llmDraft.provider === "codex-cli" && (
+                        <div className="form-group">
+                          <label>推理强度</label>
+                          <select
+                            value={llmDraft.reasoning_effort}
+                            onChange={(e) => setLlmDraft((prev) => ({ ...prev, reasoning_effort: e.target.value }))}
+                            disabled={isLlmSaving}
+                          >
+                            {CODEX_REASONING_EFFORTS.map((effort) => <option key={effort} value={effort}>{effort}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
                 <div className="model-settings-footer">
                   <p className="info-text">{llmStatusMessage || llmHealthMessage || (llmDraft.provider === "openai-compatible"
                     ? "API Key 不会显示；编辑已有档案时留空会保留该档案当前密钥。"
-                    : "CLI 使用本机已有登录态；运行时被限制在临时只读工作目录中。")}</p>
+                    : llmDraft.provider === "codex-cli"
+                      ? "Codex CLI 默认使用 gpt-5.6-terra / high；仅复用本机登录态，并在隔离的临时只读目录中运行。"
+                      : "CLI 使用本机已有登录态；运行时被限制在临时只读工作目录中。")}</p>
                   <button type="submit" className="btn-primary" disabled={isLlmSaving}>
                     {isLlmSaving ? "保存中..." : "保存并启用"}
                   </button>
@@ -2809,24 +3131,12 @@ export default function App() {
                   {classDef && charDraft.equipment_mode === "custom_purchase" && (
                     <div className="builder-preview-grid">
                       {groupedShopItems.map((group) => (
-                        <div key={group.type} className="builder-preview-card shop-section">
-                          <h3>{group.items[0]?.type_display || localizeEquipmentType(group.type)}</h3>
-                          <div className="timeline-list">
-                            {group.items.map((item) => (
-                              <div key={item.id} className={`shop-card ${Number(charDraft.custom_purchase_items?.[item.id] || 0) > 0 ? "selected" : ""}`}>
-                                <div>
-                                  <div className="timeline-summary">{item.name_display || item.name}</div>
-                                  <div className="timeline-content">{formatShopItemMeta(item)}</div>
-                                </div>
-                                <div className="quantity-stepper">
-                                  <button type="button" onClick={() => setCustomPurchaseQuantity(item.id, Number(charDraft.custom_purchase_items?.[item.id] || 0) - 1)}>-</button>
-                                  <span>{Number(charDraft.custom_purchase_items?.[item.id] || 0)}</span>
-                                  <button type="button" onClick={() => setCustomPurchaseQuantity(item.id, Number(charDraft.custom_purchase_items?.[item.id] || 0) + 1)}>+</button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        <ShopCarousel
+                          key={group.type}
+                          group={group}
+                          quantities={charDraft.custom_purchase_items}
+                          onQuantityChange={setCustomPurchaseQuantity}
+                        />
                       ))}
                     </div>
                   )}
@@ -2844,15 +3154,15 @@ export default function App() {
                           <input type="number" min="1" value={charDraft.custom_pending_item?.quantity || 1} onChange={(e) => updatePendingCustomItem("quantity", Number.parseInt(e.target.value || "1", 10))} />
                         </div>
                         <div className="form-group">
-                          <label>预留预算（gp）</label>
+                          <label>预留预算（金币）</label>
                           <input type="number" min="0" value={charDraft.custom_pending_item?.reserved_cost_gp || 0} onChange={(e) => updatePendingCustomItem("reserved_cost_gp", Number.parseInt(e.target.value || "0", 10))} />
                         </div>
                         <div className="form-group">
                           <label>说明</label>
-                          <input value={charDraft.custom_pending_item?.notes || ""} onChange={(e) => updatePendingCustomItem("notes", e.target.value)} placeholder="由 DM 决定材质、伤害、特效等" />
+                          <input value={charDraft.custom_pending_item?.notes || ""} onChange={(e) => updatePendingCustomItem("notes", e.target.value)} placeholder="由主持人决定材质、伤害、特效等" />
                         </div>
                       </div>
-                      <p className="info-text">这件装备只记录名称、数量和预算占用，具体属性在角色创建后由 DM 决定。</p>
+                      <p className="info-text">这件装备只记录名称、数量和预算占用，具体属性在角色创建后由主持人决定。</p>
                     </div>
                   )}
 
@@ -2865,7 +3175,7 @@ export default function App() {
                     <div className="builder-preview-card">
                       <h3>当前装备预览</h3>
                       {finalEquipmentPreview.length === 0 ? <p className="info-text">还没有选入任何起始装备。</p> : <div className="timeline-list">
-                        {finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || item.type || "装备"}</div>{item.notes && <div className="timeline-content">{item.notes}</div>}</div>)}
+                        {finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || localizeEquipmentType(item.type)}</div>{(item.notes_display || item.notes) && <div className="timeline-content">{item.notes_display || item.notes}</div>}</div>)}
                       </div>}
                     </div>
                   </div>
@@ -2886,11 +3196,11 @@ export default function App() {
                   </div>
                   <div className="form-group">
                     <label>戏法</label>
-                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在 1 级时不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedCantrips.includes(spell.name)} onClick={() => toggleCantrip(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在 1 级时不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedCantrips.includes(spell.name)} onClick={() => toggleCantrip(spell.name)}><h4>{localizeName(spell)}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
                   </div>
                   <div className="form-group">
                     <label>已准备法术</label>
-                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在 1 级时没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedSpells.includes(spell.name)} onClick={() => togglePreparedSpell(spell.name)}><h4>{spell.name}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在 1 级时没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedSpells.includes(spell.name)} onClick={() => togglePreparedSpell(spell.name)}><h4>{localizeName(spell)}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
                   </div>
                 </>
               )}
@@ -2914,7 +3224,7 @@ export default function App() {
                     <h3>装备</h3>
                     <div className="timeline-summary">{charDraft.equipment_mode === "custom_purchase" ? "自定义购买" : selectedStarterOption?.label_display || selectedStarterOption?.label || "标准套装"}</div>
                     <div className="timeline-content">预算 {formatGoldLine(equipmentBudgetGp)} · 剩余 {formatGoldLine(equipmentRemainingGp)}</div>
-                    {finalEquipmentPreview.length === 0 ? <p className="info-text">暂无装备。</p> : <div className="timeline-list">{finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || item.type || "装备"}</div>{item.notes && <div className="timeline-content">{item.notes}</div>}</div>)}</div>}
+                    {finalEquipmentPreview.length === 0 ? <p className="info-text">暂无装备。</p> : <div className="timeline-list">{finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || localizeEquipmentType(item.type)}</div>{(item.notes_display || item.notes) && <div className="timeline-content">{item.notes_display || item.notes}</div>}</div>)}</div>}
                   </div>
                   <div className="builder-preview-card">
                     <h3>法术</h3>
@@ -2975,6 +3285,50 @@ export default function App() {
                     </div>
                   </div>
                 )}
+                {visibleMessages.map((message, index) => {
+                  const previousMessage = visibleMessages[index - 1];
+                  const canRetryDmMessage = message.sender === "dm"
+                    && !message.pendingContext
+                    && previousMessage?.sender === "player"
+                    && Number.isInteger(message.index);
+                  const isFailedDmMessage = canRetryDmMessage && message.turnStatus === "failed";
+                  return (
+                    <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender}`}>
+                      <div className={`message ${message.sender} anime-pop`}>
+                        <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
+                        <div className="bubble markdown-body">
+                          <MarkdownBlock highlightQuotes>{message.text}</MarkdownBlock>
+                        </div>
+                      </div>
+                      {message.optimistic ? (
+                        <div className={`message-delivery-status ${message.deliveryState}`} role="status" aria-live="polite">
+                          {message.deliveryState === "failed" ? "发送失败，内容已放回输入框，可再次发送。" : "发送中…"}
+                        </div>
+                      ) : !message.pendingContext ? (
+                        <div className={`message-actions ${isFailedDmMessage ? "failed-turn-actions" : ""}`} aria-label="消息操作">
+                          {canRetryDmMessage && (
+                            <button
+                              type="button"
+                              className="retry-message-button"
+                              onClick={() => retryDmMessage(message)}
+                              disabled={isGameMutationBusy || Boolean(rewriteTarget)}
+                            >
+                              {retryingMessageIndex === message.index ? "正在重试…" : isFailedDmMessage ? "重试本回合" : "重试"}
+                            </button>
+                          )}
+                          <button type="button" className="delete-message-button" onClick={() => deleteMessageFromHere(message)} disabled={isGameMutationBusy}>
+                            删除
+                          </button>
+                          {message.sender === "player" && (
+                            <button type="button" onClick={() => startRewriteFromMessage(message)} disabled={isGameMutationBusy}>
+                              修改并重写
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
                 {isPlayerChoicePending && (
                   <div className="pending-turn-card">
                     <div className="pending-turn-title">轮到你选择</div>
@@ -2996,26 +3350,6 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {messages.map((message, index) => (
-                  <div key={`${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender}`}>
-                    <div className={`message ${message.sender} anime-pop`}>
-                      <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
-                      <div className="bubble markdown-body">
-                        <MarkdownBlock>{message.text}</MarkdownBlock>
-                      </div>
-                    </div>
-                    <div className="message-actions" aria-label="消息操作">
-                      <button type="button" onClick={() => deleteMessageFromHere(message)} disabled={isGameMutationBusy}>
-                        删除
-                      </button>
-                      {message.sender === "player" && (
-                        <button type="button" onClick={() => startRewriteFromMessage(message)} disabled={isGameMutationBusy}>
-                          修改并重写
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
                 {SHOW_WORKFLOW_TRACE_IN_PLAYER_SESSION && workflowEvents.length > 0 && (
                   <div className="workflow-trace">
                     {workflowEvents.map((event, index) => {

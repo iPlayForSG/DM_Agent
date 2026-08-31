@@ -12,6 +12,9 @@ from rag_embeddings import DEFAULT_RAG_COLLECTION, DEFAULT_RAG_EMBEDDING_MODEL, 
 
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
+LEXICAL_RETRIEVAL_MODE = "lexical"
+VECTOR_RETRIEVAL_MODE = "vector"
+
 
 def _remove_user_site_packages() -> None:
     user_site = site.getusersitepackages()
@@ -38,12 +41,13 @@ except ImportError:
 
 
 class RAGEngine:
-    """Load a persisted Qwen3 vector store when available."""
+    """Search local rules lexically by default, with optional vector retrieval."""
 
     def __init__(self) -> None:
         self.db_path = self._resolve_db_path()
         self.source_root = self._resolve_source_root()
         self.lexical_root = self._resolve_lexical_root()
+        self.retrieval_mode = self._resolve_retrieval_mode()
         self.collection_name = os.getenv("RAG_COLLECTION_NAME", DEFAULT_RAG_COLLECTION).strip() or DEFAULT_RAG_COLLECTION
         self.embedding_model = os.getenv("RAG_EMBEDDING_MODEL", DEFAULT_RAG_EMBEDDING_MODEL).strip()
         self.max_context_chars = self._env_int("RAG_MAX_CONTEXT_CHARS", 6000)
@@ -61,16 +65,27 @@ class RAGEngine:
             [Path(self.lexical_root), Path(self.source_root)],
             max_chunk_chars=self.max_snippet_chars,
         )
-        self._load_collection()
+        if self.retrieval_mode == VECTOR_RETRIEVAL_MODE:
+            self._load_collection()
+        else:
+            self._reset_vector_state()
         self._load_lexical_index()
 
-    def _load_collection(self) -> None:
+    @staticmethod
+    def _resolve_retrieval_mode() -> str:
+        configured = os.getenv("RAG_RETRIEVAL_MODE", LEXICAL_RETRIEVAL_MODE).strip().lower()
+        return VECTOR_RETRIEVAL_MODE if configured == VECTOR_RETRIEVAL_MODE else LEXICAL_RETRIEVAL_MODE
+
+    def _reset_vector_state(self) -> None:
         self.client = None
         self.collection = None
         self.collection_count = 0
-        self.backend = "unavailable"
-        self.last_error = ""
         self.vector_error = ""
+        self.last_error = ""
+        self.backend = "unavailable"
+
+    def _load_collection(self) -> None:
+        self._reset_vector_state()
         if chromadb is None:
             self.vector_error = "chromadb is not installed"
             self.last_error = self.vector_error
@@ -99,7 +114,7 @@ class RAGEngine:
     def _load_lexical_index(self) -> None:
         ready = self.lexical_index.refresh()
         self.lexical_error = self.lexical_index.last_error
-        if self.collection is not None:
+        if self.retrieval_mode == VECTOR_RETRIEVAL_MODE and self.collection is not None:
             self.backend = "chroma-llama-cpp-gguf"
         elif ready:
             self.backend = "lexical-grep"
@@ -161,6 +176,7 @@ class RAGEngine:
         self.db_path = self._resolve_db_path()
         self.source_root = self._resolve_source_root()
         self.lexical_root = self._resolve_lexical_root()
+        self.retrieval_mode = self._resolve_retrieval_mode()
         self.collection_name = os.getenv("RAG_COLLECTION_NAME", DEFAULT_RAG_COLLECTION).strip() or DEFAULT_RAG_COLLECTION
         self.embedding_model = os.getenv("RAG_EMBEDDING_MODEL", DEFAULT_RAG_EMBEDDING_MODEL).strip()
         self.max_context_chars = self._env_int("RAG_MAX_CONTEXT_CHARS", self.max_context_chars)
@@ -171,7 +187,10 @@ class RAGEngine:
             [Path(self.lexical_root), Path(self.source_root)],
             max_chunk_chars=self.max_snippet_chars,
         )
-        self._load_collection()
+        if self.retrieval_mode == VECTOR_RETRIEVAL_MODE:
+            self._load_collection()
+        else:
+            self._reset_vector_state()
         self._load_lexical_index()
         return self.is_ready()
 
@@ -184,6 +203,7 @@ class RAGEngine:
             "collection_name": self.collection_name,
             "collection_count": self.collection_count,
             "embedding_model": self.embedding_model,
+            "retrieval_mode": self.retrieval_mode,
             "backend": self.backend,
             "error": self.last_error,
             "vector_ready": self.collection is not None,
@@ -192,7 +212,13 @@ class RAGEngine:
             "lexical_error": self.lexical_error,
             "lexical_document_count": self.lexical_index.document_count,
             "lexical_active_root": str(self.lexical_index.active_root or ""),
-            "fallback_reason": self.vector_error if self.collection is None and self.lexical_index.chunks else "",
+            "fallback_reason": (
+                self.vector_error
+                if self.retrieval_mode == VECTOR_RETRIEVAL_MODE
+                and self.collection is None
+                and self.lexical_index.chunks
+                else ""
+            ),
             "max_context_chars": self.max_context_chars,
             "max_snippet_chars": self.max_snippet_chars,
             "rerank_enabled": self.rerank_enabled,
@@ -212,7 +238,7 @@ class RAGEngine:
         query_limit = max(requested, min(requested * 4, 24))
         merged: Dict[str, Dict[str, Any]] = {}
 
-        if self.collection is not None:
+        if self.retrieval_mode == VECTOR_RETRIEVAL_MODE and self.collection is not None:
             try:
                 for query in normalized_queries:
                     for candidate in self._query_collection(query, query_limit):

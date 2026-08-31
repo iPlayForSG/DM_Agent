@@ -22,6 +22,7 @@ from adventure_service import (
 )
 from game_logic import GameLogic
 from library import Library
+from model_backends import DEFAULT_MODEL_PROVIDER
 from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from storage import CharacterStorage, GameStorage, MonsterStorage
@@ -172,8 +173,9 @@ class AbilityScoreRequest(BaseModel):
 class LLMConfigUpdateRequest(BaseModel):
     profile_id: str = ""
     profile_label: str = ""
-    provider: str = "openai-compatible"
+    provider: str = DEFAULT_MODEL_PROVIDER
     model_name: str = ""
+    reasoning_effort: str = ""
     base_url: str = ""
     api_key: Optional[str] = None
     cli_command: str = ""
@@ -342,6 +344,14 @@ def _visible_message_count(state: GameState) -> int:
     return len(_visible_chat_messages(state))
 
 
+def _rewind_safe_state(state: GameState) -> GameState:
+    snapshot = state.model_copy(deep=True)
+    # LangGraph interrupt 是一次性执行位置，不是可恢复的剧情分支。rewind 只能回到已提交状态，
+    # 否则已消费的 thread_id 会重新显示选择卡，却无法再次恢复同一个暂停回合。
+    snapshot.pending_turn = None
+    return snapshot
+
+
 def _state_before_last_assistant_message(state: GameState) -> GameState:
     snapshot = state.model_copy(deep=True)
     for index in range(len(snapshot.chat_history) - 1, -1, -1):
@@ -364,7 +374,7 @@ def _action_suggestions_for_state(state: GameState) -> List[Dict[str, Any]]:
 async def _execute_turn_and_save(game_id: str, state: GameState, message: str) -> tuple[TurnResult, str]:
     base_message_index = _visible_message_count(state)
     game_storage.prune_rewind_snapshots_from(game_id, base_message_index)
-    game_storage.save_rewind_snapshot(game_id, base_message_index, state)
+    game_storage.save_rewind_snapshot(game_id, base_message_index, _rewind_safe_state(state))
 
     result, mode = await _execute_turn_request(state, message)
 
@@ -383,7 +393,9 @@ def classes_payload():
 
 
 def spells_payload(class_name: str):
-    return {"spells": library.get_spells_by_class(rule_catalog.resolve_spell_library_key(class_name))}
+    return _add_display_fields(
+        {"spells": library.get_spells_by_class(rule_catalog.resolve_spell_library_key(class_name))}
+    )
 
 
 def builder_payload():
@@ -596,6 +608,7 @@ def _add_display_fields(value):
         "name",
         "label",
         "description",
+        "notes",
         "title",
         "summary",
         "tone",
@@ -611,6 +624,7 @@ def _add_display_fields(value):
         "class_name",
         "background_name",
         "species",
+        "school",
     }
     for key in display_keys:
         raw = value.get(key)
@@ -619,7 +633,7 @@ def _add_display_fields(value):
         display = library.localize_game_terms(raw)
         if display != raw:
             localized[f"{key}_display"] = display
-    for key in ("properties", "tags", "status_effects", "cantrips", "prepared"):
+    for key in ("properties", "tags", "traits", "status_effects", "cantrips", "prepared"):
         raw_values = value.get(key)
         if not isinstance(raw_values, list):
             continue
@@ -890,6 +904,7 @@ async def update_llm_config(req: LLMConfigUpdateRequest):
             profile_label=req.profile_label,
             provider=req.provider,
             model_name=req.model_name,
+            reasoning_effort=req.reasoning_effort,
             base_url=req.base_url,
             api_key=req.api_key,
             cli_command=req.cli_command,
@@ -1368,6 +1383,8 @@ async def delete_game_message(game_id: str, message_index: int):
             detail="This message does not have a rewind snapshot. Continue playing once, then new messages can be rewound.",
         )
 
+    # 兼容修复前已经落盘、仍携带一次性 pending_turn 的 rewind snapshot。
+    snapshot = _rewind_safe_state(snapshot)
     game_storage.prune_rewind_snapshots_from(game_id, message_index)
     game_storage.save_game(game_id, snapshot)
     return {
@@ -1400,8 +1417,45 @@ async def rewrite_game_message(game_id: str, message_index: int, req: RewriteMes
             detail="This message does not have a rewind snapshot. Continue playing once, then new player messages can be rewritten.",
         )
 
+    snapshot = _rewind_safe_state(snapshot)
     try:
         result, _ = await _execute_turn_and_save(game_id, snapshot, message)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
+    return result
+
+
+@app.post("/api/v1/games/{game_id}/messages/{message_index}/retry")
+async def retry_game_message(game_id: str, message_index: int):
+    state = game_storage.load_game(game_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    visible_messages = _visible_chat_messages(state)
+    if message_index < 0 or message_index >= len(visible_messages):
+        raise HTTPException(status_code=404, detail="Message not found")
+    if visible_messages[message_index].role != "assistant":
+        raise HTTPException(status_code=400, detail="Only DM messages can be retried")
+
+    player_message_index = message_index - 1
+    if player_message_index < 0 or visible_messages[player_message_index].role != "user":
+        raise HTTPException(status_code=409, detail="This DM message is not linked to a retryable player action")
+
+    snapshot = game_storage.load_rewind_snapshot(game_id, player_message_index)
+    if not snapshot:
+        raise HTTPException(
+            status_code=409,
+            detail="This DM message does not have a rewind snapshot. Continue playing once, then new replies can be retried.",
+        )
+
+    # retry 是 rewrite 的无编辑快捷入口；服务端解析上一条玩家消息，避免浏览器猜测回滚索引。
+    snapshot = _rewind_safe_state(snapshot)
+    try:
+        result, _ = await _execute_turn_and_save(
+            game_id,
+            snapshot,
+            visible_messages[player_message_index].content,
+        )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
     return result

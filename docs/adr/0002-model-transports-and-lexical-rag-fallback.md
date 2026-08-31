@@ -1,4 +1,4 @@
-# ADR-0002：模型传输可选择 API 或 Coding Agent CLI，规则检索提供词法降级
+# ADR-0002：模型传输可选择 API 或 Coding Agent CLI，规则检索默认使用词法索引
 
 Status: Accepted
 Date: 2026-08-28
@@ -12,10 +12,11 @@ DM_Agent 原先只通过 OpenAI-compatible API 调用模型，并依赖 Chroma �
 ## Decision
 
 - 模型档案明确记录 provider：`openai-compatible`、`claude-code` 或 `codex-cli`。
+- 未配置模型档案时默认使用 Codex CLI、`gpt-5.6-terra` 与 `high` 推理强度；用户仍可显式选择其它 provider 或模型。
 - Claude Code 与 Codex 通过 LangChain `BaseChatModel` 适配器接入，只承担对话与结构化工具调用传输。
-- 每次 CLI 调用使用独立临时工作目录。Claude Code 禁用自身工具和会话持久化；Codex 使用 ephemeral、read-only sandbox。CLI 只返回应用工具调用，成功的确定性工具仍是改变权威状态的唯一入口。
+- 每次 CLI 调用使用独立临时工作目录。Claude Code 禁用自身工具和会话持久化；Codex 使用 ephemeral、read-only sandbox，并忽略用户级配置与规则，只复用 `CODEX_HOME` 登录态。CLI 只返回应用工具调用，成功的确定性工具仍是改变权威状态的唯一入口。
 - CLI 健康检查只运行 `--version` 并明确标记为安装检查；认证与真实模型调用在首次请求时验证。
-- 规则检索优先使用现有 Chroma/GGUF 向量路径。向量库或查询 embedding 不可用时，自动使用纯 Python、heading-aware 的确定性词法索引；两者都不可用时才报告 RAG 未就绪。
+- 规则检索默认使用纯 Python、heading-aware 的确定性词法索引，不加载 Chroma 或调用 embedding。只有显式设置 `RAG_RETRIEVAL_MODE=vector` 才优先使用 Chroma/GGUF；向量库或查询 embedding 不可用时仍自动回退词法索引，两者都不可用时才报告 RAG 未就绪。
 - 原始规则书保持只读且不入 Git。规范化工具生成 UTF-8 Markdown 副本与 manifest 到被忽略的 `backend/Knowledge/grep_corpus/`，并用 tracked overrides 保存标题与搜索别名。
 - llama.cpp 可执行文件同时支持 PATH、无后缀 POSIX 文件和 `.exe`，macOS 默认采用自动设备策略；Windows CUDA 目录继续作为兼容候选。
 
@@ -30,9 +31,10 @@ DM_Agent 原先只通过 OpenAI-compatible API 调用模型，并依赖 Chroma �
 ## Consequences
 
 - 用户可在同一 UI 保存和切换三种模型档案，API 凭据不会传给 CLI 子进程。
+- 新安装默认依赖本机 Codex CLI 已安装并登录；不满足时用户需要先登录 Codex，或在模型设置中切换到 API/Claude Code 档案。
 - CLI 每个模型节点都会启动独立进程，延迟通常高于直接 API；真实登录态、费用与模型兼容性仍需各环境 smoke test。
 - 词法检索不具备 embedding 的语义召回能力，质量更依赖规范标题、术语、别名和人工 OCR 清理。
-- 向量查询失败不会中断规则检索，但状态接口会保留 vector error 和 fallback reason，避免静默掩盖故障。
+- 默认词法模式不会把未加载向量报告为错误或 fallback；显式向量模式查询失败时不会中断规则检索，状态接口会保留 vector error 和 fallback reason，避免静默掩盖故障。
 - 原始语料变化后需要重新运行规范化工具；规则正文仍由本地持有者负责授权和人工校对。
 
 ## Validation / follow-up

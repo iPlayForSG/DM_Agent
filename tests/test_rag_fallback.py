@@ -123,7 +123,7 @@ class RuleDocumentNormalizationTests(unittest.TestCase):
 
 
 class RAGFallbackTests(unittest.TestCase):
-    def test_uses_normalized_lexical_corpus_when_vector_db_is_missing(self) -> None:
+    def test_uses_normalized_lexical_corpus_by_default_without_vector_probe(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             lexical = root / "grep_corpus"
@@ -135,6 +135,7 @@ class RAGFallbackTests(unittest.TestCase):
                 encoding="utf-8",
             )
             env = {
+                "RAG_RETRIEVAL_MODE": "",
                 "RAG_VECTOR_DB_PATH": str(root / "missing-vector-db"),
                 "RAG_SOURCE_ROOT": str(raw),
                 "RAG_LEXICAL_ROOT": str(lexical),
@@ -149,9 +150,35 @@ class RAGFallbackTests(unittest.TestCase):
             self.assertEqual(results[0]["source"], "combat.md")
             self.assertIn("escape DC", results[0]["content"])
             status = engine.status_payload()
+            self.assertEqual(status["retrieval_mode"], "lexical")
             self.assertFalse(status["vector_ready"])
+            self.assertEqual(status["vector_error"], "")
             self.assertTrue(status["lexical_ready"])
-            self.assertTrue(status["fallback_reason"])
+            self.assertEqual(status["fallback_reason"], "")
+
+    def test_lexical_mode_does_not_query_embedding_when_collection_is_present(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            lexical = root / "grep_corpus"
+            lexical.mkdir()
+            (lexical / "combat.md").write_text(
+                "# Combat\n\n## Grappling\nA grapple uses an Unarmed Strike.\n",
+                encoding="utf-8",
+            )
+            env = {
+                "RAG_RETRIEVAL_MODE": "lexical",
+                "RAG_SOURCE_ROOT": str(root / "raw"),
+                "RAG_LEXICAL_ROOT": str(lexical),
+            }
+            with patch.dict(os.environ, env, clear=False):
+                engine = RAGEngine()
+                engine.collection = object()
+                with patch.object(engine, "_query_collection") as vector_query:
+                    results = engine.search("grapple", n_results=1)
+
+            vector_query.assert_not_called()
+            self.assertTrue(results)
+            self.assertEqual(engine.backend, "lexical-grep")
 
     def test_falls_back_after_embedding_query_failure(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -163,6 +190,7 @@ class RAGFallbackTests(unittest.TestCase):
                 encoding="utf-8",
             )
             env = {
+                "RAG_RETRIEVAL_MODE": "vector",
                 "RAG_VECTOR_DB_PATH": str(root / "missing-vector-db"),
                 "RAG_SOURCE_ROOT": str(root / "raw"),
                 "RAG_LEXICAL_ROOT": str(lexical),
