@@ -51,6 +51,7 @@ class FakeAgent:
         self.result = result
         self.run_calls = 0
         self.resume_calls = 0
+        self.run_inputs = []
         self.checkpoint_backend = "sqlite"
         self.checkpoint_db_path = "backend/Game/langgraph_checkpoints.sqlite"
         self.checkpoint_warning = ""
@@ -67,6 +68,7 @@ class FakeAgent:
 
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
         self.run_calls += 1
+        self.run_inputs.append(user_input)
         return self.result
 
     async def resume_turn(self, state: GameState, user_input: str) -> TurnResult:
@@ -238,6 +240,59 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(payload["game_state"]["chat_history"], [])
         self.assertEqual(fake_storage.saved_state.chat_history, [])
 
+    def test_delete_message_clears_pending_turn_from_legacy_rewind_snapshot(self) -> None:
+        state = GameState(game_id="legacy-pending-rewind", title="Legacy Pending Rewind")
+        state.chat_history.append(api_main.ChatMessage(role="user", content="旧行动"))
+        state.chat_history.append(api_main.ChatMessage(role="assistant", content="旧回应"))
+        snapshot = GameState(game_id="legacy-pending-rewind", title="Legacy Pending Rewind")
+        snapshot.pending_turn = PendingTurnState(
+            thread_id="already-consumed-thread",
+            kind="player_choice",
+            prompt="选择一条路。",
+            original_input="旧行动",
+        )
+        result = TurnResult(response="unused", turn_status="completed", game_state=state.model_copy(deep=True))
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+        fake_storage.save_rewind_snapshot("legacy-pending-rewind", 0, snapshot)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post("/api/v1/games/legacy-pending-rewind/messages/0/delete")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(fake_storage.saved_state.pending_turn)
+        self.assertIsNone(resp.json()["game_state"]["pending_turn"])
+
+    def test_resume_then_delete_player_message_does_not_revive_pending_turn(self) -> None:
+        state = GameState(game_id="resume-rewind", title="Resume Rewind")
+        state.chat_history.append(api_main.ChatMessage(role="assistant", content="铁栅后传来声响。"))
+        state.pending_turn = PendingTurnState(
+            thread_id="single-use-thread",
+            kind="player_choice",
+            prompt="选择一条路。",
+            original_input="我朝声音走去。",
+            details={"options": ["走铁栅", "走检修沟"]},
+        )
+        cancelled_state = state.model_copy(deep=True)
+        cancelled_state.pending_turn = None
+        cancelled_state.chat_history.append(api_main.ChatMessage(role="user", content="我朝声音走去。"))
+        cancelled_state.chat_history.append(api_main.ChatMessage(role="assistant", content="本回合未提交。"))
+        result = TurnResult(response="本回合未提交。", turn_status="failed", game_state=cancelled_state)
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resume_resp = client.post("/api/v1/games/resume-rewind/turns", json={"message": "暂不决定"})
+                delete_resp = client.post("/api/v1/games/resume-rewind/messages/1/delete")
+
+        self.assertEqual(resume_resp.status_code, 200)
+        self.assertEqual(fake_agent.resume_calls, 1)
+        self.assertEqual(delete_resp.status_code, 200)
+        self.assertIsNone(fake_storage.saved_state.pending_turn)
+        self.assertEqual([message.content for message in fake_storage.saved_state.chat_history], ["铁栅后传来声响。"])
+
     def test_rewrite_player_message_restores_snapshot_then_runs_turn(self) -> None:
         state = GameState(game_id="rewrite-test", title="Rewrite Test")
         state.chat_history.append(api_main.ChatMessage(role="user", content="旧行动"))
@@ -260,6 +315,72 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(payload["response"], "新回应")
         self.assertEqual(fake_agent.run_calls, 1)
         self.assertEqual(fake_storage.saved_state.chat_history[-1].content, "新回应")
+
+    def test_rewrite_clears_pending_turn_from_legacy_rewind_snapshot(self) -> None:
+        state = GameState(game_id="rewrite-stale-pending", title="Rewrite Stale Pending")
+        state.chat_history.append(api_main.ChatMessage(role="user", content="旧行动"))
+        state.chat_history.append(api_main.ChatMessage(role="assistant", content="旧回应"))
+        snapshot = GameState(game_id="rewrite-stale-pending", title="Rewrite Stale Pending")
+        snapshot.pending_turn = PendingTurnState(
+            thread_id="already-consumed-thread",
+            kind="player_choice",
+            prompt="选择一条路。",
+            original_input="旧行动",
+        )
+        rewritten_state = GameState(game_id="rewrite-stale-pending", title="Rewrite Stale Pending")
+        rewritten_state.chat_history.append(api_main.ChatMessage(role="user", content="新行动"))
+        rewritten_state.chat_history.append(api_main.ChatMessage(role="assistant", content="新回应"))
+        result = TurnResult(response="新回应", turn_status="completed", game_state=rewritten_state)
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+        fake_storage.save_rewind_snapshot("rewrite-stale-pending", 0, snapshot)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post(
+                    "/api/v1/games/rewrite-stale-pending/messages/0/rewrite",
+                    json={"message": "新行动"},
+                )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(fake_agent.run_calls, 1)
+        self.assertEqual(fake_agent.resume_calls, 0)
+
+    def test_retry_dm_message_restores_pre_player_snapshot_and_reuses_action(self) -> None:
+        state = GameState(game_id="retry-test", title="Retry Test")
+        state.chat_history.append(api_main.ChatMessage(role="user", content="我检查铁栅。"))
+        state.chat_history.append(api_main.ChatMessage(role="assistant", content="模型服务不可用。"))
+        snapshot = GameState(game_id="retry-test", title="Retry Test")
+        retried_state = snapshot.model_copy(deep=True)
+        retried_state.chat_history.append(api_main.ChatMessage(role="user", content="我检查铁栅。"))
+        retried_state.chat_history.append(api_main.ChatMessage(role="assistant", content="铁栅后传来锁链声。"))
+        result = TurnResult(response="铁栅后传来锁链声。", turn_status="completed", game_state=retried_state)
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+        fake_storage.save_rewind_snapshot("retry-test", 0, snapshot)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post("/api/v1/games/retry-test/messages/1/retry")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["response"], "铁栅后传来锁链声。")
+        self.assertEqual(fake_agent.run_inputs, ["我检查铁栅。"])
+        self.assertEqual(fake_storage.saved_state.chat_history[-1].content, "铁栅后传来锁链声。")
+
+    def test_retry_rejects_non_dm_message(self) -> None:
+        state = GameState(game_id="retry-player", title="Retry Player")
+        state.chat_history.append(api_main.ChatMessage(role="user", content="我检查铁栅。"))
+        result = TurnResult(response="unused", turn_status="completed", game_state=state.model_copy(deep=True))
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                resp = client.post("/api/v1/games/retry-player/messages/0/retry")
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(fake_agent.run_calls, 0)
 
     def test_turn_stream_emits_node_trace_events_when_available(self) -> None:
         state = GameState(game_id="node-stream-test", title="Node Stream Test")

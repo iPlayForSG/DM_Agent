@@ -20,6 +20,8 @@
 - 前端怪物编辑仍调用 `POST /api/v1/monsters`，但后端固定返回 405，因为标准怪物库只读。不要在未决定产品边界前假定“保存成功”。
 - SSE 是回合完成后基于 trace 发送的阶段事件，不是真实 token/tool 流。
 - 主回合 SSE 和 rewrite 目前没有底层 AbortController/idle timeout；生命周期守卫只阻止旧结果写回 UI，不会取消服务端工作。
+- 回复长度设置不能只依赖 DM 提示词；正常回合在 `finalize_turn` 提交前用去空白字符数检查，并交给无工具的独立纯文本调用扩写或压缩。长度是展示偏好，后处理未命中只能记录 warning、保留最佳正文，不能回滚已完成回合或向玩家暴露内部校验文案；系统错误说明不受叙事长度约束。
+- 主持回复重试必须由服务端根据 assistant 消息索引解析前一条玩家行动和对应 rewind snapshot；失败回复常驻重试入口，失败回合不要继续请求行动建议投影。
 - `App.jsx` 是超过 3,000 行的单体组件；局部状态和 effect 依赖容易互相影响。当前 Lint 仍有两个 Hook dependency warning。
 
 ## 本地环境与生成内容
@@ -30,7 +32,7 @@
 - 本地规则书与 `backend/data/spells.json` 均被忽略；缺文件会分别表现为 lexical/RAG 未就绪或法术/建卡测试失败，不要把它误判成算法回归。
 - 规则规范化 manifest 会报告 `flattened-table-line` 与 `short-source`；原始规则书保持只读，先修本地来源再重新生成，不要在生成目录手改正文或忽略仍会污染 chunk 的长表格。
 - CLI health 只验证 `--version`，不证明登录态有效；真实调用才验证认证。API 档案凭据在切换到 CLI 时会从子进程环境移除。
-- SQLite checkpoint 是 interrupt 恢复设施，不是消息分支；删除/重写依赖 `_rewind` snapshot。
+- SQLite checkpoint 是 interrupt 恢复设施，不是消息分支；删除/重写依赖 `_rewind` snapshot。rewind snapshot 在保存和恢复时都必须清除 `pending_turn`，否则已经消费的 thread 会复活成永远无法完成的选择卡。
 
 ## 容易漏掉的验证
 

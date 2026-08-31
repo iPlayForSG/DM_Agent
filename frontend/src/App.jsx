@@ -31,6 +31,7 @@ import {
   selectAdventure,
   skillCheckAction,
   removeEncounterCombatant,
+  retryGameMessage,
   rollEncounterInitiative,
   rewriteGameMessage,
   spawnEncounterTemplate,
@@ -309,17 +310,23 @@ const EMPTY_ENCOUNTER_DRAFT = { enemy_names: "", enemy_hp: 10, enemy_ac: 10, mon
 const parseEntries = (text, prefix) => text.split("\n").map((x) => x.trim()).filter(Boolean).map((description, i) => ({ name: `${prefix} ${i + 1}`, description }));
 const entriesToText = (entries = []) => entries.map((x) => x.description).join("\n");
 const localizeSceneText = (text = "") => text.replace(/\b(adventure_selection|preparation|setup|exploration|social|combat|encounter)\b/g, (value) => SCENE_LABELS[value] || value);
-const mapMessages = (history = []) => history.reduce((items, m, chatIndex) => {
-  if (m.kind === "tool_result") return items;
-  items.push({
-    index: items.length,
-    chatIndex,
-    role: m.role,
-    sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
-    text: m.role === "system" ? localizeSceneText(m.content) : m.content,
-  });
-  return items;
-}, []);
+const mapMessages = (history = [], timeline = []) => {
+  const assistantEvents = timeline.filter((event) => event?.type === "assistant_response");
+  let assistantEventIndex = 0;
+  return history.reduce((items, m, chatIndex) => {
+    if (m.kind === "tool_result") return items;
+    const assistantEvent = m.role === "assistant" ? assistantEvents[assistantEventIndex++] : null;
+    items.push({
+      index: items.length,
+      chatIndex,
+      role: m.role,
+      sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
+      text: m.role === "system" ? localizeSceneText(m.content) : m.content,
+      turnStatus: String(assistantEvent?.payload?.turn_status || ""),
+    });
+    return items;
+  }, []);
+};
 const EVENT_LABELS = {
   player_action: "玩家",
   assistant_response: "主持",
@@ -566,8 +573,87 @@ function ShopCarousel({ group, quantities, onQuantityChange }) {
     </section>
   );
 }
-function MarkdownBlock({ children }) {
-  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{String(children || "")}</ReactMarkdown>;
+const QUOTE_PAIRS = new Map([
+  ['"', '"'],
+  ["'", "'"],
+  ["“", "”"],
+  ["‘", "’"],
+  ["「", "」"],
+  ["『", "』"],
+  ["《", "》"],
+  ["〈", "〉"],
+]);
+
+function findClosingQuote(text, openingIndex, openingQuote, closingQuote) {
+  for (let index = openingIndex + 1; index < text.length; index += 1) {
+    if (text[index] !== closingQuote || text[index - 1] === "\\") continue;
+    // 英文缩写中的撇号不是引语边界；中文直引号不受这一限制。
+    if (openingQuote === "'" && /[A-Za-z0-9]/.test(text[index + 1] || "")) continue;
+    return index;
+  }
+  return -1;
+}
+
+function highlightQuotedText(text) {
+  const source = String(text || "");
+  const parts = [];
+  let plainStart = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const openingQuote = source[index];
+    const closingQuote = QUOTE_PAIRS.get(openingQuote);
+    if (!closingQuote) continue;
+    if (openingQuote === "'" && /[A-Za-z0-9]/.test(source[index - 1] || "")) continue;
+
+    const closingIndex = findClosingQuote(source, index, openingQuote, closingQuote);
+    if (closingIndex <= index + 1) continue;
+    if (plainStart < index) parts.push(source.slice(plainStart, index));
+    parts.push(
+      <span className="quoted-phrase" key={`quote-${index}`}>
+        {source.slice(index, closingIndex + 1)}
+      </span>,
+    );
+    index = closingIndex;
+    plainStart = closingIndex + 1;
+  }
+
+  if (plainStart < source.length) parts.push(source.slice(plainStart));
+  return parts.length ? parts : source;
+}
+
+function highlightQuotedChildren(children) {
+  return React.Children.map(children, (child) => {
+    if (typeof child === "string") return highlightQuotedText(child);
+    if (!React.isValidElement(child) || child.type === "code" || child.type === "pre") return child;
+    return React.cloneElement(child, {
+      children: highlightQuotedChildren(child.props.children),
+    });
+  });
+}
+
+const HIGHLIGHTED_MARKDOWN_COMPONENTS = {
+  p: ({ children }) => <p>{highlightQuotedChildren(children)}</p>,
+  li: ({ children }) => <li>{highlightQuotedChildren(children)}</li>,
+  blockquote: ({ children }) => <blockquote>{highlightQuotedChildren(children)}</blockquote>,
+  h1: ({ children }) => <h1>{highlightQuotedChildren(children)}</h1>,
+  h2: ({ children }) => <h2>{highlightQuotedChildren(children)}</h2>,
+  h3: ({ children }) => <h3>{highlightQuotedChildren(children)}</h3>,
+  h4: ({ children }) => <h4>{highlightQuotedChildren(children)}</h4>,
+  h5: ({ children }) => <h5>{highlightQuotedChildren(children)}</h5>,
+  h6: ({ children }) => <h6>{highlightQuotedChildren(children)}</h6>,
+  th: ({ children }) => <th>{highlightQuotedChildren(children)}</th>,
+  td: ({ children }) => <td>{highlightQuotedChildren(children)}</td>,
+};
+
+function MarkdownBlock({ children, highlightQuotes = false }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={highlightQuotes ? HIGHLIGHTED_MARKDOWN_COMPONENTS : undefined}
+    >
+      {String(children || "")}
+    </ReactMarkdown>
+  );
 }
 function TimelinePanel({ timeline, title = "时间线", emptyText = "还没有记录。" }) {
   return (
@@ -936,6 +1022,7 @@ export default function App() {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [isCharacterLoading, setIsCharacterLoading] = useState(false);
   const [rewriteTarget, setRewriteTarget] = useState(null);
+  const [retryingMessageIndex, setRetryingMessageIndex] = useState(null);
   const [deleteRequest, setDeleteRequest] = useState(null);
   const [gameDeleteMode, setGameDeleteMode] = useState(false);
   const [selectedGameDeleteIds, setSelectedGameDeleteIds] = useState([]);
@@ -1490,7 +1577,7 @@ export default function App() {
   function applyGameSnapshot(state, options, { preserveRewrite = false } = {}) {
     latestTurnNumberRef.current = Number(state?.turn_number || 0);
     setGameState(state);
-    setMessages(mapMessages(state.chat_history || []));
+    setMessages(mapMessages(state.chat_history || [], state.timeline || []));
     if (options) setActionOptions(options);
     setReplyLengthDraft(replyLengthDraftFromState(state));
     if (!preserveRewrite) setRewriteTarget(null);
@@ -1513,6 +1600,7 @@ export default function App() {
     gameSyncRequestRef.current += 1;
     activeGameIdRef.current = gameId;
     setActiveGameId(gameId);
+    setRetryingMessageIndex(null);
     return lifecycleToken;
   }
 
@@ -1534,6 +1622,7 @@ export default function App() {
     setMessages([]);
     setWorkflowEvents([]);
     setRewriteTarget(null);
+    setRetryingMessageIndex(null);
     setInput("");
     setReplyLengthDraft({ min_chars: "", max_chars: "" });
     setReplyLengthMessage("");
@@ -2202,7 +2291,11 @@ export default function App() {
       });
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
       const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && result.turn_status === "completed"
+        && normalizedSuggestions.length !== 3
+      ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
@@ -2215,6 +2308,58 @@ export default function App() {
       }
     } finally {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsLoading(false);
+    }
+  }
+
+  async function retryDmMessage(message) {
+    const gameId = activeGameId;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (
+      message?.sender !== "dm"
+      || !Number.isInteger(message.index)
+      || !gameId
+      || rewriteTarget
+      || isGameMutationBusy
+      || !isCurrentGameLifecycle(gameId, lifecycleToken)
+    ) return;
+
+    const hasLaterMessages = messages.some((item) => (
+      !item.optimistic && Number.isInteger(item.index) && item.index > message.index
+    ));
+    if (
+      hasLaterMessages
+      && !window.confirm("重试会回到这条主持回复之前，并移除之后的剧情、状态变化和时间线记录。继续？")
+    ) return;
+
+    setRetryingMessageIndex(message.index);
+    setIsLoading(true);
+    setError("");
+    setWorkflowEvents([]);
+    invalidateActionSuggestionProjection();
+    setActionSuggestions([]);
+    try {
+      const result = await retryGameMessage(gameId, message.index);
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      const normalizedSuggestions = await syncGame(gameId, result.game_state, {
+        actionSuggestions: result.action_suggestions,
+        lifecycleToken,
+      });
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && result.turn_status === "completed"
+        && normalizedSuggestions.length !== 3
+      ) {
+        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
+      }
+    } catch (err) {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setError(err.message || "重试本回合失败。请稍后再试。");
+      }
+    } finally {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setIsLoading(false);
+        setRetryingMessageIndex(null);
+      }
     }
   }
 
@@ -2277,7 +2422,11 @@ export default function App() {
       const result = await rewriteGameMessage(gameId, rewriteTarget.index, message);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
       const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+      if (
+        isCurrentGameLifecycle(gameId, lifecycleToken)
+        && result.turn_status === "completed"
+        && normalizedSuggestions.length !== 3
+      ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
@@ -3136,32 +3285,50 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {visibleMessages.map((message, index) => (
-                  <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender}`}>
-                    <div className={`message ${message.sender} anime-pop`}>
-                      <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
-                      <div className="bubble markdown-body">
-                        <MarkdownBlock>{message.text}</MarkdownBlock>
+                {visibleMessages.map((message, index) => {
+                  const previousMessage = visibleMessages[index - 1];
+                  const canRetryDmMessage = message.sender === "dm"
+                    && !message.pendingContext
+                    && previousMessage?.sender === "player"
+                    && Number.isInteger(message.index);
+                  const isFailedDmMessage = canRetryDmMessage && message.turnStatus === "failed";
+                  return (
+                    <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender}`}>
+                      <div className={`message ${message.sender} anime-pop`}>
+                        <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
+                        <div className="bubble markdown-body">
+                          <MarkdownBlock highlightQuotes>{message.text}</MarkdownBlock>
+                        </div>
                       </div>
-                    </div>
-                    {message.optimistic ? (
-                      <div className={`message-delivery-status ${message.deliveryState}`} role="status" aria-live="polite">
-                        {message.deliveryState === "failed" ? "发送失败，内容已放回输入框，可再次发送。" : "发送中…"}
-                      </div>
-                    ) : !message.pendingContext ? (
-                      <div className="message-actions" aria-label="消息操作">
-                        <button type="button" onClick={() => deleteMessageFromHere(message)} disabled={isGameMutationBusy}>
-                          删除
-                        </button>
-                        {message.sender === "player" && (
-                          <button type="button" onClick={() => startRewriteFromMessage(message)} disabled={isGameMutationBusy}>
-                            修改并重写
+                      {message.optimistic ? (
+                        <div className={`message-delivery-status ${message.deliveryState}`} role="status" aria-live="polite">
+                          {message.deliveryState === "failed" ? "发送失败，内容已放回输入框，可再次发送。" : "发送中…"}
+                        </div>
+                      ) : !message.pendingContext ? (
+                        <div className={`message-actions ${isFailedDmMessage ? "failed-turn-actions" : ""}`} aria-label="消息操作">
+                          {canRetryDmMessage && (
+                            <button
+                              type="button"
+                              className="retry-message-button"
+                              onClick={() => retryDmMessage(message)}
+                              disabled={isGameMutationBusy || Boolean(rewriteTarget)}
+                            >
+                              {retryingMessageIndex === message.index ? "正在重试…" : isFailedDmMessage ? "重试本回合" : "重试"}
+                            </button>
+                          )}
+                          <button type="button" className="delete-message-button" onClick={() => deleteMessageFromHere(message)} disabled={isGameMutationBusy}>
+                            删除
                           </button>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
+                          {message.sender === "player" && (
+                            <button type="button" onClick={() => startRewriteFromMessage(message)} disabled={isGameMutationBusy}>
+                              修改并重写
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
                 {isPlayerChoicePending && (
                   <div className="pending-turn-card">
                     <div className="pending-turn-title">轮到你选择</div>

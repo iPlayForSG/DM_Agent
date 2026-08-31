@@ -1784,7 +1784,8 @@ button[class^="btn-"] {
 }
 
 .message-stack:hover .message-actions,
-.message-stack:focus-within .message-actions {
+.message-stack:focus-within .message-actions,
+.message-actions.failed-turn-actions {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -1823,9 +1824,58 @@ button[class^="btn-"] {
   background: var(--panel-soft);
 }
 
+.message-actions .retry-message-button {
+  border-color: rgba(75, 128, 106, 0.42);
+  background: rgba(75, 128, 106, 0.07);
+  color: var(--verdigris);
+  font-weight: 600;
+}
+
+.message-actions .retry-message-button:hover:not(:disabled) {
+  border-color: rgba(75, 128, 106, 0.68);
+  background: rgba(75, 128, 106, 0.14);
+  color: var(--verdigris-2);
+}
+
+.message-actions .delete-message-button {
+  border-color: rgba(192, 57, 43, 0.42);
+  background: rgba(192, 57, 43, 0.07);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.message-actions .delete-message-button:hover:not(:disabled) {
+  border-color: rgba(192, 57, 43, 0.68);
+  background: rgba(192, 57, 43, 0.14);
+  color: #8f2b21;
+}
+
+.message-actions.failed-turn-actions .retry-message-button {
+  border-color: rgba(75, 128, 106, 0.62);
+  background: rgba(75, 128, 106, 0.12);
+  color: var(--paper-strong);
+}
+
+.message-actions button:focus-visible {
+  outline: 2px solid var(--verdigris);
+  outline-offset: 2px;
+}
+
+.message-actions .delete-message-button:focus-visible {
+  outline-color: var(--danger);
+}
+
 .message-actions button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .message-actions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 
 .bubble h1,
@@ -1846,6 +1896,15 @@ button[class^="btn-"] {
 
 .markdown-body {
   white-space: normal;
+}
+
+.quoted-phrase {
+  color: var(--brass-2);
+  font-weight: 600;
+}
+
+.message.player .quoted-phrase {
+  color: #f3d99b;
 }
 
 .markdown-body > :first-child {

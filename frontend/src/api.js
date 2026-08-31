@@ -181,6 +181,12 @@ export async function rewriteGameMessage(gameId, messageIndex, message) {
   });
 }
 
+export async function retryGameMessage(gameId, messageIndex) {
+  return request(`/games/${encodeURIComponent(gameId)}/messages/${encodeURIComponent(messageIndex)}/retry`, {
+    method: "POST",
+  });
+}
+
 export async function loadActionOptions(gameId) {
   return request(`/games/${encodeURIComponent(gameId)}/action-options`);
 }
