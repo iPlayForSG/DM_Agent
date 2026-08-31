@@ -30,7 +30,7 @@ React/Vite UI
 - 剧情记忆层 `campaign_memory.py`：只从权威 `GameState` 派生有限提示上下文，不拥有独立业务状态。
 - 模型传输层 `model_backends.py`：默认把本机 Codex CLI（`gpt-5.6-terra` / `high`）适配为 LangChain chat model，也支持 OpenAI-compatible API 与 Claude Code；CLI 不拥有游戏工具或状态。
 - 检索层 `rag.py`：默认使用 `lexical_rag.py` 的确定性词法索引；仅在 `RAG_RETRIEVAL_MODE=vector` 时优先 Chroma，并在 embedding/查询失败时降级词法。`rag_embeddings.py` 按需启动本地 llama.cpp，`rag_ingest.py` 构建可选向量索引。
-- UI 层：`App.jsx` 消费服务端快照，`api.js` 管理请求和 SSE 解析。
+- UI 层：`App.jsx` 消费服务端快照，`api.js` 管理请求和 SSE 解析，`retryUi.js` 提供可恢复的主持回复重试 UI 回滚状态转换。
 
 ## 外部依赖
 
@@ -63,7 +63,9 @@ React/Vite UI
 - interrupt 只发布上次已提交快照和 pending 元数据，staged transaction 留在 checkpoint 中。
 - 玩家选择 interrupt 只公开自然语言问题和具体选项，不公开工具名、风险等级或持久化实现；取消、失败和 checkpoint 丢失均回滚整笔 staged transaction。
 - checkpoint 用于 interrupt 恢复，不提供剧情分支；剧情分支由 rewind snapshot 实现。
-- SSE 当前在回合完成后从 trace 派生事件，不是真实 token/tool 实时流。
+- SSE 使用请求局部的实时观察通道发送节点、工具和可公开的 Agent 输出；Codex adapter 通过 LangChain `_stream()` 逐行消费 `codex exec --json`，但当前 exec 协议只在 agent message 完成时公开正文，只有 transport 实际提供 message update/delta 时才会产生文本增量。观察事件不得改变 `finalize_turn` 的权威提交语义。
+- 回合意图采用确定性词表快速路由；词表、规则和问句信号均未命中时，当前 DM 模型只能从有限 turn type、intent tag 和工具白名单中补充分类。分类只决定能力建议，不是世界事实。
+- 明确的直接攻击携带 `hostile_attack` 直到结算完成：探索阶段先用 `start_encounter` 建立权威遭遇，再在同一玩家回合按 combat phase 刷新工具面；没有玩家 `attack_target` 结果时不能用纯叙事成功提交，也不会先做回复长度扩写。
 - CLI 仅传输消息和应用工具调用：独立临时目录、Claude 禁用自身工具、Codex ephemeral/read-only 且忽略用户配置/规则（仅复用登录态）；确定性工具仍是状态变化唯一入口。
 - 向量与词法检索共享规则来源但能力不同；默认词法模式不探测向量，显式 vector 模式的 fallback 必须公开 vector error，不得把降级伪装成向量成功。
 

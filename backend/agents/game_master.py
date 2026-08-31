@@ -119,6 +119,8 @@ class GameMasterAgent:
         route = self.runner._should_continue_after_model(state)
         if route != "finalize_turn":
             return route
+        if self.runner.enable_model and self.runner._authoritative_resolution_pending(state):
+            return "validate_state"
         if self.runner.enable_model and self.runner._dm_controlled_turn_pending(state):
             return "validate_state"
         return "finalize_turn"

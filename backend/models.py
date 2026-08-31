@@ -216,10 +216,20 @@ class Character(BaseModel):
         )
 
 
+class ActionSuggestion(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    label: str = ""
+    action: str = ""
+
+
 class ChatMessage(BaseModel):
     role: str
     content: str
     kind: str = "message"
+    # 行动灵感属于产生它的主持回复；单独记录生成状态，才能区分“尚未生成”和“已生成但当前无建议”。
+    action_suggestions: List[ActionSuggestion] = Field(default_factory=list)
+    action_suggestions_generated: bool = False
 
 
 class ToolResult(BaseModel):
@@ -547,6 +557,9 @@ class TurnIntent(BaseModel):
     matched_spells: List[str] = Field(default_factory=list)
     suggested_tools: List[str] = Field(default_factory=list)
     requires_confirmation: bool = False
+    # 意图来源只解释能力路由；它不是世界事实，也不能绕过确定性工具。
+    intent_source: str = "deterministic"
+    intent_tags: List[str] = Field(default_factory=list)
 
 
 class NodeTrace(BaseModel):
@@ -566,13 +579,6 @@ class ValidationIssue(BaseModel):
     action: str = "noted"
     summary: str = ""
     metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class ActionSuggestion(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    label: str = ""
-    action: str = ""
 
 
 class TurnTrace(BaseModel):

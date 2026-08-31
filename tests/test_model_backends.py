@@ -2,13 +2,14 @@ import json
 import os
 import sys
 import unittest
+from functools import reduce
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, message_chunk_to_message
 
 from model_backends import (
     DEFAULT_CODEX_MODEL,
@@ -18,25 +19,66 @@ from model_backends import (
 )
 
 
+class _RecordingStdin:
+    def __init__(self) -> None:
+        self.value = ""
+        self.closed = False
+
+    def write(self, value: str) -> int:
+        self.value += value
+        return len(value)
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakePopen:
+    def __init__(self, events, *, returncode: int = 0) -> None:
+        self.stdin = _RecordingStdin()
+        self.stdout = iter(f"{json.dumps(event, ensure_ascii=False)}\n" for event in events)
+        self._configured_returncode = returncode
+        self.returncode = None
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self):
+        if self.returncode is None:
+            self.returncode = self._configured_returncode
+        return self.returncode
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+
 class CodingAgentCLIChatModelTests(unittest.TestCase):
     def test_codex_cli_returns_langchain_tool_call_in_read_only_temp_directory(self) -> None:
         captured = {}
+        payload = {
+            "content": "",
+            "tool_calls": [
+                {"id": "call-1", "name": "lookup_rules", "args_json": "{\"query\":\"grapple\"}"}
+            ],
+        }
+        events = [
+            {"type": "thread.started", "thread_id": "thread-1"},
+            {"type": "turn.started"},
+            {
+                "type": "item.completed",
+                "item": {"id": "item-1", "type": "agent_message", "text": json.dumps(payload)},
+            },
+            {"type": "turn.completed", "usage": {}},
+        ]
 
-        def fake_run(command, **kwargs):
+        def fake_popen(command, **kwargs):
             captured["command"] = command
-            captured["prompt"] = kwargs["input"]
             captured["cwd"] = kwargs["cwd"]
             schema_index = command.index("--output-schema") + 1
             self.assertTrue(Path(command[schema_index]).is_file())
             self.assertEqual(kwargs["cwd"], str(Path(command[schema_index]).parent))
-            return SimpleNamespace(
-                returncode=0,
-                stdout=json.dumps({
-                    "content": "",
-                    "tool_calls": [{"id": "call-1", "name": "lookup_rules", "args_json": "{\"query\":\"grapple\"}"}],
-                }),
-                stderr="",
-            )
+            process = _FakePopen(events)
+            captured["process"] = process
+            return process
 
         model = CodingAgentCLIChatModel(
             provider="codex-cli",
@@ -54,10 +96,11 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
             },
         }]
         with patch("model_backends.resolve_cli_command", return_value="/fake/codex"), patch(
-            "model_backends.subprocess.run", side_effect=fake_run
+            "model_backends.subprocess.Popen", side_effect=fake_popen
         ):
             response = model.bind_tools(tools).invoke([HumanMessage(content="How does grapple work?")])
 
+        prompt = captured["process"].stdin.value
         self.assertEqual(response.tool_calls[0]["name"], "lookup_rules")
         self.assertEqual(response.tool_calls[0]["args"], {"query": "grapple"})
         self.assertIn("exec", captured["command"])
@@ -65,13 +108,76 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
         self.assertIn("--ephemeral", captured["command"])
         self.assertIn("--ignore-user-config", captured["command"])
         self.assertIn("--ignore-rules", captured["command"])
+        self.assertIn("--json", captured["command"])
         self.assertEqual(captured["command"][captured["command"].index("--model") + 1], "gpt-5.6-terra")
         self.assertEqual(
             captured["command"][captured["command"].index("--config") + 1],
             'model_reasoning_effort="high"',
         )
-        self.assertIn("Do not inspect files", captured["prompt"])
-        self.assertIn("lookup_rules", captured["prompt"])
+        self.assertIn("Do not inspect files", prompt)
+        self.assertIn("lookup_rules", prompt)
+
+    def test_codex_cli_streams_content_prefix_and_rebuilds_final_tool_calls(self) -> None:
+        captured = {}
+        final_payload = {
+            "content": "先观察，再行动。",
+            "tool_calls": [
+                {"id": "call-2", "name": "lookup_rules", "args_json": "{\"query\":\"伏击\"}"}
+            ],
+        }
+        events = [
+            {"type": "thread.started", "thread_id": "thread-2"},
+            {"type": "turn.started"},
+            {
+                "type": "agent_message_delta",
+                "delta": '{"content":"先观察',
+            },
+            {
+                "type": "agent_message_delta",
+                "delta": '，再行动。","tool_calls":[',
+            },
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "item-2",
+                    "type": "agent_message",
+                    "text": json.dumps(final_payload, ensure_ascii=False),
+                },
+            },
+            {"type": "turn.completed", "usage": {}},
+        ]
+
+        def fake_popen(command, **kwargs):
+            captured["command"] = command
+            process = _FakePopen(events)
+            captured["process"] = process
+            return process
+
+        model = CodingAgentCLIChatModel(provider="codex-cli", command="codex", timeout_s=30)
+        with patch("model_backends.resolve_cli_command", return_value="/fake/codex"), patch(
+            "model_backends.subprocess.Popen", side_effect=fake_popen
+        ):
+            chunks = list(model.stream([HumanMessage(content="观察并查规则")]))
+
+        text_chunks = [chunk.content for chunk in chunks if chunk.content]
+        self.assertEqual(text_chunks, ["先观察", "，再行动。"])
+        aggregate = reduce(lambda left, right: left + right, chunks)
+        response = message_chunk_to_message(aggregate)
+        self.assertEqual(response.content, "先观察，再行动。")
+        self.assertEqual(response.tool_calls[0]["name"], "lookup_rules")
+        self.assertEqual(response.tool_calls[0]["args"], {"query": "伏击"})
+        self.assertIn("--json", captured["command"])
+        self.assertTrue(captured["process"].stdin.closed)
+
+    def test_partial_content_decoder_waits_for_incomplete_escape(self) -> None:
+        self.assertEqual(
+            CodingAgentCLIChatModel._extract_partial_content('{"content":"第一行\\n第二行\\'),
+            "第一行\n第二行",
+        )
+        self.assertEqual(
+            CodingAgentCLIChatModel._extract_partial_content('{"content":"完成 \\ud83d\\ude00'),
+            "完成 😀",
+        )
 
     def test_claude_cli_unwraps_structured_output_and_disables_cli_tools(self) -> None:
         captured = {}
@@ -107,6 +213,26 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
 
         self.assertTrue(payload["ready"])
         self.assertEqual(run.call_args.args[0], ["/fake/codex", "--version"])
+
+    @unittest.skipUnless(
+        os.getenv("DM_AGENT_RUN_CODEX_CLI_STREAM_TEST") == "1",
+        "set DM_AGENT_RUN_CODEX_CLI_STREAM_TEST=1 to call the installed Codex CLI",
+    )
+    def test_real_codex_cli_jsonl_stream_contract(self) -> None:
+        model = CodingAgentCLIChatModel(
+            provider="codex-cli",
+            command="codex",
+            model_name=os.getenv("DM_AGENT_CODEX_STREAM_TEST_MODEL", DEFAULT_CODEX_MODEL),
+            reasoning_effort=os.getenv("DM_AGENT_CODEX_STREAM_TEST_REASONING", "low"),
+            timeout_s=180,
+        )
+
+        chunks = list(model.stream([HumanMessage(content="Return exactly CLI_STREAM_OK")]))
+        aggregate = reduce(lambda left, right: left + right, chunks)
+        response = message_chunk_to_message(aggregate)
+
+        self.assertEqual(response.content.strip(), "CLI_STREAM_OK")
+        self.assertEqual(response.tool_calls, [])
 
 
 if __name__ == "__main__":

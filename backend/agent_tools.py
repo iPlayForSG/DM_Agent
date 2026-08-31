@@ -249,13 +249,23 @@ class AgentToolService:
             payload={"suggestions": normalized},
         )
 
-    def roll_dice(self, state: GameState, expression: str, reason: str = "") -> AgentToolExecution:
+    def roll_dice(
+        self,
+        state: GameState,
+        expression: str,
+        reason: str = "",
+        visibility: str = "public",
+    ) -> AgentToolExecution:
+        normalized_visibility = str(visibility or "public").strip().casefold()
+        if normalized_visibility not in {"public", "hidden"}:
+            return self._error("visibility must be public or hidden")
         total, detail = DiceRoller.roll(expression)
         payload = {
             "expression": expression,
             "reason": reason,
             "total": total,
             "detail": detail,
+            "visibility": normalized_visibility,
         }
         return self._success(
             tool_name="dice.roll",
@@ -1092,27 +1102,30 @@ class AgentToolService:
         if not validation["ok"]:
             return self._error(validation.get("error", "Spell validation failed"), validation)
 
+        spell_details = dict(validation["spell"])
         resolved_slot = int(validation["resolved_slot_level"])
-        canonical_spell_name = str(validation.get("spell_name") or validation["spell"].get("name") or spell_name)
-        action_cost = self.rules_catalog.spell_action_cost(validation["spell"])
+        canonical_spell_name = str(validation.get("spell_name") or spell_details.get("name") or spell_name)
+        action_cost = self.rules_catalog.spell_action_cost(spell_details)
         try:
             logic.require_turn_slot_available(action_cost, "cast_spell")
         except ValueError as exc:
             return self._error(str(exc))
         previous_concentration = caster.concentration_spell
         self.rules_catalog.consume_spell_slot(caster, resolved_slot)
-        if bool(validation["spell"].get("concentration")):
+        if bool(spell_details.get("concentration")):
             caster.concentration_spell = canonical_spell_name
-            caster.concentration_spell_level = int(validation["spell"].get("level", 0))
+            caster.concentration_spell_level = int(spell_details.get("level", 0))
         payload = {
             "caster_id": caster.character_id,
             "caster_name": caster.name,
             "spell_name": canonical_spell_name,
             "requested_spell_name": spell_name,
-            "spell_level": int(validation["spell"].get("level", 0)),
+            "spell_level": int(spell_details.get("level", 0)),
             "resolved_slot_level": resolved_slot,
             "action_cost": action_cost,
-            "concentration": bool(validation["spell"].get("concentration")),
+            "concentration": bool(spell_details.get("concentration")),
+            # 成功施法只结算资源与动作；把权威规则正文交还给 DM，供其判断后续攻击、豁免或检定。
+            "desc": str(spell_details.get("desc") or spell_details.get("description") or "").strip(),
             "previous_concentration_spell": previous_concentration,
             "current_concentration_spell": caster.concentration_spell,
             "reason": reason,

@@ -3,7 +3,7 @@
 import asyncio
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,9 +23,10 @@ from adventure_service import (
 from game_logic import GameLogic
 from library import Library
 from model_backends import DEFAULT_MODEL_PROVIDER
-from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
+from models import ActionSuggestion, Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from storage import CharacterStorage, GameStorage, MonsterStorage
+from turn_stream import turn_stream_context
 
 app = FastAPI(title="D&D 2024 DM Agent")
 
@@ -42,6 +43,7 @@ game_storage = GameStorage()
 char_storage = CharacterStorage()
 monster_storage = MonsterStorage()
 agent = DMAgent()
+_action_suggestion_locks: Dict[str, asyncio.Lock] = {}
 rule_catalog = RuleCatalog()
 action_service = GameActionService()
 ability_score_service = AbilityScoreService(rule_catalog)
@@ -290,6 +292,10 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
             payload = tool_result.model_dump(mode="json")
         else:
             payload = dict(tool_result or {})
+        result_payload = payload.get("payload", {})
+        # 暗骰可以留在 DM 的权威 trace 中供后续裁定，但绝不能进入玩家可见的 SSE 思考面板。
+        if str(result_payload.get("visibility") or "public").strip().casefold() == "hidden":
+            continue
         events.append(
             (
                 "tool.completed",
@@ -299,7 +305,7 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
                     "tool_name": payload.get("tool_name", ""),
                     "status": payload.get("status", "success"),
                     "summary": payload.get("summary", ""),
-                    "payload": payload.get("payload", {}),
+                    "payload": result_payload,
                 },
             )
         )
@@ -329,10 +335,19 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
     return events
 
 
-async def _execute_turn_request(state: GameState, message: str) -> tuple[TurnResult, str]:
+async def _execute_turn_request(
+    state: GameState,
+    message: str,
+    stream_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+) -> tuple[TurnResult, str]:
     mode = "resume" if state.pending_turn else "start"
     turn_method = agent.resume_turn if state.pending_turn else agent.run_turn
-    result = await asyncio.to_thread(lambda: asyncio.run(turn_method(state, message)))
+
+    def execute_in_worker() -> TurnResult:
+        with turn_stream_context(stream_event):
+            return asyncio.run(turn_method(state, message))
+
+    result = await asyncio.to_thread(execute_in_worker)
     return result, mode
 
 
@@ -368,15 +383,74 @@ def _state_before_last_assistant_message(state: GameState) -> GameState:
 
 
 def _action_suggestions_for_state(state: GameState) -> List[Dict[str, Any]]:
+    for message in reversed(_visible_chat_messages(state)):
+        if message.role == "assistant":
+            return [item.model_dump(mode="json") for item in message.action_suggestions]
     return []
 
 
-async def _execute_turn_and_save(game_id: str, state: GameState, message: str) -> tuple[TurnResult, str]:
+def _latest_assistant_suggestion_status(state: GameState) -> tuple[List[Dict[str, Any]], bool]:
+    for message in reversed(_visible_chat_messages(state)):
+        if message.role == "assistant":
+            return (
+                [item.model_dump(mode="json") for item in message.action_suggestions],
+                bool(message.action_suggestions_generated),
+            )
+    return [], False
+
+
+def _bind_action_suggestions_to_reply(
+    state: GameState,
+    message_index: int,
+    response: str,
+    suggestions: List[ActionSuggestion],
+) -> bool:
+    if message_index < 0 or message_index >= len(state.chat_history):
+        return False
+    message = state.chat_history[message_index]
+    if message.kind == "tool_result" or message.role != "assistant" or message.content != response:
+        return False
+    message.action_suggestions = list(suggestions)
+    message.action_suggestions_generated = True
+    return True
+
+
+def _merge_persisted_action_suggestions(target: GameState, persisted: GameState) -> None:
+    # 主回合和提交后投影可以交叠；合并已经落盘的消息投影，避免较早加载的回合快照把缓存覆盖掉。
+    for index, source in enumerate(persisted.chat_history):
+        if index >= len(target.chat_history) or not source.action_suggestions_generated:
+            continue
+        destination = target.chat_history[index]
+        if destination.role != source.role or destination.kind != source.kind or destination.content != source.content:
+            continue
+        if not destination.action_suggestions_generated:
+            destination.action_suggestions = list(source.action_suggestions)
+            destination.action_suggestions_generated = True
+
+
+def _action_suggestion_lock(game_id: str) -> asyncio.Lock:
+    lock = _action_suggestion_locks.get(game_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _action_suggestion_locks[game_id] = lock
+    return lock
+
+
+async def _execute_turn_and_save(
+    game_id: str,
+    state: GameState,
+    message: str,
+    stream_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+) -> tuple[TurnResult, str]:
     base_message_index = _visible_message_count(state)
     game_storage.prune_rewind_snapshots_from(game_id, base_message_index)
     game_storage.save_rewind_snapshot(game_id, base_message_index, _rewind_safe_state(state))
 
-    result, mode = await _execute_turn_request(state, message)
+    result, mode = await _execute_turn_request(state, message, stream_event=stream_event)
+
+    persisted_state = game_storage.load_game(game_id)
+    if persisted_state:
+        _merge_persisted_action_suggestions(result.game_state, persisted_state)
 
     assistant_message_index = base_message_index + 1
     game_storage.save_rewind_snapshot(
@@ -1218,7 +1292,14 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
     action_suggestions = opening_action_suggestions(selected)
     game_storage.save_rewind_snapshot(game_id, _visible_message_count(state), state)
     state.adventure_log.append(f"选择冒险：{selected.title}")
-    state.chat_history.append(ChatMessage(role="assistant", content=opening_message))
+    state.chat_history.append(
+        ChatMessage(
+            role="assistant",
+            content=opening_message,
+            action_suggestions=action_suggestions,
+            action_suggestions_generated=True,
+        )
+    )
     state.timeline.append(
         SessionEvent(
             type="assistant_response",
@@ -1493,8 +1574,38 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
                 "has_pending_turn": bool(state.pending_turn),
             },
         )
+        event_queue: asyncio.Queue[tuple[str, Dict[str, Any]]] = asyncio.Queue()
+        event_loop = asyncio.get_running_loop()
+
+        def publish_live_event(event: str, data: Dict[str, Any]) -> None:
+            event_loop.call_soon_threadsafe(event_queue.put_nowait, (event, data))
+
+        turn_task = asyncio.create_task(
+            _execute_turn_and_save(
+                game_id,
+                state,
+                req.message,
+                stream_event=publish_live_event,
+            )
+        )
+        emitted_node_count = 0
+        while not turn_task.done() or not event_queue.empty():
+            try:
+                live_event, live_data = await asyncio.wait_for(event_queue.get(), timeout=0.1)
+            except asyncio.TimeoutError:
+                continue
+            live_payload = {
+                "game_id": game_id,
+                "mode": initial_mode,
+                **dict(live_data or {}),
+            }
+            if live_event == "turn.node":
+                live_payload.setdefault("index", emitted_node_count)
+                emitted_node_count += 1
+            yield _sse_event(live_event, live_payload)
+
         try:
-            result, mode = await _execute_turn_and_save(game_id, state, req.message)
+            result, mode = await turn_task
         except Exception as exc:
             yield _sse_event(
                 "turn.error",
@@ -1511,8 +1622,9 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
         payload["game_id"] = game_id
         payload["mode"] = mode
         result_event = "turn.input_required" if result.turn_status == "input_required" else "turn.completed"
-        for node_payload in _turn_node_event_payloads(result, game_id, mode):
-            yield _sse_event("turn.node", node_payload)
+        if emitted_node_count == 0:
+            for node_payload in _turn_node_event_payloads(result, game_id, mode):
+                yield _sse_event("turn.node", node_payload)
         for detail_event, detail_payload in _turn_detail_event_payloads(result, game_id, mode):
             yield _sse_event(detail_event, detail_payload)
         yield _sse_event(result_event, payload)
@@ -1565,31 +1677,78 @@ async def get_game_turn_traces(game_id: str, limit: int = 20):
 
 @app.post("/api/v1/games/{game_id}/action-suggestions")
 async def project_game_action_suggestions(game_id: str):
-    state = _load_game_or_404(game_id)
-    visible_history = _visible_chat_messages(state)
-    response = next(
-        (message.content for message in reversed(visible_history) if message.role == "assistant"),
-        "",
-    )
-    user_input = next(
-        (message.content for message in reversed(visible_history) if message.role == "user"),
-        "",
-    )
-    if not response:
-        return {"game_id": game_id, "turn_number": state.turn_number, "action_suggestions": []}
+    async with _action_suggestion_lock(game_id):
+        state = _load_game_or_404(game_id)
+        stored_suggestions, generated = _latest_assistant_suggestion_status(state)
+        if generated:
+            return {
+                "game_id": game_id,
+                "turn_number": state.turn_number,
+                "action_suggestions": stored_suggestions,
+                "generated": True,
+                "metadata": {"status": "cached"},
+            }
 
-    suggestions, metadata = await asyncio.to_thread(
-        agent.project_action_suggestions,
-        state,
-        response,
-        user_input,
-    )
-    return {
-        "game_id": game_id,
-        "turn_number": state.turn_number,
-        "action_suggestions": [item.model_dump(mode="json") for item in suggestions],
-        "metadata": metadata,
-    }
+        visible_history = _visible_chat_messages(state)
+        assistant_message_index = next(
+            (
+                index
+                for index in range(len(state.chat_history) - 1, -1, -1)
+                if state.chat_history[index].kind != "tool_result"
+                and state.chat_history[index].role == "assistant"
+            ),
+            -1,
+        )
+        response = state.chat_history[assistant_message_index].content if assistant_message_index >= 0 else ""
+        user_input = next(
+            (message.content for message in reversed(visible_history) if message.role == "user"),
+            "",
+        )
+        if not response:
+            return {
+                "game_id": game_id,
+                "turn_number": state.turn_number,
+                "action_suggestions": [],
+                "generated": False,
+            }
+
+        projected_turn_number = state.turn_number
+        suggestions, metadata = await asyncio.to_thread(
+            agent.project_action_suggestions,
+            state,
+            response,
+            user_input,
+        )
+
+        # 投影在主回合提交后运行；迟到结果只能写回原回复，不能用旧快照覆盖已经推进的新回合。
+        latest_state = _load_game_or_404(game_id)
+        if _bind_action_suggestions_to_reply(latest_state, assistant_message_index, response, suggestions):
+            game_storage.save_game(game_id, latest_state)
+            if latest_state.turn_number != projected_turn_number:
+                latest_suggestions, latest_generated = _latest_assistant_suggestion_status(latest_state)
+                return {
+                    "game_id": game_id,
+                    "turn_number": latest_state.turn_number,
+                    "action_suggestions": latest_suggestions,
+                    "generated": latest_generated,
+                    "metadata": {**metadata, "status": "stale"},
+                }
+            return {
+                "game_id": game_id,
+                "turn_number": latest_state.turn_number,
+                "action_suggestions": [item.model_dump(mode="json") for item in suggestions],
+                "generated": True,
+                "metadata": metadata,
+            }
+
+        latest_suggestions, latest_generated = _latest_assistant_suggestion_status(latest_state)
+        return {
+            "game_id": game_id,
+            "turn_number": latest_state.turn_number,
+            "action_suggestions": latest_suggestions,
+            "generated": latest_generated,
+            "metadata": {**metadata, "status": "stale"},
+        }
 
 
 # Deterministic local action routes complement the freer LangGraph text turns.

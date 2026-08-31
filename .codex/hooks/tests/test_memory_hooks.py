@@ -322,6 +322,19 @@ class MemoryHookTests(unittest.TestCase):
                 self.assertIn(script, handler["command"])
                 self.assertIn(script, handler["commandWindows"])
                 self.assertIn("git rev-parse --show-toplevel", handler["command"])
+                self.assertNotIn("$root", handler["commandWindows"])
+                if sys.platform == "win32":
+                    # Codex 会经外层 PowerShell 启动 commandWindows；必须覆盖双层解析，
+                    # 否则内层 -Command 中的变量可能在脚本运行前就被提前展开。
+                    result = subprocess.run(
+                        ["powershell.exe", "-NoProfile", "-Command", handler["commandWindows"]],
+                        cwd=PROJECT_CODEX_DIR.parent,
+                        input=b"not-json",
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=True,
+                    )
+                    self.assertIsInstance(json.loads(result.stdout.decode("ascii")), dict)
         self.assertIn("clear", config["hooks"]["SessionStart"][0]["matcher"])
 
     def test_stop_script_escapes_continuation_prompt_as_valid_json(self) -> None:

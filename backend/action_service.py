@@ -351,24 +351,26 @@ class GameActionService:
         if not validation["ok"]:
             raise ValueError(validation["error"])
 
+        spell_details = dict(validation["spell"])
         resolved_slot = int(validation["resolved_slot_level"])
-        canonical_spell_name = str(validation.get("spell_name") or validation["spell"].get("name") or spell_name)
-        action_cost = self.rules.spell_action_cost(validation["spell"])
+        canonical_spell_name = str(validation.get("spell_name") or spell_details.get("name") or spell_name)
+        action_cost = self.rules.spell_action_cost(spell_details)
         logic.require_turn_slot_available(action_cost, "cast_spell")
         previous_concentration = caster.concentration_spell
         self.rules.consume_spell_slot(caster, resolved_slot)
-        if bool(validation["spell"].get("concentration")):
+        if bool(spell_details.get("concentration")):
             caster.concentration_spell = canonical_spell_name
-            caster.concentration_spell_level = int(validation["spell"].get("level", 0))
+            caster.concentration_spell_level = int(spell_details.get("level", 0))
         payload = {
             "caster_id": caster.character_id,
             "caster_name": caster.name,
             "spell_name": canonical_spell_name,
             "requested_spell_name": spell_name,
-            "spell_level": int(validation["spell"].get("level", 0)),
+            "spell_level": int(spell_details.get("level", 0)),
             "resolved_slot_level": resolved_slot,
             "action_cost": action_cost,
-            "concentration": bool(validation["spell"].get("concentration")),
+            "concentration": bool(spell_details.get("concentration")),
+            "desc": str(spell_details.get("desc") or spell_details.get("description") or "").strip(),
             "previous_concentration_spell": previous_concentration,
             "current_concentration_spell": caster.concentration_spell,
             "remaining_slots": {

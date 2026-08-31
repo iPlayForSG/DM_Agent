@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/memory_session.py\"",
-            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$root = (& git rev-parse --show-toplevel).Trim(); & python (Join-Path $root '.codex/hooks/memory_session.py')\"",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& python (Join-Path ((& git rev-parse --show-toplevel).Trim()) '.codex/hooks/memory_session.py')\"",
             "timeout": 15,
             "statusMessage": "建立项目记忆基线"
           }
@@ -22,7 +22,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/memory_observe.py\"",
-            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$root = (& git rev-parse --show-toplevel).Trim(); & python (Join-Path $root '.codex/hooks/memory_observe.py')\"",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& python (Join-Path ((& git rev-parse --show-toplevel).Trim()) '.codex/hooks/memory_observe.py')\"",
             "timeout": 15,
             "statusMessage": "观察项目变化"
           }
@@ -35,7 +35,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/memory_stop.py\"",
-            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$root = (& git rev-parse --show-toplevel).Trim(); & python (Join-Path $root '.codex/hooks/memory_stop.py')\"",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& python (Join-Path ((& git rev-parse --show-toplevel).Trim()) '.codex/hooks/memory_stop.py')\"",
             "timeout": 20,
             "statusMessage": "检查项目记忆是否需要校准"
           }

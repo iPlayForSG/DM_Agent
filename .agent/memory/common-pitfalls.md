@@ -18,10 +18,12 @@
 ## 前后端契约
 
 - 前端怪物编辑仍调用 `POST /api/v1/monsters`，但后端固定返回 405，因为标准怪物库只读。不要在未决定产品边界前假定“保存成功”。
-- SSE 是回合完成后基于 trace 发送的阶段事件，不是真实 token/tool 流。
+- SSE 通过请求局部观察通道实时发送节点、工具和可公开的 Agent 输出。Codex CLI adapter 虽已用 `codex exec --json` 和 LangChain `_stream()` 消费 JSONL，但当前 exec 层不转发 app-server 的 `item/agentMessage/delta`，所以 0.147.0 实测仍只有完成态正文块；不要把 UI 打字动画当成底层流式，也不要让观察事件参与权威状态提交。
 - 主回合 SSE 和 rewrite 目前没有底层 AbortController/idle timeout；生命周期守卫只阻止旧结果写回 UI，不会取消服务端工作。
 - 回复长度设置不能只依赖 DM 提示词；正常回合在 `finalize_turn` 提交前用去空白字符数检查，并交给无工具的独立纯文本调用扩写或压缩。长度是展示偏好，后处理未命中只能记录 warning、保留最佳正文，不能回滚已完成回合或向玩家暴露内部校验文案；系统错误说明不受叙事长度约束。
-- 主持回复重试必须由服务端根据 assistant 消息索引解析前一条玩家行动和对应 rewind snapshot；失败回复常驻重试入口，失败回合不要继续请求行动建议投影。
+- 行动灵感仍是主回合提交后的非事务投影，但生成状态和结果持久化在对应 `ChatMessage`；加载存档必须优先恢复该缓存，不能因为前端内存为空就重新调用 Suggestion Agent。
+- 主持回复重试必须由服务端根据 assistant 消息索引解析前一条玩家行动和对应 rewind snapshot；点击后前端先移除目标回复及后续消息、思考过程和行动灵感，传输失败才恢复整组 UI 投影。失败回复常驻重试入口，失败回合不要继续请求行动建议投影。
+- 公开骰点的正文标记必须逐条对应成功的权威工具结果，模型只能决定它出现在相关叙事段落的位置，不能编写数值。暗骰需要同时从最终叙事、玩家时间线和玩家可见 `tool.completed` SSE 中过滤，不能只靠前端样式隐藏。
 - `App.jsx` 是超过 3,000 行的单体组件；局部状态和 effect 依赖容易互相影响。当前 Lint 仍有两个 Hook dependency warning。
 
 ## 本地环境与生成内容
@@ -42,5 +44,6 @@
 - interrupt 前的成功工具仍是 staged transaction；`input_required` 只能发布上次提交快照和 pending 元数据，取消、失败或 checkpoint 丢失时必须同时清空对外 `tool_results` / `state_delta`，不能只回滚 `GameState`。
 - SQLite checkpointer 查不到 thread 时可能返回空 `StateSnapshot`，随后才以 `KeyError('game_state')` 失败；不要依赖异常文案识别 checkpoint 丢失，resume 前先检查 snapshot values 是否包含 `game_state`。
 - 不要把 `risk_level` 或写入权威状态等同于玩家侧确认。明确指令、规则结算和 DM 记账直接执行；只有真正缺少玩家决定时才调用 `request_player_choice`，其公开 payload 只能包含剧情语义和具体选项。
+- 自然语言攻击不能只靠一个固定词表：确定性词表是快速路径，未命中时由受约束模型补充意图；`hostile_attack` 必须贯穿探索到战斗的阶段刷新，直到玩家攻击产生权威工具结果。不要因初始探索 allowlist 没有 `attack_target` 就退回纯叙事。
 - 若 DM 必须等待玩家在后果性选项中决定，提示词要明确要求调用 `request_player_choice`，不能允许只在普通正文里说“由你决定”，否则前端拿不到结构化选项和可恢复 interrupt。
 - 跨后端 API 和前端行为修改后需要同时跑后端测试、前端 build/lint 与 `git diff --check`。

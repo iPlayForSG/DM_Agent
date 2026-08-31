@@ -8,12 +8,13 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Iterator, List, Optional, Sequence
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, message_chunk_to_message
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field
 
@@ -161,7 +162,18 @@ class CodingAgentCLIChatModel(BaseChatModel):
         run_manager: Optional[Any] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        del stop, run_manager
+        del run_manager
+        if self.provider == CODEX_CLI_PROVIDER:
+            aggregate = None
+            for generation in self._stream_codex(messages, stop=stop, **kwargs):
+                chunk = generation.message
+                aggregate = chunk if aggregate is None else aggregate + chunk
+            if aggregate is None:
+                raise RuntimeError("codex-cli stream returned no message")
+            return ChatResult(
+                generations=[ChatGeneration(message=message_chunk_to_message(aggregate))]
+            )
+
         executable = resolve_cli_command(self.provider, self.command)
         if not executable:
             requested = self.command or default_cli_command(self.provider)
@@ -188,6 +200,202 @@ class CodingAgentCLIChatModel(BaseChatModel):
             raise RuntimeError(f"{self.provider} exited with code {completed.returncode}: {detail}")
 
         payload = self._parse_output(completed.stdout)
+        message = self._message_from_payload(payload)
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+    def _stream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        del run_manager
+        if self.provider == CODEX_CLI_PROVIDER:
+            yield from self._stream_codex(messages, stop=stop, **kwargs)
+            return
+
+        # Claude Code 目前只有完整结构化响应；仍返回合法 chunk，让上层统一聚合消息。
+        result = self._generate(messages, stop=stop, **kwargs)
+        message = result.generations[0].message
+        yield ChatGenerationChunk(message=self._message_to_chunk(message))
+
+    def _stream_codex(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        del stop
+        executable = resolve_cli_command(self.provider, self.command)
+        if not executable:
+            requested = self.command or default_cli_command(self.provider)
+            raise RuntimeError(f"Coding-agent CLI was not found: {requested}")
+
+        tools = list(kwargs.get("tools") or [])
+        prompt = self._build_prompt(messages, tools, kwargs.get("tool_choice"))
+        final_agent_text = ""
+        streamed_structured_text = ""
+        streamed_content = ""
+        turn_completed = False
+        fatal_error = ""
+
+        for event in self._iter_codex_json_events(executable, prompt):
+            event_type = str(event.get("type") or "")
+            if event_type == "error":
+                fatal_error = str(event.get("message") or "codex-cli event stream failed")
+                continue
+            if event_type == "turn.failed":
+                error = event.get("error") or {}
+                detail = error.get("message") if isinstance(error, dict) else error
+                raise RuntimeError(f"codex-cli turn failed: {self._safe_error_detail(str(detail or 'unknown error'))}")
+            if event_type == "turn.completed":
+                turn_completed = True
+                continue
+            if event_type in {"agent_message_delta", "item.agent_message.delta"}:
+                delta_payload = event.get("delta") or ""
+                if isinstance(delta_payload, dict):
+                    delta_payload = delta_payload.get("text") or delta_payload.get("content") or ""
+                streamed_structured_text += str(delta_payload)
+                content_prefix = self._extract_partial_content(streamed_structured_text)
+                if content_prefix:
+                    if not content_prefix.startswith(streamed_content):
+                        raise RuntimeError("codex-cli changed an already streamed content prefix")
+                    delta = content_prefix[len(streamed_content):]
+                    if delta:
+                        streamed_content = content_prefix
+                        yield ChatGenerationChunk(message=AIMessageChunk(content=delta))
+                continue
+
+            item = event.get("item") or {}
+            if not isinstance(item, dict) or item.get("type") != "agent_message":
+                continue
+            text = str(item.get("text") or "")
+            if event_type == "item.updated":
+                streamed_structured_text = text
+                content_prefix = self._extract_partial_content(text)
+                if content_prefix:
+                    if not content_prefix.startswith(streamed_content):
+                        raise RuntimeError("codex-cli changed an already streamed content prefix")
+                    delta = content_prefix[len(streamed_content):]
+                    if delta:
+                        streamed_content = content_prefix
+                        yield ChatGenerationChunk(message=AIMessageChunk(content=delta))
+            elif event_type == "item.completed":
+                final_agent_text = text
+
+        if fatal_error:
+            raise RuntimeError(f"codex-cli event stream failed: {self._safe_error_detail(fatal_error)}")
+        if not turn_completed:
+            raise RuntimeError("codex-cli JSONL stream ended before turn.completed")
+        if not final_agent_text:
+            raise RuntimeError("codex-cli JSONL stream contained no completed agent message")
+
+        payload = self._parse_output(final_agent_text)
+        final_content = str(payload.get("content") or "")
+        if not final_content.startswith(streamed_content):
+            raise RuntimeError("codex-cli final content did not preserve the streamed prefix")
+        remaining_content = final_content[len(streamed_content):]
+        if remaining_content:
+            yield ChatGenerationChunk(message=AIMessageChunk(content=remaining_content))
+
+        tool_call_chunks = self._tool_call_chunks(payload)
+        if tool_call_chunks or not final_content:
+            yield ChatGenerationChunk(
+                message=AIMessageChunk(content="", tool_call_chunks=tool_call_chunks)
+            )
+
+    def _iter_codex_json_events(self, executable: str, prompt: str) -> Iterator[Dict[str, Any]]:
+        with tempfile.TemporaryDirectory(prefix="dm-agent-cli-") as temp_dir:
+            temp_path = Path(temp_dir)
+            command = self._build_command(executable, temp_path)
+            stderr_path = temp_path / "stderr.log"
+            timed_out = threading.Event()
+            process: Optional[subprocess.Popen[str]] = None
+            with stderr_path.open("w+", encoding="utf-8", errors="replace") as stderr_file:
+                try:
+                    process = subprocess.Popen(
+                        command,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=stderr_file,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        cwd=temp_dir,
+                        bufsize=1,
+                        env={**os.environ, "NO_COLOR": "1"},
+                    )
+                    timer = threading.Timer(
+                        self.timeout_s,
+                        self._kill_timed_out_process,
+                        args=(process, timed_out),
+                    )
+                    timer.daemon = True
+                    timer.start()
+                    try:
+                        if process.stdin is None or process.stdout is None:
+                            raise RuntimeError("codex-cli process pipes were unavailable")
+                        process.stdin.write(prompt)
+                        process.stdin.close()
+                        try:
+                            for raw_line in process.stdout:
+                                line = str(raw_line or "").strip()
+                                if not line:
+                                    continue
+                                try:
+                                    event = json.loads(line)
+                                except json.JSONDecodeError as exc:
+                                    raise RuntimeError(f"codex-cli returned invalid JSONL: {exc}") from exc
+                                if not isinstance(event, dict):
+                                    raise RuntimeError("codex-cli JSONL event was not an object")
+                                yield event
+                        finally:
+                            close_stdout = getattr(process.stdout, "close", None)
+                            if callable(close_stdout):
+                                close_stdout()
+                        return_code = process.wait()
+                    finally:
+                        timer.cancel()
+                finally:
+                    if process is not None and process.poll() is None:
+                        process.kill()
+                        process.wait()
+                stderr_file.flush()
+                stderr_file.seek(0)
+                stderr = stderr_file.read()
+
+            if timed_out.is_set():
+                raise RuntimeError(f"codex-cli timed out after {self.timeout_s}s")
+            if return_code != 0:
+                detail = self._safe_error_detail(stderr or "unknown CLI error")
+                raise RuntimeError(f"codex-cli exited with code {return_code}: {detail}")
+
+    @staticmethod
+    def _kill_timed_out_process(process: subprocess.Popen[str], timed_out: threading.Event) -> None:
+        if process.poll() is None:
+            timed_out.set()
+            process.kill()
+
+    @classmethod
+    def _message_from_payload(cls, payload: Dict[str, Any]) -> AIMessage:
+        return AIMessage(
+            content=str(payload.get("content") or ""),
+            tool_calls=cls._tool_calls(payload),
+        )
+
+    @classmethod
+    def _message_to_chunk(cls, message: BaseMessage) -> AIMessageChunk:
+        payload = {
+            "tool_calls": list(getattr(message, "tool_calls", None) or []),
+        }
+        return AIMessageChunk(
+            content=str(getattr(message, "content", "") or ""),
+            tool_call_chunks=cls._tool_call_chunks(payload),
+        )
+
+    @staticmethod
+    def _tool_calls(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
         tool_calls = []
         for index, item in enumerate(payload.get("tool_calls") or []):
             if not isinstance(item, dict) or not str(item.get("name") or "").strip():
@@ -205,8 +413,66 @@ class CodingAgentCLIChatModel(BaseChatModel):
                     "args": dict(raw_args or {}) if isinstance(raw_args, dict) else {},
                 }
             )
-        message = AIMessage(content=str(payload.get("content") or ""), tool_calls=tool_calls)
-        return ChatResult(generations=[ChatGeneration(message=message)])
+        return tool_calls
+
+    @classmethod
+    def _tool_call_chunks(cls, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "args": json.dumps(item["args"], ensure_ascii=False, separators=(",", ":")),
+                "index": index,
+            }
+            for index, item in enumerate(cls._tool_calls(payload))
+        ]
+
+    @staticmethod
+    def _extract_partial_content(raw_json: str) -> str:
+        """Decode the complete prefix of the structured `content` JSON string."""
+
+        match = re.search(r'"content"\s*:\s*"', str(raw_json or ""))
+        if not match:
+            return ""
+        source = str(raw_json)[match.end():]
+        decoded: List[str] = []
+        index = 0
+        escapes = {"\"": "\"", "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
+        while index < len(source):
+            char = source[index]
+            if char == '"':
+                break
+            if char != "\\":
+                decoded.append(char)
+                index += 1
+                continue
+            if index + 1 >= len(source):
+                break
+            escape = source[index + 1]
+            if escape == "u":
+                digits = source[index + 2:index + 6]
+                if len(digits) < 4 or not re.fullmatch(r"[0-9A-Fa-f]{4}", digits):
+                    break
+                codepoint = int(digits, 16)
+                if 0xD800 <= codepoint <= 0xDBFF:
+                    low_prefix = source[index + 6:index + 8]
+                    low_digits = source[index + 8:index + 12]
+                    if low_prefix != "\\u" or not re.fullmatch(r"[0-9A-Fa-f]{4}", low_digits):
+                        break
+                    low = int(low_digits, 16)
+                    if not 0xDC00 <= low <= 0xDFFF:
+                        break
+                    decoded.append(chr(0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00)))
+                    index += 12
+                    continue
+                decoded.append(chr(codepoint))
+                index += 6
+                continue
+            if escape not in escapes:
+                break
+            decoded.append(escapes[escape])
+            index += 2
+        return "".join(decoded)
 
     def _build_command(self, executable: str, temp_dir: Path) -> List[str]:
         if self.provider == CODEX_CLI_PROVIDER:
@@ -218,6 +484,7 @@ class CodingAgentCLIChatModel(BaseChatModel):
                 "--ephemeral",
                 "--ignore-user-config",
                 "--ignore-rules",
+                "--json",
                 "--sandbox",
                 "read-only",
                 "--skip-git-repo-check",

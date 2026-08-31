@@ -45,6 +45,8 @@
 | --- | --- | --- |
 | `frontend/src/api.js` | API base URL、REST、SSE parser、错误标准化 | `main.py` 路由和响应 schema |
 | `frontend/src/App.jsx` | 大厅、构筑、游戏、战斗、分支和异步生命周期 | `api.js`、action options、CSS、build/lint |
+| `frontend/src/retryUi.js` | 主持回复重试的可恢复 UI 回滚纯状态转换 | `App.jsx`、`retryUi.test.mjs`、消息索引语义 |
+| `frontend/src/narrativeRollUi.js` | 主持叙事内公开骰点/战斗标记的语义分类，以及玩家时间线暗骰过滤 | `App.jsx`、Markdown 前缀契约、`narrativeRollUi.test.mjs` |
 | `frontend/src/index.css` | 当前主要视觉与响应式样式 | App class names、浏览器检查 |
 
 这不是完整文件列表。新增公共模块、移动职责或改变边界时更新本表；局部 helper 不需要记录。

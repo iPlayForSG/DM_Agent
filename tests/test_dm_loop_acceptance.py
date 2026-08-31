@@ -9,7 +9,7 @@ from agent_tools import AgentToolExecution
 from dm_graph import DMGraphRunner, PROMPT_CONTEXT_MAX_CHARS
 from game_logic import GameLogic
 from langchain_core.messages import AIMessage
-from models import AdventureHook, Character, ChatMessage, EvidenceRecord, GameState
+from models import AdventureHook, Character, ChatMessage, EvidenceRecord, GameState, ToolResult
 
 
 class DisabledRAG:
@@ -63,6 +63,98 @@ class EvidenceService:
             payload=result["evidence"].model_dump(mode="json"),
             state_patch=result["patch"],
         )
+
+
+class HostileCombatService:
+    def start_encounter(self, state, enemy_names, enemy_hp=7, enemy_ac=12, auto_roll_initiative=True):
+        del auto_roll_initiative
+        logic = GameLogic(state)
+        encounter = logic.start_encounter(enemy_names, enemy_hp=enemy_hp, enemy_ac=enemy_ac)
+        for combatant in encounter.combatants.values():
+            logic.set_initiative(combatant.combatant_id, 30 if combatant.linked_character_id else 5)
+        return AgentToolExecution(
+            ok=True,
+            tool_result=ToolResult(
+                tool_name="encounter.start",
+                summary="遭遇开始",
+                payload={"enemy_names": enemy_names},
+            ),
+            state_patch={
+                "scene": state.scene,
+                "campaign": {"phase": state.campaign.phase},
+                "encounter": state.encounter.model_dump(mode="json"),
+            },
+        )
+
+    def attack_target(self, state, attacker_ref, target_ref, **_kwargs):
+        outcome = GameLogic(state).resolve_attack(
+            attacker_ref=attacker_ref,
+            target_ref=target_ref,
+            attack_bonus=99,
+            damage_expression="1d4",
+            damage_type="piercing",
+        )
+        return AgentToolExecution(
+            ok=bool(outcome),
+            tool_result=(
+                ToolResult(
+                    tool_name="combat.attack_target",
+                    summary="玩家攻击已结算",
+                    payload={
+                        "attacker_name": outcome["attacker_name"],
+                        "target_name": outcome["target_name"],
+                        "hit": outcome["hit"],
+                    },
+                )
+                if outcome
+                else None
+            ),
+            state_patch={"encounter": state.encounter.model_dump(mode="json")} if outcome else {},
+            error="" if outcome else "attack failed",
+        )
+
+
+class HostileCombatModel:
+    def __init__(self):
+        self.bound_tool_names = []
+        self.active_tool_names = []
+        self.attacked = False
+
+    def bind_tools(self, tools):
+        self.active_tool_names = [tool.name for tool in tools]
+        self.bound_tool_names.append(list(self.active_tool_names))
+        return self
+
+    def bind(self, **_kwargs):
+        return self
+
+    def invoke(self, _messages):
+        if self.attacked:
+            return AIMessage(content="你抢在地精反应前刺出匕首，刀锋与命中结果已经完成结算。")
+        if "start_encounter" in self.active_tool_names and "attack_target" not in self.active_tool_names:
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "call-start-ambush",
+                        "name": "start_encounter",
+                        "args": {"enemy_names": ["地精"], "enemy_hp": 7, "enemy_ac": 12},
+                    }
+                ],
+            )
+        if "attack_target" in self.active_tool_names:
+            self.attacked = True
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "call-resolve-ambush",
+                        "name": "attack_target",
+                        "args": {"attacker_ref": "艾琳", "target_ref": "地精", "attack_name": "匕首"},
+                    }
+                ],
+            )
+        raise AssertionError(f"Unexpected hostile combat tool scope: {self.active_tool_names}")
 
 
 class DMLoopAcceptanceTests(unittest.TestCase):
@@ -231,10 +323,36 @@ class DMLoopAcceptanceTests(unittest.TestCase):
         finally:
             runner.close()
 
-        self.assertEqual(result.turn_status, "completed")
+        self.assertEqual(result.turn_status, "failed")
         self.assertTrue(model.bound_tool_names)
         self.assertNotIn("attack_target", model.bound_tool_names[0])
         self.assertIn("start_encounter", model.bound_tool_names[0])
+
+    def test_hostile_exploration_action_starts_and_attacks_in_same_player_turn(self) -> None:
+        model = HostileCombatModel()
+        runner = DMGraphRunner(
+            rag_engine=DisabledRAG(),
+            tool_service=HostileCombatService(),
+            enable_model=True,
+            api_key="test-key",
+            checkpoint_mode="memory",
+        )
+        runner._model = model
+        try:
+            result = runner.run_turn(self.build_state(), "突袭我面前的地精")
+        finally:
+            runner.close()
+
+        self.assertEqual(result.turn_status, "completed")
+        self.assertIsNotNone(result.game_state.encounter)
+        self.assertTrue(result.game_state.encounter.active)
+        self.assertEqual(
+            [item.tool_name for item in result.tool_results],
+            ["encounter.start", "combat.attack_target"],
+        )
+        self.assertNotIn("attack_target", model.bound_tool_names[0])
+        self.assertIn("start_encounter", model.bound_tool_names[0])
+        self.assertTrue(any(scope == ["attack_target"] for scope in model.bound_tool_names[1:]))
 
     def test_dynamic_context_blocks_have_independent_budgets(self) -> None:
         state = self.build_state()

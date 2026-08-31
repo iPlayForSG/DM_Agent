@@ -336,6 +336,9 @@ export async function streamTurn(gameId, message, handlers = {}) {
     if (!parsed) return;
 
     handlers.onEvent?.(parsed.event, parsed.data);
+    if (parsed.event === "agent.output.started") handlers.onAgentOutput?.(parsed.data, "started");
+    if (parsed.event === "agent.output.delta") handlers.onAgentOutput?.(parsed.data, "delta");
+    if (parsed.event === "agent.output.completed") handlers.onAgentOutput?.(parsed.data, "completed");
     if (parsed.event === "turn.node") handlers.onNode?.(parsed.data);
     if (parsed.event === "rag.completed") handlers.onRag?.(parsed.data);
     if (parsed.event === "tool.completed") handlers.onTool?.(parsed.data);
