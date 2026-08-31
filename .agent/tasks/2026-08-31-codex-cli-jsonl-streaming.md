@@ -1,6 +1,6 @@
 # Codex CLI JSONL 流式适配
 
-Status: active
+Status: completed
 Updated: 2026-08-31
 
 ## Goal
@@ -29,7 +29,7 @@ Codex CLI 一旦提供可公开的文本增量，主持思考区会立即增长�
 - [x] 采样 Codex CLI 0.147.0 的真实 `--json` 输出并核对官方 exec 事件源码。
 - [x] 实现 JSONL `_stream()` 与结构化结果聚合。
 - [x] 增加模拟及真实 CLI adapter 契约测试。
-- [ ] 完成提交并推送。
+- [x] 完成提交并推送。
 
 ## Decisions
 
@@ -48,12 +48,12 @@ Codex CLI 一旦提供可公开的文本增量，主持思考区会立即增长�
 - [x] `npm run build`：通过；`npm run lint`：0 errors、2 个既有 Hook dependency warnings。
 - [x] 真实 `codex exec --json` adapter：使用 Codex CLI 0.147.0、`gpt-5.6-luna`/low 通过，且 `ResourceWarning` 提升为错误后仍通过。
 - [x] `.codex/hooks/tests`：25 项通过；前端语义纯状态测试：4 项通过。
-- [ ] `git diff --check`、提交与推送。
+- [x] `git diff --check`：通过；主修复提交 `e949daf` 已推送到 `origin/refactor/backend-bugfix`。
 
 ## Remaining work
 
-- 完成最终差异检查、提交并推送。
+- 无。
 
 ## Resume instructions
 
-从 `backend/model_backends.py` 的 Codex 分支开始；保留 Claude `subprocess.run`，并确保异常时终止子进程且错误详情脱敏。
+任务已完成。若产品必须在当前 Codex CLI 上获得逐 token 正文，需要评估 app-server 的 `item/agentMessage/delta`，不能用完成后拆字动画冒充 transport 流式。
