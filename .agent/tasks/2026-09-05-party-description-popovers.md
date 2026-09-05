@@ -1,6 +1,6 @@
 # 队伍卡片法术与物品说明及分支交付
 
-Status: active
+Status: completed
 Updated: 2026-09-05
 
 ## Goal
@@ -26,7 +26,7 @@ Updated: 2026-09-05
 - [x] 切换 refactor/frontend-design 并同步 main。
 - [x] 补齐说明投影及可访问浮层；缺少说明的条目保留纯文本。
 - [x] 完成目标回归、前端构建/lint、合成浏览器验收。
-- [ ] 提交、推送新功能并合入 main。
+- [x] 提交、推送新功能并合入 main；功能提交 70e4e69，合并提交 de25c19 已推送，无冲突。
 
 ## Decisions
 
@@ -46,13 +46,14 @@ Updated: 2026-09-05
 - [x] 新增说明 API 契约后完整后端：288 项，287 通过、1 项可选 CLI 测试跳过；验证中英文法术名称、说明兼容、物品备注/目录补充、不修改状态与缺省说明。
 - [x] 前端 build 和 10 项 Node 回归通过；lint 0 errors、2 条既有 Hook dependency warning。
 - [x] Playwright + 真实 API + 临时合成存档：交友术、魅惑人类及升环说明、物品备注、悬停移入浮层、Tab 焦点、Escape、长说明滚动、无描述纯文本、390px 窄屏点击和视口边界检查通过。桌面与窄屏截图已目视核对。
+- [x] `git diff --check` 及暂存区检查通过；合并后的 backend/frontend/tests 与已验证功能分支相同。实际服务 health=ok，前端已提供新组件；合成服务和验收浏览器已关闭。
 
 ## Remaining work
 
-- 最终差异检查、提交推送及 main 合并；关闭临时验收服务。
+- 本任务无剩余实现；真实触屏硬件、玩家存档长流程未在本次实测。
 
 ## Resume instructions
 
-1. 先确认当前分支与 Git 状态，再按 Progress 继续；不要覆盖此前修复。
-2. 使用项目 Conda Python 和合成数据验证，不读取真实玩家存档或环境凭据。
-3. Git 提交、推送及合并已获用户授权；仅在冲突需要真实产品选择时澄清。
+1. 继续前端工作时先核对 refactor/frontend-design 与 main 的远端状态；本次功能已交付。
+2. 说明入口在 action options 展示投影与 DescriptionTooltip，不向角色法术列表写入目录说明。
+3. 后续验证使用项目 Conda Python 和合成数据，不读取真实玩家存档或环境凭据。
