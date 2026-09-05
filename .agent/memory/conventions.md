@@ -13,7 +13,8 @@
 
 - deterministic validation 先于最终提交，修复必须通过工具。
 - 模型/provider 错误变成失败 TurnResult，不能让请求崩溃或提交半状态。
-- 高风险工具用 interrupt 请求确认；恢复使用同一 thread/checkpoint。
+- `risk_level` 只约束内部校验与事务；明确玩家指令和确定性结算不因风险级别自动请求确认。只有缺少玩家决定时用 `request_player_choice` 触发 interrupt，恢复使用同一 thread/checkpoint。
+- `pending_turn` 存在时，本局本地动作、遭遇与设置写入返回 409；继续/取消选择、明确剧情回退和只读/建议投影保留各自入口。恢复前若公开业务状态偏离 checkpoint 初始快照，结束旧暂停并保留当前已保存事实。
 - `finalize_turn` 成功时才推进 `turn_number`；失败时回滚工具变化。
 - 回复长度是偏好：最多编辑两次，不通过硬截断破坏 Markdown 或规则事实。
 

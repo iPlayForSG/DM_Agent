@@ -31,10 +31,19 @@ class FakeStorage:
     def load_game(self, game_id: str):
         return self.state
 
-    def save_game(self, game_id: str, state: GameState) -> None:
+    def save_game(self, game_id: str, state: GameState, **_kwargs) -> None:
         self.saved_game_id = game_id
         self.saved_state = state
         self.state = state
+
+    def save_turn(self, game_id, state, *, expected_version, snapshots, prune_from):
+        from storage import StateConflictError
+        if self.state is None or self.state.state_version != expected_version:
+            raise StateConflictError("stale test state")
+        self.save_game(game_id, state)
+        self.prune_rewind_snapshots_from(game_id, prune_from)
+        for index, snapshot in snapshots.items():
+            self.save_rewind_snapshot(game_id, index, snapshot)
 
     def save_rewind_snapshot(self, game_id: str, message_index: int, state: GameState) -> None:
         self.rewind_snapshots[(game_id, message_index)] = state.model_copy(deep=True)

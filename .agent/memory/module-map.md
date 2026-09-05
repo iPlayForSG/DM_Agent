@@ -5,8 +5,10 @@
 | 模块 | 目的/对外接口 | 主要依赖 | 修改时联动检查 |
 | --- | --- | --- | --- |
 | `backend/main.py` | `/api/v1/*`、SSE、错误映射、存档事务 | agent facade、storage、action service | `models.py`、`frontend/src/api.js`、API 契约测试 |
+| `backend/player_projection.py` | REST/SSE 玩家投影：过滤普通暗骰载荷，类型化骰点记录明确保留明暗骰 | JSONResponse、RollRecord、序列化 payload | 游戏加载、turn、traces、局部动作，内部状态不得被删改 |
 | `backend/agent.py` | 模型档案、Agent 生命周期、turn/resume facade | `dm_graph.py`、dotenv | health/config API、密钥脱敏、provider smoke |
 | `backend/model_backends.py` | OpenAI-compatible/Claude Code/Codex provider 常量与 CLI `BaseChatModel` 适配 | LangChain、CLI subprocess | 临时目录、结构化 schema、凭据隔离、真实 CLI smoke |
+| `backend/codex_transport.py` | 临时只读 app-server 会话、真实公开正文 delta、超时与进程清理 | Codex JSON-RPC、subprocess | 本机协议、无宿主工具、无私有推理输出、adapter、真实流式验证 |
 | `backend/dm_graph.py` | LangGraph 父图、上下文、确定性校验、事务提交 | agents、tools、RAG、models | phase policy、工具预算、interrupt、trace、workflow tests |
 | `backend/agents/` | 持续 DM 私有循环、阶段能力、工具适配和建议投影 | LangChain/LangGraph、tool registry | `specs.py` capability、runtime topology tests |
 
@@ -20,7 +22,9 @@
 | `backend/tool_registry.py` | 工具 schema、风险和运行前守卫 | models、rules catalog | agent specs、phase allowlist、tool tests |
 | `backend/agent_tools.py` | Agent 工具执行与统一 `ToolResult` | GameLogic、RuleCatalog | action service 对称行为、timeline、delta |
 | `backend/action_service.py` | 本地动作 API 的确定性执行 | GameLogic、RuleCatalog | agent tool 行为、main routes、action options |
+| `backend/spell_resolution.py` | 共用施法记账、cast_id 凭据与法术攻击结算 | GameLogic、RuleCatalog、SpellAttackCast | Agent/本地动作、工具 guardrail、法术目标 UI、回合边界 |
 | `backend/game_logic.py` | 骰子、攻击、伤害、先攻、镜像同步 | models | current actor、action ledger、concentration、combat tests |
+| `backend/roll_capture.py` | 请求局部实际骰点观察、工具成败与回合结算标记 | RollRecord、turn_stream | game_logic、ability_scores、dm_graph、main 消息/暂停持久化、玩家投影 |
 | `backend/encounter_math.py` | 遭遇 XP 预算、难度分级、CR 估算（纯计算，无状态） | 无 | 只读工具 payload、5e.tools 表格出处、`test_encounter_math.py` |
 | `backend/rules_catalog.py` | 构筑目录、派生值、法术/装备校验 | JSON catalog、ability service | builder API、角色保存、攻击/法术工具 |
 | `backend/ability_scores.py` | 购点、标准数组、4d6 去最低和记录验证 | RuleCatalog constants | builder UI、Character schema、相关测试 |
@@ -29,7 +33,7 @@
 
 | 模块 | 目的/对外接口 | 修改时联动检查 |
 | --- | --- | --- |
-| `backend/storage.py` | JSON CRUD、完整 rewind snapshot | schema 版本、路径安全、delete/rewrite API |
+| `backend/storage.py` | 原子 JSON 写入、state_version 冲突检查、文件锁与回合/rewind 提交 | schema 兼容、跨进程冲突、失败保留、delete/rewrite API |
 | `backend/adventure_service.py` | 固定/AI 冒险生成与 D&D 风格校验 | setup flow、campaign schema、测试 |
 | `backend/campaign_memory.py` | 从 `GameState` 派生有界的剧情提示上下文，不另存业务事实 | `dm_graph.py` memory context、prompts、工作流测试 |
 | `backend/utils/import_5etools_builder_options.py` | 从本地 5e.tools 数据增量补齐建卡目录；幂等、只追加 | `character_builder_2024.json`、`validate_character`、builder API |
@@ -45,8 +49,9 @@
 | --- | --- | --- |
 | `frontend/src/api.js` | API base URL、REST、SSE parser、错误标准化 | `main.py` 路由和响应 schema |
 | `frontend/src/App.jsx` | 大厅、构筑、游戏、战斗、分支和异步生命周期 | `api.js`、action options、CSS、build/lint |
-| `frontend/src/retryUi.js` | 主持回复重试的可恢复 UI 回滚纯状态转换 | `App.jsx`、`retryUi.test.mjs`、消息索引语义 |
+| `frontend/src/retryUi.js` | 主持回复重试与玩家消息重写的可恢复 UI 回滚纯状态转换 | `App.jsx`、`retryUi.test.mjs`、消息索引语义 |
 | `frontend/src/narrativeRollUi.js` | 主持叙事内公开骰点/战斗标记的语义分类，以及玩家时间线暗骰过滤 | `App.jsx`、Markdown 前缀契约、`narrativeRollUi.test.mjs` |
+| `frontend/src/rollUi.js` | 骰点按 id 合并及结算状态展示；明暗骰由回复上方折叠框承载 | `App.jsx`、RollRecord、SSE、`rollUi.test.mjs` |
 | `frontend/src/index.css` | 当前主要视觉与响应式样式 | App class names、浏览器检查 |
 
 这不是完整文件列表。新增公共模块、移动职责或改变边界时更新本表；局部 helper 不需要记录。

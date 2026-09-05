@@ -223,7 +223,31 @@ class ActionSuggestion(BaseModel):
     action: str = ""
 
 
+class RollRecord(BaseModel):
+    """本轮实际掷骰的显示记录；不参与规则计算或事务判定。"""
+    record_id: str
+    kind: str = "dice"
+    actor: str = ""
+    target: str = ""
+    label: str = ""
+    reason: str = ""
+    expression: str
+    dice: List[int] = Field(default_factory=list)
+    kept: List[int] = Field(default_factory=list)
+    modifier: int = 0
+    total: int = 0
+    detail: str = ""
+    roll_mode: str = "normal"
+    visibility: str = "public"
+    dc: Optional[int] = None
+    success: Optional[bool] = None
+    settlement: str = "pending"
+    tool_status: str = "succeeded"
+
+
 class ChatMessage(BaseModel):
+    roll_records: List[RollRecord] = Field(default_factory=list)
+    roll_records_recorded: bool = False
     role: str
     content: str
     kind: str = "message"
@@ -431,6 +455,7 @@ class Combatant(BaseModel):
     monster_template_id: Optional[str] = None
     hp_current: int = 10
     hp_max: int = 10
+    temp_hp: int = 0
     ac: int = 10
     initiative_bonus: int = 0
     initiative: Optional[int] = None
@@ -474,6 +499,7 @@ class EncounterState(BaseModel):
     turn_reaction_key: str = ""
     turn_reaction_used: bool = False
     turn_reaction_tool: str = ""
+    reactions_used: Dict[str, bool] = Field(default_factory=dict)
     initiative_order: List[str] = Field(default_factory=list)
     combatants: Dict[str, Combatant] = Field(default_factory=dict)
 
@@ -503,6 +529,8 @@ class EncounterState(BaseModel):
         data["encounter_id"] = data.get("encounter_id") or random_id("enc")
         data.setdefault("initiative_order", list(normalized_combatants.keys()))
         data.setdefault("turn_order_started", False)
+        if "reactions_used" not in data and data.get("turn_reaction_used") and data.get("current_combatant_id"):
+            data["reactions_used"] = {data["current_combatant_id"]: True}
         return data
 
     def get_current_combatant(self) -> Optional[Combatant]:
@@ -530,6 +558,7 @@ class PendingTurnState(BaseModel):
     prompt: str = ""
     original_input: str = ""
     details: Dict[str, Any] = Field(default_factory=dict)
+    roll_records: List[RollRecord] = Field(default_factory=list)
 
     def to_client_payload(self) -> Dict[str, Any]:
         return {
@@ -618,10 +647,24 @@ class TurnTrace(BaseModel):
         return data
 
 
+class SpellAttackCast(BaseModel):
+    cast_id: str
+    caster_id: str
+    spell_name: str
+    turn_key: str
+    action_cost: str
+    attack_bonus: int
+    damage_expression: str
+    damage_types: List[str]
+    attacks_remaining: int
+
+
 class GameState(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     schema_version: int = 4
+    state_version: str = ""
+    pending_spell_attacks: List[SpellAttackCast] = Field(default_factory=list)
     game_id: str = ""
     title: str = ""
     created_at: Optional[str] = None
@@ -719,7 +762,22 @@ class GameState(BaseModel):
             item if isinstance(item, SearchRecord) else SearchRecord.model_validate(item)
             for item in data.get("search_records", [])
         ]
-        data["encounter"] = EncounterState.model_validate(data["encounter"]) if data.get("encounter") else None
+        raw_encounter = data.get("encounter")
+        if isinstance(raw_encounter, dict):
+            raw_encounter = dict(raw_encounter)
+            raw_combatants = raw_encounter.get("combatants") or {}
+            def migrate_temp_hp(raw):
+                # 旧存档的战斗镜像没有临时 HP；只补缺字段，不掩盖新工具产生的显式不一致。
+                if isinstance(raw, dict) and "temp_hp" not in raw:
+                    character = normalized_characters.get(raw.get("linked_character_id"))
+                    if character:
+                        return {**raw, "temp_hp": character.temp_hp}
+                return raw
+            if isinstance(raw_combatants, dict):
+                raw_encounter["combatants"] = {key: migrate_temp_hp(raw) for key, raw in raw_combatants.items()}
+            elif isinstance(raw_combatants, list):
+                raw_encounter["combatants"] = [migrate_temp_hp(raw) for raw in raw_combatants]
+        data["encounter"] = EncounterState.model_validate(raw_encounter) if raw_encounter else None
         data["campaign"] = CampaignFlowState.model_validate(data["campaign"]) if data.get("campaign") else CampaignFlowState()
         data.setdefault("schema_version", 4)
         return data
@@ -744,6 +802,7 @@ class GameState(BaseModel):
 class TurnResult(BaseModel):
     # This mirrors the full post-turn payload returned to the frontend.
     response: str
+    roll_records: List[RollRecord] = Field(default_factory=list)
     turn_status: str = "completed"
     pending_input: Dict[str, Any] = Field(default_factory=dict)
     turn_trace: Optional[TurnTrace] = None

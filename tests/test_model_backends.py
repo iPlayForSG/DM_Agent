@@ -3,7 +3,6 @@ import os
 import sys
 import unittest
 from functools import reduce
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -19,36 +18,8 @@ from model_backends import (
 )
 
 
-class _RecordingStdin:
-    def __init__(self) -> None:
-        self.value = ""
-        self.closed = False
-
-    def write(self, value: str) -> int:
-        self.value += value
-        return len(value)
-
-    def close(self) -> None:
-        self.closed = True
 
 
-class _FakePopen:
-    def __init__(self, events, *, returncode: int = 0) -> None:
-        self.stdin = _RecordingStdin()
-        self.stdout = iter(f"{json.dumps(event, ensure_ascii=False)}\n" for event in events)
-        self._configured_returncode = returncode
-        self.returncode = None
-
-    def poll(self):
-        return self.returncode
-
-    def wait(self):
-        if self.returncode is None:
-            self.returncode = self._configured_returncode
-        return self.returncode
-
-    def kill(self) -> None:
-        self.returncode = -9
 
 
 class CodingAgentCLIChatModelTests(unittest.TestCase):
@@ -70,15 +41,9 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
             {"type": "turn.completed", "usage": {}},
         ]
 
-        def fake_popen(command, **kwargs):
-            captured["command"] = command
-            captured["cwd"] = kwargs["cwd"]
-            schema_index = command.index("--output-schema") + 1
-            self.assertTrue(Path(command[schema_index]).is_file())
-            self.assertEqual(kwargs["cwd"], str(Path(command[schema_index]).parent))
-            process = _FakePopen(events)
-            captured["process"] = process
-            return process
+        def fake_stream(executable, prompt, **kwargs):
+            captured.update(executable=executable, prompt=prompt, **kwargs)
+            yield from events
 
         model = CodingAgentCLIChatModel(
             provider="codex-cli",
@@ -96,24 +61,17 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
             },
         }]
         with patch("model_backends.resolve_cli_command", return_value="/fake/codex"), patch(
-            "model_backends.subprocess.Popen", side_effect=fake_popen
+            "codex_transport.stream_codex_events", side_effect=fake_stream
         ):
             response = model.bind_tools(tools).invoke([HumanMessage(content="How does grapple work?")])
 
-        prompt = captured["process"].stdin.value
+        prompt = captured["prompt"]
         self.assertEqual(response.tool_calls[0]["name"], "lookup_rules")
         self.assertEqual(response.tool_calls[0]["args"], {"query": "grapple"})
-        self.assertIn("exec", captured["command"])
-        self.assertIn("read-only", captured["command"])
-        self.assertIn("--ephemeral", captured["command"])
-        self.assertIn("--ignore-user-config", captured["command"])
-        self.assertIn("--ignore-rules", captured["command"])
-        self.assertIn("--json", captured["command"])
-        self.assertEqual(captured["command"][captured["command"].index("--model") + 1], "gpt-5.6-terra")
-        self.assertEqual(
-            captured["command"][captured["command"].index("--config") + 1],
-            'model_reasoning_effort="high"',
-        )
+        self.assertEqual(captured["executable"], "/fake/codex")
+        self.assertEqual(captured["model"], "gpt-5.6-terra")
+        self.assertEqual(captured["effort"], "high")
+        self.assertFalse(captured["schema"]["additionalProperties"])
         self.assertIn("Do not inspect files", prompt)
         self.assertIn("lookup_rules", prompt)
 
@@ -147,15 +105,13 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
             {"type": "turn.completed", "usage": {}},
         ]
 
-        def fake_popen(command, **kwargs):
-            captured["command"] = command
-            process = _FakePopen(events)
-            captured["process"] = process
-            return process
+        def fake_stream(executable, prompt, **kwargs):
+            captured.update(executable=executable, **kwargs)
+            yield from events
 
         model = CodingAgentCLIChatModel(provider="codex-cli", command="codex", timeout_s=30)
         with patch("model_backends.resolve_cli_command", return_value="/fake/codex"), patch(
-            "model_backends.subprocess.Popen", side_effect=fake_popen
+            "codex_transport.stream_codex_events", side_effect=fake_stream
         ):
             chunks = list(model.stream([HumanMessage(content="观察并查规则")]))
 
@@ -166,8 +122,7 @@ class CodingAgentCLIChatModelTests(unittest.TestCase):
         self.assertEqual(response.content, "先观察，再行动。")
         self.assertEqual(response.tool_calls[0]["name"], "lookup_rules")
         self.assertEqual(response.tool_calls[0]["args"], {"query": "伏击"})
-        self.assertIn("--json", captured["command"])
-        self.assertTrue(captured["process"].stdin.closed)
+        self.assertEqual(captured["executable"], "/fake/codex")
 
     def test_partial_content_decoder_waits_for_incomplete_escape(self) -> None:
         self.assertEqual(

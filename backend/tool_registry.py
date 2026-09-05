@@ -237,11 +237,18 @@ class ToolRegistry:
             )
 
         runtime_metadata: Dict[str, Any] = {}
+        if tool_name == "attack_target" and normalized_args.get("cast_id"):
+            from spell_resolution import get_attack_cast
+            try:
+                cast = get_attack_cast(state, str(normalized_args.get("attacker_ref") or ""), normalized_args["cast_id"])
+                runtime_metadata["turn_action_cost"] = cast.action_cost
+            except ValueError as exc:
+                return self._reject(tool_name, str(exc), contract=contract)
         spell_error = self._validate_spell_cast(contract, state, normalized_args, runtime_metadata)
         if spell_error:
             return self._reject(tool_name, spell_error, contract=contract)
 
-        current_actor_error = self._validate_current_actor(contract, state, normalized_args)
+        current_actor_error = self._validate_current_actor(contract, state, normalized_args, runtime_metadata)
         if current_actor_error:
             return self._reject(tool_name, current_actor_error, contract=contract)
 
@@ -415,10 +422,23 @@ class ToolRegistry:
         contract: ToolContract,
         state: GameState,
         args: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         actor_arg = contract.current_actor_arg
         if not actor_arg:
             return ""
+
+        from game_logic import GameLogic
+        actor_ref = str(args.get(actor_arg) or "").strip()
+        logic = GameLogic(state)
+        try:
+            logic.require_actor_capable(actor_ref)
+        except ValueError as exc:
+            return str(exc)
+        feature = GameLogic.feature_definition_for(str(args.get(contract.feature_name_arg) or "")) if contract.feature_name_arg else {}
+        action_cost = feature.get("action_cost") or (metadata or {}).get("turn_action_cost") or args.get(contract.turn_action_cost_arg)
+        if action_cost == "reaction":
+            return "" if (logic.get_character(actor_ref) or logic.get_combatant(actor_ref)) else "Reaction actor not found"
 
         encounter = state.encounter
         if not encounter or not encounter.active:
@@ -606,6 +626,9 @@ class ToolRegistry:
     ) -> str:
         if not contract.consumes_turn_action:
             return ""
+        if contract.name == "attack_target" and (args or {}).get("cast_id"):
+            # 前面已经验证过施法凭据；这是同一次施法的效果，不能再次扣动作。
+            return ""
 
         encounter = state.encounter
         if not encounter or not encounter.active:
@@ -638,6 +661,12 @@ class ToolRegistry:
             if metadata is not None:
                 metadata["turn_action_cost"] = action_cost
         if action_cost == "free":
+            return ""
+        if action_cost == "reaction":
+            from game_logic import GameLogic
+            actor = GameLogic(state).get_combatant(str((args or {}).get(contract.current_actor_arg) or ""))
+            if actor and encounter.reactions_used.get(actor.combatant_id, False):
+                return f"{actor.name} reaction already used until their next turn."
             return ""
         key_field, used_field, tool_field = self._turn_slot_fields(action_cost)
         turn_key = f"{encounter.round_number}:{current.combatant_id}"

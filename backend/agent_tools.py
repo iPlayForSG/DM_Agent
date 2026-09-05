@@ -17,6 +17,7 @@ from rag import RAGEngine
 from rules_catalog import ABILITY_ALIAS, SKILL_TO_ABILITY, RuleCatalog
 from starter_shop import get_shop_catalog
 from storage import MonsterStorage
+from roll_capture import dice_context
 
 
 def merge_patch(current: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
@@ -259,7 +260,8 @@ class AgentToolService:
         normalized_visibility = str(visibility or "public").strip().casefold()
         if normalized_visibility not in {"public", "hidden"}:
             return self._error("visibility must be public or hidden")
-        total, detail = DiceRoller.roll(expression)
+        with dice_context(visibility=normalized_visibility, reason=reason):
+            total, detail = DiceRoller.roll(expression)
         payload = {
             "expression": expression,
             "reason": reason,
@@ -786,7 +788,19 @@ class AgentToolService:
         reason: str = "",
         attack_name: str = "",
         roll_mode: str = "normal",
+        cast_id: str = "",
     ) -> AgentToolExecution:
+        if cast_id:
+            from spell_resolution import resolve_spell_attack
+            try:
+                result = resolve_spell_attack(state, attacker_ref, target_ref, cast_id, damage_type, roll_mode)
+            except ValueError as exc:
+                return self._error(str(exc))
+            return self._success(
+                tool_name="combat.attack_target", event_type="attack_resolved",
+                summary=f"{result['attacker_name']} {result['spell_name']}：{result['attack_total']} vs AC {result['target_ac']}，伤害 {result['damage_total']}",
+                payload={key: value for key, value in result.items() if key != "patch"}, state_patch=result["patch"],
+            )
         logic = GameLogic(state)
         try:
             logic.require_current_actor(attacker_ref)
@@ -1076,95 +1090,20 @@ class AgentToolService:
             content=reason,
         )
 
-    def cast_spell(
-        self,
-        state: GameState,
-        caster_ref: str,
-        spell_name: str,
-        slot_level: int = 0,
-        reason: str = "",
-    ) -> AgentToolExecution:
-        logic = GameLogic(state)
+    def cast_spell(self, state: GameState, caster_ref: str, spell_name: str,
+                   slot_level: int = 0, reason: str = "") -> AgentToolExecution:
+        from spell_resolution import cast_spell
         try:
-            logic.require_current_actor(caster_ref)
+            payload, patch = cast_spell(state, self.rules_catalog, caster_ref, spell_name, slot_level)
         except ValueError as exc:
             return self._error(str(exc))
+        payload["reason"] = reason
+        summary = f"{payload['caster_name']} 施放 {payload['spell_name']}"
+        if payload["resolved_slot_level"]:
+            summary += f"，消耗 {payload['resolved_slot_level']} 环法术位"
+        return self._success(tool_name="magic.cast_spell", summary=summary, payload=payload,
+                             event_type="spell_cast", content=reason, state_patch=patch)
 
-        caster = logic.get_character(caster_ref)
-        if not caster:
-            return self._error(f"Spell caster not found: {caster_ref}")
-
-        validation = self.rules_catalog.can_cast_spell(
-            character=caster,
-            spell_name=spell_name,
-            slot_level=slot_level or None,
-        )
-        if not validation["ok"]:
-            return self._error(validation.get("error", "Spell validation failed"), validation)
-
-        spell_details = dict(validation["spell"])
-        resolved_slot = int(validation["resolved_slot_level"])
-        canonical_spell_name = str(validation.get("spell_name") or spell_details.get("name") or spell_name)
-        action_cost = self.rules_catalog.spell_action_cost(spell_details)
-        try:
-            logic.require_turn_slot_available(action_cost, "cast_spell")
-        except ValueError as exc:
-            return self._error(str(exc))
-        previous_concentration = caster.concentration_spell
-        self.rules_catalog.consume_spell_slot(caster, resolved_slot)
-        if bool(spell_details.get("concentration")):
-            caster.concentration_spell = canonical_spell_name
-            caster.concentration_spell_level = int(spell_details.get("level", 0))
-        payload = {
-            "caster_id": caster.character_id,
-            "caster_name": caster.name,
-            "spell_name": canonical_spell_name,
-            "requested_spell_name": spell_name,
-            "spell_level": int(spell_details.get("level", 0)),
-            "resolved_slot_level": resolved_slot,
-            "action_cost": action_cost,
-            "concentration": bool(spell_details.get("concentration")),
-            # 成功施法只结算资源与动作；把权威规则正文交还给 DM，供其判断后续攻击、豁免或检定。
-            "desc": str(spell_details.get("desc") or spell_details.get("description") or "").strip(),
-            "previous_concentration_spell": previous_concentration,
-            "current_concentration_spell": caster.concentration_spell,
-            "reason": reason,
-            "remaining_slots": {
-                level: {
-                    "total": slot.total,
-                    "used": slot.used,
-                }
-                for level, slot in caster.spells.slots.items()
-            },
-        }
-        summary = f"{caster.name} 施放 {canonical_spell_name}"
-        if resolved_slot > 0:
-            summary += f"，消耗 {resolved_slot} 环法术位"
-        if reason:
-            summary += f" | {reason}"
-        try:
-            action_patch = logic.mark_current_turn_slot_used(action_cost, "cast_spell")
-        except ValueError as exc:
-            return self._error(str(exc))
-        return self._success(
-            tool_name="magic.cast_spell",
-            summary=summary,
-            payload=payload,
-            event_type="spell_cast",
-            content=reason,
-            state_patch=GameLogic._merge_patches(
-                {
-                    "characters": {
-                        caster.character_id: {
-                            "spells": caster.spells.model_dump(mode="json"),
-                            "concentration_spell": caster.concentration_spell,
-                            "concentration_spell_level": caster.concentration_spell_level,
-                        }
-                    }
-                },
-                action_patch,
-            ),
-        )
 
     def use_item(
         self,

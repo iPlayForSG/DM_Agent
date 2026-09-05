@@ -569,11 +569,12 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "attack_target",
-        "description": "Resolve an attack roll against target AC and apply damage on hit. Character attack math is always derived from the character sheet.",
+        "description": "Resolve an attack roll and damage. For a spell attack, pass the cast_id returned by cast_spell; the runtime derives spell math and does not spend the action twice. Resolve every remaining beam before final narration.",
         "parameters": {
             "type": "object",
             "properties": {
                 "attacker_ref": {"type": "string"},
+                "cast_id": {"type": "string", "default": ""},
                 "target_ref": {"type": "string"},
                 "attack_name": {"type": "string", "default": ""},
                 "attack_bonus": {"type": "integer"},
@@ -626,8 +627,8 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "name": "cast_spell",
         "description": (
             "Validate spell access and spend a spell slot if required. The successful result includes the authoritative "
-            "spell desc; read it before deciding whether attacks, saves, checks, damage, statuses, or other follow-up "
-            "resolution tools are required."
+            "spell desc. If cast_id is present, call attack_target with that cast_id for each attack_count; do not invent "
+            "spell bonuses or use a weapon profile for the spell. Other effects may require saves, checks or statuses."
         ),
         "parameters": {
             "type": "object",
@@ -2135,9 +2136,11 @@ class DMGraphRunner:
         return active.hp_current <= 0 or str(active.defeat_state or "active") != "active"
 
     def _authoritative_resolution_pending(self, graph_state: DMGraphState) -> bool:
+        state = GameState.model_validate(graph_state["game_state"])
+        if state.pending_spell_attacks:
+            return True
         if not self._hostile_intent(graph_state):
             return False
-        state = GameState.model_validate(graph_state["game_state"])
         return not self._hostile_action_resolved(state, graph_state)
 
     def _build_turn_advice(
@@ -4520,7 +4523,16 @@ class DMGraphRunner:
         if not tool:
             return self._tool_error_execution(tool_name, f"Unknown tool: {tool_name}")
         try:
-            return tool(state, **guardrail.args)
+            from roll_capture import tool_roll_context
+            logic = GameLogic(state)
+            args = guardrail.args
+            actor_ref = next((str(args[key]) for key in ("actor_ref", "attacker_ref", "caster_ref", "user_ref", "character_ref", "combatant_ref") if args.get(key)), "")
+            with tool_roll_context(actor=logic.get_actor_name(actor_ref) if actor_ref else "",
+                                   target=logic.get_actor_name(str(args.get("target_ref") or "")),
+                                   reason=str(args.get("reason") or ""), visibility=str(args.get("visibility") or "public")) as outcome:
+                result = tool(state, **args)
+                outcome["ok"] = result.ok
+                return result
         except TypeError as exc:
             return self._tool_error_execution(tool_name, f"Invalid tool arguments for {tool_name}: {exc}")
         except Exception as exc:
@@ -4622,6 +4634,13 @@ class DMGraphRunner:
             )
 
         encounter = state.encounter
+        if state.pending_spell_attacks:
+            from spell_resolution import spell_turn_key
+            active_casts = [cast for cast in state.pending_spell_attacks if cast.turn_key == spell_turn_key(state)]
+            if active_casts:
+                mark_repair(validator="spell_attack_resolution", tools=["attack_target"],
+                            summary="Resolve pending spell attacks with attack_target using their cast_id before narration.",
+                            metadata={"casts": [cast.model_dump(mode="json") for cast in active_casts]})
         hostile_resolution_pending = self._hostile_intent(graph_state) and not self._hostile_action_resolved(
             state,
             graph_state,
@@ -4662,6 +4681,7 @@ class DMGraphRunner:
                     expected_saves = logic._character_save_modifiers(character)
                     if (
                         combatant.hp_current != character.hp_current
+                        or combatant.temp_hp != character.temp_hp
                         or combatant.hp_max != character.hp_max
                         or combatant.ac != character.ac
                         or combatant.initiative_bonus != character.initiative_bonus
@@ -4689,7 +4709,7 @@ class DMGraphRunner:
                     encounter.combatants.values(),
                     key=lambda combatant: (
                         combatant.initiative is None,
-                        -(combatant.initiative or -999),
+                        -(combatant.initiative if combatant.initiative is not None else -999),
                         order_index.get(combatant.combatant_id, 9999),
                         combatant.name,
                     ),
@@ -4971,6 +4991,10 @@ class DMGraphRunner:
         validation_notes = list(graph_state.get("validation_notes", []))
         validation_issues = list(graph_state.get("validation_issues", []))
         node_traces = list(graph_state.get("node_traces", []))
+
+        if state.pending_spell_attacks and turn_status != "failed":
+            turn_status = "failed"
+            final_response = "法术攻击尚未完成结算，本回合未提交；请重试。"
 
         if (
             turn_status != "failed"
@@ -5381,6 +5405,17 @@ class DMGraphRunner:
         )
         return self._result_to_turn_result(result, state, user_input, thread_id)
 
+    @staticmethod
+    def _pending_base_payload(state: GameState) -> Dict[str, Any]:
+        payload = state.model_dump(mode="json")
+        # 暂停发布与建议缓存会变化这些非业务字段，不能仅因它们变化就取消合法选择。
+        for field in ("pending_turn", "state_version", "created_at", "updated_at", "turn_traces"):
+            payload.pop(field, None)
+        for message in payload["chat_history"]:
+            message.pop("action_suggestions", None)
+            message.pop("action_suggestions_generated", None)
+        return payload
+
     def resume_turn(self, state: GameState, user_input: str) -> TurnResult:
         if self._graph is None:
             self._graph = self._build_graph()
@@ -5391,6 +5426,7 @@ class DMGraphRunner:
 
         thread_id = state.pending_turn.thread_id
         graph_config = self._graph_config(thread_id)
+        base_state_changed = False
         try:
             if state.pending_turn.kind == "tool_confirmation":
                 raise RuntimeError("legacy tool_confirmation interrupt policy is no longer resumable")
@@ -5400,6 +5436,13 @@ class DMGraphRunner:
                 checkpoint_values = getattr(checkpoint, "values", None) or {}
                 if "game_state" not in checkpoint_values:
                     raise RuntimeError("checkpoint missing for pending thread")
+                if "initial_game_state" not in checkpoint_values:
+                    raise RuntimeError("checkpoint is missing the original state")
+                initial = GameState.model_validate(checkpoint_values["initial_game_state"])
+                if self._pending_base_payload(initial) != self._pending_base_payload(state):
+                    # 兼容修复前已发生本地写入的暂停存档：保留公开已保存事实，丢弃旧私有事务。
+                    base_state_changed = True
+                    raise RuntimeError("checkpoint base state changed while paused")
             result = self._graph.invoke(
                 Command(resume={"message": user_input}),
                 config=graph_config,
@@ -5418,7 +5461,11 @@ class DMGraphRunner:
                     "phase": state.campaign.phase,
                     "scene": state.scene,
                     "turn_status": "failed",
-                    "final_response": "挂起回合的执行检查点不可用或已失效；其中的暂存变化未提交，请重新描述行动。",
+                    "final_response": (
+                        "暂停期间本局状态已发生变化，旧选择已结束；已保存的物品和进度保留，请重新描述行动。"
+                        if base_state_changed else
+                        "挂起回合的执行检查点不可用或已失效；其中的暂存变化未提交，请重新描述行动。"
+                    ),
                     "timeline_append": [],
                     "tool_results": [],
                     "state_delta": {},

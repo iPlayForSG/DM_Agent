@@ -8,7 +8,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import threading
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence
 
@@ -306,76 +305,13 @@ class CodingAgentCLIChatModel(BaseChatModel):
             )
 
     def _iter_codex_json_events(self, executable: str, prompt: str) -> Iterator[Dict[str, Any]]:
-        with tempfile.TemporaryDirectory(prefix="dm-agent-cli-") as temp_dir:
-            temp_path = Path(temp_dir)
-            command = self._build_command(executable, temp_path)
-            stderr_path = temp_path / "stderr.log"
-            timed_out = threading.Event()
-            process: Optional[subprocess.Popen[str]] = None
-            with stderr_path.open("w+", encoding="utf-8", errors="replace") as stderr_file:
-                try:
-                    process = subprocess.Popen(
-                        command,
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=stderr_file,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace",
-                        cwd=temp_dir,
-                        bufsize=1,
-                        env={**os.environ, "NO_COLOR": "1"},
-                    )
-                    timer = threading.Timer(
-                        self.timeout_s,
-                        self._kill_timed_out_process,
-                        args=(process, timed_out),
-                    )
-                    timer.daemon = True
-                    timer.start()
-                    try:
-                        if process.stdin is None or process.stdout is None:
-                            raise RuntimeError("codex-cli process pipes were unavailable")
-                        process.stdin.write(prompt)
-                        process.stdin.close()
-                        try:
-                            for raw_line in process.stdout:
-                                line = str(raw_line or "").strip()
-                                if not line:
-                                    continue
-                                try:
-                                    event = json.loads(line)
-                                except json.JSONDecodeError as exc:
-                                    raise RuntimeError(f"codex-cli returned invalid JSONL: {exc}") from exc
-                                if not isinstance(event, dict):
-                                    raise RuntimeError("codex-cli JSONL event was not an object")
-                                yield event
-                        finally:
-                            close_stdout = getattr(process.stdout, "close", None)
-                            if callable(close_stdout):
-                                close_stdout()
-                        return_code = process.wait()
-                    finally:
-                        timer.cancel()
-                finally:
-                    if process is not None and process.poll() is None:
-                        process.kill()
-                        process.wait()
-                stderr_file.flush()
-                stderr_file.seek(0)
-                stderr = stderr_file.read()
+        from codex_transport import stream_codex_events
+        try:
+            yield from stream_codex_events(executable, prompt, schema=CLI_RESPONSE_SCHEMA,
+                                           model=self.model_name, effort=self.reasoning_effort, timeout_s=self.timeout_s)
+        except RuntimeError as exc:
+            raise RuntimeError(self._safe_error_detail(str(exc))) from exc
 
-            if timed_out.is_set():
-                raise RuntimeError(f"codex-cli timed out after {self.timeout_s}s")
-            if return_code != 0:
-                detail = self._safe_error_detail(stderr or "unknown CLI error")
-                raise RuntimeError(f"codex-cli exited with code {return_code}: {detail}")
-
-    @staticmethod
-    def _kill_timed_out_process(process: subprocess.Popen[str], timed_out: threading.Event) -> None:
-        if process.poll() is None:
-            timed_out.set()
-            process.kill()
 
     @classmethod
     def _message_from_payload(cls, payload: Dict[str, Any]) -> AIMessage:
@@ -475,28 +411,6 @@ class CodingAgentCLIChatModel(BaseChatModel):
         return "".join(decoded)
 
     def _build_command(self, executable: str, temp_dir: Path) -> List[str]:
-        if self.provider == CODEX_CLI_PROVIDER:
-            schema_path = temp_dir / "response-schema.json"
-            schema_path.write_text(json.dumps(CLI_RESPONSE_SCHEMA), encoding="utf-8")
-            command = [
-                executable,
-                "exec",
-                "--ephemeral",
-                "--ignore-user-config",
-                "--ignore-rules",
-                "--json",
-                "--sandbox",
-                "read-only",
-                "--skip-git-repo-check",
-                "--output-schema",
-                str(schema_path),
-            ]
-            if self.model_name:
-                command.extend(["--model", self.model_name])
-            if self.reasoning_effort:
-                command.extend(["--config", f'model_reasoning_effort="{self.reasoning_effort}"'])
-            command.append("-")
-            return command
         if self.provider == CLAUDE_CODE_PROVIDER:
             command = [
                 executable,

@@ -4,7 +4,12 @@
   "ignore": {
     "path_globs": [
       ".agent/**",
+      ".agents/**",
       ".codex/**",
+      ".env",
+      ".env.*",
+      "**/.env",
+      "**/.env.*",
       "docs/adr/**",
       "frontend/dist/**",
       "frontend/node_modules/**",
@@ -25,6 +30,7 @@
       "id": "commands-and-ci",
       "patterns": [
         "start.cmd",
+        "start.sh",
         "backend/requirements.txt",
         "frontend/package.json",
         ".github/**",
@@ -115,6 +121,7 @@
     "infrastructure": [
       ".github/",
       "start.cmd",
+      "start.sh",
       "Dockerfile",
       "docker-compose"
     ]

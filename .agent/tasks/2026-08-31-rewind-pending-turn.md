@@ -1,8 +1,7 @@
 # 删除消息后复活失效暂停回合
 
-## Status
-
-已完成。
+Status: completed
+Updated: 2026-09-05
 
 ## Goal
 
