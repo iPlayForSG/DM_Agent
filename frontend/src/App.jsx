@@ -817,22 +817,24 @@ function EvidencePanel({ evidence = [] }) {
   );
 }
 function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant, localActionsLocked = false }) {
+  const nextActorId = encounter?.active && encounter?.turn_order_started ? encounter.current_combatant_id : null;
   return (
     <section className="side-section combat-panel">
       <h3>场上形势</h3>
       {!encounter ? (
         <p className="empty-text">当前没有战斗。</p>
       ) : (
-        <div className="combatant-list">
-          {combatants.map((combatant) => (
+        <div className="combatant-list" aria-label="先攻行动顺序">
+          <p className="combat-order-hint">{!encounter.active ? "本次战斗已结束" : encounter.turn_order_started ? `第 ${encounter.round_number} 轮 · 按先攻顺序` : "等待先攻确定"}</p>
+          {combatants.map((combatant, index) => (
             <div
               key={combatant.combatant_id}
-              className={`combatant-item ${encounter.current_combatant_id === combatant.combatant_id ? "combatant-active" : ""}`}
-              aria-current={encounter.current_combatant_id === combatant.combatant_id ? "true" : undefined}
+              className={`combatant-item ${nextActorId === combatant.combatant_id ? "combatant-active" : ""}`}
+              aria-current={nextActorId === combatant.combatant_id ? "step" : undefined}
             >
               <div className="timeline-summary combatant-heading">
-                <span>{combatant.name} · {localizeSide(combatant.side)}</span>
-                {encounter.current_combatant_id === combatant.combatant_id && <span className="combatant-turn-badge">当前行动</span>}
+                <span><span className="combat-order-number">{index + 1}</span>{combatant.name} · {localizeSide(combatant.side)}</span>
+                {nextActorId === combatant.combatant_id && <span className="combatant-turn-badge" title="下一次对话从该行动者继续">接下来行动</span>}
               </div>
               <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
               {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
@@ -878,8 +880,41 @@ function SpellNames({ names, options = [] }) {
   });
 }
 
-function CharacterStatusCard({ character, actor, primary = false }) {
+function TurnActionResources({ character, actor, encounter }) {
+  const inCombat = Boolean(encounter?.active);
+  const combatant = Object.values(encounter?.combatants || {}).find((entry) => entry.linked_character_id === character.character_id);
+  const ownTurn = Boolean(combatant && encounter?.current_combatant_id === combatant.combatant_id);
+  const slots = [
+    { label: "动作", used: encounter?.turn_action_used },
+    { label: "附赠动作", used: encounter?.turn_bonus_action_used },
+    { label: "反应", used: combatant && encounter?.reactions_used?.[combatant.combatant_id], reaction: true },
+  ];
+  return (
+    <section className="sheet-section turn-resources" aria-label="行动额度">
+      <h4>行动额度 <span>{inCombat ? "剩余 / 基础额度" : "战斗中的基础额度"}</span></h4>
+      <div className="turn-resource-grid">
+        {slots.map((slot) => {
+          let value = "1 次", note = "每次自己的回合";
+          if (inCombat) {
+            value = "— / 1";
+            if (!encounter.turn_order_started) note = "等待先攻";
+            else if (!combatant || !actor) note = "等待状态";
+            else if (!actor.can_act) { value = "0 / 1"; note = "无法行动"; }
+            // turn_* 是当前行动者的槽位，不能当作非当前角色的剩余量。
+            else if (!ownTurn && !slot.reaction) note = "等待回合";
+            else { value = slot.used ? "0 / 1" : "1 / 1"; note = slot.used ? "已使用" : slot.reaction ? "需满足触发条件" : "可用"; }
+          }
+          return <div className="turn-resource" key={slot.label}><span>{slot.label}</span><strong>{value}</strong><small>{note}</small></div>;
+        })}
+      </div>
+      <p className="turn-resource-note">在自己回合开始时恢复。附赠动作与反应需有对应能力或触发条件。</p>
+    </section>
+  );
+}
+
+function CharacterStatusCard({ character, actor, encounter, primary = false }) {
   const [isOpen, setIsOpen] = useState(primary);
+  const [inventoryOpen, setInventoryOpen] = useState(true);
   const stats = character?.stats || {};
   const resources = Object.entries(actor?.resources || character?.resources || {});
   const inventory = actor?.items?.length ? actor.items : character?.inventory || [];
@@ -930,6 +965,7 @@ function CharacterStatusCard({ character, actor, primary = false }) {
             {statuses.map((status) => <span key={status} className="tag">{status}</span>)}
           </div>
         )}
+        <TurnActionResources character={character} actor={actor} encounter={encounter} />
         {resources.length > 0 && (
           <section className="sheet-section">
             <h4>资源</h4>
@@ -957,8 +993,8 @@ function CharacterStatusCard({ character, actor, primary = false }) {
             {saves.length > 0 && <div className="timeline-content">豁免：{saves.map(localizeStat).join("、")}</div>}
           </section>
         )}
-        <section className="sheet-section">
-          <h4>物品栏</h4>
+        <details className="sheet-section inventory-disclosure" open={inventoryOpen} onToggle={(event) => setInventoryOpen(event.currentTarget.open)}>
+          <summary><h4>物品栏</h4><span>{inventory.length} 项</span></summary>
           {inventory.length === 0 ? <p className="empty-text">没有记录物品。</p> : inventory.map((item, index) => (
             <div key={`${character.character_id}-item-${item.name}-${index}`} className="inventory-row">
               <DescriptionTooltip label={item.name_display || item.name}
@@ -967,7 +1003,7 @@ function CharacterStatusCard({ character, actor, primary = false }) {
               <small>{formatEquipmentLine(item) || item.type_display || localizeEquipmentType(item.type)}</small>
             </div>
           ))}
-        </section>
+        </details>
       </div>
     </details>
   );
@@ -3906,6 +3942,7 @@ export default function App() {
                           key={character.character_id}
                           character={character}
                           actor={characterActorById[character.character_id]}
+                          encounter={encounter}
                           primary={character.character_id === activeCharacterId}
                         />
                       ))}
