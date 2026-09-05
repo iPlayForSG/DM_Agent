@@ -15,12 +15,13 @@ from action_service import GameActionService
 from campaign_memory import compile_campaign_memory
 from dm_graph import DMGraphRunner
 from game_logic import GameLogic
-from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, MonsterTemplate, PendingTurnState, ResourcePool, SearchRecord, SpellSlot
+from models import AdventureHook, ChapterRecord, Character, EvidenceRecord, GameState, InventoryItem, MonsterTemplate, PendingTurnState, ResourcePool, SearchRecord, SpellSlot, ToolResult
 from agent import DMAgent, normalize_openai_base_url
 from agent_tools import AgentToolExecution, AgentToolService
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, AIMessageChunk
 from rules_catalog import RuleCatalog
 from storage import MonsterStorage
+from turn_stream import turn_stream_context
 
 
 class DummyRAGEngine:
@@ -148,6 +149,33 @@ class DMGraphWorkflowTests(unittest.TestCase):
             enable_model=False,
         )
 
+    def test_dm_model_stream_accumulates_chunks_and_emits_public_deltas(self) -> None:
+        class ChunkedModel:
+            def invoke(self, _messages):
+                raise AssertionError("streaming context should use stream(), not invoke()")
+
+            def stream(self, _messages):
+                yield AIMessageChunk(content="先观察")
+                yield AIMessageChunk(content="，再行动。")
+
+        events = []
+        with turn_stream_context(lambda event, data: events.append((event, data))):
+            response = self.runner._invoke_dm_model(ChunkedModel(), [])
+
+        self.assertEqual(response.content, "先观察，再行动。")
+        self.assertEqual(
+            [event for event, _ in events],
+            [
+                "agent.output.started",
+                "agent.output.delta",
+                "agent.output.delta",
+                "agent.output.completed",
+            ],
+        )
+        self.assertEqual(events[1][1]["text"], "先观察")
+        self.assertEqual(events[2][1]["text"], "，再行动。")
+        self.assertEqual(events[-1][1]["emitted_chars"], len("先观察，再行动。"))
+
     @staticmethod
     def _build_state(with_selected_adventure: bool = False) -> GameState:
         state = GameState(game_id="qa-workflow", title="QA Workflow")
@@ -215,6 +243,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("Structured turn intent:", instruction)
         self.assertIn("setup_guidance", instruction)
         self.assertIn("Do not begin active exploration or combat until an adventure hook is selected.", instruction)
+        self.assertIn("read the returned `desc`", instruction)
 
     def test_campaign_memory_compiler_summarizes_durable_state(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -578,6 +607,205 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("search", planned["turn_intent"]["action_terms"])
         self.assertEqual(planned["turn_intent"]["phase"], "exploration")
         self.assertEqual(planned["turn_intent"]["risk_level"], "low")
+
+    def test_surprise_attack_terms_route_to_encounter_and_attack_tools(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+
+        intent = self.runner._plan_turn_intent(
+            state,
+            "突袭我面前的地精",
+            "exploration",
+            "exploration",
+        )
+
+        self.assertEqual(intent.turn_type, "action_resolution")
+        self.assertEqual(intent.intent_source, "deterministic")
+        self.assertIn("hostile_attack", intent.intent_tags)
+        self.assertIn("start_encounter", intent.suggested_tools)
+        self.assertIn("attack_target", intent.suggested_tools)
+
+    def test_unmatched_phrase_uses_agent_intent_fallback(self) -> None:
+        class IntentClassifierModel:
+            def __init__(self):
+                self.calls = []
+
+            def bind(self, **_kwargs):
+                return self
+
+            def invoke(self, messages):
+                self.calls.append(list(messages))
+                return AIMessage(
+                    content=(
+                        '{"turn_type":"action_resolution","intent_tags":["hostile_attack"],'
+                        '"suggested_tools":["start_encounter","attack_target"],'
+                        '"reason":"玩家正在用未收录措辞伤害生物"}'
+                    )
+                )
+
+        state = self._build_state(with_selected_adventure=True)
+        model = IntentClassifierModel()
+        self.runner.enable_model = True
+        self.runner._model = model
+
+        intent = self.runner._plan_turn_intent(
+            state,
+            "我让手里的寒光没入它的肋下",
+            "exploration",
+            "exploration",
+            allow_agent_fallback=True,
+        )
+
+        self.assertEqual(len(model.calls), 1)
+        self.assertEqual(intent.turn_type, "action_resolution")
+        self.assertEqual(intent.intent_source, "agent_fallback")
+        self.assertIn("hostile_attack", intent.intent_tags)
+        self.assertEqual(intent.suggested_tools[:2], ["start_encounter", "attack_target"])
+
+    def test_hostile_intent_refreshes_combat_tools_after_encounter_start(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        logic = GameLogic(state)
+        encounter = logic.start_encounter(["地精"], enemy_hp=7, enemy_ac=12)
+        for combatant in encounter.combatants.values():
+            logic.set_initiative(combatant.combatant_id, 30 if combatant.linked_character_id else 5)
+        intent = self.runner._plan_turn_intent(
+            self._build_state(with_selected_adventure=True),
+            "突袭我面前的地精",
+            "exploration",
+            "exploration",
+        )
+
+        validated = self.runner._validate_state(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "initial_game_state": self._build_state(with_selected_adventure=True).model_dump(mode="json"),
+                "user_input": "突袭我面前的地精",
+                "turn_intent": intent.model_dump(mode="json"),
+                "tool_results": [
+                    {
+                        "tool_name": "encounter.start",
+                        "summary": "遭遇开始",
+                        "payload": {"enemy_names": ["地精"]},
+                    }
+                ],
+                "messages": [],
+                "timeline_append": [],
+                "state_delta": {},
+                "validation_notes": [],
+                "validation_issues": [],
+                "node_traces": [],
+            }
+        )
+
+        self.assertEqual(validated["phase"], "combat")
+        self.assertEqual(validated["turn_profile"], "combat_resolution")
+        self.assertEqual(validated["validation_status"], "repair_required")
+        self.assertIn("attack_target", validated["allowed_tools"])
+        self.assertIn("attack_target", validated["suggested_tools"])
+        self.assertEqual(validated["tool_round_limit"], 8)
+
+    def test_unresolved_hostile_intent_fails_before_reply_length_rewrite(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        state.campaign.reply_min_chars = 1000
+        state.campaign.reply_max_chars = 2000
+        intent = self.runner._plan_turn_intent(
+            state,
+            "突袭我面前的地精",
+            "exploration",
+            "exploration",
+        )
+
+        finalized = self.runner._finalize_turn(
+            {
+                "game_state": state.model_dump(mode="json"),
+                "initial_game_state": state.model_dump(mode="json"),
+                "user_input": "突袭我面前的地精",
+                "turn_intent": intent.model_dump(mode="json"),
+                "final_response": "地精仍未察觉你。",
+                "turn_status": "completed",
+                "tool_results": [],
+                "timeline_append": [],
+                "validation_notes": [],
+                "validation_issues": [],
+                "node_traces": [],
+            }
+        )
+
+        self.assertEqual(finalized["turn_status"], "failed")
+        self.assertLess(len(finalized["final_response"]), 1000)
+        self.assertIn("hostile_action_resolution", [item["validator"] for item in finalized["validation_issues"]])
+        self.assertNotIn("enforce_reply_length", [item["node_name"] for item in finalized["node_traces"]])
+
+    def test_public_roll_annotations_follow_their_narrated_actions_and_hide_dark_rolls(self) -> None:
+        skill_summary = "沐瑞安 察觉检定 17 vs DC 15 -> 成功 | 观察门锁"
+        attack_summary = "沐瑞安 攻击 持刀地精（优势）：24 vs AC 14 -> 命中，伤害 6 穿刺"
+        response = (
+            "沐瑞安俯身观察门锁，发现锁舌上留着新鲜刮痕。\n\n"
+            "他贴近持刀地精，一刀刺向对方暴露的肋侧。\n\n"
+            "地精踉跄着撞上石壁，通道另一端传来急促脚步。\n\n"
+            "*骰点｜没有工具背书的 99*"
+        )
+        results = [
+            ToolResult(
+                tool_name="check.skill",
+                summary=skill_summary,
+                payload={"actor_name": "沐瑞安", "reason": "观察门锁"},
+            ),
+            ToolResult(
+                tool_name="combat.attack_target",
+                summary=attack_summary,
+                payload={"attacker_name": "沐瑞安", "target_name": "持刀地精", "attack_name": "匕首"},
+            ),
+            ToolResult(
+                tool_name="dice.roll",
+                summary="掷骰 1d20: 20 = 20 | 暗中判断援军",
+                payload={"visibility": "hidden", "reason": "暗中判断援军"},
+            ),
+        ]
+
+        decorated = self.runner._ensure_public_roll_annotations(response, results)
+
+        self.assertIn(f"发现锁舌上留着新鲜刮痕。\n\n*骰点｜{skill_summary}*", decorated)
+        self.assertIn(f"一刀刺向对方暴露的肋侧。\n\n**战斗｜{attack_summary}**", decorated)
+        self.assertNotIn("没有工具背书", decorated)
+        self.assertNotIn("暗中判断援军", decorated)
+        self.assertGreater(decorated.index("骰点｜"), decorated.index("观察门锁"))
+        self.assertGreater(decorated.index("战斗｜"), decorated.index("一刀刺向"))
+
+    def test_hidden_generic_roll_is_structured_for_player_side_filtering(self) -> None:
+        service = AgentToolService(
+            rag_engine=DummyRAGEngine(),
+            monster_storage=MonsterStorage(),
+            rules_catalog=RuleCatalog(),
+        )
+
+        with patch("game_logic.random.randint", return_value=13):
+            execution = service.roll_dice(
+                self._build_state(with_selected_adventure=True),
+                "1d20",
+                reason="暗中判断伏兵是否察觉",
+                visibility="hidden",
+            )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertEqual(execution.payload["visibility"], "hidden")
+        self.assertEqual(execution.tool_result.payload["visibility"], "hidden")
+        self.assertEqual(execution.timeline_event.payload["visibility"], "hidden")
+
+    def test_public_roll_annotations_match_duplicate_summaries_by_count(self) -> None:
+        summary = "沐瑞安 察觉检定 17 vs DC 15 -> 成功 | 搜索"
+        marker = f"*骰点｜{summary}*"
+        results = [
+            ToolResult(tool_name="check.skill", summary=summary, payload={"reason": "搜索门边"}),
+            ToolResult(tool_name="check.skill", summary=summary, payload={"reason": "搜索箱底"}),
+        ]
+        response = (
+            f"沐瑞安先搜索门边。\n\n{marker}\n\n"
+            f"随后又搜索箱底。\n\n{marker}\n\n{marker}"
+        )
+
+        decorated = self.runner._ensure_public_roll_annotations(response, results)
+
+        self.assertEqual(decorated.count(marker), 2)
 
     def test_high_risk_intent_does_not_imply_missing_player_choice(self) -> None:
         state = self._build_state(with_selected_adventure=True)
@@ -1358,6 +1586,46 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertFalse(guardrail.ok)
         self.assertIn("No available spell slot", guardrail.error)
         self.assertEqual(guardrail.metadata["spell_name_arg"], "spell_name")
+
+    def test_cast_spell_returns_rule_description_to_the_dm(self) -> None:
+        state = self._build_state(with_selected_adventure=True)
+        character = state.characters[state.active_character_id]
+        character.class_name = "Bard"
+        character.spells.cantrips = ["Minor Illusion"]
+        runner = DMGraphRunner(
+            rag_engine=DummyRAGEngine(),
+            tool_service=AgentToolService(
+                rag_engine=DummyRAGEngine(),
+                monster_storage=MonsterStorage(),
+                rules_catalog=RuleCatalog(),
+            ),
+            enable_model=False,
+        )
+
+        execution = runner._execute_single_tool(
+            state=state,
+            tool_name="cast_spell",
+            args={
+                "caster_ref": character.character_id,
+                "spell_name": "Minor Illusion",
+                "reason": "制造声响引开守卫",
+            },
+            allowed_tools=["cast_spell"],
+        )
+
+        self.assertTrue(execution.ok, execution.response())
+        self.assertIn("智力（调查）检定", execution.payload["desc"])
+        self.assertIn("法术豁免 DC", execution.payload["desc"])
+        tool_message = runner._tool_message_content(execution)
+        self.assertIn('"desc"', tool_message)
+        self.assertIn("智力（调查）检定", tool_message)
+
+        local_result = GameActionService().cast_spell(
+            state.model_copy(deep=True),
+            character.character_id,
+            "Minor Illusion",
+        )
+        self.assertIn("智力（调查）检定", local_result["tool_result"].payload["desc"])
 
     def test_bonus_action_spell_uses_bonus_slot_without_blocking_action(self) -> None:
         state = self._build_state(with_selected_adventure=True)

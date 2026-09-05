@@ -9,7 +9,7 @@ from agent_tools import AgentToolService
 from dm_graph import DMGraphRunner, LANGGRAPH_TOOL_SCHEMAS
 from game_logic import GameLogic
 from prompts import build_dm_instruction
-from models import AdventureHook, Character, GameState
+from models import ActionSuggestion, AdventureHook, Character, ChatMessage, GameState
 from tool_registry import ToolRegistry
 
 
@@ -163,6 +163,25 @@ class ActionSuggestionTest(unittest.TestCase):
         self.assertIsNone(execution.tool_result)
         self.assertIsNone(execution.timeline_event)
         self.assertEqual(execution.state_patch, {})
+
+    def test_chat_message_round_trip_keeps_bound_action_suggestions(self) -> None:
+        message = ChatMessage(
+            role="assistant",
+            content="旧矿坑入口传来嗡鸣。",
+            action_suggestions=[
+                ActionSuggestion(label="查看入口", action="我查看旧矿坑入口的木梁。"),
+            ],
+            action_suggestions_generated=True,
+        )
+
+        restored = ChatMessage.model_validate_json(message.model_dump_json())
+
+        self.assertTrue(restored.action_suggestions_generated)
+        self.assertEqual(restored.action_suggestions[0].label, "查看入口")
+
+        legacy = ChatMessage.model_validate({"role": "assistant", "content": "旧存档回复。"})
+        self.assertFalse(legacy.action_suggestions_generated)
+        self.assertEqual(legacy.action_suggestions, [])
 
     def test_conversation_question_gets_optional_scene_suggestions(self) -> None:
         state = self._exploration_state()

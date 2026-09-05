@@ -9,7 +9,7 @@
 ## 规则与 schema 联动
 
 - `roll_saving_throw` 已拒绝缺失目标/来源；角色法术必须提供 `source_ref` 与 `spell_name`，并从角色卡和法术库推导 DC 与豁免属性。环境或非角色效果仍使用显式 DC。
-- `cast_spell` 目前主要处理法术可用性、法术位、专注和行动槽；具体攻击、豁免和伤害仍需组合其他工具。角色法术豁免必须走上述权威解析，不能把模型给出的 DC 直接传成环境 DC。
+- `cast_spell` 处理可用性、法术位、专注和行动槽；攻击型法术返回 `cast_id`，后续 `attack_target` 必须使用该凭据，不能再次扣动作或套用武器数据。角色法术豁免仍须走权威解析，其他描述性效果仍按已支持的工具结算。
 - 角色攻击会忽略模型提供的攻击数学并从角色卡解析；非角色攻击才允许受保护的显式攻击数据。
 - 修改 `models.py` 时必须检查旧 JSON save、API request/response、前端字段和 combatant mirror。
 - `create_party_character` 走的是和前端建卡同一套 `validate_character`：职业技能数量、初始装备 choice、戏法与预备法术数量都会卡。背景自带的技能不计入职业技能配额。
@@ -17,11 +17,19 @@
 
 ## 前后端契约
 
+- 长请求提交必须校验起始 `state_version`；重写/回退使用当前存档版本保护历史快照的提交，不能把历史版本直接当当前版本。建议缓存的免版本变更入口只允许修改已有消息的建议字段。
+- 暂停的 checkpoint 不能自动吸收外部局部写入。API 与普通存储写入都阻止暂停期间修改本局状态，GET 游戏也不补写选项；继续旧暂停前比较业务基线并忽略版本/时间戳/trace/建议缓存，历史漂移时保留公开存档、终止私有事务。`action_options` 的禁用字段必须与对应 `state_version` 一起消费，避免旧响应继续锁住已结束的暂停。
+- REST 和 SSE 均经 `player_projection.py` 过滤普通载荷中的暗骰；仅过滤 `tool.completed` 会漏掉完整 GameState、trace 或关联工具消息。用户明确要求的折叠骰点框是例外：只通过经 `RollRecord` 校验的 `roll_records` 提供明暗骰结果；不要为显示过滤改写内部权威状态。
+- 反应记录属于各战斗员，在其自己的回合开始时恢复；先攻编辑不重开动作。旧存档只给缺少临时 HP 的战斗镜像补字段，显式不一致仍应交给校验发现。
+
 - 前端怪物编辑仍调用 `POST /api/v1/monsters`，但后端固定返回 405，因为标准怪物库只读。不要在未决定产品边界前假定“保存成功”。
-- SSE 是回合完成后基于 trace 发送的阶段事件，不是真实 token/tool 流。
+- Codex 真实正文流使用 `codex_transport.py` 的 app-server `item/agentMessage/delta`；`codex exec --json` 只有完成正文块，不能作为增量替代。新回合、重试和重写必须共用 SSE，升级传输后仍需实测完成前的多次页面更新，不以打字动画或私有 reasoning 冒充公开正文流。Claude CLI 当前仍使用完整响应回退。
+- 骰点必须在实际掷骰处采集，不能只扫描最终 `ToolResult`（会漏掉自动先攻、嵌套专注检定和失败工具）。同值掷骰按独立 `record_id` 保留，暂停恢复保留原 id，结果绑定新增主持消息并区分结算状态；旧消息缺少记录时显示未记录，不能猜补骰值。
 - 主回合 SSE 和 rewrite 目前没有底层 AbortController/idle timeout；生命周期守卫只阻止旧结果写回 UI，不会取消服务端工作。
 - 回复长度设置不能只依赖 DM 提示词；正常回合在 `finalize_turn` 提交前用去空白字符数检查，并交给无工具的独立纯文本调用扩写或压缩。长度是展示偏好，后处理未命中只能记录 warning、保留最佳正文，不能回滚已完成回合或向玩家暴露内部校验文案；系统错误说明不受叙事长度约束。
-- 主持回复重试必须由服务端根据 assistant 消息索引解析前一条玩家行动和对应 rewind snapshot；失败回复常驻重试入口，失败回合不要继续请求行动建议投影。
+- 行动灵感仍是主回合提交后的非事务投影，但生成状态和结果持久化在对应 `ChatMessage`；加载存档必须优先恢复该缓存，不能因为前端内存为空就重新调用 Suggestion Agent。
+- 主持回复重试必须由服务端根据 assistant 消息索引解析前一条玩家行动和对应 rewind snapshot；重试或提交玩家消息重写后，前端先替换/移除目标及后续消息、旧 interrupt、思考过程和行动灵感，传输失败才恢复整组 UI 投影。失败回复常驻重试入口，失败回合不要继续请求行动建议投影。
+- 公开骰点的正文标记必须逐条对应成功的权威工具结果，模型只能决定它出现在相关叙事段落的位置，不能编写数值。暗骰需要同时从最终叙事、玩家时间线和玩家可见 `tool.completed` SSE 中过滤，不能只靠前端样式隐藏。
 - `App.jsx` 是超过 3,000 行的单体组件；局部状态和 effect 依赖容易互相影响。当前 Lint 仍有两个 Hook dependency warning。
 
 ## 本地环境与生成内容
@@ -42,5 +50,6 @@
 - interrupt 前的成功工具仍是 staged transaction；`input_required` 只能发布上次提交快照和 pending 元数据，取消、失败或 checkpoint 丢失时必须同时清空对外 `tool_results` / `state_delta`，不能只回滚 `GameState`。
 - SQLite checkpointer 查不到 thread 时可能返回空 `StateSnapshot`，随后才以 `KeyError('game_state')` 失败；不要依赖异常文案识别 checkpoint 丢失，resume 前先检查 snapshot values 是否包含 `game_state`。
 - 不要把 `risk_level` 或写入权威状态等同于玩家侧确认。明确指令、规则结算和 DM 记账直接执行；只有真正缺少玩家决定时才调用 `request_player_choice`，其公开 payload 只能包含剧情语义和具体选项。
+- 自然语言攻击不能只靠一个固定词表：确定性词表是快速路径，未命中时由受约束模型补充意图；`hostile_attack` 必须贯穿探索到战斗的阶段刷新，直到玩家攻击产生权威工具结果。不要因初始探索 allowlist 没有 `attack_target` 就退回纯叙事。
 - 若 DM 必须等待玩家在后果性选项中决定，提示词要明确要求调用 `request_player_choice`，不能允许只在普通正文里说“由你决定”，否则前端拿不到结构化选项和可恢复 interrupt。
 - 跨后端 API 和前端行为修改后需要同时跑后端测试、前端 build/lint 与 `git diff --check`。

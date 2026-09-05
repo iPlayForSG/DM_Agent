@@ -1,5 +1,5 @@
-const CONFIGURED_BACKEND_BASE = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
-const BACKEND_BASE = import.meta.env.DEV ? "" : CONFIGURED_BACKEND_BASE;
+const CONFIGURED_BACKEND_BASE = (import.meta.env?.VITE_BACKEND_URL || "").replace(/\/$/, "");
+const BACKEND_BASE = import.meta.env?.DEV ? "" : CONFIGURED_BACKEND_BASE;
 const API_PREFIX = BACKEND_BASE ? `${BACKEND_BASE}/api/v1` : "/api/v1";
 
 function readableHttpError(response, detail = "") {
@@ -174,14 +174,16 @@ export async function deleteGameMessage(gameId, messageIndex) {
   });
 }
 
-export async function rewriteGameMessage(gameId, messageIndex, message) {
+export async function rewriteGameMessage(gameId, messageIndex, message, handlers) {
+  if (handlers) return requestTurnStream(`/games/${encodeURIComponent(gameId)}/messages/${messageIndex}/rewrite?stream=true`, { message }, handlers);
   return request(`/games/${encodeURIComponent(gameId)}/messages/${encodeURIComponent(messageIndex)}/rewrite`, {
     method: "POST",
     body: JSON.stringify({ message }),
   });
 }
 
-export async function retryGameMessage(gameId, messageIndex) {
+export async function retryGameMessage(gameId, messageIndex, handlers) {
+  if (handlers) return requestTurnStream(`/games/${encodeURIComponent(gameId)}/messages/${messageIndex}/retry?stream=true`, {}, handlers);
   return request(`/games/${encodeURIComponent(gameId)}/messages/${encodeURIComponent(messageIndex)}/retry`, {
     method: "POST",
   });
@@ -296,12 +298,16 @@ export async function submitTurn(gameId, message) {
 }
 
 export async function streamTurn(gameId, message, handlers = {}) {
+  return requestTurnStream(`/games/${encodeURIComponent(gameId)}/turns/stream`, { message }, handlers);
+}
+
+async function requestTurnStream(path, body, handlers) {
   let response;
   try {
-    response = await fetch(`${API_PREFIX}/games/${encodeURIComponent(gameId)}/turns/stream`, {
+    response = await fetch(`${API_PREFIX}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(body),
     });
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("请求等待超时，请稍后重试。");
@@ -336,9 +342,13 @@ export async function streamTurn(gameId, message, handlers = {}) {
     if (!parsed) return;
 
     handlers.onEvent?.(parsed.event, parsed.data);
+    if (parsed.event === "agent.output.started") handlers.onAgentOutput?.(parsed.data, "started");
+    if (parsed.event === "agent.output.delta") handlers.onAgentOutput?.(parsed.data, "delta");
+    if (parsed.event === "agent.output.completed") handlers.onAgentOutput?.(parsed.data, "completed");
     if (parsed.event === "turn.node") handlers.onNode?.(parsed.data);
     if (parsed.event === "rag.completed") handlers.onRag?.(parsed.data);
     if (parsed.event === "tool.completed") handlers.onTool?.(parsed.data);
+    if (parsed.event === "roll.recorded") handlers.onRoll?.(parsed.data?.roll_records || []);
     if (parsed.event === "validation.note") handlers.onValidation?.(parsed.data);
     if (parsed.event === "turn.completed" || parsed.event === "turn.input_required") {
       finalPayload = parsed.data;

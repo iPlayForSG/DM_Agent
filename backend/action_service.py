@@ -104,7 +104,16 @@ class GameActionService:
         resolution_mode: str = "normal",
         attack_name: str = "",
         roll_mode: str = "normal",
+        cast_id: str = "",
     ) -> Dict[str, Any]:
+        if cast_id:
+            from spell_resolution import resolve_spell_attack
+            result = resolve_spell_attack(state, attacker_ref, target_ref, cast_id, damage_type, roll_mode)
+            return self._append_result(
+                state, summary=f"{result['attacker_name']} {result['spell_name']}：{result['attack_total']} vs AC {result['target_ac']}，伤害 {result['damage_total']}",
+                event_type="attack_resolved", payload={key: value for key, value in result.items() if key != "patch"},
+                patch=result["patch"],
+            )
         logic = GameLogic(state)
         logic.require_current_actor(attacker_ref)
         logic.require_turn_action_available("attack_target")
@@ -334,70 +343,34 @@ class GameActionService:
             payload=result,
         )
 
-    def cast_spell(
-        self,
-        state: GameState,
-        caster_ref: str,
-        spell_name: str,
-        slot_level: int = 0,
-    ) -> Dict[str, Any]:
+    def cast_spell(self, state: GameState, caster_ref: str, spell_name: str,
+                   slot_level: int = 0, target_ref: str = "", damage_type: str = "") -> Dict[str, Any]:
+        from spell_resolution import cast_spell, resolve_spell_attack
         logic = GameLogic(state)
-        logic.require_current_actor(caster_ref)
-        caster = logic.get_character(caster_ref)
+        caster = self._linked_character(state, logic, caster_ref)
         if not caster:
             raise ValueError(f"Spell caster not found: {caster_ref}")
+        profile = self.rules.get_spell_attack_profile(caster, spell_name, slot_level)
+        if profile:
+            if not target_ref or not (logic.get_character(target_ref) or logic.get_combatant(target_ref)):
+                raise ValueError("Choose an existing target for the spell attack")
+            if damage_type and damage_type not in profile["damage_types"]:
+                raise ValueError("Unsupported spell damage type")
+            if not damage_type and len(profile["damage_types"]) > 1:
+                raise ValueError("Choose a damage type for this spell")
+        payload, patch = cast_spell(state, self.rules, caster_ref, spell_name, slot_level)
+        summary = f"{payload['caster_name']} 施放 {payload['spell_name']}"
+        if payload["resolved_slot_level"]:
+            summary += f"，消耗 {payload['resolved_slot_level']} 环法术位"
+        if payload["cast_id"]:
+            attacks = [resolve_spell_attack(state, caster_ref, target_ref, payload["cast_id"], damage_type)
+                       for _ in range(payload["attack_count"])]
+            for attack in attacks:
+                patch = GameLogic._merge_patches(patch, attack["patch"])
+            payload["attacks"] = [{key: value for key, value in attack.items() if key != "patch"} for attack in attacks]
+            summary += f"，命中 {sum(attack['hit'] for attack in attacks)} 次，共造成 {sum(attack['damage_total'] for attack in attacks)} 伤害"
+        return self._append_result(state, summary=summary, event_type="spell_cast", payload=payload, patch=patch)
 
-        validation = self.rules.can_cast_spell(caster, spell_name, slot_level or None)
-        if not validation["ok"]:
-            raise ValueError(validation["error"])
-
-        resolved_slot = int(validation["resolved_slot_level"])
-        canonical_spell_name = str(validation.get("spell_name") or validation["spell"].get("name") or spell_name)
-        action_cost = self.rules.spell_action_cost(validation["spell"])
-        logic.require_turn_slot_available(action_cost, "cast_spell")
-        previous_concentration = caster.concentration_spell
-        self.rules.consume_spell_slot(caster, resolved_slot)
-        if bool(validation["spell"].get("concentration")):
-            caster.concentration_spell = canonical_spell_name
-            caster.concentration_spell_level = int(validation["spell"].get("level", 0))
-        payload = {
-            "caster_id": caster.character_id,
-            "caster_name": caster.name,
-            "spell_name": canonical_spell_name,
-            "requested_spell_name": spell_name,
-            "spell_level": int(validation["spell"].get("level", 0)),
-            "resolved_slot_level": resolved_slot,
-            "action_cost": action_cost,
-            "concentration": bool(validation["spell"].get("concentration")),
-            "previous_concentration_spell": previous_concentration,
-            "current_concentration_spell": caster.concentration_spell,
-            "remaining_slots": {
-                level: {"total": slot.total, "used": slot.used}
-                for level, slot in caster.spells.slots.items()
-            },
-        }
-        summary = f"{caster.name} 施放 {canonical_spell_name}"
-        if resolved_slot > 0:
-            summary += f"，消耗 {resolved_slot} 环法术位"
-        action_patch = logic.mark_current_turn_slot_used(action_cost, "cast_spell")
-        return self._append_result(
-            state,
-            summary=summary,
-            event_type="spell_cast",
-            payload=payload,
-            patch=GameLogic._merge_patches(
-                {
-                    "characters": {
-                        caster.character_id: {
-                            "spells": caster.spells.model_dump(mode="json"),
-                            "concentration_spell": caster.concentration_spell,
-                            "concentration_spell_level": caster.concentration_spell_level,
-                        }
-                    }
-                },
-                action_patch,
-            ),
-        )
 
     def use_item(self, state: GameState, user_ref: str, item_name: str, quantity: int = 1) -> Dict[str, Any]:
         logic = GameLogic(state)

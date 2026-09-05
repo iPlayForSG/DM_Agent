@@ -1650,6 +1650,51 @@ button[class^="btn-"] {
   gap: 14px;
 }
 
+.pending-action-scope {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.turn-roll-ledger {
+  width: min(560px, calc(100% - 46px));
+  margin: 0 0 7px 46px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.turn-roll-ledger > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 5px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.turn-roll-ledger > summary::before { content: "▸"; }
+.turn-roll-ledger[open] > summary::before { content: "▾"; }
+.turn-roll-ledger > summary::-webkit-details-marker { display: none; }
+.turn-roll-ledger > summary small { margin-left: auto; color: var(--paper-dim); }
+.turn-roll-ledger > summary:focus-visible { outline: 2px solid var(--brass-2); outline-offset: 2px; }
+.roll-record-list { margin: 0; padding: 0 12px 10px 30px; max-height: 300px; overflow-y: auto; }
+.roll-record { padding: 10px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.roll-record-heading, .roll-equation { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.roll-record-heading { justify-content: space-between; }
+.roll-visibility { border-radius: 4px; padding: 2px 5px; background: var(--panel-strong, #eee8da); }
+.roll-visibility.hidden { background: #e9e4f3; color: #554071; }
+.roll-equation { margin: 7px 0 4px; font-variant-numeric: tabular-nums; }
+.roll-equation code { font-size: 11px; }
+.roll-record-context, .roll-empty { color: var(--paper-dim); font-size: 11px; }
+.roll-empty { margin: 0; padding: 9px 12px; }
+.roll-reason { margin: 5px 0 0; line-height: 1.5; }
+
 .side-section {
   border: 1px solid #e8e2d5;
   border-radius: var(--radius);
@@ -1907,6 +1952,21 @@ button[class^="btn-"] {
   color: #f3d99b;
 }
 
+/* 公开骰点保留在动作发生的叙事位置；前缀和字形让信息不依赖颜色也能辨认。 */
+.message.dm .narrative-roll-result {
+  color: #2f6f76;
+  font-style: italic;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.message.dm .narrative-attack-result {
+  color: #8d342e;
+  font-style: normal;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .markdown-body > :first-child {
   margin-top: 0;
 }
@@ -1949,7 +2009,8 @@ button[class^="btn-"] {
 }
 
 .pending-turn-card,
-.workflow-trace {
+.workflow-trace,
+.dm-thinking-panel {
   align-self: stretch;
   max-width: 860px;
   border-radius: var(--radius);
@@ -1990,6 +2051,110 @@ button[class^="btn-"] {
 .pending-turn-actions {
   justify-content: flex-end;
   margin-top: 12px;
+}
+
+.dm-thinking-panel {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(184, 161, 106, 0.48);
+  background: #fbf8f1;
+  box-shadow: 0 1px 2px rgba(38, 34, 28, 0.05);
+}
+
+.dm-thinking-toggle {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--paper-strong);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dm-thinking-toggle:focus-visible {
+  outline: 2px solid rgba(159, 61, 52, 0.72);
+  outline-offset: -3px;
+}
+
+.dm-thinking-chevron {
+  color: var(--brass-2);
+  font-family: var(--utility-font);
+  font-size: 1.25rem;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.dm-thinking-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.dm-thinking-title {
+  min-width: 0;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.dm-thinking-status {
+  border: 1px solid rgba(75, 128, 106, 0.28);
+  border-radius: 99px;
+  background: rgba(75, 128, 106, 0.08);
+  color: var(--verdigris-2);
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.thinking-error .dm-thinking-status {
+  border-color: rgba(192, 57, 43, 0.28);
+  background: rgba(192, 57, 43, 0.07);
+  color: var(--danger);
+}
+
+.dm-thinking-output {
+  padding: 0 12px 12px;
+  color: var(--paper);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.dm-thinking-output blockquote {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 9px;
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.dm-thinking-output blockquote::before {
+  content: ">";
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  color: var(--brass-2);
+  font-family: var(--utility-font);
+  font-weight: 600;
+}
+
+.dm-thinking-output blockquote > * {
+  grid-column: 2;
+  min-width: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dm-thinking-toggle:hover {
+    background: rgba(184, 161, 106, 0.08);
+  }
 }
 
 .workflow-trace {

@@ -91,7 +91,12 @@ def resolve_state_dir(root: Path) -> Path:
 def runtime_state_dir(root: Path) -> Path:
     preferred = resolve_state_dir(root)
     try:
-        preferred.mkdir(parents=True, exist_ok=True)
+        sessions = preferred / "sessions"
+        sessions.mkdir(parents=True, exist_ok=True)
+        # exist_ok 只证明目录存在；旧会话留下的目录仍可能被当前沙箱设为只读。
+        descriptor, probe = tempfile.mkstemp(prefix=".write-probe-", dir=sessions)
+        os.close(descriptor)
+        os.unlink(probe)
         return preferred
     except OSError:
         # 某些 Codex 沙箱把 .git 设为只读；用首选 git-path 的哈希保持普通仓库/worktree 隔离。
@@ -225,8 +230,12 @@ def fingerprint_path(root: Path, relative_path: str) -> str:
 
 def capture_baseline(root: Path) -> Dict[str, Any]:
     status = git_status(root)
+    policy = load_policy(root)
     paths: Dict[str, Dict[str, str]] = {}
     for path, metadata in status.items():
+        # 过滤必须发生在读内容计算哈希之前，隐私文件不能仅在最终证据中被隐藏。
+        if is_ignored(path, policy):
+            continue
         paths[path] = {
             "code": metadata.get("code", ""),
             "fingerprint": fingerprint_path(root, path),
@@ -264,10 +273,13 @@ def save_state(path: Path, state: Dict[str, Any]) -> None:
 
 def changes_since_baseline(root: Path, baseline: Mapping[str, Any]) -> Dict[str, Dict[str, str]]:
     current = git_status(root)
+    policy = load_policy(root)
     baseline_paths = baseline.get("paths", {}) if isinstance(baseline.get("paths", {}), dict) else {}
     changed: Dict[str, Dict[str, str]] = {}
 
     for path, metadata in current.items():
+        if is_ignored(path, policy):
+            continue
         current_fingerprint = fingerprint_path(root, path)
         previous = baseline_paths.get(path)
         if isinstance(previous, dict) and previous.get("fingerprint") == current_fingerprint:
@@ -281,7 +293,7 @@ def changes_since_baseline(root: Path, baseline: Mapping[str, Any]) -> Dict[str,
 
     # 会话前已脏的文件如果被进一步修改、删除或恢复到 HEAD，也必须能被识别。
     for path, previous in baseline_paths.items():
-        if path in current or not isinstance(previous, dict):
+        if path in current or not isinstance(previous, dict) or is_ignored(path, policy):
             continue
         current_fingerprint = fingerprint_path(root, path)
         if current_fingerprint != previous.get("fingerprint"):
@@ -511,8 +523,12 @@ def handle_stop(event: Mapping[str, Any]) -> Dict[str, Any]:
             return dict(DEFAULT_SUCCESS)
         all_changes = changes_since_baseline(root, state.get("baseline", {}))
         observed = set(str(item) for item in state.get("observed_paths", []) or [])
-        changes = {path: metadata for path, metadata in all_changes.items() if path in observed}
         policy = load_policy(root)
+        # 去重指纹与触发证据采用同一过滤范围，避免维护 Markdown 后重新触发同一代码变化。
+        changes = {
+            path: metadata for path, metadata in all_changes.items()
+            if path in observed and not is_ignored(path, policy)
+        }
         evidence = evaluate_changes(root, changes, policy)
         fingerprint = diff_fingerprint(changes) if changes else ""
 

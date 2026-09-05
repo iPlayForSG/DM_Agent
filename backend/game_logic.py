@@ -19,6 +19,7 @@ from models import (
 )
 from library import Library
 from rules_catalog import ABILITY_ALIAS, SKILL_TO_ABILITY, proficiency_bonus_for_level
+from roll_capture import dice_context, record_roll, annotate_last_roll
 
 
 class DiceRoller:
@@ -54,6 +55,7 @@ class DiceRoller:
         detail = f"[{','.join(map(str, rolls))}]"
         if modifier:
             detail += f"{modifier:+d}"
+        record_roll(expression=expression, dice=rolls, kept=rolls, modifier=modifier, total=total, detail=detail)
         return total, detail
 
     @staticmethod
@@ -77,6 +79,8 @@ class DiceRoller:
             detail += f" -> [{natural}]"
         if modifier:
             detail += f"{modifier:+d}"
+        record_roll(expression=f"{len(rolls)}d20" + (f"{modifier:+d}" if modifier else ""),
+                    dice=rolls, kept=[natural], modifier=modifier, total=total, detail=detail, roll_mode=normalized_mode)
         return natural, total, detail
 
 
@@ -241,18 +245,16 @@ class GameLogic:
         dc = self._concentration_dc(damage_amount)
         save_result: Optional[Dict[str, Any]] = None
         reason = "damage"
-        broken = character.defeat_state != "active" or character.hp_current <= 0
+        broken = character.defeat_state != "active" or character.hp_current <= 0 or self.is_incapacitated(character)
 
         if broken:
             reason = "incapacitated_or_defeated"
         else:
             modifier = self._character_save_modifier(character, "constitution")
-            save_result = self.roll_saving_throw(
-                target_ref=character.character_id,
-                save_name="constitution",
-                modifier=modifier,
-                dc=dc,
-            )
+            with dice_context(reason=f"维持 {previous_spell} 专注，受到 {damage_amount} 点伤害"):
+                save_result = self.roll_saving_throw(
+                    target_ref=character.character_id, save_name="constitution", modifier=modifier, dc=dc,
+                )
             broken = not bool(save_result["success"])
             reason = "failed_save" if broken else "successful_save"
 
@@ -342,12 +344,20 @@ class GameLogic:
         return True
 
     @staticmethod
+    def is_incapacitated(actor: Any) -> bool:
+        conditions = {str(value).strip().casefold() for value in actor.status_effects}
+        return bool(conditions & {
+            "incapacitated", "unconscious", "paralyzed", "stunned", "petrified",
+            "失能", "昏迷", "昏迷不醒", "麻痹", "震慑", "石化",
+        })
+
+    @staticmethod
     def _combatant_can_take_turn(combatant: Optional[Combatant]) -> bool:
         if not combatant:
             return False
         if combatant.hp_current <= 0:
             return False
-        return combatant.defeat_state == "active"
+        return combatant.defeat_state == "active" and not GameLogic.is_incapacitated(combatant)
 
     # Entity lookup helpers accept either ids or display names.
     def get_character(self, identifier: str) -> Optional[Character]:
@@ -404,15 +414,61 @@ class GameLogic:
 
     # Local action endpoints should only execute actor-driven actions for the current turn holder.
     def require_current_actor(self, identifier: str) -> Optional[Combatant]:
+        self.require_actor_capable(identifier)
         current = self.get_current_combatant()
         if not current and self.state.encounter and self.state.encounter.active and not self.state.encounter.turn_order_started:
             self._start_turn_order_if_ready()
             current = self.get_current_combatant()
         if not current:
+            if self.state.encounter and self.state.encounter.active:
+                raise ValueError("An active encounter requires a current actor; finish initiative first")
             return None
         if self.is_current_actor(identifier):
             return current
         raise ValueError(f"It is currently {current.name}'s turn, not {self.get_actor_name(identifier)}'s turn")
+
+    def require_actor_capable(self, identifier: str) -> None:
+        actor = self.get_character(identifier) or self.get_combatant(identifier)
+        if actor and (actor.hp_current <= 0 or actor.defeat_state != "active" or self.is_incapacitated(actor)):
+            raise ValueError(f"{actor.name} is incapacitated or defeated and cannot act")
+
+    def require_actor_action(self, identifier: str, action_cost: str) -> None:
+        if action_cost == "reaction":
+            self.require_actor_capable(identifier)
+            if self.state.encounter and self.state.encounter.active and not self.state.encounter.turn_order_started:
+                raise ValueError("Reaction requires initiative to be started")
+        else:
+            self.require_current_actor(identifier)
+
+    def require_actor_slot_available(self, identifier: str, action_cost: str, action_name: str) -> None:
+        self.require_actor_action(identifier, action_cost)
+        encounter = self.state.encounter
+        if action_cost == "reaction" and encounter and encounter.active:
+            actor = self.get_combatant(identifier)
+            if not actor:
+                raise ValueError("Reaction actor is not in the encounter")
+            if encounter.reactions_used.get(actor.combatant_id, False):
+                raise ValueError(f"{actor.name} reaction already used until their next turn")
+            return
+        self.require_turn_slot_available(action_cost, action_name)
+
+    def mark_actor_slot_used(self, identifier: str, action_cost: str, action_name: str) -> Dict[str, Any]:
+        if action_cost != "reaction":
+            return self.mark_current_turn_slot_used(action_cost, action_name)
+        self.require_actor_slot_available(identifier, action_cost, action_name)
+        encounter = self.state.encounter
+        if not encounter or not encounter.active:
+            return {}
+        actor = self.get_combatant(identifier)
+        encounter.reactions_used[actor.combatant_id] = True
+        if actor.combatant_id == encounter.current_combatant_id:
+            encounter.turn_reaction_used = True
+            encounter.turn_reaction_tool = action_name
+        return {"encounter": {
+            "reactions_used": dict(encounter.reactions_used),
+            "turn_reaction_used": encounter.turn_reaction_used,
+            "turn_reaction_tool": encounter.turn_reaction_tool,
+        }}
 
     @staticmethod
     def _turn_action_key(encounter: EncounterState) -> str:
@@ -434,6 +490,9 @@ class GameLogic:
         encounter.turn_reaction_key = turn_key
         encounter.turn_reaction_used = False
         encounter.turn_reaction_tool = ""
+        # 只有该生物自己的回合开始才恢复反应；其他行动者的回合不改变它的使用记录。
+        if encounter.current_combatant_id:
+            encounter.reactions_used.pop(encounter.current_combatant_id, None)
         return {
             "encounter": {
                 "turn_action_key": encounter.turn_action_key,
@@ -445,6 +504,7 @@ class GameLogic:
                 "turn_reaction_key": encounter.turn_reaction_key,
                 "turn_reaction_used": encounter.turn_reaction_used,
                 "turn_reaction_tool": encounter.turn_reaction_tool,
+                "reactions_used": dict(encounter.reactions_used),
             }
         }
 
@@ -533,6 +593,7 @@ class GameLogic:
                 linked_character_id=character.character_id,
                 hp_current=character.hp_current,
                 hp_max=character.hp_max,
+                temp_hp=character.temp_hp,
                 ac=character.ac,
                 initiative_bonus=character.initiative_bonus,
                 status_effects=list(character.status_effects),
@@ -559,6 +620,7 @@ class GameLogic:
 
         combatant.hp_current = character.hp_current
         combatant.hp_max = character.hp_max
+        combatant.temp_hp = character.temp_hp
         combatant.ac = character.ac
         combatant.initiative_bonus = character.initiative_bonus
         combatant.status_effects = list(character.status_effects)
@@ -578,6 +640,7 @@ class GameLogic:
 
         character.hp_current = combatant.hp_current
         character.hp_max = combatant.hp_max
+        character.temp_hp = combatant.temp_hp
         character.ac = combatant.ac
         character.initiative_bonus = combatant.initiative_bonus
         character.status_effects = list(combatant.status_effects)
@@ -597,7 +660,7 @@ class GameLogic:
             encounter.combatants.values(),
             key=lambda item: (
                 item.initiative is None,
-                -(item.initiative or -999),
+                -(item.initiative if item.initiative is not None else -999),
                 order_index.get(item.combatant_id, 9999),
                 item.name,
             ),
@@ -607,6 +670,8 @@ class GameLogic:
         if reset_current:
             encounter.current_combatant_id = encounter.initiative_order[0] if encounter.initiative_order else None
             encounter.turn_order_started = bool(encounter.current_combatant_id)
+        elif not encounter.turn_order_started:
+            encounter.current_combatant_id = None
         elif encounter.current_combatant_id not in encounter.initiative_order:
             encounter.current_combatant_id = encounter.initiative_order[0] if encounter.initiative_order else None
 
@@ -624,7 +689,7 @@ class GameLogic:
             label = f"{monster.name} {index}"
 
         return Combatant(
-            combatant_id=stable_id("cmb", f"{encounter_id}-{monster.monster_id}-{index}"),
+            combatant_id=random_id("cmb"),
             monster_template_id=monster.monster_id,
             name=label,
             side=side,
@@ -643,7 +708,9 @@ class GameLogic:
         damage_amount = max(0, -int(amount))
         character = self.get_character(identifier)
         if character:
-            character.hp_current = max(0, min(character.hp_current + amount, character.hp_max))
+            absorbed = min(max(0, character.temp_hp), damage_amount)
+            character.temp_hp -= absorbed
+            character.hp_current = max(0, min(character.hp_current + amount + absorbed, character.hp_max))
             if character.hp_current > 0 and character.defeat_state != "captured":
                 self._apply_defeat_state(character, "active")
             elif character.hp_current <= 0 and amount < 0 and character.defeat_state == "active":
@@ -653,6 +720,7 @@ class GameLogic:
                 "characters": {
                     character.character_id: {
                         "hp_current": character.hp_current,
+                        "temp_hp": character.temp_hp,
                         "status_effects": character.status_effects,
                         "defeat_state": character.defeat_state,
                     }
@@ -666,6 +734,7 @@ class GameLogic:
                     "combatants": {
                         combatant.combatant_id: {
                             "hp_current": combatant.hp_current,
+                            "temp_hp": combatant.temp_hp,
                             "status_effects": combatant.status_effects,
                             "defeat_state": combatant.defeat_state,
                         }
@@ -682,7 +751,9 @@ class GameLogic:
         if not combatant:
             return None
 
-        combatant.hp_current = max(0, min(combatant.hp_current + amount, combatant.hp_max))
+        absorbed = min(max(0, combatant.temp_hp), damage_amount)
+        combatant.temp_hp -= absorbed
+        combatant.hp_current = max(0, min(combatant.hp_current + amount + absorbed, combatant.hp_max))
         if combatant.hp_current > 0 and combatant.defeat_state != "captured":
             self._apply_defeat_state(combatant, "active")
         elif combatant.hp_current <= 0 and amount < 0 and combatant.defeat_state == "active":
@@ -693,6 +764,7 @@ class GameLogic:
                 "combatants": {
                     combatant.combatant_id: {
                         "hp_current": combatant.hp_current,
+                        "temp_hp": combatant.temp_hp,
                         "status_effects": combatant.status_effects,
                         "defeat_state": combatant.defeat_state,
                     }
@@ -703,6 +775,7 @@ class GameLogic:
             patch["characters"] = {
                 character.character_id: {
                     "hp_current": character.hp_current,
+                    "temp_hp": character.temp_hp,
                     "status_effects": character.status_effects,
                     "defeat_state": character.defeat_state,
                 }
@@ -723,6 +796,7 @@ class GameLogic:
         character = self.get_character(identifier)
         if character:
             self._apply_defeat_state(character, normalized)
+            concentration_patch = self._clear_incapacitated_concentration(character)
             combatant = self._sync_combatant_from_character(character)
             patch: Dict[str, Any] = {
                 "characters": {
@@ -741,7 +815,7 @@ class GameLogic:
                         }
                     }
                 }
-            return {"target_type": "character", "target": character, "patch": patch}
+            return {"target_type": "character", "target": character, "patch": self._merge_patches(patch, concentration_patch)}
 
         combatant = self.get_combatant(identifier)
         if not combatant:
@@ -766,6 +840,8 @@ class GameLogic:
                     "defeat_state": character.defeat_state,
                 }
             }
+        if character:
+            patch = self._merge_patches(patch, self._clear_incapacitated_concentration(character))
         return {"target_type": "combatant", "target": combatant, "patch": patch}
 
     def add_status(self, identifier: str, status: str) -> Optional[Dict[str, Any]]:
@@ -773,13 +849,14 @@ class GameLogic:
         if character:
             if status not in character.status_effects:
                 character.status_effects.append(status)
+            concentration_patch = self._clear_incapacitated_concentration(character)
             combatant = self._sync_combatant_from_character(character)
             patch: Dict[str, Any] = {"characters": {character.character_id: {"status_effects": character.status_effects}}}
             if combatant:
                 patch["encounter"] = {
                     "combatants": {combatant.combatant_id: {"status_effects": combatant.status_effects}}
                 }
-            return {"target_type": "character", "target": character, "patch": patch}
+            return {"target_type": "character", "target": character, "patch": self._merge_patches(patch, concentration_patch)}
 
         combatant = self.get_combatant(identifier)
         if not combatant:
@@ -791,7 +868,15 @@ class GameLogic:
         patch = {"encounter": {"combatants": {combatant.combatant_id: {"status_effects": combatant.status_effects}}}}
         if character:
             patch["characters"] = {character.character_id: {"status_effects": character.status_effects}}
+            patch = self._merge_patches(patch, self._clear_incapacitated_concentration(character))
         return {"target_type": "combatant", "target": combatant, "patch": patch}
+
+    def _clear_incapacitated_concentration(self, character: Character) -> Dict[str, Any]:
+        if (not self.is_incapacitated(character) and character.defeat_state != "dead") or not character.concentration_spell:
+            return {}
+        character.concentration_spell = ""
+        character.concentration_spell_level = 0
+        return {"characters": {character.character_id: {"concentration_spell": "", "concentration_spell_level": 0}}}
 
     def remove_status(self, identifier: str, status: str) -> Optional[Dict[str, Any]]:
         character = self.get_character(identifier)
@@ -989,7 +1074,6 @@ class GameLogic:
         if not normalized_feature:
             raise ValueError("Feature name is required")
 
-        self.require_current_actor(actor_ref)
         character = self.get_character(actor_ref)
         combatant = self.get_combatant(actor_ref)
         if not character and combatant and combatant.linked_character_id:
@@ -1008,7 +1092,7 @@ class GameLogic:
         resource_payload: Dict[str, Any] = {}
 
         if normalized_action_cost != "free":
-            self.require_turn_slot_available(normalized_action_cost, "use_feature")
+            self.require_actor_slot_available(actor_ref, normalized_action_cost, "use_feature")
 
         parsed_resource_cost = int(resource_cost or 0)
         if parsed_resource_cost < 0:
@@ -1057,7 +1141,7 @@ class GameLogic:
         if normalized_action_cost != "free":
             patch = self._merge_patches(
                 patch,
-                self.mark_current_turn_slot_used(normalized_action_cost, "use_feature"),
+                self.mark_actor_slot_used(actor_ref, normalized_action_cost, "use_feature"),
             )
 
         return {
@@ -1311,12 +1395,13 @@ class GameLogic:
     ) -> List[Combatant]:
         encounter = self._ensure_encounter()
         spawned: List[Combatant] = []
+        existing_count = sum(c.monster_template_id == monster.monster_id for c in encounter.combatants.values())
 
         for index in range(1, max(1, quantity) + 1):
             combatant = self._build_monster_combatant(
                 monster=monster,
                 encounter_id=encounter.encounter_id,
-                index=index,
+                index=existing_count + index,
                 custom_name=custom_name,
                 hp_override=hp_override,
                 side=side,
@@ -1388,9 +1473,11 @@ class GameLogic:
             return None
 
         target = target_character or target_combatant
-        natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus, roll_mode=roll_mode)
+        with dice_context(kind="attack", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击检定", dc=target.ac):
+            natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus, roll_mode=roll_mode)
         critical = natural == 20
         hit = critical or (natural != 1 and attack_total >= target.ac)
+        annotate_last_roll(success=hit)
 
         damage_total = 0
         damage_detail = ""
@@ -1400,7 +1487,8 @@ class GameLogic:
         if hit and damage_expression:
             if critical:
                 damage_roll = self._expand_critical_damage(damage_expression)
-            damage_total, damage_detail = DiceRoller.roll(damage_roll)
+            with dice_context(kind="damage", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击伤害", dc=None):
+                damage_total, damage_detail = DiceRoller.roll(damage_roll)
             damage_total = max(0, damage_total)
             hp_result = self.update_target_hp(target_ref, -damage_total)
             if hp_result:
@@ -1447,7 +1535,9 @@ class GameLogic:
         dc: int = 0,
         roll_mode: str = "normal",
     ) -> Dict[str, Any]:
-        natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
+        with dice_context(kind="skill", actor=self.get_actor_name(actor_ref), label=skill_name, dc=dc if dc > 0 else None):
+            natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
+        annotate_last_roll(success=None if dc <= 0 else total >= dc)
         return {
             "actor_name": self.get_actor_name(actor_ref),
             "skill_name": skill_name,
@@ -1468,7 +1558,9 @@ class GameLogic:
         dc: int,
         roll_mode: str = "normal",
     ) -> Dict[str, Any]:
-        natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
+        with dice_context(kind="save", actor=self.get_actor_name(target_ref), label=save_name, dc=dc):
+            natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
+        annotate_last_roll(success=total >= dc)
         return {
             "target_name": self.get_actor_name(target_ref),
             "save_name": save_name,
@@ -1495,16 +1587,7 @@ class GameLogic:
         combatant.initiative = initiative
         self._refresh_initiative_order()
         self._start_turn_order_if_ready()
-        encounter = self.state.encounter
-        if encounter and encounter.round_number == 1 and encounter.initiative_order:
-            eligible_order = [
-                combatant_id
-                for combatant_id in encounter.initiative_order
-                if self._combatant_can_take_turn(encounter.combatants.get(combatant_id))
-            ]
-            if eligible_order:
-                encounter.current_combatant_id = eligible_order[0]
-                self._reset_turn_action_state(encounter)
+        # 初始化由 _start_turn_order_if_ready 处理；编辑/重掷先攻不能重开当前动作槽。
         return combatant
 
     def roll_initiative(self, identifier: str) -> Optional[Dict[str, Any]]:
@@ -1518,20 +1601,12 @@ class GameLogic:
             return None
 
         expression = f"1d20{combatant.initiative_bonus:+d}" if combatant.initiative_bonus else "1d20"
-        total, detail = DiceRoller.roll(expression)
+        with dice_context(kind="initiative", actor=combatant.name, label="先攻", dc=None):
+            total, detail = DiceRoller.roll(expression)
         combatant.initiative = total
         self._refresh_initiative_order()
         self._start_turn_order_if_ready()
-        encounter = self.state.encounter
-        if encounter and encounter.round_number == 1 and encounter.initiative_order:
-            eligible_order = [
-                combatant_id
-                for combatant_id in encounter.initiative_order
-                if self._combatant_can_take_turn(encounter.combatants.get(combatant_id))
-            ]
-            if eligible_order:
-                encounter.current_combatant_id = eligible_order[0]
-                self._reset_turn_action_state(encounter)
+        # 初始化由 _start_turn_order_if_ready 处理；编辑/重掷先攻不能重开当前动作槽。
         return {"combatant": combatant, "total": total, "detail": detail, "expression": expression}
 
     def advance_turn(self) -> Optional[Combatant]:

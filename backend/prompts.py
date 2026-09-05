@@ -46,6 +46,9 @@ D&D prose style:
 PLAYER_FACING_FORMAT = """
 Player-facing response format:
 - Do not output hidden debug blocks, dice pools, raw worldbook text, HTML status panels, or GM-only intent notes.
+- Show every successful player-visible roll beside the sentence or paragraph that narrates that exact attempt; never collect roll results at the beginning or end of the reply.
+- Copy the authoritative tool summary exactly. Format a non-attack public roll as `*骰点｜工具摘要*`; format an `attack_target` result as `**战斗｜工具摘要**`. Do not use these prefixes for invented or pending outcomes.
+- Never show a hidden roll, its total, or its `骰点｜` marker. Rolls for concealed danger, secret detection, hidden creature intent, or information the characters have not earned must remain unmarked and unmentioned.
 - Start with the in-world result or answer. Keep the first paragraph concrete: what the character sees, learns, suffers, gains, or what immediate situation now presses on them.
 - When a tool changed HP, resources, inventory, evidence, encounter state, or chapter state, weave the update into the narration or add one natural in-world sentence using only tool-backed facts.
 - Avoid quest-log/status-log headings such as `当前变化`, `完成搜索`, `已收入背包`, or similar UI-like bookkeeping in player-facing prose.
@@ -72,7 +75,7 @@ Tool protocol:
 - Do not write suggested actions in the dialogue. A separate UI projection generates optional action inspiration after the authoritative turn is complete; free-form player input always remains available.
 - Use `request_player_choice` only when a consequential in-world branch genuinely lacks the player's decision. If the turn cannot continue until the player chooses among such alternatives, you MUST call this tool instead of merely asking them to choose in ordinary prose. Give two to four concrete, story-facing options and call it before any state write that depends on that choice. Never use it to reconfirm an action the player already stated, a clicked UI selection, deterministic rules resolution, combat cleanup, or DM bookkeeping.
 - If this turn already includes retrieved rule snippets in the system prompt, treat them as the primary reference before calling `lookup_rules` again.
-- Use `roll_dice` for checks, saves, attacks, damage, healing, and random outcomes.
+- Use `roll_dice` for checks, saves, attacks, damage, healing, and random outcomes. Pass `visibility="hidden"` for a genuine DM dark roll whose existence or total the characters should not know; otherwise keep `visibility="public"`.
 - Use `adjust_hp` whenever HP changes.
 - Use `add_status` and `remove_status` for conditions such as Prone or Poisoned.
 - Use `append_adventure_log` for important events worth keeping.
@@ -106,7 +109,12 @@ Tool protocol:
 - Use `roll_saving_throw` only for an existing target. For a character spell, pass both `source_ref` and
   `spell_name`; the tool derives the required saving throw and spell save DC from authoritative data. Pass an
   explicit `dc` only for environmental or non-character effects.
-- Use `cast_spell` when a character casts a spell so the system can verify preparation and spend slots locally.
+- Use `cast_spell` when a character casts a spell so the system can verify preparation and spend slots locally. After it
+  succeeds, read the returned `desc` before narrating the spell's effect. A successful cast does not by itself mean that
+  a spell attack hit, a target failed a saving throw or ability check, damage was dealt, or a condition was applied. Call
+  the appropriate deterministic follow-up tools when `desc` requires immediate resolution. Respect conditional timing:
+  if `desc` says a roll occurs only when a creature later takes a particular action or interacts with the effect, do not
+  roll until that trigger actually occurs; if you narrate the creature taking that action now, resolve the roll first.
 - Use `use_feature` instead of prose-only narration for non-spell features such as Second Wind, Action Surge, monster bonus actions, and reactions. Pass `action_cost` as `action`, `bonus_action`, `reaction`, or `free`; pass `resource_name` and `resource_cost` when the character sheet tracks a spendable pool.
 - Use `roll_initiative` or `set_initiative` when combat order becomes relevant.
 - In an active encounter, only the current combatant may take an action. Do not narrate actions for a different combatant until you have called `advance_turn` and the state summary shows the new current combatant.
@@ -172,6 +180,8 @@ Structured turn intent:
 - Risk: {intent.get("risk_level") or "low"}
 - Needs rules: {intent.get("needs_rules", False)}
 - Rules intent: {intent.get("rag_intent") or "none"}
+- Source: {intent.get("intent_source") or "deterministic"}
+- Intent tags: {' | '.join(intent.get("intent_tags") or []) if intent.get("intent_tags") else 'None.'}
 - Action terms: {' | '.join(intent.get("action_terms") or []) if intent.get("action_terms") else 'None.'}
 - Suggested tools: {' | '.join(intent.get("suggested_tools") or []) if intent.get("suggested_tools") else 'None preferred.'}
 """.strip()

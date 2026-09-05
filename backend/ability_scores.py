@@ -6,6 +6,7 @@ import random
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from rules_catalog import POINT_BUY_COSTS, RuleCatalog
+from roll_capture import dice_context, record_roll
 
 
 ABILITY_NAMES = (
@@ -126,6 +127,10 @@ class AbilityScoreService:
     def _roll_four_drop_lowest(self, index: int) -> Dict[str, Any]:
         dice = [self.rng.randint(1, 6) for _ in range(4)]
         dropped_index = dice.index(min(dice))
+        kept = [value for offset, value in enumerate(dice) if offset != dropped_index]
+        with dice_context(kind="ability", label=f"属性骰池第 {index + 1} 组"):
+            record_roll(expression="4d6kh3", dice=dice, kept=kept, modifier=0,
+                        total=sum(kept), detail=f"{dice}，去掉第 {dropped_index + 1} 枚")
         return {
             "slot_id": f"roll-{index + 1}",
             "dice": dice,

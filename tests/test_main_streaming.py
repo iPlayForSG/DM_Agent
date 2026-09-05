@@ -1,6 +1,8 @@
+import asyncio
 import json
 import os
 import sys
+import threading
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
@@ -15,7 +17,8 @@ os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
 
 import main as api_main
 from game_logic import GameLogic
-from models import Character, GameState, NodeTrace, PendingTurnState, ResourcePool, ToolResult, TurnResult, TurnTrace, ValidationIssue
+from models import ActionSuggestion, Character, ChatMessage, GameState, NodeTrace, PendingTurnState, ResourcePool, ToolResult, TurnResult, TurnTrace, ValidationIssue
+from turn_stream import emit_turn_stream_event
 
 
 class FakeStorage:
@@ -28,10 +31,19 @@ class FakeStorage:
     def load_game(self, game_id: str):
         return self.state
 
-    def save_game(self, game_id: str, state: GameState) -> None:
+    def save_game(self, game_id: str, state: GameState, **_kwargs) -> None:
         self.saved_game_id = game_id
         self.saved_state = state
         self.state = state
+
+    def save_turn(self, game_id, state, *, expected_version, snapshots, prune_from):
+        from storage import StateConflictError
+        if self.state is None or self.state.state_version != expected_version:
+            raise StateConflictError("stale test state")
+        self.save_game(game_id, state)
+        self.prune_rewind_snapshots_from(game_id, prune_from)
+        for index, snapshot in snapshots.items():
+            self.save_rewind_snapshot(game_id, index, snapshot)
 
     def save_rewind_snapshot(self, game_id: str, message_index: int, state: GameState) -> None:
         self.rewind_snapshots[(game_id, message_index)] = state.model_copy(deep=True)
@@ -51,6 +63,7 @@ class FakeAgent:
         self.result = result
         self.run_calls = 0
         self.resume_calls = 0
+        self.projection_calls = 0
         self.run_inputs = []
         self.checkpoint_backend = "sqlite"
         self.checkpoint_db_path = "backend/Game/langgraph_checkpoints.sqlite"
@@ -75,6 +88,17 @@ class FakeAgent:
         self.resume_calls += 1
         return self.result
 
+    def project_action_suggestions(self, state: GameState, response: str, user_input: str = ""):
+        self.projection_calls += 1
+        return (
+            [
+                ActionSuggestion(label="查看铁栅", action="我查看铁栅上的新鲜刮痕。"),
+                ActionSuggestion(label="聆听锁链", action="我贴近铁栅，辨认锁链声来自哪里。"),
+                ActionSuggestion(label="检查地面", action="我检查铁栅前的地面，寻找近期活动痕迹。"),
+            ],
+            {"status": "completed"},
+        )
+
     def close(self) -> None:
         return None
 
@@ -96,6 +120,27 @@ class FakeAgent:
             "detail": "ok",
             "probe_url": "https://example.test/v1/models",
         }
+
+
+class LiveEventFakeAgent(FakeAgent):
+    async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
+        emit_turn_stream_event("agent.output.delta", {"stage": "dm_model", "text": "先确认现场，"})
+        await asyncio.sleep(0.01)
+        emit_turn_stream_event("agent.output.delta", {"stage": "dm_model", "text": "再结算行动。"})
+        return await super().run_turn(state, user_input)
+
+
+class BlockingLiveEventFakeAgent(FakeAgent):
+    def __init__(self, result: TurnResult):
+        super().__init__(result)
+        self.live_event_emitted = threading.Event()
+        self.release_turn = threading.Event()
+
+    async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
+        emit_turn_stream_event("agent.output.delta", {"stage": "dm_model", "text": "实时片段"})
+        self.live_event_emitted.set()
+        await asyncio.to_thread(self.release_turn.wait, 1)
+        return await super().run_turn(state, user_input)
 
 
 @contextmanager
@@ -132,6 +177,72 @@ def parse_sse_events(lines):
 
 
 class TurnStreamingApiTests(unittest.TestCase):
+    def test_execute_turn_request_forwards_event_before_turn_completes(self) -> None:
+        state = GameState(game_id="live-bridge-test", title="Live Bridge Test")
+        result = TurnResult(response="Resolved", turn_status="completed", game_state=state.model_copy(deep=True))
+        fake_agent = BlockingLiveEventFakeAgent(result)
+        received = []
+
+        async def run_scenario():
+            task = asyncio.create_task(
+                api_main._execute_turn_request(
+                    state,
+                    "Inspect",
+                    stream_event=lambda event, data: received.append((event, data)),
+                )
+            )
+            emitted = await asyncio.to_thread(fake_agent.live_event_emitted.wait, 1)
+            self.assertTrue(emitted)
+            self.assertFalse(task.done())
+            self.assertEqual(received[0][0], "agent.output.delta")
+            self.assertEqual(received[0][1]["text"], "实时片段")
+            fake_agent.release_turn.set()
+            return await task
+
+        original_agent = api_main.agent
+        api_main.agent = fake_agent
+        try:
+            resolved_result, mode = asyncio.run(run_scenario())
+        finally:
+            fake_agent.release_turn.set()
+            api_main.agent = original_agent
+
+        self.assertEqual(mode, "start")
+        self.assertEqual(resolved_result.response, "Resolved")
+
+    def test_turn_stream_emits_agent_output_before_result(self) -> None:
+        state = GameState(game_id="agent-output-test", title="Agent Output Test")
+        result = TurnResult(response="Resolved", turn_status="completed", game_state=state.model_copy(deep=True))
+        fake_agent = LiveEventFakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                with client.stream(
+                    "POST",
+                    "/api/v1/games/agent-output-test/turns/stream",
+                    json={"message": "Inspect"},
+                ) as resp:
+                    self.assertEqual(resp.status_code, 200)
+                    events = parse_sse_events(list(resp.iter_lines()))
+
+        event_names = [event["event"] for event in events]
+        self.assertEqual(
+            event_names,
+            [
+                "turn.started",
+                "agent.output.delta",
+                "agent.output.delta",
+                "turn.completed",
+                "turn.saved",
+                "turn.finished",
+            ],
+        )
+        self.assertLess(event_names.index("agent.output.delta"), event_names.index("turn.completed"))
+        self.assertEqual(events[1]["data"]["text"], "先确认现场，")
+        self.assertEqual(events[2]["data"]["text"], "再结算行动。")
+        self.assertEqual(events[1]["data"]["game_id"], "agent-output-test")
+
     def test_reply_length_settings_are_persisted(self) -> None:
         state = GameState(game_id="length-test", title="Length Test")
         result = TurnResult(response="unused", turn_status="completed", game_state=state.model_copy(deep=True))
@@ -496,6 +607,49 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(events[3]["data"]["severity"], "warning")
         self.assertEqual(events[3]["data"]["action"], "normalized")
 
+    def test_turn_stream_omits_hidden_roll_details(self) -> None:
+        state = GameState(game_id="hidden-roll-stream", title="Hidden Roll Stream")
+        result = TurnResult(
+            response="你没有察觉暗处的变化。",
+            turn_status="completed",
+            game_state=state.model_copy(deep=True),
+            turn_trace=TurnTrace(
+                turn_number=1,
+                turn_status="completed",
+                phase="exploration",
+                response="你没有察觉暗处的变化。",
+                tool_results=[
+                    ToolResult(
+                        tool_name="dice.roll",
+                        summary="掷骰 1d20: 18 = 18 | 暗中判断伏兵",
+                        payload={"expression": "1d20", "total": 18, "visibility": "hidden"},
+                    ),
+                    ToolResult(
+                        tool_name="check.skill",
+                        summary="沐瑞安 察觉检定 12 vs DC 10 -> 成功",
+                        payload={"actor_name": "沐瑞安", "total": 12},
+                    ),
+                ],
+            ),
+        )
+        fake_agent = FakeAgent(result)
+        fake_storage = FakeStorage(state)
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                with client.stream(
+                    "POST",
+                    "/api/v1/games/hidden-roll-stream/turns/stream",
+                    json={"message": "我查看前方。"},
+                ) as resp:
+                    self.assertEqual(resp.status_code, 200)
+                    events = parse_sse_events(list(resp.iter_lines()))
+
+        tool_events = [event for event in events if event["event"] == "tool.completed"]
+        self.assertEqual(len(tool_events), 1)
+        self.assertEqual(tool_events[0]["data"]["tool_name"], "check.skill")
+        self.assertNotIn("暗中判断伏兵", str(tool_events))
+
     def test_trace_endpoint_returns_recent_traces(self) -> None:
         state = GameState(game_id="trace-test", title="Trace Test")
         state.turn_traces = [
@@ -518,6 +672,38 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(len(payload["traces"]), 2)
         self.assertEqual(payload["traces"][0]["turn_number"], 2)
         self.assertEqual(payload["traces"][1]["turn_number"], 3)
+
+    def test_action_suggestions_are_saved_on_the_reply_and_reused(self) -> None:
+        state = GameState(game_id="suggestion-cache-test", title="Suggestion Cache Test", turn_number=4)
+        state.scene = "exploration"
+        state.campaign.phase = "exploration"
+        state.chat_history.extend(
+            [
+                ChatMessage(role="user", content="我检查铁栅。"),
+                ChatMessage(role="assistant", content="铁栅后传来缓慢的锁链声。"),
+            ]
+        )
+        fake_storage = FakeStorage(state)
+        fake_agent = FakeAgent(TurnResult(response="unused", game_state=state.model_copy(deep=True)))
+
+        with patched_runtime(fake_agent, fake_storage):
+            with TestClient(api_main.app) as client:
+                generated = client.post("/api/v1/games/suggestion-cache-test/action-suggestions")
+                cached = client.post("/api/v1/games/suggestion-cache-test/action-suggestions")
+                reloaded = client.get("/api/v1/games/suggestion-cache-test")
+
+        self.assertEqual(generated.status_code, 200)
+        self.assertEqual(generated.json()["metadata"]["status"], "completed")
+        self.assertTrue(generated.json()["generated"])
+        self.assertEqual(cached.status_code, 200)
+        self.assertEqual(cached.json()["metadata"]["status"], "cached")
+        self.assertEqual(fake_agent.projection_calls, 1)
+        saved_reply = fake_storage.saved_state.chat_history[-1]
+        self.assertTrue(saved_reply.action_suggestions_generated)
+        self.assertEqual(len(saved_reply.action_suggestions), 3)
+        reloaded_reply = reloaded.json()["chat_history"][-1]
+        self.assertTrue(reloaded_reply["action_suggestions_generated"])
+        self.assertEqual(len(reloaded_reply["action_suggestions"]), 3)
 
     def test_use_feature_action_endpoint_uses_inferred_feature_metadata(self) -> None:
         state = GameState(game_id="feature-api-test", title="Feature Api Test")

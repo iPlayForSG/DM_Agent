@@ -349,6 +349,51 @@ class RuleCatalog:
             "casting_ability": self.normalize_save_name(casting_ability),
         }
 
+    def get_spell_attack_profile(self, character: Character, spell_name: str, slot_level: int = 0) -> Optional[Dict[str, Any]]:
+        details = self.library.get_spell_details(spell_name) or {}
+        description = str(details.get("desc") or details.get("description") or "")
+        if not re.search(r"法术攻击|spell attack", description, re.IGNORECASE):
+            return None
+        class_def = self.get_class_def(character.class_name) or {}
+        ability = str(class_def.get("spellcasting_ability") or "")
+        if not ability:
+            raise ValueError("Character has no authoritative spellcasting ability")
+        damage = re.search(r"(\d+)d(\d+)", description, re.IGNORECASE)
+        if not damage:
+            raise ValueError("Spell attack has no supported damage dice in the rules catalog")
+        count, sides = int(damage[1]), int(damage[2])
+        spell_level = int(details.get("level") or 0)
+        scale = 1 + sum(character.level >= level for level in (5, 11, 17))
+        beams = str(details.get("nameEN") or "").casefold() == "eldritch blast"
+        attacks = scale if beams else 1
+        if spell_level == 0 and not beams:
+            count *= scale
+        elif spell_level > 0 and slot_level > spell_level:
+            higher = str(details.get("higherLevels") or details.get("higher_levels") or "")
+            increase = re.search(r"(?:增加|increases? by)\s*(\d+)d(\d+)", higher, re.IGNORECASE)
+            if not increase or int(increase[2]) != sides:
+                raise ValueError("Upcast attack damage is not supported by the rules catalog")
+            count += (slot_level - spell_level) * int(increase[1])
+        damage_names = {
+            "fire": ("火焰", "fire"), "cold": ("寒冷", "cold"), "force": ("力场", "force"),
+            "lightning": ("闪电", "lightning"), "thunder": ("雷鸣", "thunder"),
+            "acid": ("强酸", "acid"), "poison": ("毒素", "poison"),
+            "necrotic": ("黯蚀", "坏死", "necrotic"), "radiant": ("光耀", "radiant"),
+            "psychic": ("心灵", "psychic"),
+        }
+        # 先读取伤害骰后紧邻的类型；选择型法术再从目录限定的候选类型中选择。
+        damage_tail = description[damage.end():damage.end() + 35].casefold()
+        types = [kind for kind, names in damage_names.items() if any(name in damage_tail for name in names)]
+        if not types:
+            types = [kind for kind, names in damage_names.items() if any(name in description.casefold() for name in names)]
+        if not types:
+            raise ValueError("Spell attack damage type is missing from the rules catalog")
+        return {
+            "spell_name": str(details.get("name") or spell_name),
+            "attack_bonus": proficiency_bonus_for_level(character.level) + self.get_ability_modifier(character, ability),
+            "damage_expression": f"{count}d{sides}", "damage_types": types, "attack_count": attacks,
+        }
+
     def get_point_buy_config(self) -> Dict[str, int]:
         point_buy = self.data.get("ability_generation", {}).get("point_buy", {})
         return {
@@ -939,8 +984,7 @@ class RuleCatalog:
             character.spells.ability = class_def["spellcasting_ability"]
             character.spells.casting_mode = class_def.get("spellcasting_mode", "prepared")
 
-        character.spells.cantrips = self.library.normalize_spell_names(character.spells.cantrips)
-        character.spells.prepared = self.library.normalize_spell_names(character.spells.prepared)
+        # 可用性检查不能修改角色；失败工具和只读 guardrail 都会调用这里。
 
         if class_def and not character.resources:
             resources: Dict[str, ResourcePool] = {}

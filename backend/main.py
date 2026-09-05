@@ -3,11 +3,12 @@
 import asyncio
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from agent import DMAgent
@@ -23,11 +24,14 @@ from adventure_service import (
 from game_logic import GameLogic
 from library import Library
 from model_backends import DEFAULT_MODEL_PROVIDER
-from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
+from models import ActionSuggestion, Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
-from storage import CharacterStorage, GameStorage, MonsterStorage
+from storage import CharacterStorage, GameStorage, MonsterStorage, StateConflictError, PENDING_TURN_ACTION_MESSAGE
+from turn_stream import turn_stream_context
+from player_projection import PlayerJSONResponse, player_payload
+from roll_capture import capture_rolls, settle_rolls
 
-app = FastAPI(title="D&D 2024 DM Agent")
+app = FastAPI(title="D&D 2024 DM Agent", default_response_class=PlayerJSONResponse)
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,9 +46,15 @@ game_storage = GameStorage()
 char_storage = CharacterStorage()
 monster_storage = MonsterStorage()
 agent = DMAgent()
+_action_suggestion_locks: Dict[str, asyncio.Lock] = {}
 rule_catalog = RuleCatalog()
 action_service = GameActionService()
 ability_score_service = AbilityScoreService(rule_catalog)
+
+
+@app.exception_handler(StateConflictError)
+async def state_conflict_handler(_request, exc):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.on_event("shutdown")
@@ -79,8 +89,10 @@ class SelectAdventureRequest(BaseModel):
 class AttackActionRequest(BaseModel):
     attacker_ref: str
     target_ref: str
-    attack_bonus: int
-    damage_expression: str
+    attack_bonus: int | None = None
+    damage_expression: str = ""
+    attack_name: str = ""
+    cast_id: str = ""
     damage_type: str = ""
     resolution_mode: str = "normal"
 
@@ -105,6 +117,8 @@ class CastSpellActionRequest(BaseModel):
     caster_ref: str
     spell_name: str
     slot_level: int = 0
+    target_ref: str = ""
+    damage_type: str = ""
 
 
 class UseItemActionRequest(BaseModel):
@@ -219,11 +233,11 @@ def health_payload():
 
 
 def _turn_result_payload(result: TurnResult) -> Dict[str, Any]:
-    return result.model_dump(mode="json")
+    return player_payload(result.model_dump(mode="json"))
 
 
 def _sse_event(event: str, data: Dict[str, Any]) -> str:
-    payload = json.dumps(data, ensure_ascii=False, default=str)
+    payload = json.dumps(player_payload(data), ensure_ascii=False, default=str)
     return f"event: {event}\ndata: {payload}\n\n"
 
 
@@ -290,6 +304,10 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
             payload = tool_result.model_dump(mode="json")
         else:
             payload = dict(tool_result or {})
+        result_payload = payload.get("payload", {})
+        # 暗骰可以留在 DM 的权威 trace 中供后续裁定，但绝不能进入玩家可见的 SSE 思考面板。
+        if str(result_payload.get("visibility") or "public").strip().casefold() == "hidden":
+            continue
         events.append(
             (
                 "tool.completed",
@@ -299,7 +317,7 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
                     "tool_name": payload.get("tool_name", ""),
                     "status": payload.get("status", "success"),
                     "summary": payload.get("summary", ""),
-                    "payload": payload.get("payload", {}),
+                    "payload": result_payload,
                 },
             )
         )
@@ -329,10 +347,35 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
     return events
 
 
-async def _execute_turn_request(state: GameState, message: str) -> tuple[TurnResult, str]:
+async def _execute_turn_request(
+    state: GameState,
+    message: str,
+    stream_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+) -> tuple[TurnResult, str]:
     mode = "resume" if state.pending_turn else "start"
     turn_method = agent.resume_turn if state.pending_turn else agent.run_turn
-    result = await asyncio.to_thread(lambda: asyncio.run(turn_method(state, message)))
+    initial_rolls = state.pending_turn.roll_records if state.pending_turn else []
+    base_history_length = len(state.chat_history)
+
+    def execute_in_worker() -> TurnResult:
+        with turn_stream_context(stream_event), capture_rolls(initial_rolls) as capture:
+            result = asyncio.run(turn_method(state, message))
+            records = settle_rolls(capture.records, result.turn_status)
+            result.roll_records = records
+            if result.game_state.pending_turn:
+                result.game_state.pending_turn.roll_records = records
+                result.pending_input["roll_records"] = [record.model_dump(mode="json") for record in records]
+            else:
+                # 绑定新增的主持回复，不能把新回合的骰点挂到内容相同的旧回复上。
+                for messages in (result.game_state.chat_history[base_history_length:], result.history[base_history_length:], result.history_append):
+                    for reply in reversed(messages):
+                        if reply.role == "assistant":
+                            reply.roll_records = records
+                            reply.roll_records_recorded = True
+                            break
+            return result
+
+    result = await asyncio.to_thread(execute_in_worker)
     return result, mode
 
 
@@ -368,23 +411,90 @@ def _state_before_last_assistant_message(state: GameState) -> GameState:
 
 
 def _action_suggestions_for_state(state: GameState) -> List[Dict[str, Any]]:
+    for message in reversed(_visible_chat_messages(state)):
+        if message.role == "assistant":
+            return [item.model_dump(mode="json") for item in message.action_suggestions]
     return []
 
 
-async def _execute_turn_and_save(game_id: str, state: GameState, message: str) -> tuple[TurnResult, str]:
-    base_message_index = _visible_message_count(state)
-    game_storage.prune_rewind_snapshots_from(game_id, base_message_index)
-    game_storage.save_rewind_snapshot(game_id, base_message_index, _rewind_safe_state(state))
+def _latest_assistant_suggestion_status(state: GameState) -> tuple[List[Dict[str, Any]], bool]:
+    for message in reversed(_visible_chat_messages(state)):
+        if message.role == "assistant":
+            return (
+                [item.model_dump(mode="json") for item in message.action_suggestions],
+                bool(message.action_suggestions_generated),
+            )
+    return [], False
 
-    result, mode = await _execute_turn_request(state, message)
+
+def _bind_action_suggestions_to_reply(
+    state: GameState,
+    message_index: int,
+    response: str,
+    suggestions: List[ActionSuggestion],
+) -> bool:
+    if message_index < 0 or message_index >= len(state.chat_history):
+        return False
+    message = state.chat_history[message_index]
+    if message.kind == "tool_result" or message.role != "assistant" or message.content != response:
+        return False
+    message.action_suggestions = list(suggestions)
+    message.action_suggestions_generated = True
+    return True
+
+
+def _merge_persisted_action_suggestions(target: GameState, persisted: GameState) -> None:
+    # 主回合和提交后投影可以交叠；合并已经落盘的消息投影，避免较早加载的回合快照把缓存覆盖掉。
+    for index, source in enumerate(persisted.chat_history):
+        if index >= len(target.chat_history) or not source.action_suggestions_generated:
+            continue
+        destination = target.chat_history[index]
+        if destination.role != source.role or destination.kind != source.kind or destination.content != source.content:
+            continue
+        if not destination.action_suggestions_generated:
+            destination.action_suggestions = list(source.action_suggestions)
+            destination.action_suggestions_generated = True
+
+
+def _action_suggestion_lock(game_id: str) -> asyncio.Lock:
+    lock = _action_suggestion_locks.get(game_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _action_suggestion_locks[game_id] = lock
+    return lock
+
+
+async def _execute_turn_and_save(
+    game_id: str,
+    state: GameState,
+    message: str,
+    stream_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    expected_version: Optional[str] = None,
+    preserve_on_failure: bool = False,
+) -> tuple[TurnResult, str]:
+    base_message_index = _visible_message_count(state)
+    expected_version = state.state_version if expected_version is None else expected_version
+    base_snapshot = _rewind_safe_state(state)
+
+    result, mode = await _execute_turn_request(state, message, stream_event=stream_event)
+    if preserve_on_failure and result.turn_status == "failed":
+        # 重写/重试尚未产生有效新分支时，前端恢复旧消息，存储也必须保留同一旧分支。
+        raise RuntimeError(result.response or "回合失败，原剧情分支未改变。")
+
+    persisted_state = game_storage.load_game(game_id)
+    if persisted_state:
+        _merge_persisted_action_suggestions(result.game_state, persisted_state)
 
     assistant_message_index = base_message_index + 1
-    game_storage.save_rewind_snapshot(
-        game_id,
-        assistant_message_index,
-        _state_before_last_assistant_message(result.game_state),
+    game_storage.save_turn(
+        game_id, result.game_state,
+        expected_version=expected_version,
+        snapshots={
+            base_message_index: base_snapshot,
+            assistant_message_index: _state_before_last_assistant_message(result.game_state),
+        },
+        prune_from=base_message_index,
     )
-    game_storage.save_game(game_id, result.game_state)
     return result, mode
 
 
@@ -682,6 +792,17 @@ def _build_spell_options(character: Character):
             }
         )
 
+    for option in options:
+        details = library.get_spell_details(option["name"]) or {}
+        option["action_cost"] = rule_catalog.spell_action_cost(details)
+        try:
+            profile = rule_catalog.get_spell_attack_profile(character, option["name"], option["level"])
+            option["requires_attack_target"] = bool(profile)
+            option["damage_types"] = profile["damage_types"] if profile else []
+            option["damage_type_labels"] = {kind: library.localize_game_terms(kind) for kind in option["damage_types"]}
+        except ValueError as exc:
+            option["available"] = False
+            option["resolution_error"] = str(exc)
     return sorted(options, key=lambda item: (item["level"], item["name"]))
 
 
@@ -763,6 +884,8 @@ def action_options_payload(state: GameState):
     )
     for character in state.characters.values():
         is_current_actor = bool(current_combatant and current_combatant.linked_character_id == character.character_id)
+        linked_combatant = GameLogic(state).get_combatant(character.character_id)
+        reaction_used = bool(state.encounter and linked_combatant and state.encounter.reactions_used.get(linked_combatant.combatant_id))
         actors.append(
             {
                 "ref": character.character_id,
@@ -770,6 +893,8 @@ def action_options_payload(state: GameState):
                 "type": "character",
                 "side": "party",
                 "is_current_actor": is_current_actor,
+                "can_act": character.hp_current > 0 and character.defeat_state == "active" and not GameLogic.is_incapacitated(character),
+                "reaction_available": not reaction_used,
                 "defeat_state": character.defeat_state,
                 "defeat_state_display": library.localize_game_terms(character.defeat_state.title()),
                 "gold_gp": character.gold_gp,
@@ -842,6 +967,9 @@ def action_options_payload(state: GameState):
 
     return {
         "phase": state.campaign.phase,
+        "state_version": state.state_version,
+        "local_actions_allowed": state.pending_turn is None,
+        "local_actions_block_reason": PENDING_TURN_ACTION_MESSAGE if state.pending_turn else "",
         "encounter": {
             "active": bool(state.encounter and state.encounter.active),
             "round_number": state.encounter.round_number if state.encounter else 0,
@@ -1098,7 +1226,7 @@ async def get_game_state(game_id: str) -> GameState:
     state = game_storage.load_game(game_id)
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
-    if ensure_adventure_generation_option(state):
+    if not state.pending_turn and ensure_adventure_generation_option(state):
         game_storage.save_game(game_id, state)
     return state
 
@@ -1148,9 +1276,7 @@ async def get_game_action_options(game_id: str):
 
 @app.post("/api/v1/games/{game_id}/reply-length")
 async def update_game_reply_length(game_id: str, req: ReplyLengthSettingsRequest):
-    state = game_storage.load_game(game_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="Game not found")
+    state = _load_mutable_game_or_404(game_id)
     try:
         min_chars, max_chars = _normalize_reply_length_settings(req.min_chars, req.max_chars)
     except ValueError as exc:
@@ -1171,9 +1297,9 @@ async def update_game_reply_length(game_id: str, req: ReplyLengthSettingsRequest
 
 @app.post("/api/v1/games/{game_id}/select-adventure")
 async def select_adventure(game_id: str, req: SelectAdventureRequest):
-    state = game_storage.load_game(game_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="Game not found")
+    state = _load_mutable_game_or_404(game_id)
+    base_snapshot = _rewind_safe_state(state)
+    base_message_index = _visible_message_count(state)
 
     selected = None
     if is_ai_generated_adventure_id(req.adventure_id):
@@ -1216,9 +1342,15 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
         )
     opening_message = agent.clean_player_response(opening_message)
     action_suggestions = opening_action_suggestions(selected)
-    game_storage.save_rewind_snapshot(game_id, _visible_message_count(state), state)
     state.adventure_log.append(f"选择冒险：{selected.title}")
-    state.chat_history.append(ChatMessage(role="assistant", content=opening_message))
+    state.chat_history.append(
+        ChatMessage(
+            role="assistant",
+            content=opening_message,
+            action_suggestions=action_suggestions,
+            action_suggestions_generated=True,
+        )
+    )
     state.timeline.append(
         SessionEvent(
             type="assistant_response",
@@ -1227,7 +1359,8 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
             payload={"message": opening_message, "adventure_id": selected.adventure_id},
         )
     )
-    game_storage.save_game(game_id, state)
+    game_storage.save_turn(game_id, state, expected_version=base_snapshot.state_version,
+                           snapshots={base_message_index: base_snapshot}, prune_from=base_message_index)
     return {
         "status": "selected",
         "adventure": selected.model_dump(mode="json"),
@@ -1238,7 +1371,7 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
 
 @app.post("/api/v1/games/{game_id}/encounters/start")
 async def start_encounter(game_id: str, req: StartEncounterRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         logic = GameLogic(state)
         encounter = logic.start_encounter(req.enemy_names, enemy_hp=req.enemy_hp, enemy_ac=req.enemy_ac)
@@ -1252,7 +1385,7 @@ async def start_encounter(game_id: str, req: StartEncounterRequest):
 
 @app.post("/api/v1/games/{game_id}/encounters/add-enemy")
 async def add_enemy_to_encounter(game_id: str, req: AddEnemyEncounterRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         logic = GameLogic(state)
         combatant = logic.add_enemy(
@@ -1272,7 +1405,7 @@ async def add_enemy_to_encounter(game_id: str, req: AddEnemyEncounterRequest):
 
 @app.post("/api/v1/games/{game_id}/encounters/spawn-template")
 async def spawn_template_into_encounter(game_id: str, req: SpawnMonsterEncounterRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     monster = _load_monster_template_for_state(state, req.monster_id)
     if not monster:
         raise HTTPException(status_code=404, detail="Monster template not found")
@@ -1301,7 +1434,7 @@ async def spawn_template_into_encounter(game_id: str, req: SpawnMonsterEncounter
 
 @app.post("/api/v1/games/{game_id}/encounters/end")
 async def end_encounter(game_id: str):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.end_encounter(state)
     except Exception as exc:
@@ -1321,7 +1454,7 @@ async def end_encounter(game_id: str):
 
 @app.post("/api/v1/games/{game_id}/encounters/remove-combatant")
 async def remove_encounter_combatant(game_id: str, req: RemoveCombatantRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         logic = GameLogic(state)
         combatant = logic.remove_combatant(req.combatant_ref)
@@ -1335,7 +1468,7 @@ async def remove_encounter_combatant(game_id: str, req: RemoveCombatantRequest):
 
 @app.post("/api/v1/games/{game_id}/encounters/set-initiative")
 async def set_encounter_initiative(game_id: str, req: SetInitiativeRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         logic = GameLogic(state)
         combatant = logic.set_initiative(req.combatant_ref, req.initiative)
@@ -1349,7 +1482,7 @@ async def set_encounter_initiative(game_id: str, req: SetInitiativeRequest):
 
 @app.post("/api/v1/games/{game_id}/encounters/roll-initiative")
 async def roll_encounter_initiative(game_id: str, req: RollInitiativeRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         logic = GameLogic(state)
         result = logic.roll_initiative(req.combatant_ref)
@@ -1385,8 +1518,8 @@ async def delete_game_message(game_id: str, message_index: int):
 
     # 兼容修复前已经落盘、仍携带一次性 pending_turn 的 rewind snapshot。
     snapshot = _rewind_safe_state(snapshot)
-    game_storage.prune_rewind_snapshots_from(game_id, message_index)
-    game_storage.save_game(game_id, snapshot)
+    game_storage.save_turn(game_id, snapshot, expected_version=state.state_version,
+                           snapshots={}, prune_from=message_index)
     return {
         "status": "rewound",
         "message_index": message_index,
@@ -1396,7 +1529,7 @@ async def delete_game_message(game_id: str, message_index: int):
 
 
 @app.post("/api/v1/games/{game_id}/messages/{message_index}/rewrite")
-async def rewrite_game_message(game_id: str, message_index: int, req: RewriteMessageRequest):
+async def rewrite_game_message(game_id: str, message_index: int, req: RewriteMessageRequest, stream: bool = False):
     message = req.message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
@@ -1418,15 +1551,19 @@ async def rewrite_game_message(game_id: str, message_index: int, req: RewriteMes
         )
 
     snapshot = _rewind_safe_state(snapshot)
+    if stream:
+        return _stream_turn_response(game_id, snapshot, message, expected_version=state.state_version, preserve_on_failure=True)
     try:
-        result, _ = await _execute_turn_and_save(game_id, snapshot, message)
+        result, _ = await _execute_turn_and_save(game_id, snapshot, message, expected_version=state.state_version, preserve_on_failure=True)
+    except StateConflictError:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
     return result
 
 
 @app.post("/api/v1/games/{game_id}/messages/{message_index}/retry")
-async def retry_game_message(game_id: str, message_index: int):
+async def retry_game_message(game_id: str, message_index: int, stream: bool = False):
     state = game_storage.load_game(game_id)
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -1450,12 +1587,19 @@ async def retry_game_message(game_id: str, message_index: int):
 
     # retry 是 rewrite 的无编辑快捷入口；服务端解析上一条玩家消息，避免浏览器猜测回滚索引。
     snapshot = _rewind_safe_state(snapshot)
+    if stream:
+        return _stream_turn_response(game_id, snapshot, visible_messages[player_message_index].content,
+                                     expected_version=state.state_version, preserve_on_failure=True)
     try:
         result, _ = await _execute_turn_and_save(
             game_id,
             snapshot,
             visible_messages[player_message_index].content,
+            expected_version=state.state_version,
+            preserve_on_failure=True,
         )
+    except StateConflictError:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
     return result
@@ -1469,6 +1613,8 @@ async def run_turn(game_id: str, req: ChatRequest):
 
     try:
         result, _ = await _execute_turn_and_save(game_id, state, req.message)
+    except StateConflictError:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DM agent request failed: {exc}") from exc
 
@@ -1481,6 +1627,10 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
 
+    return _stream_turn_response(game_id, state, req.message)
+
+
+def _stream_turn_response(game_id: str, state: GameState, message: str, *, expected_version=None, preserve_on_failure=False):
     async def event_stream():
         initial_mode = "resume" if state.pending_turn else "start"
         yield _sse_event(
@@ -1491,10 +1641,47 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
                 "checkpoint_backend": agent.checkpoint_backend,
                 "checkpoint_db_path": agent.checkpoint_db_path,
                 "has_pending_turn": bool(state.pending_turn),
+                "roll_records": [record.model_dump(mode="json") for record in (state.pending_turn.roll_records if state.pending_turn else [])],
             },
         )
+        event_queue: asyncio.Queue[tuple[str, Dict[str, Any]]] = asyncio.Queue()
+        event_loop = asyncio.get_running_loop()
+
+        def publish_live_event(event: str, data: Dict[str, Any]) -> None:
+            event_loop.call_soon_threadsafe(event_queue.put_nowait, (event, data))
+
+        turn_task = asyncio.create_task(
+            _execute_turn_and_save(
+                game_id,
+                state,
+                message,
+                stream_event=publish_live_event,
+                expected_version=expected_version, preserve_on_failure=preserve_on_failure,
+            )
+        )
+        last_activity = event_loop.time()
+        emitted_node_count = 0
+        while not turn_task.done() or not event_queue.empty():
+            try:
+                live_event, live_data = await asyncio.wait_for(event_queue.get(), timeout=0.1)
+            except asyncio.TimeoutError:
+                if event_loop.time() - last_activity >= 10:
+                    yield ": keep-alive\n\n"
+                    last_activity = event_loop.time()
+                continue
+            live_payload = {
+                "game_id": game_id,
+                "mode": initial_mode,
+                **dict(live_data or {}),
+            }
+            if live_event == "turn.node":
+                live_payload.setdefault("index", emitted_node_count)
+                emitted_node_count += 1
+            last_activity = event_loop.time()
+            yield _sse_event(live_event, live_payload)
+
         try:
-            result, mode = await _execute_turn_and_save(game_id, state, req.message)
+            result, mode = await turn_task
         except Exception as exc:
             yield _sse_event(
                 "turn.error",
@@ -1511,8 +1698,9 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
         payload["game_id"] = game_id
         payload["mode"] = mode
         result_event = "turn.input_required" if result.turn_status == "input_required" else "turn.completed"
-        for node_payload in _turn_node_event_payloads(result, game_id, mode):
-            yield _sse_event("turn.node", node_payload)
+        if emitted_node_count == 0:
+            for node_payload in _turn_node_event_payloads(result, game_id, mode):
+                yield _sse_event("turn.node", node_payload)
         for detail_event, detail_payload in _turn_detail_event_payloads(result, game_id, mode):
             yield _sse_event(detail_event, detail_payload)
         yield _sse_event(result_event, payload)
@@ -1536,7 +1724,7 @@ async def run_turn_stream(game_id: str, req: ChatRequest):
         event_stream(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
@@ -1547,6 +1735,13 @@ def _load_game_or_404(game_id: str) -> GameState:
     state = game_storage.load_game(game_id)
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
+    return state
+
+
+def _load_mutable_game_or_404(game_id: str) -> GameState:
+    state = _load_game_or_404(game_id)
+    if state.pending_turn:
+        raise HTTPException(status_code=409, detail=PENDING_TURN_ACTION_MESSAGE)
     return state
 
 
@@ -1565,37 +1760,84 @@ async def get_game_turn_traces(game_id: str, limit: int = 20):
 
 @app.post("/api/v1/games/{game_id}/action-suggestions")
 async def project_game_action_suggestions(game_id: str):
-    state = _load_game_or_404(game_id)
-    visible_history = _visible_chat_messages(state)
-    response = next(
-        (message.content for message in reversed(visible_history) if message.role == "assistant"),
-        "",
-    )
-    user_input = next(
-        (message.content for message in reversed(visible_history) if message.role == "user"),
-        "",
-    )
-    if not response:
-        return {"game_id": game_id, "turn_number": state.turn_number, "action_suggestions": []}
+    async with _action_suggestion_lock(game_id):
+        state = _load_game_or_404(game_id)
+        stored_suggestions, generated = _latest_assistant_suggestion_status(state)
+        if generated:
+            return {
+                "game_id": game_id,
+                "turn_number": state.turn_number,
+                "action_suggestions": stored_suggestions,
+                "generated": True,
+                "metadata": {"status": "cached"},
+            }
 
-    suggestions, metadata = await asyncio.to_thread(
-        agent.project_action_suggestions,
-        state,
-        response,
-        user_input,
-    )
-    return {
-        "game_id": game_id,
-        "turn_number": state.turn_number,
-        "action_suggestions": [item.model_dump(mode="json") for item in suggestions],
-        "metadata": metadata,
-    }
+        visible_history = _visible_chat_messages(state)
+        assistant_message_index = next(
+            (
+                index
+                for index in range(len(state.chat_history) - 1, -1, -1)
+                if state.chat_history[index].kind != "tool_result"
+                and state.chat_history[index].role == "assistant"
+            ),
+            -1,
+        )
+        response = state.chat_history[assistant_message_index].content if assistant_message_index >= 0 else ""
+        user_input = next(
+            (message.content for message in reversed(visible_history) if message.role == "user"),
+            "",
+        )
+        if not response:
+            return {
+                "game_id": game_id,
+                "turn_number": state.turn_number,
+                "action_suggestions": [],
+                "generated": False,
+            }
+
+        projected_turn_number = state.turn_number
+        suggestions, metadata = await asyncio.to_thread(
+            agent.project_action_suggestions,
+            state,
+            response,
+            user_input,
+        )
+
+        # 投影在主回合提交后运行；迟到结果只能写回原回复，不能用旧快照覆盖已经推进的新回合。
+        latest_state = _load_game_or_404(game_id)
+        if _bind_action_suggestions_to_reply(latest_state, assistant_message_index, response, suggestions):
+            game_storage.save_game(game_id, latest_state, projection_only=True)
+            if latest_state.turn_number != projected_turn_number:
+                latest_suggestions, latest_generated = _latest_assistant_suggestion_status(latest_state)
+                return {
+                    "game_id": game_id,
+                    "turn_number": latest_state.turn_number,
+                    "action_suggestions": latest_suggestions,
+                    "generated": latest_generated,
+                    "metadata": {**metadata, "status": "stale"},
+                }
+            return {
+                "game_id": game_id,
+                "turn_number": latest_state.turn_number,
+                "action_suggestions": [item.model_dump(mode="json") for item in suggestions],
+                "generated": True,
+                "metadata": metadata,
+            }
+
+        latest_suggestions, latest_generated = _latest_assistant_suggestion_status(latest_state)
+        return {
+            "game_id": game_id,
+            "turn_number": latest_state.turn_number,
+            "action_suggestions": latest_suggestions,
+            "generated": latest_generated,
+            "metadata": {**metadata, "status": "stale"},
+        }
 
 
 # Deterministic local action routes complement the freer LangGraph text turns.
 @app.post("/api/v1/games/{game_id}/actions/advance-turn")
 async def advance_turn_action(game_id: str):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.advance_turn(state)
     except Exception as exc:
@@ -1606,7 +1848,7 @@ async def advance_turn_action(game_id: str):
 
 @app.post("/api/v1/games/{game_id}/actions/attack")
 async def attack_action(game_id: str, req: AttackActionRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.attack_target(
             state=state,
@@ -1616,6 +1858,8 @@ async def attack_action(game_id: str, req: AttackActionRequest):
             damage_expression=req.damage_expression,
             damage_type=req.damage_type,
             resolution_mode=req.resolution_mode,
+            attack_name=req.attack_name,
+            cast_id=req.cast_id,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1625,7 +1869,7 @@ async def attack_action(game_id: str, req: AttackActionRequest):
 
 @app.post("/api/v1/games/{game_id}/actions/skill-check")
 async def skill_check_action(game_id: str, req: SkillCheckActionRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.skill_check(
             state=state,
@@ -1642,7 +1886,7 @@ async def skill_check_action(game_id: str, req: SkillCheckActionRequest):
 
 @app.post("/api/v1/games/{game_id}/actions/saving-throw")
 async def saving_throw_action(game_id: str, req: SavingThrowActionRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.saving_throw(
             state=state,
@@ -1661,13 +1905,15 @@ async def saving_throw_action(game_id: str, req: SavingThrowActionRequest):
 
 @app.post("/api/v1/games/{game_id}/actions/cast-spell")
 async def cast_spell_action(game_id: str, req: CastSpellActionRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.cast_spell(
             state=state,
             caster_ref=req.caster_ref,
             spell_name=req.spell_name,
             slot_level=req.slot_level,
+            target_ref=req.target_ref,
+            damage_type=req.damage_type,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1677,7 +1923,7 @@ async def cast_spell_action(game_id: str, req: CastSpellActionRequest):
 
 @app.post("/api/v1/games/{game_id}/actions/use-item")
 async def use_item_action(game_id: str, req: UseItemActionRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.use_item(
             state=state,
@@ -1693,7 +1939,7 @@ async def use_item_action(game_id: str, req: UseItemActionRequest):
 
 @app.post("/api/v1/games/{game_id}/actions/use-feature")
 async def use_feature_action(game_id: str, req: UseFeatureActionRequest):
-    state = _load_game_or_404(game_id)
+    state = _load_mutable_game_or_404(game_id)
     try:
         result = action_service.use_feature(
             state=state,

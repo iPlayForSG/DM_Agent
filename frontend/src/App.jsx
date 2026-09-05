@@ -1,6 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { isPlayerVisibleTimelineEvent, narrativeEmphasisClass } from "./narrativeRollUi";
+import { mergeRollRecords, rollSettlementLabel } from "./rollUi";
+import {
+  createEmptyDmThinking,
+  prepareDmRetryUiRollback,
+  preparePlayerRewriteUiRollback,
+} from "./retryUi";
 import {
   addEncounterEnemy,
   advanceTurn,
@@ -323,6 +330,8 @@ const mapMessages = (history = [], timeline = []) => {
       sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
       text: m.role === "system" ? localizeSceneText(m.content) : m.content,
       turnStatus: String(assistantEvent?.payload?.turn_status || ""),
+      rollRecords: m.roll_records || [],
+      rollRecordsRecorded: Boolean(m.roll_records_recorded),
     });
     return items;
   }, []);
@@ -373,12 +382,15 @@ const WORKFLOW_NODE_LABELS = {
   draft_response: "草稿",
   execute_tools: "工具",
   validate_state: "校验",
+  enforce_reply_length: "篇幅校正",
   finalize_turn: "收尾",
   rag_completed: "规则检索",
   tool_completed: "工具结果",
   validation_note: "校验备注",
+  "agent.dm.entered": "主持接手",
+  "agent.dm.tool_batch_serialized": "行动排队",
 };
-const WORKFLOW_STATUS_LABELS = { started: "开始", completed: "完成", skipped: "跳过", blocked: "暂停", success: "成功", noted: "已记录", error: "错误" };
+const WORKFLOW_STATUS_LABELS = { started: "开始", completed: "完成", skipped: "跳过", blocked: "暂停", success: "成功", noted: "已记录", warning: "提醒", failed: "失败", error: "错误" };
 const workflowNodeLabel = (nodeName) => WORKFLOW_NODE_LABELS[nodeName] || nodeName || "节点";
 const workflowStatusLabel = (status) => WORKFLOW_STATUS_LABELS[status] || status || "完成";
 const compactWorkflowMetadata = (metadata = {}) => {
@@ -645,16 +657,120 @@ const HIGHLIGHTED_MARKDOWN_COMPONENTS = {
   td: ({ children }) => <td>{highlightQuotedChildren(children)}</td>,
 };
 
-function MarkdownBlock({ children, highlightQuotes = false }) {
+function markdownInlineText(children) {
+  return React.Children.toArray(children).map((child) => {
+    if (typeof child === "string" || typeof child === "number") return String(child);
+    if (React.isValidElement(child)) return markdownInlineText(child.props.children);
+    return "";
+  }).join("");
+}
+
+const NARRATIVE_MARKDOWN_COMPONENTS = {
+  ...HIGHLIGHTED_MARKDOWN_COMPONENTS,
+  em: ({ children }) => {
+    const className = narrativeEmphasisClass("em", markdownInlineText(children));
+    return <em className={className || undefined}>{children}</em>;
+  },
+  strong: ({ children }) => {
+    const className = narrativeEmphasisClass("strong", markdownInlineText(children));
+    return <strong className={className || undefined}>{children}</strong>;
+  },
+};
+
+function MarkdownBlock({ children, highlightQuotes = false, highlightNarrativeRolls = false }) {
+  const components = highlightNarrativeRolls
+    ? NARRATIVE_MARKDOWN_COMPONENTS
+    : highlightQuotes
+      ? HIGHLIGHTED_MARKDOWN_COMPONENTS
+      : undefined;
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      components={highlightQuotes ? HIGHLIGHTED_MARKDOWN_COMPONENTS : undefined}
+      components={components}
     >
       {String(children || "")}
     </ReactMarkdown>
   );
 }
+
+const asMarkdownQuote = (text) => String(text || "")
+  .split("\n")
+  .map((line) => `> ${line}`)
+  .join("\n");
+
+const thinkingProgressMarkdown = (events) => (events || []).map((event) => {
+  const header = `**${workflowNodeLabel(event?.node_name)}** · ${workflowStatusLabel(event?.status)}`;
+  if (event?.node_name !== "tool_completed" || !event?.summary) return header;
+  return `${header}  \n${event.summary}`;
+}).join("  \n");
+
+function RollLedger({ records = [], recorded = true }) {
+  const hidden = records.filter((record) => record.visibility === "hidden").length;
+  const labels = { dice: "掷骰", attack: "攻击检定", damage: "伤害", skill: "技能检定", save: "豁免", initiative: "先攻", ability: "属性骰" };
+  return (
+    <details className="turn-roll-ledger">
+      <summary>
+        <span>本轮骰点</span>
+        <small>{recorded ? `${records.length} 次${hidden ? ` · 含 ${hidden} 次暗骰` : ""}` : "未记录"}</small>
+      </summary>
+      {records.length === 0 ? <p className="roll-empty">{recorded ? "本轮没有执行掷骰。" : "此回合没有保存逐次骰点记录。"}</p> : (
+        <ol className="roll-record-list">
+          {records.map((record) => (
+            <li key={record.record_id} className="roll-record">
+              <div className="roll-record-heading">
+                <strong>{record.actor ? `${record.actor} · ` : ""}{record.kind === "skill" ? localizeSkill(record.label) : record.kind === "save" ? `${localizeStat(record.label)}豁免` : record.label || labels[record.kind] || "掷骰"}</strong>
+                <span className={`roll-visibility ${record.visibility}`}>{record.visibility === "hidden" ? "暗骰" : "明骰"}</span>
+              </div>
+              {record.target && <div className="roll-record-context">目标：{record.target}</div>}
+              <div className="roll-equation"><code>{record.expression}</code><span>{record.detail || `[${record.dice.join(", ")}]`}</span><strong>= {record.total}</strong></div>
+              <div className="roll-record-context">
+                {record.roll_mode === "advantage" ? "优势 · " : record.roll_mode === "disadvantage" ? "劣势 · " : ""}
+                {record.dc != null ? `目标值 ${record.dc} · ` : ""}
+                {record.success != null ? `${record.success ? "成功" : "失败"} · ` : ""}
+                {rollSettlementLabel(record)}
+              </div>
+              {record.reason && <p className="roll-reason">{record.reason}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
+  );
+}
+
+function DmThinkingPanel({ thinking, onToggle }) {
+  if (!thinking || thinking.status === "idle") return null;
+  const isRunning = thinking.status === "running";
+  const isError = thinking.status === "error";
+  const isWaiting = thinking.status === "waiting";
+  const title = isRunning ? "主持人构思中…" : isError ? "主持过程已中断" : isWaiting ? "等待你的选择" : "主持过程";
+  const statusLabel = isRunning ? "实时" : isError ? "已中断" : isWaiting ? "待继续" : "已完成";
+  const progress = thinkingProgressMarkdown(thinking.events);
+  const body = [progress, thinking.output].filter((value) => String(value || "").trim()).join("\n\n")
+    || "正在分析你的行动…";
+
+  return (
+    <section className={`dm-thinking-panel thinking-${thinking.status}`} aria-label="主持人的思考过程">
+      <button
+        type="button"
+        className="dm-thinking-toggle"
+        aria-expanded={thinking.expanded}
+        aria-controls="dm-thinking-output"
+        onClick={onToggle}
+      >
+        <span className={`dm-thinking-chevron ${thinking.expanded ? "expanded" : ""}`} aria-hidden="true">›</span>
+        <span className="dm-thinking-title">{title}</span>
+        <span className="dm-thinking-status" role="status" aria-live="polite">{statusLabel}</span>
+      </button>
+      {thinking.expanded && (
+        <div id="dm-thinking-output" className="dm-thinking-output markdown-body" data-streamed-chars={thinking.output.length}>
+          <MarkdownBlock>{asMarkdownQuote(body)}</MarkdownBlock>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function TimelinePanel({ timeline, title = "时间线", emptyText = "还没有记录。" }) {
   return (
     <section className="panel-card timeline-panel">
@@ -696,7 +812,7 @@ function EvidencePanel({ evidence = [] }) {
     </section>
   );
 }
-function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant }) {
+function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant, localActionsLocked = false }) {
   return (
     <section className="side-section combat-panel">
       <h3>场上形势</h3>
@@ -716,7 +832,7 @@ function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiative
               </div>
               <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
               {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
-                <>
+                <fieldset className="pending-action-scope" disabled={localActionsLocked} aria-label="先攻和战斗单位操作">
                   <div className="action-grid" style={{ marginTop: 10 }}>
                     <input value={initiativeDrafts[combatant.combatant_id] ?? ""} onChange={(e) => setInitiativeDrafts((prev) => ({ ...prev, [combatant.combatant_id]: e.target.value }))} placeholder="先攻" />
                     <button className="btn-secondary" onClick={() => saveEncounterInitiative(combatant.combatant_id)}>设置先攻</button>
@@ -727,7 +843,7 @@ function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiative
                       <button className="btn-danger" onClick={() => dropEncounterCombatant(combatant.combatant_id)}>移除</button>
                     </div>
                   )}
-                </>
+                </fieldset>
               )}
             </div>
           ))}
@@ -1005,6 +1121,7 @@ export default function App() {
   const [actionSuggestions, setActionSuggestions] = useState([]);
   const [isActionSuggestionsLoading, setIsActionSuggestionsLoading] = useState(false);
   const [workflowEvents, setWorkflowEvents] = useState([]);
+  const [dmThinking, setDmThinking] = useState(createEmptyDmThinking);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
   const [replyLengthDraft, setReplyLengthDraft] = useState({ min_chars: "", max_chars: "" });
   const [isReplyLengthSaving, setIsReplyLengthSaving] = useState(false);
@@ -1038,7 +1155,9 @@ export default function App() {
   const optimisticMessageIdRef = useRef(0);
 
   useEffect(() => { refreshLobby(); }, []);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, workflowEvents, isLoading]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: isLoading ? "auto" : "smooth" });
+  }, [messages, workflowEvents, isLoading, dmThinking.output]);
   useEffect(() => {
     const nextDrafts = {};
     for (const combatant of gameState?.encounter?.initiative_order?.map((id) => gameState?.encounter?.combatants?.[id]).filter(Boolean) || []) {
@@ -1115,6 +1234,10 @@ export default function App() {
     ...(pendingCustomPreviewItem ? [pendingCustomPreviewItem] : []),
   ];
   const actorList = (actionOptions.actors || []).map((a) => ({ value: a.ref, label: formatActorLabel(a) }));
+  // 只接受同版本的动作选项，避免取消暂停后的新快照被迟到的旧选项继续锁住。
+  const localActionsLocked = Boolean(gameState?.pending_turn) || Boolean(gameState
+    && actionOptions.state_version === gameState.state_version && actionOptions.local_actions_allowed === false);
+  const localActionBlockMessage = actionOptions.local_actions_block_reason || "请先完成或取消当前剧情选择，再执行本地动作或修改本局设置。";
   const charActors = (actionOptions.actors || []).filter((a) => a.type === "character");
   const encounterSummary = actionOptions.encounter || { active: false };
   const currentActorEntry = (actionOptions.actors || []).find((actor) => actor.is_current_actor);
@@ -1134,7 +1257,7 @@ export default function App() {
   const skillActor = (actionOptions.actors || []).find((a) => a.ref === actionDraft.skill.actor_ref);
   const saveTargetActor = (actionOptions.actors || []).find((a) => a.ref === actionDraft.save.target_ref);
   const attackTurnLocked = Boolean(encounterSummary.active && attackActor && !attackActor.is_current_actor);
-  const spellTurnLocked = Boolean(encounterSummary.active && spellActor && !spellActor.is_current_actor);
+  const spellTurnLocked = Boolean(encounterSummary.active && spellActor && !spellActor.is_current_actor && selectedSpellOption?.action_cost !== "reaction");
   const skillTurnLocked = Boolean(encounterSummary.active && skillActor && !skillActor.is_current_actor);
   const itemTurnLocked = Boolean(encounterSummary.active && itemActor && !itemActor.is_current_actor);
   const attackMetadataLocked = attackChoices.length > 0 && Boolean(actionDraft.attack.attack_name);
@@ -1146,12 +1269,19 @@ export default function App() {
   const advanceTurnDisabled = !encounterSummary.active;
   const castButtonDisabled = !selectedSpellOption
     || spellTurnLocked
+    || spellActor?.can_act === false
+    || selectedSpellOption?.available === false
+    || (selectedSpellOption?.action_cost === "reaction" && spellActor?.reaction_available === false)
+    || (selectedSpellOption?.requires_attack_target && !actionDraft.spell.target_ref)
+    || ((selectedSpellOption?.damage_types || []).length > 1 && !actionDraft.spell.damage_type)
     || (selectedSpellOption.requires_slot && !selectedSpellOption.available_slot_levels.includes(Number(actionDraft.spell.slot_level || 0)));
   const useItemDisabled = !selectedItemOption
     || itemTurnLocked
     || Number(actionDraft.item.quantity || 1) <= 0
     || Number(actionDraft.item.quantity || 1) > Number(selectedItemOption.quantity || 0);
-  const pendingTurn = gameState?.pending_turn || null;
+  const isRewriteInFlight = Boolean(rewriteTarget && isLoading);
+  // 重写提交后，旧分支里的 interrupt 选择也属于待回退投影，不能在新快照返回前继续显示。
+  const pendingTurn = isRewriteInFlight ? null : gameState?.pending_turn || null;
   const isPlayerChoicePending = pendingTurn?.kind === "player_choice";
   const isLegacyConfirmationPending = pendingTurn?.kind === "tool_confirmation";
   const playerChoiceOptions = isPlayerChoicePending && Array.isArray(pendingTurn?.details?.options)
@@ -1589,6 +1719,16 @@ export default function App() {
       .slice(0, 3);
   }
 
+  function storedActionSuggestionProjection(state) {
+    const latestAssistantMessage = [...(state?.chat_history || [])]
+      .reverse()
+      .find((message) => message?.kind !== "tool_result" && message?.role === "assistant");
+    return {
+      suggestions: normalizeActionSuggestions(latestAssistantMessage?.action_suggestions),
+      generated: Boolean(latestAssistantMessage?.action_suggestions_generated),
+    };
+  }
+
   function invalidateActionSuggestionProjection() {
     actionSuggestionRequestRef.current += 1;
     setIsActionSuggestionsLoading(false);
@@ -1621,6 +1761,7 @@ export default function App() {
     setActionSuggestions([]);
     setMessages([]);
     setWorkflowEvents([]);
+    setDmThinking(createEmptyDmThinking());
     setRewriteTarget(null);
     setRetryingMessageIndex(null);
     setInput("");
@@ -1659,9 +1800,18 @@ export default function App() {
 
   async function syncGame(gameId, state, options = {}) {
     const lifecycleToken = options.lifecycleToken ?? gameLifecycleRef.current;
-    if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return [];
+    if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return { suggestions: [], generated: false };
 
-    const normalizedSuggestions = normalizeActionSuggestions(options.actionSuggestions);
+    const storedProjection = storedActionSuggestionProjection(state);
+    const hasExplicitSuggestions = Object.prototype.hasOwnProperty.call(options, "actionSuggestions");
+    const normalizedSuggestions = normalizeActionSuggestions(
+      hasExplicitSuggestions ? options.actionSuggestions : storedProjection.suggestions,
+    );
+    const suggestionsGenerated = hasExplicitSuggestions
+      ? normalizedSuggestions.length === 3
+        || Boolean(options.actionSuggestionsGenerated)
+        || storedProjection.generated
+      : storedProjection.generated;
     const syncRequestId = gameSyncRequestRef.current + 1;
     gameSyncRequestRef.current = syncRequestId;
     applyGameSnapshot(state, options.actionOptions, { preserveRewrite: options.preserveRewrite });
@@ -1680,10 +1830,11 @@ export default function App() {
       .catch(() => {
         // The authoritative game snapshot remains usable when this optional projection fails.
       });
-    return normalizedSuggestions;
+    return { suggestions: normalizedSuggestions, generated: suggestionsGenerated };
   }
 
   async function saveReplyLengthSettings() {
+    if (localActionsLocked) { setReplyLengthMessage(localActionBlockMessage); return; }
     const gameId = activeGameId;
     const lifecycleToken = gameLifecycleRef.current;
     if (!gameId || isReplyLengthSaving || isLoading || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
@@ -1786,6 +1937,8 @@ export default function App() {
       ...currentSpell,
       caster_ref: casterRef,
       spell_name: selectedSpell?.name || "",
+      target_ref: "",
+      damage_type: selectedSpell?.damage_types?.length === 1 ? selectedSpell.damage_types[0] : "",
       slot_level: selectedSpell ? (selectedSpell.requires_slot ? (selectedSpell.available_slot_levels[0] ?? 0) : 0) : 0,
     };
   }
@@ -1832,6 +1985,7 @@ export default function App() {
     setGameState(null);
     setMessages([]);
     setWorkflowEvents([]);
+    setDmThinking(createEmptyDmThinking());
     setActionOptions({ actors: [] });
     setActionSuggestions([]);
     setRewriteTarget(null);
@@ -1841,11 +1995,11 @@ export default function App() {
     try {
       const state = await loadGame(gameId);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const normalizedSuggestions = await syncGame(gameId, state, { lifecycleToken });
+      const suggestionProjection = await syncGame(gameId, state, { lifecycleToken });
       if (
         isCurrentGameLifecycle(gameId, lifecycleToken)
         && state?.campaign?.phase !== "adventure_selection"
-        && normalizedSuggestions.length !== 3
+        && !suggestionProjection.generated
       ) {
         requestActionSuggestionProjection(gameId, state.turn_number, lifecycleToken);
       }
@@ -2179,7 +2333,7 @@ export default function App() {
   async function chooseAdventure(adventureId) {
     const gameId = activeGameId;
     const lifecycleToken = gameLifecycleRef.current;
-    if (!gameId || isGameMutationBusy || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+    if (!gameId || isGameMutationBusy || localActionsLocked || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
     setIsLoading(true);
     setPendingAdventureId(adventureId);
     setError("");
@@ -2188,8 +2342,8 @@ export default function App() {
     try {
       const result = await selectAdventure(gameId, adventureId);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (isCurrentGameLifecycle(gameId, lifecycleToken) && normalizedSuggestions.length !== 3) {
+      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      if (isCurrentGameLifecycle(gameId, lifecycleToken) && !suggestionProjection.generated) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
@@ -2201,6 +2355,113 @@ export default function App() {
       }
     }
   }
+  function createTurnStreamHandlers(gameId, lifecycleToken) {
+    const pushWorkflowEvent = (event) => {
+      if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+      setWorkflowEvents((prev) => [...prev.slice(-29), event]);
+      setDmThinking((current) => {
+        const previous = current.events[current.events.length - 1];
+        if (
+          previous?.node_name === event?.node_name
+          && previous?.status === event?.status
+          && previous?.summary === event?.summary
+        ) return current;
+        return { ...current, events: [...current.events.slice(-11), event] };
+      });
+    };
+    return {
+      onEvent: (eventName, data) => {
+        if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+        if (eventName === "turn.started") {
+          setDmThinking((current) => ({ ...current, rollRecords: mergeRollRecords(current.rollRecords, data?.roll_records || []) }));
+          pushWorkflowEvent({
+            node_name: "turn_started",
+            status: "started",
+            summary: data?.mode === "resume" ? "恢复暂停回合" : "启动新回合",
+            metadata: { mode: data?.mode, checkpoint_backend: data?.checkpoint_backend },
+          });
+        }
+        if (eventName === "turn.error") {
+          setDmThinking((current) => ({ ...current, status: "error", expanded: false }));
+        }
+        if (eventName === "turn.finished") {
+          setDmThinking((current) => ({
+            ...current,
+            status: data?.status === "error" ? "error" : data?.status === "input_required" ? "waiting" : "completed",
+            expanded: false,
+          }));
+        }
+      },
+      onAgentOutput: (data, phase) => {
+        if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+        setDmThinking((current) => {
+          if (phase === "started") {
+            const needsSeparator = current.segmentCount > 0
+              && current.output
+              && !current.output.endsWith("\n\n");
+            return {
+              ...current,
+              output: needsSeparator ? `${current.output}\n\n` : current.output,
+              segmentCount: current.segmentCount + 1,
+            };
+          }
+          if (phase === "delta" && data?.text) {
+            return { ...current, output: `${current.output}${data.text}` };
+          }
+          return current;
+        });
+      },
+      onRoll: (records) => {
+        if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+        setDmThinking((current) => ({ ...current, rollRecords: mergeRollRecords(current.rollRecords, records) }));
+      },
+      onResult: (data) => {
+        if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
+        setDmThinking((current) => ({ ...current, rollRecords: data?.roll_records || [] }));
+      },
+      onNode: (node) => {
+        pushWorkflowEvent(node);
+      },
+      onRag: (data) => {
+        const snippetCount = Number(data?.snippet_count || 0);
+        pushWorkflowEvent({
+          node_name: "rag_completed",
+          status: "completed",
+          summary: snippetCount > 0 ? `检索到 ${snippetCount} 条规则片段。` : data?.reason || "未触发规则检索。",
+          metadata: {
+            intent: data?.intent,
+            query_count: data?.query_count,
+            snippet_count: data?.snippet_count,
+            source_count: data?.source_count,
+          },
+        });
+      },
+      onTool: (data) => {
+        const rawStatus = data?.status || "completed";
+        const status = rawStatus === "success" ? "success" : rawStatus === "failed" ? "error" : rawStatus;
+        pushWorkflowEvent({
+          node_name: "tool_completed",
+          status,
+          summary: data?.summary || `${data?.tool_name || "tool"} completed.`,
+          metadata: { tool_name: data?.tool_name },
+        });
+      },
+      onValidation: (data) => {
+        pushWorkflowEvent({
+          node_name: "validation_note",
+          status: "noted",
+          summary: data?.note || "状态校验记录。",
+          metadata: {
+            note_index: data?.index,
+            validator: data?.validator,
+            severity: data?.severity,
+            action: data?.action,
+          },
+        });
+      },
+    };
+  }
+
   async function submitChatMessage(rawMessage, options = {}) {
     const message = String(rawMessage || "").trim();
     const gameId = activeGameId;
@@ -2230,76 +2491,30 @@ export default function App() {
     setIsLoading(true);
     setError("");
     setWorkflowEvents([]);
+    setDmThinking({
+      ...createEmptyDmThinking(),
+      status: "running",
+      expanded: true,
+      rollRecords: gameState?.pending_turn?.roll_records || [],
+    });
     invalidateActionSuggestionProjection();
     setActionSuggestions([]);
     if (options.clearInput) setInput("");
     try {
-      const pushWorkflowEvent = (event) => {
-        if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-        setWorkflowEvents((prev) => [...prev.slice(-29), event]);
-      };
-      const result = await streamTurn(gameId, message, {
-        onEvent: (eventName, data) => {
-          if (eventName !== "turn.started") return;
-          pushWorkflowEvent({
-            node_name: "turn_started",
-            status: "started",
-            summary: data?.mode === "resume" ? "恢复暂停回合" : "启动新回合",
-            metadata: { mode: data?.mode, checkpoint_backend: data?.checkpoint_backend },
-          });
-        },
-        onNode: (node) => {
-          pushWorkflowEvent(node);
-        },
-        onRag: (data) => {
-          const snippetCount = Number(data?.snippet_count || 0);
-          pushWorkflowEvent({
-            node_name: "rag_completed",
-            status: "completed",
-            summary: snippetCount > 0 ? `检索到 ${snippetCount} 条规则片段。` : data?.reason || "未触发规则检索。",
-            metadata: {
-              intent: data?.intent,
-              query_count: data?.query_count,
-              snippet_count: data?.snippet_count,
-              source_count: data?.source_count,
-            },
-          });
-        },
-        onTool: (data) => {
-          const rawStatus = data?.status || "completed";
-          const status = rawStatus === "success" ? "success" : rawStatus === "failed" ? "error" : rawStatus;
-          pushWorkflowEvent({
-            node_name: "tool_completed",
-            status,
-            summary: data?.summary || `${data?.tool_name || "tool"} completed.`,
-            metadata: { tool_name: data?.tool_name },
-          });
-        },
-        onValidation: (data) => {
-          pushWorkflowEvent({
-            node_name: "validation_note",
-            status: "noted",
-            summary: data?.note || "状态校验记录。",
-            metadata: {
-              note_index: data?.index,
-              validator: data?.validator,
-              severity: data?.severity,
-              action: data?.action,
-            },
-          });
-        },
-      });
+      const result = await streamTurn(gameId, message, createTurnStreamHandlers(gameId, lifecycleToken));
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
       if (
         isCurrentGameLifecycle(gameId, lifecycleToken)
         && result.turn_status === "completed"
-        && normalizedSuggestions.length !== 3
+        && !suggestionProjection.generated
       ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setDmThinking((current) => ({ ...current, status: "error", expanded: false,
+          rollRecords: current.rollRecords.map((record) => ({ ...record, settlement: "unknown" })) }));
         setError(err.message || "发送消息失败。");
         setMessages((current) => current.map((item) => item.optimisticMessageId === optimisticMessageId
           ? { ...item, deliveryState: "failed" }
@@ -2307,7 +2522,12 @@ export default function App() {
         setInput((current) => current.trim() ? current : message);
       }
     } finally {
-      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setIsLoading(false);
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        setDmThinking((current) => current.status === "running"
+          ? { ...current, status: "completed", expanded: false }
+          : current);
+        setIsLoading(false);
+      }
     }
   }
 
@@ -2331,28 +2551,47 @@ export default function App() {
       && !window.confirm("重试会回到这条主持回复之前，并移除之后的剧情、状态变化和时间线记录。继续？")
     ) return;
 
+    const retryUiRollback = prepareDmRetryUiRollback({
+      messages,
+      actionSuggestions,
+      workflowEvents,
+      dmThinking,
+      actionSuggestionsLoading: isActionSuggestionsLoading,
+    }, message.index);
+    const retryUiSnapshot = retryUiRollback.snapshot;
     setRetryingMessageIndex(message.index);
     setIsLoading(true);
     setError("");
-    setWorkflowEvents([]);
+    // 重试在服务端会回到该主持回复之前；前端同步先移除同一回复及其后续展示，避免旧内容和新请求并存。
+    setMessages(retryUiRollback.next.messages);
+    setWorkflowEvents(retryUiRollback.next.workflowEvents);
+    setDmThinking({ ...retryUiRollback.next.dmThinking, status: "running", expanded: true });
     invalidateActionSuggestionProjection();
-    setActionSuggestions([]);
+    setActionSuggestions(retryUiRollback.next.actionSuggestions);
     try {
-      const result = await retryGameMessage(gameId, message.index);
+      const result = await retryGameMessage(gameId, message.index, createTurnStreamHandlers(gameId, lifecycleToken));
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const normalizedSuggestions = await syncGame(gameId, result.game_state, {
+      const suggestionProjection = await syncGame(gameId, result.game_state, {
         actionSuggestions: result.action_suggestions,
         lifecycleToken,
       });
       if (
         isCurrentGameLifecycle(gameId, lifecycleToken)
         && result.turn_status === "completed"
-        && normalizedSuggestions.length !== 3
+        && !suggestionProjection.generated
       ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        // HTTP/网络层失败表示服务端没有返回新的权威快照；恢复被乐观移除的整组回复投影。
+        setMessages(retryUiSnapshot.messages);
+        setActionSuggestions(retryUiSnapshot.actionSuggestions);
+        setWorkflowEvents(retryUiSnapshot.workflowEvents);
+        setDmThinking((current) => ({ ...current, status: "error", expanded: false, rollRecords: current.rollRecords.map((record) => ({ ...record, settlement: "unknown" })) }));
+        if (retryUiSnapshot.actionSuggestionsLoading) {
+          requestActionSuggestionProjection(gameId, gameState?.turn_number, lifecycleToken);
+        }
         setError(err.message || "重试本回合失败。请稍后再试。");
       }
     } finally {
@@ -2377,10 +2616,10 @@ export default function App() {
     try {
       const result = await deleteGameMessage(gameId, message.index);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
       if (
         isCurrentGameLifecycle(gameId, lifecycleToken)
-        && normalizedSuggestions.length !== 3
+        && !suggestionProjection.generated
         && result.game_state?.campaign?.phase !== "adventure_selection"
       ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
@@ -2412,25 +2651,46 @@ export default function App() {
     const lifecycleToken = gameLifecycleRef.current;
     if (!message || !gameId || !rewriteTarget || isGameMutationBusy || !isCurrentGameLifecycle(gameId, lifecycleToken)) return;
 
+    const targetMessageIndex = rewriteTarget.index;
+    const optimisticMessageId = `${gameId}-rewrite-${++optimisticMessageIdRef.current}`;
+    const rewriteUiRollback = preparePlayerRewriteUiRollback({
+      messages,
+      actionSuggestions,
+      workflowEvents,
+      dmThinking,
+      actionSuggestionsLoading: isActionSuggestionsLoading,
+    }, targetMessageIndex, message, optimisticMessageId);
+    const rewriteUiSnapshot = rewriteUiRollback.snapshot;
     setIsLoading(true);
     setError("");
-    setWorkflowEvents([]);
+    // “重写”确认后立即切断旧分支；服务端仍负责按 rewind snapshot 恢复真正的权威状态。
+    setMessages(rewriteUiRollback.next.messages);
+    setWorkflowEvents(rewriteUiRollback.next.workflowEvents);
+    setDmThinking({ ...rewriteUiRollback.next.dmThinking, status: "running", expanded: true });
     invalidateActionSuggestionProjection();
-    setActionSuggestions([]);
+    setActionSuggestions(rewriteUiRollback.next.actionSuggestions);
     setInput("");
     try {
-      const result = await rewriteGameMessage(gameId, rewriteTarget.index, message);
+      const result = await rewriteGameMessage(gameId, targetMessageIndex, message, createTurnStreamHandlers(gameId, lifecycleToken));
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const normalizedSuggestions = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
+      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
       if (
         isCurrentGameLifecycle(gameId, lifecycleToken)
         && result.turn_status === "completed"
-        && normalizedSuggestions.length !== 3
+        && !suggestionProjection.generated
       ) {
         requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
       }
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
+        // 请求失败时没有可采用的新权威快照，恢复提交前的完整对话和临时投影。
+        setMessages(rewriteUiSnapshot.messages);
+        setActionSuggestions(rewriteUiSnapshot.actionSuggestions);
+        setWorkflowEvents(rewriteUiSnapshot.workflowEvents);
+        setDmThinking((current) => ({ ...current, status: "error", expanded: false, rollRecords: current.rollRecords.map((record) => ({ ...record, settlement: "unknown" })) }));
+        if (rewriteUiSnapshot.actionSuggestionsLoading) {
+          requestActionSuggestionProjection(gameId, gameState?.turn_number, lifecycleToken);
+        }
         setError(err.message || "重写消息失败。");
         setInput((current) => current.trim() ? current : message);
       }
@@ -2448,8 +2708,14 @@ export default function App() {
   }
   async function respondToPendingTurn(response) { await submitChatMessage(response); }
 
+  function allowLocalMutation() {
+    if (!localActionsLocked) return true;
+    setError(localActionBlockMessage);
+    return false;
+  }
+
   async function createEncounterFromNames() {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     const enemyNames = encounterDraft.enemy_names.split("\n").map((name) => name.trim()).filter(Boolean);
     if (enemyNames.length === 0) return setError("请至少输入一个敌人名称。");
     try {
@@ -2464,7 +2730,7 @@ export default function App() {
   }
 
   async function createEncounterFromTemplate() {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     if (!encounterDraft.monster_id) return setError("请选择一个怪物模板。");
     try {
       setError("");
@@ -2480,7 +2746,7 @@ export default function App() {
   }
 
   async function addQuickEnemy() {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     if (!encounterDraft.quick_enemy_name.trim()) return setError("请输入敌人名称。");
     try {
       setError("");
@@ -2497,7 +2763,7 @@ export default function App() {
   }
 
   async function finishEncounter() {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     try {
       setError("");
       const result = await endEncounter(activeGameId);
@@ -2506,7 +2772,7 @@ export default function App() {
   }
 
   async function dropEncounterCombatant(combatantRef) {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     try {
       setError("");
       const result = await removeEncounterCombatant(activeGameId, combatantRef);
@@ -2515,7 +2781,7 @@ export default function App() {
   }
 
   async function saveEncounterInitiative(combatantRef) {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     try {
       setError("");
       const result = await setEncounterInitiative(activeGameId, combatantRef, Number(initiativeDrafts[combatantRef] || 0));
@@ -2524,7 +2790,7 @@ export default function App() {
   }
 
   async function rerollEncounterInitiative(combatantRef) {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     try {
       setError("");
       const result = await rollEncounterInitiative(activeGameId, combatantRef);
@@ -2533,7 +2799,7 @@ export default function App() {
   }
 
   async function runAction(kind) {
-    if (!activeGameId) return;
+    if (!activeGameId || !allowLocalMutation()) return;
     try {
       let result;
       if (kind === "advance") result = await advanceTurn(activeGameId);
@@ -2551,7 +2817,7 @@ export default function App() {
 
   const encounter = gameState?.encounter;
   const combatants = encounter?.initiative_order?.map((id) => encounter.combatants[id]).filter(Boolean) || [];
-  const timeline = (gameState?.timeline || []).slice(-12).reverse();
+  const timeline = (gameState?.timeline || []).filter(isPlayerVisibleTimelineEvent).slice(-12).reverse();
   const evidenceRecords = gameState?.evidence_records || [];
   const partyCharacters = Object.values(gameState?.characters || {});
   const activeCharacterId = gameState?.active_character_id || partyCharacters[0]?.character_id || "";
@@ -3269,7 +3535,7 @@ export default function App() {
                             <div className="timeline-summary">{hook.title}</div>
                             <div className="timeline-content">{hook.summary}</div>
                             <div className="btn-row" style={{ marginTop: 12 }}>
-                              <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)} disabled={isGameMutationBusy}>
+                              <button className="btn-primary" onClick={() => chooseAdventure(hook.adventure_id)} disabled={isGameMutationBusy || localActionsLocked}>
                                 {isPendingAdventure && isAiGeneratedAdventure
                                   ? "主持人构思中..."
                                   : isPendingAdventure
@@ -3294,15 +3560,18 @@ export default function App() {
                   const isFailedDmMessage = canRetryDmMessage && message.turnStatus === "failed";
                   return (
                     <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender}`}>
+                      {message.sender === "dm" && <RollLedger records={message.rollRecords} recorded={message.rollRecordsRecorded} />}
                       <div className={`message ${message.sender} anime-pop`}>
                         <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
                         <div className="bubble markdown-body">
-                          <MarkdownBlock highlightQuotes>{message.text}</MarkdownBlock>
+                          <MarkdownBlock highlightQuotes highlightNarrativeRolls={message.sender === "dm"}>{message.text}</MarkdownBlock>
                         </div>
                       </div>
                       {message.optimistic ? (
                         <div className={`message-delivery-status ${message.deliveryState}`} role="status" aria-live="polite">
-                          {message.deliveryState === "failed" ? "发送失败，内容已放回输入框，可再次发送。" : "发送中…"}
+                          {message.deliveryState === "failed"
+                            ? "发送失败，内容已放回输入框，可再次发送。"
+                            : message.deliveryLabel || "发送中…"}
                         </div>
                       ) : !message.pendingContext ? (
                         <div className={`message-actions ${isFailedDmMessage ? "failed-turn-actions" : ""}`} aria-label="消息操作">
@@ -3331,6 +3600,7 @@ export default function App() {
                 })}
                 {isPlayerChoicePending && (
                   <div className="pending-turn-card">
+                    {dmThinking.status === "idle" && pendingTurn.roll_records?.length > 0 && <RollLedger records={pendingTurn.roll_records} />}
                     <div className="pending-turn-title">轮到你选择</div>
                     <div className="pending-turn-prompt">{pendingTurn.prompt || "DM 正在等待你决定接下来的方向。"}</div>
                     <div className="pending-turn-actions">
@@ -3350,6 +3620,11 @@ export default function App() {
                     </div>
                   </div>
                 )}
+                {(isLoading || ["waiting", "error"].includes(dmThinking.status)) && dmThinking.status !== "idle" && <RollLedger records={dmThinking.rollRecords} />}
+                <DmThinkingPanel
+                  thinking={dmThinking}
+                  onToggle={() => setDmThinking((current) => ({ ...current, expanded: !current.expanded }))}
+                />
                 {SHOW_WORKFLOW_TRACE_IN_PLAYER_SESSION && workflowEvents.length > 0 && (
                   <div className="workflow-trace">
                     {workflowEvents.map((event, index) => {
@@ -3367,7 +3642,7 @@ export default function App() {
                     })}
                   </div>
                 )}
-                {isLoading && (
+                {isLoading && dmThinking.status === "idle" && (
                   <div className="loading-indicator">
                     {pendingAdventureId === AI_GENERATED_ADVENTURE_ID
                       ? "主持人正在构思冒险..."
@@ -3380,7 +3655,8 @@ export default function App() {
               </div>
               <div className="session-sidepanel">
                 {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
-                  <>
+                  <fieldset className="pending-action-scope" disabled={localActionsLocked} aria-label="本地游戏操作">
+                    {localActionsLocked && <p className="info-text" role="status">{localActionBlockMessage}</p>}
                     <div className="panel-card">
                   <h3>遭遇设置</h3>
                   <div className="timeline-list">
@@ -3527,6 +3803,14 @@ export default function App() {
                         {spellOptions.map((spell) => <option key={spell.name} value={spell.name}>{spell.label}</option>)}
                       </select>
                       <input value={actionDraft.spell.slot_level} onChange={(e) => setActionDraft((p) => ({ ...p, spell: { ...p.spell, slot_level: e.target.value } }))} placeholder="法术位" disabled={!selectedSpellOption?.requires_slot} />
+                      {selectedSpellOption?.requires_attack_target && <select aria-label="法术攻击目标" value={actionDraft.spell.target_ref || ""} onChange={(e) => setActionDraft((p) => ({ ...p, spell: { ...p.spell, target_ref: e.target.value } }))}>
+                        <option value="">法术攻击目标</option>
+                        {actorList.map((actor) => <option key={`spell-target-${actor.value}`} value={actor.value}>{actor.label}</option>)}
+                      </select>}
+                      {(selectedSpellOption?.damage_types || []).length > 1 && <select aria-label="法术伤害类型" value={actionDraft.spell.damage_type || ""} onChange={(e) => setActionDraft((p) => ({ ...p, spell: { ...p.spell, damage_type: e.target.value } }))}>
+                        <option value="">伤害类型</option>
+                        {selectedSpellOption.damage_types.map((type) => <option key={type} value={type}>{selectedSpellOption.damage_type_labels?.[type] || type}</option>)}
+                      </select>}
                       <button className="btn-secondary" onClick={() => runAction("spell")} disabled={castButtonDisabled}>执行施法</button>
                     </div>
                     {spellTurnLocked && <div className="timeline-content">当前不是该角色的回合，施法已锁定。</div>}
@@ -3572,7 +3856,7 @@ export default function App() {
                     {selectedItemOption && Number(actionDraft.item.quantity || 1) > Number(selectedItemOption.quantity || 0) && <div className="timeline-content">{selectedItemOption.name} 的剩余数量不足。</div>}
                   </div>
                 </div>
-                  </>
+                  </fieldset>
                 )}
                 <section className="side-section party-panel">
                   <div className="side-section-header">
@@ -3602,6 +3886,7 @@ export default function App() {
                   saveEncounterInitiative={saveEncounterInitiative}
                   rerollEncounterInitiative={rerollEncounterInitiative}
                   dropEncounterCombatant={dropEncounterCombatant}
+                  localActionsLocked={localActionsLocked}
                 />
               </div>
             </div>
@@ -3643,6 +3928,7 @@ export default function App() {
                 <span>主持文本</span>
                 <small>{replyLengthSummary()}</small>
               </summary>
+              {localActionsLocked && <p className="info-text" role="status">{localActionBlockMessage}</p>}
               <div className="chat-control-grid">
                 <label>
                   <span>最少字数</span>
@@ -3654,7 +3940,7 @@ export default function App() {
                     value={replyLengthDraft.min_chars}
                     onChange={(e) => setReplyLengthDraft((prev) => ({ ...prev, min_chars: e.target.value }))}
                     placeholder="不限"
-                    disabled={isLoading || isReplyLengthSaving}
+                    disabled={isLoading || isReplyLengthSaving || localActionsLocked}
                   />
                 </label>
                 <label>
@@ -3667,10 +3953,10 @@ export default function App() {
                     value={replyLengthDraft.max_chars}
                     onChange={(e) => setReplyLengthDraft((prev) => ({ ...prev, max_chars: e.target.value }))}
                     placeholder="不限"
-                    disabled={isLoading || isReplyLengthSaving}
+                    disabled={isLoading || isReplyLengthSaving || localActionsLocked}
                   />
                 </label>
-                <button type="button" className="btn-secondary" onClick={saveReplyLengthSettings} disabled={isReplyLengthSaving || isLoading || !activeGameId}>
+                <button type="button" className="btn-secondary" onClick={saveReplyLengthSettings} disabled={isReplyLengthSaving || isLoading || !activeGameId || localActionsLocked}>
                   {isReplyLengthSaving ? "保存中..." : "应用"}
                 </button>
               </div>

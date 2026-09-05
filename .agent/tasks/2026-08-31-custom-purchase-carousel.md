@@ -1,8 +1,7 @@
 # 自定义购买分类轮播
 
-## Status
-
-已完成。
+Status: completed
+Updated: 2026-09-05
 
 ## Goal
 

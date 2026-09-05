@@ -246,6 +246,49 @@ class MemoryHookTests(unittest.TestCase):
         self._observe()
         self.assert_blocked(self._stop())
 
+    def test_ignored_files_do_not_retrigger_audited_code_changes(self) -> None:
+        self._write("backend/main.py", "API = 'v2'\n")
+        self._observe()
+        self.assert_blocked(self._stop())
+        self._stop(active=True)
+        self._write("README.md", "# Updated after audit\n")
+        self._observe()
+        self.assertEqual(self._stop(), {"continue": True})
+
+    def test_ignored_files_are_never_read_for_fingerprints(self) -> None:
+        ignored = ["backend/.env", "backend/Game/fixture.json", "README.md", ".agents/skills/fixture/helper.py"]
+        for relative_path in ignored:
+            self._write(relative_path, "synthetic fixture\n")
+        with mock.patch.object(core, "fingerprint_path", wraps=core.fingerprint_path) as fingerprint:
+            core.handle_session_start(self.session_event)
+            for relative_path in ignored:
+                self._write(relative_path, "changed synthetic fixture\n")
+            # 模拟旧版本状态含隐私路径；恢复时也不能读取这些历史条目。
+            state = self._state()
+            state["baseline"]["paths"]["backend/Game/old.json"] = {"fingerprint": "old"}
+            core.save_state(core.state_path_for(self.root, self.session_id), state)
+            self._observe()
+            stop_result = self._stop()
+        paths = {call.args[1] for call in fingerprint.call_args_list}
+        self.assertFalse(paths.intersection(ignored + ["backend/Game/old.json"]))
+        self.assertEqual(stop_result, {"continue": True})
+
+    def test_resume_and_compact_preserve_original_baseline(self) -> None:
+        original = self._state()["baseline"]
+        self._write("backend/main.py", "API = 'v2'\n")
+        for source in ("resume", "compact"):
+            core.handle_session_start({**self.session_event, "source": source})
+            self.assertEqual(self._state()["baseline"], original)
+        self._observe()
+        self.assert_blocked(self._stop())
+
+    def test_posix_startup_change_suggests_commands_memory(self) -> None:
+        self._write("start.sh", "#!/bin/sh\nexit 0\n")
+        self._observe()
+        payload = self._stop()
+        self.assert_blocked(payload)
+        self.assertIn("commands-and-ci", payload["reason"])
+
     def test_empty_malformed_non_git_and_git_failure_degrade_safely(self) -> None:
         self.assertEqual(core.read_event(io.StringIO("not-json")), {})
         outside = Path(self.temp_dir.name) / "outside"
@@ -322,6 +365,19 @@ class MemoryHookTests(unittest.TestCase):
                 self.assertIn(script, handler["command"])
                 self.assertIn(script, handler["commandWindows"])
                 self.assertIn("git rev-parse --show-toplevel", handler["command"])
+                self.assertNotIn("$root", handler["commandWindows"])
+                if sys.platform == "win32":
+                    # Codex 会经外层 PowerShell 启动 commandWindows；必须覆盖双层解析，
+                    # 否则内层 -Command 中的变量可能在脚本运行前就被提前展开。
+                    result = subprocess.run(
+                        ["powershell.exe", "-NoProfile", "-Command", handler["commandWindows"]],
+                        cwd=PROJECT_CODEX_DIR.parent,
+                        input=b"not-json",
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=True,
+                    )
+                    self.assertIsInstance(json.loads(result.stdout.decode("ascii")), dict)
         self.assertIn("clear", config["hooks"]["SessionStart"][0]["matcher"])
 
     def test_stop_script_escapes_continuation_prompt_as_valid_json(self) -> None:
@@ -403,6 +459,14 @@ class MemoryHookTests(unittest.TestCase):
             self.assertTrue(normalized.endswith("/codex-memory-hook"))
         finally:
             self._git("worktree", "remove", "--force", str(worktree))
+
+    def test_existing_unwritable_sessions_directory_falls_back(self) -> None:
+        preferred = core.resolve_state_dir(self.root)
+        self.assertTrue((preferred / "sessions").is_dir())
+        with mock.patch.object(core.tempfile, "mkstemp", side_effect=PermissionError("read-only")):
+            state_dir = core.runtime_state_dir(self.root)
+        self.assertNotEqual(state_dir, preferred)
+        self.assertIn("codex-memory-hook", str(state_dir))
 
 
 if __name__ == "__main__":
