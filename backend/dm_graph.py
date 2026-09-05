@@ -35,7 +35,7 @@ from model_backends import (
 )
 from prompts import build_dm_instruction
 from tool_registry import ToolRegistry
-from turn_stream import emit_turn_stream_event, turn_stream_active
+from turn_stream import emit_turn_stream_event, turn_stream_active, remaining_turn_seconds
 
 try:
     from langchain_core.messages import (
@@ -2124,10 +2124,13 @@ class DMGraphRunner:
         return "hostile_attack" in list(turn_intent.get("intent_tags") or [])
 
     def _hostile_action_resolved(self, state: GameState, graph_state: DMGraphState) -> bool:
+        active = state.get_active_char()
+        # 无法行动本身也是权威结果，不能继续向倒地角色索要一次不存在的攻击。
+        if active and (active.hp_current <= 0 or str(active.defeat_state or "active") != "active"):
+            return True
         attack_payloads = self._tool_result_payloads(graph_state, "attack_target")
         if not attack_payloads:
             return False
-        active = state.get_active_char()
         if not active:
             return True
         if any(str(payload.get("attacker_name") or "").strip() == active.name for payload in attack_payloads):
@@ -3819,14 +3822,18 @@ class DMGraphRunner:
     def _invoke_dm_model(self, model: Any, messages: List[Any]) -> Any:
         """Stream public model text when a request-local SSE observer is active."""
 
+        remaining_turn_seconds()
         if not turn_stream_active():
-            return model.invoke(messages)
+            response = model.invoke(messages)
+            remaining_turn_seconds()
+            return response
 
         emit_turn_stream_event("agent.output.started", {"stage": "dm_model"})
         aggregate_chunk = None
         fallback_message = None
         emitted_chars = 0
         for chunk in model.stream(messages):
+            remaining_turn_seconds()
             if BaseMessageChunk is not None and isinstance(chunk, BaseMessageChunk):
                 aggregate_chunk = chunk if aggregate_chunk is None else aggregate_chunk + chunk
             else:
@@ -4762,6 +4769,16 @@ class DMGraphRunner:
                     )
 
                 current = encounter.get_current_combatant()
+                player_combatants = [combatant for combatant in encounter.combatants.values()
+                                     if self._is_player_controlled_combatant(state, combatant)]
+                party_defeated = bool(player_combatants) and all(
+                    combatant.hp_current <= 0 or combatant.defeat_state != "active"
+                    for combatant in encounter.combatants.values() if combatant.side in {"party", "ally"}
+                )
+                if party_defeated:
+                    # 队伍全员倒地/被俘后，advance_turn 只会再次选中敌人；应通过显式工具收尾。
+                    mark_repair(validator="party_defeat", tools=["end_encounter"],
+                                summary="All player-controlled combatants are defeated. Call end_encounter and narrate the existing defeat states; do not keep advancing enemy turns or invent death/capture outcomes.")
                 if (
                     hostile_resolution_pending
                     and current
@@ -4780,6 +4797,7 @@ class DMGraphRunner:
                     )
                 if (
                     current
+                    and not party_defeated
                     and encounter.turn_order_started
                     and logic._combatant_can_take_turn(current)
                     and not self._is_player_controlled_combatant(state, current)
@@ -4892,6 +4910,9 @@ class DMGraphRunner:
         )
 
         repair_tools = self._unique_texts(repair_tools, limit=8)
+        if validation_status == "repair_required" and int(graph_state.get("tool_call_rounds", 0) or 0) >= max(12, self.max_tool_rounds * 2):
+            # 修复可以补足必要动作，但不能每轮续期而绕过总工具预算。
+            mark_failed(validator="repair_budget", summary="Required repairs exceeded the turn's tool budget; staged changes must roll back.")
         if validation_status == "repair_required":
             repair_requirements: List[str] = []
             if self._has_validation_issue({"validation_issues": validation_issues}, "chapter_completion", "repair_required"):

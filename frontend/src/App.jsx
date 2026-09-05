@@ -699,12 +699,6 @@ const asMarkdownQuote = (text) => String(text || "")
   .map((line) => `> ${line}`)
   .join("\n");
 
-const thinkingProgressMarkdown = (events) => (events || []).map((event) => {
-  const header = `**${workflowNodeLabel(event?.node_name)}** · ${workflowStatusLabel(event?.status)}`;
-  if (event?.node_name !== "tool_completed" || !event?.summary) return header;
-  return `${header}  \n${event.summary}`;
-}).join("  \n");
-
 function RollLedger({ records = [], recorded = true }) {
   const hidden = records.filter((record) => record.visibility === "hidden").length;
   const labels = { dice: "掷骰", attack: "攻击检定", damage: "伤害", skill: "技能检定", save: "豁免", initiative: "先攻", ability: "属性骰" };
@@ -740,15 +734,23 @@ function RollLedger({ records = [], recorded = true }) {
 }
 
 function DmThinkingPanel({ thinking, onToggle }) {
+  const isRunning = thinking?.status === "running";
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!isRunning) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [isRunning]);
   if (!thinking || thinking.status === "idle") return null;
-  const isRunning = thinking.status === "running";
   const isError = thinking.status === "error";
   const isWaiting = thinking.status === "waiting";
-  const title = isRunning ? "主持人构思中…" : isError ? "主持过程已中断" : isWaiting ? "等待你的选择" : "主持过程";
-  const statusLabel = isRunning ? "实时" : isError ? "已中断" : isWaiting ? "待继续" : "已完成";
-  const progress = thinkingProgressMarkdown(thinking.events);
-  const body = [progress, thinking.output].filter((value) => String(value || "").trim()).join("\n\n")
-    || "正在分析你的行动…";
+  const title = isRunning ? "主持人处理中…" : isError ? "主持过程已中断" : isWaiting ? "等待你的选择" : "主持过程";
+  const elapsed = thinking.startedAt ? Math.max(0, Math.floor((now - thinking.startedAt) / 1000)) : 0;
+  const statusLabel = isRunning ? `${elapsed} 秒` : isError ? "已中断" : isWaiting ? "待继续" : "已完成";
+  const activity = thinking.waitingForModel
+    ? `正在等待主持模型${thinking.segmentCount > 1 ? `的第 ${thinking.segmentCount} 次响应` : "响应"}，继续判断和组织剧情。`
+    : "正在处理行动和规则结算。";
+  const body = thinking.output || (isRunning ? "模型尚未输出公开的过程说明或剧情文本。" : "本轮没有额外的公开过程文本。");
 
   return (
     <section className={`dm-thinking-panel thinking-${thinking.status}`} aria-label="主持人的思考过程">
@@ -765,6 +767,7 @@ function DmThinkingPanel({ thinking, onToggle }) {
       </button>
       {thinking.expanded && (
         <div id="dm-thinking-output" className="dm-thinking-output markdown-body" data-streamed-chars={thinking.output.length}>
+          {isRunning && <p className="dm-current-activity" role="status">{activity}{elapsed >= 45 ? " 等待较久，连接仍由心跳检查；请勿重复发送。" : ""}</p>}
           <MarkdownBlock>{asMarkdownQuote(body)}</MarkdownBlock>
         </div>
       )}
@@ -2398,7 +2401,9 @@ export default function App() {
       onEvent: (eventName, data) => {
         if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
         if (eventName === "turn.started") {
-          setDmThinking((current) => ({ ...current, rollRecords: mergeRollRecords(current.rollRecords, data?.roll_records || []) }));
+          setDmThinking((current) => ({ ...current, startedAt: Date.now(), rollRecords: mergeRollRecords(current.rollRecords, data?.roll_records || []) }));
+          setMessages((current) => current.map((message) => message.optimistic && message.deliveryState === "sending"
+            ? { ...message, deliveryState: "processing", deliveryLabel: "主持处理中…" } : message));
           pushWorkflowEvent({
             node_name: "turn_started",
             status: "started",
@@ -2412,7 +2417,7 @@ export default function App() {
         if (eventName === "turn.finished") {
           setDmThinking((current) => ({
             ...current,
-            status: data?.status === "error" ? "error" : data?.status === "input_required" ? "waiting" : "completed",
+            status: ["error", "failed"].includes(data?.status) ? "error" : data?.status === "input_required" ? "waiting" : "completed",
             expanded: false,
           }));
         }
@@ -2428,11 +2433,13 @@ export default function App() {
               ...current,
               output: needsSeparator ? `${current.output}\n\n` : current.output,
               segmentCount: current.segmentCount + 1,
+              waitingForModel: true,
             };
           }
           if (phase === "delta" && data?.text) {
             return { ...current, output: `${current.output}${data.text}` };
           }
+          if (phase === "completed") return { ...current, waitingForModel: false };
           return current;
         });
       },
@@ -2442,7 +2449,9 @@ export default function App() {
       },
       onResult: (data) => {
         if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-        setDmThinking((current) => ({ ...current, rollRecords: data?.roll_records || [] }));
+        setDmThinking((current) => ({ ...current, waitingForModel: false,
+          status: data?.turn_status === "input_required" ? "waiting" : data?.turn_status === "failed" ? "error" : "completed",
+          expanded: false, rollRecords: data?.roll_records || [] }));
       },
       onNode: (node) => {
         pushWorkflowEvent(node);
@@ -3042,7 +3051,7 @@ export default function App() {
                         />
                       </div>
                       <div className="form-group">
-                        <label>单次调用超时（秒）</label>
+                        <label>每轮处理超时（秒）</label>
                         <input
                           type="number"
                           min="10"

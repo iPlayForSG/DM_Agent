@@ -4,6 +4,7 @@ from collections import deque
 import json
 import os
 import queue
+import re
 import signal
 import subprocess
 import tempfile
@@ -11,21 +12,50 @@ import threading
 import time
 
 
-def app_server_command(executable: str) -> list[str]:
+def app_server_command(executable: str, mcp_transports=None) -> list[str]:
     overrides = {
-        "mcp_servers": "{}", "notify": "[]", "model_provider": '"openai"',
+        "notify": "[]", "model_provider": '"openai"',
         "project_doc_max_bytes": "0", "web_search": '"disabled"',
         "features.hooks": "false", "features.plugins": "false", "features.apps": "false",
         "features.shell_tool": "false", "features.browser_use": "false",
         "features.computer_use": "false", "features.image_generation": "false",
         "features.memories": "false", "agents.enabled": "false",
         "features.multi_agent": "false", "features.view_image": "false", "features.code_mode": "false",
+        "features.code_mode_host": "false", "features.in_app_browser": "false",
+        "features.skip_host_skill_discovery": "true", "features.skill_search": "false",
+        "features.unbounded_connection_retries": "false",
         "service_tier": '"default"', "otel.log_user_prompt": "false",
     }
     command = [executable, "app-server", "--stdio"]
     for key, value in overrides.items():
         command.extend(["--config", f"{key}={value}"])
+    # 空表覆盖会与用户配置合并，不能清空已有 MCP；必须逐项明确禁用。
+    for name, transport in (mcp_transports or {}).items():
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", name):
+            raise RuntimeError("Cannot safely disable a configured Codex MCP server")
+        # 部分运行时注入的服务器只有客户端描述；覆盖整个条目，避免 enabled-only 条目缺少 transport。
+        if transport == "stdio":
+            definition = '{command="codex",enabled=false}'
+        elif transport == "streamable_http":
+            definition = '{url="http://127.0.0.1:9",enabled=false}'
+        else:
+            raise RuntimeError("Cannot safely disable an unknown Codex MCP transport")
+        command.extend(["--config", f"mcp_servers.{name}={definition}"])
     return command
+
+
+def configured_mcp_transports(executable, *, directory, env, timeout_s):
+    result = subprocess.run([executable, "mcp", "list", "--json"], cwd=directory, env=env,
+                            capture_output=True, text=True, encoding="utf-8", errors="replace",
+                            timeout=min(10, timeout_s), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    # 只取名称和协议类型，不复制原命令、URL、环境变量或服务器凭据。
+    try:
+        servers = json.loads(result.stdout) if result.returncode == 0 else None
+        if not isinstance(servers, list):
+            raise ValueError("invalid server list")
+        return {server["name"]: server["transport"]["type"] for server in servers}
+    except (ValueError, TypeError, KeyError) as exc:
+        raise RuntimeError("Cannot inspect Codex MCP names for transport isolation") from exc
 
 
 def _stop_process(process) -> None:
@@ -56,20 +86,22 @@ def _stop_process(process) -> None:
 
 def stream_codex_events(executable: str, prompt: str, *, schema: dict, model: str,
                         effort: str, timeout_s: float):
+    deadline = time.monotonic() + timeout_s
     with tempfile.TemporaryDirectory(prefix="dm-agent-codex-") as directory:
         env = dict(os.environ)
         for key in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_BASE", "LLM_PROFILES_B64"):
             env.pop(key, None)
         env["NO_COLOR"] = "1"
+        mcp_transports = configured_mcp_transports(executable, directory=directory, env=env, timeout_s=timeout_s)
+        timeout_s = max(0.01, deadline - time.monotonic())
         process = subprocess.Popen(
-            app_server_command(executable), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            app_server_command(executable, mcp_transports), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", errors="replace", bufsize=1, cwd=directory, env=env,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), start_new_session=os.name != "nt",
         )
         messages = queue.Queue()
         errors = deque(maxlen=8)
         expired = threading.Event()
-        deadline = time.monotonic() + timeout_s
 
         def read_output():
             try:

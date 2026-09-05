@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from codex_transport import stream_codex_events
+from codex_transport import stream_codex_events, app_server_command, configured_mcp_transports
 from model_backends import CLI_RESPONSE_SCHEMA
 
 
@@ -53,12 +53,13 @@ class CodexTransportTests(unittest.TestCase):
             self.assertIn("app-server", command)
             self.assertIn("features.hooks=false", command)
             self.assertIn("features.shell_tool=false", command)
-            self.assertIn("mcp_servers={}", command)
+            self.assertIn('mcp_servers.personal-server={command="codex",enabled=false}', command)
+            self.assertIn("features.code_mode_host=false", command)
             self.assertNotIn("OPENAI_API_KEY", kwargs["env"])
             self.assertNotIn("LLM_PROFILES_B64", kwargs["env"])
             self.assertTrue(Path(kwargs["cwd"]).is_dir())
             return process
-        with patch("codex_transport.subprocess.Popen", side_effect=start), patch("codex_transport._stop_process") as stop, patch.dict(os.environ, {"OPENAI_API_KEY": "synthetic", "LLM_PROFILES_B64": "synthetic"}):
+        with patch("codex_transport.configured_mcp_transports", return_value={"personal-server":"stdio"}), patch("codex_transport.subprocess.Popen", side_effect=start), patch("codex_transport._stop_process") as stop, patch.dict(os.environ, {"OPENAI_API_KEY": "synthetic", "LLM_PROFILES_B64": "synthetic"}):
             try:
                 output = list(stream_codex_events("fake", "synthetic input", schema=CLI_RESPONSE_SCHEMA,
                                                  model="gpt-5.6-terra", effort="high", timeout_s=10))
@@ -101,6 +102,18 @@ class CodexTransportTests(unittest.TestCase):
         events[1]["result"]["thread"]["ephemeral"] = False
         with self.assertRaisesRegex(RuntimeError, "ephemeral"):
             self.run_transport(events)
+
+    def test_personal_mcp_entries_are_explicitly_disabled_and_names_are_validated(self):
+        from types import SimpleNamespace
+        with patch("codex_transport.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout='[{"name":"private-mcp","transport":{"type":"stdio","env":{"TOKEN":"synthetic-secret"}}},{"name":"http-mcp","transport":{"type":"streamable_http","url":"https://private.invalid"}}]')):
+            names = configured_mcp_transports("codex", directory=".", env={}, timeout_s=10)
+        command = app_server_command("codex", names)
+        self.assertIn('mcp_servers.private-mcp={command="codex",enabled=false}', command)
+        self.assertNotIn("synthetic-secret", str(command))
+        self.assertNotIn("private.invalid", str(command))
+        self.assertIn('mcp_servers.http-mcp={url="http://127.0.0.1:9",enabled=false}', command)
+        with self.assertRaises(RuntimeError):
+            app_server_command("codex", {"bad.name.enabled":"stdio"})
 
 
 if __name__ == "__main__":

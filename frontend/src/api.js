@@ -301,17 +301,39 @@ export async function streamTurn(gameId, message, handlers = {}) {
   return requestTurnStream(`/games/${encodeURIComponent(gameId)}/turns/stream`, { message }, handlers);
 }
 
+export async function readStreamChunk(reader, timeoutMs = 45000) {
+  let timer;
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error("主持连接长时间没有响应，请重新载入存档确认进度；不要重复发送同一行动。"));
+          void reader.cancel().catch(() => {});
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function requestTurnStream(path, body, handlers) {
   let response;
+  const controller = new AbortController();
+  const headerTimeout = setTimeout(() => controller.abort(), 45000);
   try {
     response = await fetch(`${API_PREFIX}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (error) {
-    if (error?.name === "AbortError") throw new Error("请求等待超时，请稍后重试。");
+    if (error?.name === "AbortError") throw new Error("主持连接等待超时，请重新载入存档确认进度；不要重复发送同一行动。");
     throw new Error("无法连接后端服务，请确认启动脚本仍在运行，然后刷新页面重试。");
+  } finally {
+    clearTimeout(headerTimeout);
   }
 
   if (!response.ok) {
@@ -362,17 +384,23 @@ async function requestTurnStream(path, body, handlers) {
 
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readStreamChunk(reader);
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
       const blocks = buffer.split(/\r?\n\r?\n/);
       buffer = blocks.pop() || "";
       for (const block of blocks) dispatchBlock(block);
+      // 收到服务端已提交的最终载荷即可完成；不能再等待代理或浏览器关闭 TCP 连接。
+      if (finalPayload || streamError) break;
     }
-  } catch {
+  } catch (error) {
     if (streamError) throw streamError;
+    if (error?.message?.includes("长时间没有响应")) throw error;
     throw new Error("与主持服务的连接意外中断，请重新载入存档确认当前进度。");
+  } finally {
+    void reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
 
   buffer += decoder.decode();

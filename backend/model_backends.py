@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+from turn_stream import remaining_turn_seconds
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence
@@ -190,7 +191,7 @@ class CodingAgentCLIChatModel(BaseChatModel):
                 encoding="utf-8",
                 errors="replace",
                 cwd=temp_dir,
-                timeout=self.timeout_s,
+                timeout=remaining_turn_seconds(self.timeout_s),
                 check=False,
                 env={**os.environ, "NO_COLOR": "1"},
             )
@@ -308,7 +309,7 @@ class CodingAgentCLIChatModel(BaseChatModel):
         from codex_transport import stream_codex_events
         try:
             yield from stream_codex_events(executable, prompt, schema=CLI_RESPONSE_SCHEMA,
-                                           model=self.model_name, effort=self.reasoning_effort, timeout_s=self.timeout_s)
+                                           model=self.model_name, effort=self.reasoning_effort, timeout_s=remaining_turn_seconds(self.timeout_s))
         except RuntimeError as exc:
             raise RuntimeError(self._safe_error_detail(str(exc))) from exc
 
@@ -475,7 +476,9 @@ class CodingAgentCLIChatModel(BaseChatModel):
             "Do not inspect files, run commands, or use coding-agent tools. "
             "Follow the supplied conversation and return exactly one JSON object matching the required schema. "
             "If an application tool is needed, put it in tool_calls, serialize its argument object into args_json, "
-            "and leave content empty. "
+            "and use content for one brief, public Chinese progress sentence about the next check or action. "
+            "This progress sentence is optional; do not disclose private reasoning, hidden plot plans, "
+            "or claim an outcome before a tool has resolved it. "
             "Otherwise return the final assistant text in content and an empty tool_calls array. "
             "Never invent tool names or mutate game state yourself.\n\n"
             f"APPLICATION_INPUT_JSON:\n{json.dumps(envelope, ensure_ascii=False, default=str)}"
