@@ -28,7 +28,7 @@ from models import ActionSuggestion, Character, ChatMessage, GameState, MonsterT
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from starter_shop import get_shop_item_by_name
 from storage import CharacterStorage, GameStorage, MonsterStorage, StateConflictError, PENDING_TURN_ACTION_MESSAGE
-from turn_stream import turn_stream_context
+from turn_stream import turn_stream_context, turn_time_budget, remaining_turn_seconds
 from player_projection import PlayerJSONResponse, player_payload
 from roll_capture import capture_rolls, settle_rolls
 
@@ -359,8 +359,10 @@ async def _execute_turn_request(
     base_history_length = len(state.chat_history)
 
     def execute_in_worker() -> TurnResult:
-        with turn_stream_context(stream_event), capture_rolls(initial_rolls) as capture:
+        with turn_stream_context(stream_event), turn_time_budget(getattr(agent, "cli_timeout_s", 300)), capture_rolls(initial_rolls) as capture:
             result = asyncio.run(turn_method(state, message))
+            if result.turn_status != "failed":
+                remaining_turn_seconds()
             records = settle_rolls(capture.records, result.turn_status)
             result.roll_records = records
             if result.game_state.pending_turn:
@@ -1676,14 +1678,15 @@ def _stream_turn_response(game_id: str, state: GameState, message: str, *, expec
                 expected_version=expected_version, preserve_on_failure=preserve_on_failure,
             )
         )
-        last_activity = event_loop.time()
+        started_at = event_loop.time()
+        last_activity = started_at
         emitted_node_count = 0
         while not turn_task.done() or not event_queue.empty():
             try:
                 live_event, live_data = await asyncio.wait_for(event_queue.get(), timeout=0.1)
             except asyncio.TimeoutError:
                 if event_loop.time() - last_activity >= 10:
-                    yield ": keep-alive\n\n"
+                    yield _sse_event("turn.heartbeat", {"elapsed_seconds": int(event_loop.time() - started_at)})
                     last_activity = event_loop.time()
                 continue
             live_payload = {

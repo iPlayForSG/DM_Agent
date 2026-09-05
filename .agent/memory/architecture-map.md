@@ -65,6 +65,7 @@ React/Vite UI
 - 玩家选择 interrupt 只公开自然语言问题和具体选项，不公开工具名、风险等级或持久化实现；取消、失败和 checkpoint 丢失均回滚整笔 staged transaction。
 - checkpoint 用于 interrupt 恢复，不提供剧情分支；剧情分支由 rewind snapshot 实现。
 - 新回合、重试和重写共用 SSE 观察通道；Codex adapter 通过 app-server 的 `item/agentMessage/delta` 和 LangChain `_stream()` 传递公开正文增量，不转发私有 reasoning。观察事件不得改变 `finalize_turn` 的权威提交语义。
+- 主持过程展示公开的下一步处理说明、叙事增量和当前模型等待，不把已完成的内部阶段清单当作思考。CLI 回合的多次模型调用共用请求级 deadline；修复循环另有工具轮次硬上限。
 - 主持回复上方的折叠骰点记录明确允许玩家查看明骰与暗骰。REST/SSE 仅在类型化 `roll_records` 出口保留暗骰，普通工具消息、trace 和时间线仍按玩家投影过滤；记录标明待提交、已提交、回滚或未生效，不能用观察值声称业务已提交。
 - 回合意图采用确定性词表快速路由；词表、规则和问句信号均未命中时，当前 DM 模型只能从有限 turn type、intent tag 和工具白名单中补充分类。分类只决定能力建议，不是世界事实。
 - 明确的直接攻击携带 `hostile_attack` 直到结算完成：探索阶段先用 `start_encounter` 建立权威遭遇，再在同一玩家回合按 combat phase 刷新工具面；没有玩家 `attack_target` 结果时不能用纯叙事成功提交，也不会先做回复长度扩写。

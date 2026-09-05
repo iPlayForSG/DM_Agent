@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { streamTurn, retryGameMessage, rewriteGameMessage } from "./api.js";
+import { streamTurn, retryGameMessage, rewriteGameMessage, readStreamChunk } from "./api.js";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -42,4 +42,24 @@ test("retry and rewrite opt into the same SSE transport", async (t) => {
   assert.match(requests[0].url, /test%20game\/messages\/3\/retry\?stream=true$/);
   assert.match(requests[1].url, /test%20game\/messages\/2\/rewrite\?stream=true$/);
   assert.deepEqual(requests[1].body, { message: "新的行动" });
+});
+
+test("committed response completes even if the transport never closes", async (t) => {
+  let cancelled = false;
+  const body = new ReadableStream({
+    start(controller) { controller.enqueue(new TextEncoder().encode('event: turn.completed\ndata: {"turn_status":"completed","game_state":{}}\n\n')); },
+    cancel() { cancelled = true; },
+  });
+  t.mock.method(globalThis, "fetch", async () => new Response(body));
+  const result = await streamTurn("synthetic", "action");
+  assert.equal(result.turn_status, "completed");
+  assert.equal(cancelled, true);
+});
+
+test("silent stream times out and warns against replaying an uncertain action", async () => {
+  let cancelled = false;
+  const reader = new ReadableStream({ cancel() { cancelled = true; } }).getReader();
+  await assert.rejects(readStreamChunk(reader, 15), /不要重复发送/);
+  assert.equal(cancelled, true);
+  reader.releaseLock();
 });

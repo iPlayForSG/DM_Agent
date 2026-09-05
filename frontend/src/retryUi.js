@@ -5,6 +5,8 @@ export const createEmptyDmThinking = () => ({
   events: [],
   segmentCount: 0,
   rollRecords: [],
+  startedAt: 0,
+  waitingForModel: false,
 });
 
 export function prepareDmRetryUiRollback(current, targetMessageIndex) {
