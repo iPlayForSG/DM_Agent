@@ -64,6 +64,45 @@ button {
   color: inherit;
 }
 
+.description-trigger {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline dotted var(--brass-2);
+  text-underline-offset: 4px;
+  cursor: help;
+}
+.description-trigger:hover, .description-trigger:focus-visible { color: var(--wax); }
+.description-trigger:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.description-trigger:active { color: var(--paper-strong); }
+/* Portal 挂到 body，避免队伍卡片与侧栏的 overflow 裁切说明；位置由视口边界约束。 */
+.description-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(440px, calc(100dvh - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--paper);
+  box-shadow: 0 8px 24px var(--shadow);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.description-tooltip-title { display: block; font-size: 16px; }
+.description-tooltip-meta { margin-top: 5px; color: var(--paper-dim); font-size: 12px; }
+.description-tooltip-body { margin-top: 10px; white-space: pre-wrap; }
+.description-tooltip-extra { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); white-space: pre-wrap; }
+
 #root,
 .app-container {
   width: 100%;
