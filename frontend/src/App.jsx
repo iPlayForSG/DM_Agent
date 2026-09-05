@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import DescriptionTooltip from "./DescriptionTooltip";
 import { isPlayerVisibleTimelineEvent, narrativeEmphasisClass } from "./narrativeRollUi";
 import { mergeRollRecords, rollSettlementLabel } from "./rollUi";
 import {
@@ -852,6 +853,28 @@ function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiative
     </section>
   );
 }
+function SpellNames({ names, options = [] }) {
+  return names.map((name, index) => {
+    const spell = options.find((option) => [option.name, option.nameEN, option.name_display].includes(name)) || {};
+    const metadata = [
+      spell.level === 0 ? "戏法" : spell.level != null ? `${spell.level} 环` : "",
+      spell.school_display || spell.school,
+      spell.casting_time && `施法时间：${spell.casting_time}`,
+      spell.range && `距离：${spell.range}`,
+      spell.duration && `持续：${spell.duration}`,
+      spell.components && `成分：${spell.components}`,
+      spell.concentration && "需要专注", spell.ritual && "仪式",
+    ];
+    return (
+      <React.Fragment key={name}>
+        {index > 0 && "、"}
+        <DescriptionTooltip label={localizeName(name)} description={spell.description_display || spell.description}
+          metadata={metadata} extra={spell.higher_levels} />
+      </React.Fragment>
+    );
+  });
+}
+
 function CharacterStatusCard({ character, actor, primary = false }) {
   const [isOpen, setIsOpen] = useState(primary);
   const stats = character?.stats || {};
@@ -914,8 +937,8 @@ function CharacterStatusCard({ character, actor, primary = false }) {
           <section className="sheet-section">
             <h4>法术</h4>
             {slots.length > 0 && <div className="tags">{slots.map((slot) => <span key={slot[0]} className="tag">{formatSpellSlotStatus(slot)}</span>)}</div>}
-            {cantrips.length > 0 && <div className="timeline-content">戏法：{cantrips.map(localizeName).join("、")}</div>}
-            {prepared.length > 0 && <div className="timeline-content">准备：{prepared.map(localizeName).join("、")}</div>}
+            {cantrips.length > 0 && <div className="timeline-content">戏法：<SpellNames names={cantrips} options={spells.options} /></div>}
+            {prepared.length > 0 && <div className="timeline-content">准备：<SpellNames names={prepared} options={spells.options} /></div>}
           </section>
         )}
         {attacks.length > 0 && (
@@ -935,7 +958,9 @@ function CharacterStatusCard({ character, actor, primary = false }) {
           <h4>物品栏</h4>
           {inventory.length === 0 ? <p className="empty-text">没有记录物品。</p> : inventory.map((item, index) => (
             <div key={`${character.character_id}-item-${item.name}-${index}`} className="inventory-row">
-              <span>{item.name_display || item.name}</span>
+              <DescriptionTooltip label={item.name_display || item.name}
+                description={item.description_display || item.description || item.notes_display || item.notes}
+                metadata={[item.type_display || localizeEquipmentType(item.type)]} />
               <small>{formatEquipmentLine(item) || item.type_display || localizeEquipmentType(item.type)}</small>
             </div>
           ))}

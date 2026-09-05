@@ -26,6 +26,7 @@ from library import Library
 from model_backends import DEFAULT_MODEL_PROVIDER
 from models import ActionSuggestion, Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
+from starter_shop import get_shop_item_by_name
 from storage import CharacterStorage, GameStorage, MonsterStorage, StateConflictError, PENDING_TURN_ACTION_MESSAGE
 from turn_stream import turn_stream_context
 from player_projection import PlayerJSONResponse, player_payload
@@ -794,6 +795,17 @@ def _build_spell_options(character: Character):
 
     for option in options:
         details = library.get_spell_details(option["name"]) or {}
+        # 说明属于只读展示投影，复用同一法术目录；不把描述写进角色的权威法术列表。
+        option.update({
+            "description": details.get("desc") or details.get("description") or "",
+            "higher_levels": details.get("higherLevels") or details.get("higher_levels") or "",
+            "casting_time": details.get("castingTime") or details.get("casting_time") or "",
+            "range": details.get("range") or "",
+            "duration": details.get("duration") or "",
+            "components": details.get("components") or "",
+            "concentration": bool(details.get("concentration")),
+            "ritual": bool(details.get("ritual")),
+        })
         option["action_cost"] = rule_catalog.spell_action_cost(details)
         try:
             profile = rule_catalog.get_spell_attack_profile(character, option["name"], option["level"])
@@ -803,7 +815,21 @@ def _build_spell_options(character: Character):
         except ValueError as exc:
             option["available"] = False
             option["resolution_error"] = str(exc)
-    return sorted(options, key=lambda item: (item["level"], item["name"]))
+    return _add_display_fields(sorted(options, key=lambda item: (item["level"], item["name"])))
+
+
+def _build_item_options(character: Character):
+    options = []
+    for item in character.inventory:
+        catalog_item = get_shop_item_by_name(item.name) or {}
+        description = str(catalog_item.get("description") or catalog_item.get("desc") or "").strip()
+        notes = str(item.notes or catalog_item.get("notes") or "").strip()
+        # 自定义备注优先保留，目录说明仅补充阅读；缺少说明时不推测物品效果。
+        options.append({
+            **item.model_dump(mode="json"),
+            "description": "\n\n".join(dict.fromkeys(text for text in (description, notes) if text)),
+        })
+    return _add_display_fields(options)
 
 
 _CHINESE_DAMAGE_TYPES = {
@@ -908,16 +934,7 @@ def action_options_payload(state: GameState):
                         for level, slot in character.spells.slots.items()
                     },
                 },
-                "items": [
-                    {
-                        "name": item.name,
-                        "name_display": library.localize_game_terms(item.name),
-                        "quantity": item.quantity,
-                        "type": item.type,
-                        "type_display": library.localize_game_terms(item.type),
-                    }
-                    for item in character.inventory
-                ],
+                "items": _build_item_options(character),
                 "skills": sorted(character.skill_proficiencies.keys()),
                 "saves": sorted(character.save_proficiencies.keys()),
                 "resources": {

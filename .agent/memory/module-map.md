@@ -49,6 +49,7 @@
 | --- | --- | --- |
 | `frontend/src/api.js` | API base URL、REST、SSE parser、错误标准化 | `main.py` 路由和响应 schema |
 | `frontend/src/App.jsx` | 大厅、构筑、游戏、战斗、分支和异步生命周期 | `api.js`、action options、CSS、build/lint |
+| `frontend/src/DescriptionTooltip.jsx` | 队伍法术/物品说明的悬停、焦点及点击浮层，Portal 避免侧栏裁切 | `App.jsx`、action options 的法术 description/施法资料及物品 description/notes、视口与键盘验收；不回写角色状态 |
 | `frontend/src/retryUi.js` | 主持回复重试与玩家消息重写的可恢复 UI 回滚纯状态转换 | `App.jsx`、`retryUi.test.mjs`、消息索引语义 |
 | `frontend/src/narrativeRollUi.js` | 主持叙事内公开骰点/战斗标记的语义分类，以及玩家时间线暗骰过滤 | `App.jsx`、Markdown 前缀契约、`narrativeRollUi.test.mjs` |
 | `frontend/src/rollUi.js` | 骰点按 id 合并及结算状态展示；明暗骰由回复上方折叠框承载 | `App.jsx`、RollRecord、SSE、`rollUi.test.mjs` |
