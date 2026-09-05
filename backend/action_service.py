@@ -105,10 +105,16 @@ class GameActionService:
         attack_name: str = "",
         roll_mode: str = "normal",
         cast_id: str = "",
+        attacker_sees_invisible: bool = False,
+        target_sees_invisible: bool = False,
+        reason: str = "",
     ) -> Dict[str, Any]:
+        if (attacker_sees_invisible or target_sees_invisible) and not reason.strip():
+            raise ValueError("Seeing invisible actors requires an established visibility reason")
         if cast_id:
             from spell_resolution import resolve_spell_attack
-            result = resolve_spell_attack(state, attacker_ref, target_ref, cast_id, damage_type, roll_mode)
+            result = resolve_spell_attack(state, attacker_ref, target_ref, cast_id, damage_type, roll_mode,
+                                          attacker_sees_invisible, target_sees_invisible)
             return self._append_result(
                 state, summary=f"{result['attacker_name']} {result['spell_name']}：{result['attack_total']} vs AC {result['target_ac']}，伤害 {result['damage_total']}",
                 event_type="attack_resolved", payload={key: value for key, value in result.items() if key != "patch"},
@@ -154,6 +160,8 @@ class GameActionService:
             damage_type,
             resolution_mode=resolution_mode,
             roll_mode=roll_mode,
+            attacker_sees_invisible=attacker_sees_invisible,
+            target_sees_invisible=target_sees_invisible,
         )
         if not result:
             raise ValueError(f"Attack target not found: {target_ref}")

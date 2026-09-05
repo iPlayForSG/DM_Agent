@@ -25,6 +25,7 @@ React/Vite UI
 - 编排层 `backend/dm_graph.py`：阶段能力、上下文、工具预算、校验/修复、叙事与事务边界。
 - Agent 层 `backend/agents/`：持续 DM 私有循环与提交后建议投影；适配器才把工具结果投影回父图。
 - 规则执行层：`agent_tools.py` / `action_service.py` 组织操作，`game_logic.py` 结算，`rules_catalog.py` 提供角色卡和目录事实，`encounter_math.py` 提供无状态的遭遇预算与 CR 估算。
+- `stealth_rules.py` 将躲藏来源与通用魔法隐形分开；`Character.hiding` 与战斗镜像同步，`surprised_at_start` 保存开场裁定，先攻及攻击从状态计算优劣势。场景视线与未察觉前提仍由 DM 明确提供，工具不能将玩家文字直接等同于成功。
 - 数据层 `models.py`：API、存档和图状态共享的 Pydantic schema。
 - 持久化层 `storage.py`：每游戏/角色/怪物一个 JSON；rewind 保存完整 `GameState`。
 - 剧情记忆层 `campaign_memory.py`：只从权威 `GameState` 派生有限提示上下文，不拥有独立业务状态。

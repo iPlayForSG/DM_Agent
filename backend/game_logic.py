@@ -597,6 +597,7 @@ class GameLogic:
                 ac=character.ac,
                 initiative_bonus=character.initiative_bonus,
                 status_effects=list(character.status_effects),
+                hiding=character.hiding.model_copy(deep=True) if character.hiding else None,
                 defeat_state=character.defeat_state,
                 stats=character.stats.model_copy(deep=True),
                 skills=self._character_skill_modifiers(character),
@@ -624,6 +625,7 @@ class GameLogic:
         combatant.ac = character.ac
         combatant.initiative_bonus = character.initiative_bonus
         combatant.status_effects = list(character.status_effects)
+        combatant.hiding = character.hiding.model_copy(deep=True) if character.hiding else None
         combatant.defeat_state = character.defeat_state
         combatant.stats = character.stats.model_copy(deep=True)
         combatant.skills = self._character_skill_modifiers(character)
@@ -644,6 +646,7 @@ class GameLogic:
         character.ac = combatant.ac
         character.initiative_bonus = combatant.initiative_bonus
         character.status_effects = list(combatant.status_effects)
+        character.hiding = combatant.hiding.model_copy(deep=True) if combatant.hiding else None
         character.defeat_state = combatant.defeat_state
         return character
 
@@ -1327,15 +1330,22 @@ class GameLogic:
         return {"chapter": record, "patch": patch}
 
     # Encounter lifecycle.
-    def start_encounter(self, enemy_names: List[str], enemy_hp: int = 10, enemy_ac: int = 10) -> EncounterState:
+    def start_encounter(self, enemy_names: List[str], enemy_hp: int = 10, enemy_ac: int = 10,
+                        surprised_refs: Optional[List[str]] = None, surprise_reason: str = "") -> EncounterState:
         # Starting combat again while an encounter is already active corrupts turn order and enemy HP.
         if self.state.encounter and self.state.encounter.active:
+            if self.state.encounter.turn_order_started:
+                raise ValueError("Combat already started; surprise cannot restart initiative")
             has_existing_enemies = any(
                 not combatant.linked_character_id for combatant in self.state.encounter.combatants.values()
             )
             if has_existing_enemies:
                 raise ValueError("An encounter is already active. Use add_enemy for reinforcements instead.")
 
+        surprised_refs = surprised_refs or []
+        valid_refs = set(enemy_names) | set(self.state.characters) | {c.name for c in self.state.characters.values()}
+        if any(ref not in valid_refs for ref in surprised_refs) or (surprised_refs and not surprise_reason.strip()):
+            raise ValueError("Surprise requires existing participants and an explicit unawareness reason")
         encounter = self._ensure_encounter()
 
         for name in enemy_names:
@@ -1353,6 +1363,9 @@ class GameLogic:
             )
             encounter.combatants[combatant.combatant_id] = combatant
 
+        for combatant in encounter.combatants.values():
+            combatant.surprised_at_start = combatant.name in surprised_refs or combatant.linked_character_id in surprised_refs
+            combatant.surprise_reason = surprise_reason if combatant.surprised_at_start else ""
         encounter.active = True
         encounter.round_number = max(1, encounter.round_number)
         self._refresh_initiative_order()
@@ -1466,6 +1479,8 @@ class GameLogic:
         damage_type: str = "",
         resolution_mode: str = "normal",
         roll_mode: str = "normal",
+        attacker_sees_invisible: bool = False,
+        target_sees_invisible: bool = False,
     ) -> Optional[Dict[str, Any]]:
         target_character = self.get_character(target_ref)
         target_combatant = None if target_character else self.get_combatant(target_ref)
@@ -1473,8 +1488,14 @@ class GameLogic:
             return None
 
         target = target_character or target_combatant
+        from stealth_rules import actor_for, is_invisible, combine_roll_mode, end_hiding
+        attacker = actor_for(self, attacker_ref)
+        effective_mode = combine_roll_mode(roll_mode,
+            advantage=is_invisible(attacker) and not target_sees_invisible,
+            disadvantage=is_invisible(target) and not attacker_sees_invisible)
         with dice_context(kind="attack", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击检定", dc=target.ac):
-            natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus, roll_mode=roll_mode)
+            natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus, roll_mode=effective_mode)
+        hiding_patch = end_hiding(self, attacker_ref) if attacker and attacker.hiding else {}
         critical = natural == 20
         hit = critical or (natural != 1 and attack_total >= target.ac)
         annotate_last_roll(success=hit)
@@ -1482,7 +1503,7 @@ class GameLogic:
         damage_total = 0
         damage_detail = ""
         damage_roll = damage_expression
-        patch: Dict[str, Any] = {}
+        patch: Dict[str, Any] = hiding_patch
         concentration_check: Optional[Dict[str, Any]] = None
         if hit and damage_expression:
             if critical:
@@ -1492,7 +1513,7 @@ class GameLogic:
             damage_total = max(0, damage_total)
             hp_result = self.update_target_hp(target_ref, -damage_total)
             if hp_result:
-                patch = hp_result["patch"]
+                patch = self._merge_patches(patch, hp_result["patch"])
                 target = hp_result["target"]
                 concentration_check = hp_result.get("concentration_check")
                 if target.hp_current <= 0:
@@ -1520,7 +1541,7 @@ class GameLogic:
             "damage_detail": damage_detail,
             "damage_type": damage_type,
             "resolution_mode": resolution_mode,
-            "roll_mode": roll_mode,
+            "roll_mode": effective_mode,
             "target_hp_current": target.hp_current,
             "target_defeat_state": getattr(target, "defeat_state", "active"),
             "concentration_check": concentration_check,
@@ -1600,14 +1621,19 @@ class GameLogic:
         if not combatant:
             return None
 
+        from stealth_rules import is_invisible, combine_roll_mode
+        surprised = combatant.surprised_at_start and not self.state.encounter.turn_order_started
+        roll_mode = combine_roll_mode(advantage=is_invisible(combatant), disadvantage=surprised or self.is_incapacitated(combatant))
+        reasons = [reason for reason, active in (("躲藏或隐形", is_invisible(combatant)), ("开战被突袭", surprised), ("失能", self.is_incapacitated(combatant))) if active]
         expression = f"1d20{combatant.initiative_bonus:+d}" if combatant.initiative_bonus else "1d20"
-        with dice_context(kind="initiative", actor=combatant.name, label="先攻", dc=None):
-            total, detail = DiceRoller.roll(expression)
+        with dice_context(kind="initiative", actor=combatant.name, label="先攻", dc=None, reason="、".join(reasons)):
+            _, total, detail = DiceRoller.roll_d20(combatant.initiative_bonus, roll_mode)
+        combatant.initiative_roll_mode = roll_mode
         combatant.initiative = total
         self._refresh_initiative_order()
         self._start_turn_order_if_ready()
         # 初始化由 _start_turn_order_if_ready 处理；编辑/重掷先攻不能重开当前动作槽。
-        return {"combatant": combatant, "total": total, "detail": detail, "expression": expression}
+        return {"combatant": combatant, "total": total, "detail": detail, "expression": expression, "roll_mode": roll_mode}
 
     def advance_turn(self) -> Optional[Combatant]:
         encounter = self.state.encounter
@@ -1803,6 +1829,8 @@ class GameLogic:
                     else "正常"
                 )
                 class_name = self._library.localize_game_terms(character.class_name)
+                if character.hiding:
+                    statuses += f", 躲藏（发现DC {character.hiding.stealth_total}，{character.hiding.cover}）"
                 prepared_spell_names = self._library.normalize_spell_names(character.spells.prepared[:8])
                 prepared_spells = ", ".join(prepared_spell_names) if prepared_spell_names else "无"
                 lines.append(
@@ -1832,6 +1860,10 @@ class GameLogic:
                 if not combatant:
                     continue
                 statuses = ", ".join(combatant.status_effects) if combatant.status_effects else "Normal"
+                if combatant.hiding:
+                    statuses += f", Hide (detection DC {combatant.hiding.stealth_total})"
+                if combatant.surprised_at_start:
+                    statuses += ", surprised at combat start (initiative only; no skipped turn)"
                 initiative = combatant.initiative if combatant.initiative is not None else "?"
                 lines.append(
                     (
