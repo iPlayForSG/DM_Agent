@@ -837,6 +837,8 @@ function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiative
                 {nextActorId === combatant.combatant_id && <span className="combatant-turn-badge" title="下一次对话从该行动者继续">接下来行动</span>}
               </div>
               <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
+              {combatant.surprised_at_start && <div className="timeline-content">开战时被突袭 · 仅影响先攻</div>}
+              {combatant.initiative_roll_mode && combatant.initiative_roll_mode !== "normal" && <div className="timeline-content">先攻{combatant.initiative_roll_mode === "advantage" ? "优势" : "劣势"}</div>}
               {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
                 <fieldset className="pending-action-scope" disabled={localActionsLocked} aria-label="先攻和战斗单位操作">
                   <div className="action-grid" style={{ marginTop: 10 }}>
@@ -958,8 +960,9 @@ function CharacterStatusCard({ character, actor, encounter, primary = false }) {
             </div>
           ))}
         </div>
-        {(statuses.length > 0 || defeatState !== "active" || character.inspiration) && (
+        {(statuses.length > 0 || defeatState !== "active" || character.inspiration || character.hiding) && (
           <div className="tags">
+            {character.hiding && <span className="tag" title="攻击、言语施法、被敌人发现或暴露后结束；不等于魔法隐形">躲藏中 · 发现 DC {character.hiding.stealth_total}</span>}
             {character.inspiration && <span className="tag">激励</span>}
             {defeatState !== "active" && <span className="tag">{localizeDefeatState(defeatState)}</span>}
             {statuses.map((status) => <span key={status} className="tag">{status}</span>)}

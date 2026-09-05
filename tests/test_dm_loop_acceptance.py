@@ -339,7 +339,8 @@ class DMLoopAcceptanceTests(unittest.TestCase):
         )
         runner._model = model
         try:
-            result = runner.run_turn(self.build_state(), "突袭我面前的地精")
+            # 此用例只验证普通敌对行动；需要 Hide 裁定的伏击由 surprise_rules 回归覆盖。
+            result = runner.run_turn(self.build_state(), "攻击我面前的地精")
         finally:
             runner.close()
 

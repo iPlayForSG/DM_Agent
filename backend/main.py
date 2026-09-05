@@ -96,6 +96,9 @@ class AttackActionRequest(BaseModel):
     cast_id: str = ""
     damage_type: str = ""
     resolution_mode: str = "normal"
+    attacker_sees_invisible: bool = False
+    target_sees_invisible: bool = False
+    reason: str = ""
 
 
 class SkillCheckActionRequest(BaseModel):
@@ -142,6 +145,8 @@ class StartEncounterRequest(BaseModel):
     enemy_hp: int = 10
     enemy_ac: int = 10
     auto_roll_initiative: bool = True
+    surprised_refs: List[str] = Field(default_factory=list)
+    surprise_reason: str = ""
 
 
 class AddEnemyEncounterRequest(BaseModel):
@@ -1393,7 +1398,8 @@ async def start_encounter(game_id: str, req: StartEncounterRequest):
     state = _load_mutable_game_or_404(game_id)
     try:
         logic = GameLogic(state)
-        encounter = logic.start_encounter(req.enemy_names, enemy_hp=req.enemy_hp, enemy_ac=req.enemy_ac)
+        encounter = logic.start_encounter(req.enemy_names, enemy_hp=req.enemy_hp, enemy_ac=req.enemy_ac,
+                                          surprised_refs=req.surprised_refs, surprise_reason=req.surprise_reason)
         if req.auto_roll_initiative:
             _roll_missing_initiative(logic, encounter)
     except Exception as exc:
@@ -1878,6 +1884,9 @@ async def attack_action(game_id: str, req: AttackActionRequest):
             damage_expression=req.damage_expression,
             damage_type=req.damage_type,
             resolution_mode=req.resolution_mode,
+            attacker_sees_invisible=req.attacker_sees_invisible,
+            target_sees_invisible=req.target_sees_invisible,
+            reason=req.reason,
             attack_name=req.attack_name,
             cast_id=req.cast_id,
         )

@@ -1,6 +1,7 @@
 """Agent 与本地 API 共用的施法记账和法术攻击结算。"""
 
 from uuid import uuid4
+import re
 
 from game_logic import GameLogic
 from models import GameState, SpellAttackCast
@@ -46,6 +47,11 @@ def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name
         caster.concentration_spell = canonical_name
         caster.concentration_spell_level = int(details.get("level") or 0)
     action_patch = logic.mark_actor_slot_used(caster.character_id, cost, "cast_spell")
+    components = details.get("components", "")
+    verbal = bool(components.get("v")) if isinstance(components, dict) else bool(re.search(r"\bV\b|\bverbal\b|言语", str(components), re.IGNORECASE))
+    if verbal and caster.hiding:
+        from stealth_rules import end_hiding
+        action_patch = GameLogic._merge_patches(action_patch, end_hiding(logic, caster.character_id))
     state.pending_spell_attacks = [item for item in state.pending_spell_attacks if item.turn_key == spell_turn_key(state)]
     cast = None
     if profile:
@@ -77,14 +83,16 @@ def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name
 
 
 def resolve_spell_attack(state: GameState, caster_ref: str, target_ref: str, cast_id: str,
-                         damage_type: str = "", roll_mode: str = "normal"):
+                         damage_type: str = "", roll_mode: str = "normal",
+                         attacker_sees_invisible: bool = False, target_sees_invisible: bool = False):
     cast = get_attack_cast(state, caster_ref, cast_id)
     logic = GameLogic(state)
     logic.require_actor_action(caster_ref, cast.action_cost)
     kind = damage_type or (cast.damage_types[0] if len(cast.damage_types) == 1 else "")
     if kind not in cast.damage_types:
         raise ValueError(f"Choose a spell damage type from: {', '.join(cast.damage_types)}")
-    result = logic.resolve_attack(caster_ref, target_ref, cast.attack_bonus, cast.damage_expression, kind, roll_mode=roll_mode)
+    result = logic.resolve_attack(caster_ref, target_ref, cast.attack_bonus, cast.damage_expression, kind, roll_mode=roll_mode,
+                                   attacker_sees_invisible=attacker_sees_invisible, target_sees_invisible=target_sees_invisible)
     if result is None:
         raise ValueError(f"Spell attack target not found: {target_ref}")
     # 凭据在成功结算后消费，失败和重复请求不能免费得到第二次攻击。

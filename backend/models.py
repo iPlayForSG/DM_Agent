@@ -134,6 +134,13 @@ class CharacterSummary(BaseModel):
 
 
 # Persistent player-facing character state.
+class HidingState(BaseModel):
+    """躲藏动作的来源状态，与魔法隐形分离，避免攻击后误删其他效果。"""
+    stealth_total: int
+    cover: str
+    reason: str = ""
+
+
 class Character(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -170,6 +177,7 @@ class Character(BaseModel):
     resources: Dict[str, ResourcePool] = Field(default_factory=dict)
     inventory: List[InventoryItem] = Field(default_factory=list)
     status_effects: List[str] = Field(default_factory=list)
+    hiding: Optional[HidingState] = None
     defeat_state: str = "active"
     skill_proficiencies: Dict[str, int] = Field(default_factory=dict)
     save_proficiencies: Dict[str, bool] = Field(default_factory=dict)
@@ -460,6 +468,10 @@ class Combatant(BaseModel):
     initiative_bonus: int = 0
     initiative: Optional[int] = None
     status_effects: List[str] = Field(default_factory=list)
+    hiding: Optional[HidingState] = None
+    surprised_at_start: bool = False
+    surprise_reason: str = ""
+    initiative_roll_mode: str = "normal"
     defeat_state: str = "active"
     stats: Stats = Field(default_factory=Stats)
     skills: Dict[str, int] = Field(default_factory=dict)

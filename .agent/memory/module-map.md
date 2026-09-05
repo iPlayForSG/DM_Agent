@@ -24,6 +24,7 @@
 | `backend/action_service.py` | 本地动作 API 的确定性执行 | GameLogic、RuleCatalog | agent tool 行为、main routes、action options |
 | `backend/spell_resolution.py` | 共用施法记账、cast_id 凭据与法术攻击结算 | GameLogic、RuleCatalog、SpellAttackCast | Agent/本地动作、工具 guardrail、法术目标 UI、回合边界 |
 | `backend/game_logic.py` | 骰子、攻击、伤害、先攻、镜像同步 | models | current actor、action ledger、concentration、combat tests |
+| `backend/stealth_rules.py` | Hide 来源状态、DC15 隐匿、主动/被动察觉、失效及优劣势合并 | GameLogic、RuleCatalog、HidingState | Agent 工具/阶段能力、进战与攻击/言语施法、角色镜像、REST/SSE、旧存档 |
 | `backend/roll_capture.py` | 请求局部实际骰点观察、工具成败与回合结算标记 | RollRecord、turn_stream | game_logic、ability_scores、dm_graph、main 消息/暂停持久化、玩家投影 |
 | `backend/encounter_math.py` | 遭遇 XP 预算、难度分级、CR 估算（纯计算，无状态） | 无 | 只读工具 payload、5e.tools 表格出处、`test_encounter_math.py` |
 | `backend/rules_catalog.py` | 构筑目录、派生值、法术/装备校验 | JSON catalog、ability service | builder API、角色保存、攻击/法术工具 |

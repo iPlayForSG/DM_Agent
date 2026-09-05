@@ -1,6 +1,7 @@
 """Framework-neutral DM tool implementations for agent runtimes."""
 
 from dataclasses import dataclass, field
+import re
 from typing import Any, Dict, List, Optional
 
 from ability_scores import AbilityScoreService
@@ -132,8 +133,10 @@ class AgentToolService:
     def _roll_mode_error(reason: str, roll_mode: str) -> str:
         normalized_reason = str(reason or "").casefold()
         normalized_mode = str(roll_mode or "normal").casefold()
-        claims_advantage = "优势" in normalized_reason or "advantage" in normalized_reason
-        claims_disadvantage = "劣势" in normalized_reason or "disadvantage" in normalized_reason
+        claims_advantage = "优势" in normalized_reason or bool(re.search(r"\badvantage\b", normalized_reason))
+        claims_disadvantage = "劣势" in normalized_reason or bool(re.search(r"\bdisadvantage\b", normalized_reason))
+        if (claims_advantage or claims_disadvantage) and any(word in normalized_reason for word in ("抵消", "cancel", "offset")):
+            return "" if normalized_mode == "normal" else "reason claims canceled roll modifiers but roll_mode is not normal"
         if claims_advantage and normalized_mode != "advantage":
             return "reason claims mechanical advantage but roll_mode is not advantage"
         if claims_disadvantage and normalized_mode != "disadvantage":
@@ -597,6 +600,48 @@ class AgentToolService:
             state_patch={"active_character_id": character.character_id},
         )
 
+    def _stealth_action(self, state, function, tool_name, **kwargs):
+        work = state.model_copy(deep=True)
+        try:
+            payload, patch = function(work, self.rules_catalog, **kwargs)
+        except ValueError as exc:
+            return self._error(str(exc))
+        # 合法检定失败仍保留动作消耗；参数/前提错误则完全不采用工作快照。
+        state.characters, state.encounter = work.characters, work.encounter
+        summary = f"{payload.get('actor_name', '')} {payload.get('label', tool_name)}"
+        if "success" in payload:
+            summary += f"：{payload.get('total', payload.get('stealth_total'))} vs DC {payload.get('dc', 15)}，{'成功' if payload['success'] else '失败'}"
+        return self._success(tool_name=tool_name, summary=summary, payload=payload,
+                             event_type="stealth_resolved", state_patch=patch)
+
+    def hide_actor(self, state: GameState, actor_ref: str, cover: str, observed: bool,
+                   reason: str, roll_mode: str = "normal"):
+        from stealth_rules import hide_actor
+        return self._stealth_action(state, hide_actor, "hide_actor", actor_ref=actor_ref, cover=cover,
+                                    observed=observed, reason=reason, roll_mode=roll_mode)
+
+    def search_hidden(self, state: GameState, actor_ref: str, target_ref: str,
+                      passive: bool = False, roll_mode: str = "normal"):
+        from stealth_rules import search_hidden
+        return self._stealth_action(state, search_hidden, "search_hidden", actor_ref=actor_ref,
+                                    target_ref=target_ref, passive=passive, roll_mode=roll_mode)
+
+    def end_hiding(self, state: GameState, actor_ref: str, reason: str):
+        from stealth_rules import end_hiding, actor_for
+        if not reason.strip():
+            return self._error("Explain the noise, exposure or voluntary end of hiding")
+        work = state.model_copy(deep=True)
+        logic = GameLogic(work)
+        actor = actor_for(logic, actor_ref)
+        try:
+            patch = end_hiding(logic, actor_ref)
+        except ValueError as exc:
+            return self._error(str(exc))
+        state.characters, state.encounter = work.characters, work.encounter
+        return self._success(tool_name="end_hiding", summary=f"{actor.name} 结束躲藏：{reason}",
+                             payload={"actor_name": actor.name, "reason": reason, "ended": bool(patch)},
+                             event_type="stealth_resolved", state_patch=patch)
+
     def start_encounter(
         self,
         state: GameState,
@@ -604,7 +649,15 @@ class AgentToolService:
         enemy_hp: int = 10,
         enemy_ac: int = 10,
         auto_roll_initiative: bool = True,
+        surprised_refs: Optional[List[str]] = None,
+        surprise_reason: str = "",
+        approach_reason: str = "",
+        surprise_basis: str = "hidden",
     ) -> AgentToolExecution:
+        if surprise_basis not in {"hidden", "other"}:
+            return self._error("Surprise basis must be hidden or other")
+        if surprised_refs and surprise_basis == "other" and not approach_reason.strip():
+            return self._error("Explain the established non-hiding cause of an unaware combat start")
         balance_error = self.rules_catalog.solo_level_one_encounter_error(
             state,
             enemy_names,
@@ -613,19 +666,30 @@ class AgentToolService:
         )
         if balance_error:
             return self._error(balance_error)
-        logic = GameLogic(state)
-        encounter = logic.start_encounter(enemy_names, enemy_hp=enemy_hp, enemy_ac=enemy_ac)
+        work = state.model_copy(deep=True)
+        logic = GameLogic(work)
+        try:
+            encounter = logic.start_encounter(enemy_names, enemy_hp=enemy_hp, enemy_ac=enemy_ac,
+                                              surprised_refs=surprised_refs, surprise_reason=surprise_reason)
+        except ValueError as exc:
+            return self._error(str(exc))
         if auto_roll_initiative:
             for combatant_id in encounter.initiative_order:
                 combatant = encounter.combatants.get(combatant_id)
                 if combatant and combatant.initiative is None:
                     logic.roll_initiative(combatant.combatant_id)
 
+        state.characters, state.encounter, state.scene, state.campaign = work.characters, work.encounter, work.scene, work.campaign
+
         payload = {
             "encounter_id": encounter.encounter_id,
             "enemy_names": enemy_names,
             "combatant_count": len(encounter.combatants),
             "round_number": encounter.round_number,
+            "surprised_names": [c.name for c in encounter.combatants.values() if c.surprised_at_start],
+            "surprise_reason": surprise_reason,
+            "approach_reason": approach_reason,
+            "surprise_basis": surprise_basis,
             "current_combatant_id": state.encounter.current_combatant_id if state.encounter else None,
         }
         return self._success(
@@ -789,11 +853,16 @@ class AgentToolService:
         attack_name: str = "",
         roll_mode: str = "normal",
         cast_id: str = "",
+        attacker_sees_invisible: bool = False,
+        target_sees_invisible: bool = False,
     ) -> AgentToolExecution:
+        if (attacker_sees_invisible or target_sees_invisible) and not reason.strip():
+            return self._error("Seeing invisible actors requires an established visibility reason")
         if cast_id:
             from spell_resolution import resolve_spell_attack
             try:
-                result = resolve_spell_attack(state, attacker_ref, target_ref, cast_id, damage_type, roll_mode)
+                result = resolve_spell_attack(state, attacker_ref, target_ref, cast_id, damage_type, roll_mode,
+                                               attacker_sees_invisible, target_sees_invisible)
             except ValueError as exc:
                 return self._error(str(exc))
             return self._success(
@@ -808,7 +877,11 @@ class AgentToolService:
         except ValueError as exc:
             return self._error(str(exc))
 
-        roll_mode_error = self._roll_mode_error(reason, roll_mode)
+        from stealth_rules import actor_for, is_invisible, combine_roll_mode
+        effective_mode = combine_roll_mode(roll_mode,
+            advantage=is_invisible(actor_for(logic, attacker_ref)) and not target_sees_invisible,
+            disadvantage=is_invisible(actor_for(logic, target_ref)) and not attacker_sees_invisible)
+        roll_mode_error = self._roll_mode_error(reason, effective_mode)
         if roll_mode_error:
             return self._error(roll_mode_error)
 
@@ -852,6 +925,8 @@ class AgentToolService:
             damage_type=damage_type,
             resolution_mode=resolution_mode,
             roll_mode=roll_mode,
+            attacker_sees_invisible=attacker_sees_invisible,
+            target_sees_invisible=target_sees_invisible,
         )
         if not result:
             return self._error(f"Attack target not found: {target_ref}")
@@ -888,7 +963,7 @@ class AgentToolService:
             payload["concentration_check"] = concentration_check
         hit_display = "命中" if result["hit"] else "未命中"
         summary = (
-            f"{result['attacker_name']} 攻击 {result['target_name']}{self._roll_mode_summary(roll_mode)}："
+            f"{result['attacker_name']} 攻击 {result['target_name']}{self._roll_mode_summary(result['roll_mode'])}："
             f"{result['attack_total']} vs AC {result['target_ac']} -> "
             f"{hit_display}"
         )

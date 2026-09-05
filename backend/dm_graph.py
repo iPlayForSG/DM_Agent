@@ -507,6 +507,10 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
                 "enemy_hp": {"type": "integer", "default": 10},
                 "enemy_ac": {"type": "integer", "default": 10},
                 "auto_roll_initiative": {"type": "boolean", "default": True},
+                "surprised_refs": {"type": "array", "items": {"type": "string"}, "default": [], "description": "Names of newly added enemies or party character names/ids caught unaware by combat starting. Decide BEFORE initiative; never grant a skipped turn."},
+                "surprise_reason": {"type": "string", "default": "", "description": "Established reason those participants are unaware of danger; required when surprised_refs is nonempty."},
+                "approach_reason": {"type": "string", "default": "", "description": "For a requested ambush that cannot use Hide, explain the observed lack of cover or enemy awareness. Do not claim a successful hide without hide_actor."},
+                "surprise_basis": {"type": "string", "enum": ["hidden", "other"], "default": "hidden", "description": "hidden requires successful concealment for a player ambush. other requires approach_reason explaining an independently established unaware combat start (e.g. an unexpected betrayal); it is not a way to turn a failed Hide into success."},
             },
             "required": ["enemy_names"],
         },
@@ -573,6 +577,8 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
+                "attacker_sees_invisible": {"type": "boolean", "default": False, "description": "Only true for an established sense that sees an Invisible target; explain in reason."},
+                "target_sees_invisible": {"type": "boolean", "default": False, "description": "Only true when the target can actually see the Invisible attacker; explain in reason."},
                 "attacker_ref": {"type": "string"},
                 "cast_id": {"type": "string", "default": ""},
                 "target_ref": {"type": "string"},
@@ -740,6 +746,26 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
 class LangGraphUnavailableError(RuntimeError):
     pass
 
+
+LANGGRAPH_TOOL_SCHEMAS.extend([
+    {"name": "hide_actor", "description": "Take the 2024 Hide action: require established cover and being out of every enemy's sight; roll authoritative DC15 Dexterity (Stealth). Success records a Hide-specific Invisible state and detection DC. In combat this spends an action even on a failed check; it does not grant Sneak Attack damage.",
+     "parameters": {"type": "object", "properties": {
+         "actor_ref": {"type": "string"},
+         "cover": {"type": "string", "enum": ["none", "heavily_obscured", "three_quarters", "total"]},
+         "observed": {"type": "boolean", "description": "Whether any enemy can currently see the actor; base this on established scene facts."},
+         "reason": {"type": "string"},
+         "roll_mode": {"type": "string", "enum": ["normal", "advantage", "disadvantage"], "default": "normal"}},
+         "required": ["actor_ref", "cover", "observed", "reason"]}},
+    {"name": "search_hidden", "description": "Attempt to detect an actor with active Hide state. Active Wisdom (Perception) search spends an action; passive=true uses authoritative passive perception without a roll or action when the DM judges it applicable. An enemy finding the hider ends Hide, not magical invisibility.",
+     "parameters": {"type": "object", "properties": {
+         "actor_ref": {"type": "string"}, "target_ref": {"type": "string"},
+         "passive": {"type": "boolean", "default": False},
+         "roll_mode": {"type": "string", "enum": ["normal", "advantage", "disadvantage"], "default": "normal"}},
+         "required": ["actor_ref", "target_ref"]}},
+    {"name": "end_hiding", "description": "End Hide when established noise above a whisper, enemy sight/special senses, exposure or a voluntary reveal invalidates it. Give the concrete scene reason. Attacks and verbal spell casts already end Hide automatically. Does not remove magical invisibility.",
+     "parameters": {"type": "object", "properties": {"actor_ref": {"type": "string"}, "reason": {"type": "string"}},
+                    "required": ["actor_ref", "reason"]}},
+])
 
 RULE_QUESTION_TERMS = [
     "?",
@@ -1039,6 +1065,7 @@ HOSTILE_ACTION_TERMS = [
 
 INTENT_FALLBACK_TYPES = {"conversation", "rules_reference", "action_resolution", "combat_resolution"}
 INTENT_FALLBACK_TAGS = {
+    "stealth_approach",
     "hostile_attack",
     "skill_action",
     "spell_action",
@@ -1047,6 +1074,7 @@ INTENT_FALLBACK_TAGS = {
     "stateful_action",
 }
 INTENT_FALLBACK_TOOLS = {
+    "hide_actor", "search_hidden", "end_hiding",
     "lookup_rules",
     "roll_skill_check",
     "roll_saving_throw",
@@ -1062,6 +1090,9 @@ INTENT_FALLBACK_TOOLS = {
 }
 
 TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
+    "hide_actor": {"hide_actor"},
+    "search_hidden": {"search_hidden"},
+    "end_hiding": {"end_hiding"},
     "lookup_rules": {"lookup_rules", "knowledge.lookup_rules"},
     "generate_ability_scores": {"generate_ability_scores", "character.generate_ability_scores"},
     "list_character_options": {"list_character_options", "character.list_options"},
@@ -1208,6 +1239,8 @@ class DMGraphState(TypedDict, total=False):
 
 PUBLIC_ROLL_TOOL_NAMES = frozenset(
     {
+        "hide_actor",
+        "search_hidden",
         "dice.roll",
         "check.skill",
         "check.saving_throw",
@@ -1750,6 +1783,14 @@ class DMGraphRunner:
         suggestions: List[str] = self._explicit_tool_names_in_input(normalized)
         matched_spells = self._matched_spell_names(state, normalized)
 
+        active = state.get_active_char()
+        if active and active.hiding and any(term in lowered for term in ("大喊", "高声", "喊叫", "现身", "走出掩体", "离开掩体", "停止躲藏", "shout", "yell", "stop hiding")):
+            suggestions.append("end_hiding")
+        elif any(term in lowered for term in ("寻找躲藏", "找出躲藏", "搜索躲藏", "发现躲藏", "search hidden", "find hidden")):
+            suggestions.append("search_hidden")
+        elif any(term in lowered for term in ("躲藏", "潜行", "隐匿", "偷袭", "突袭", "伏击", "hide", "sneak", "ambush")):
+            suggestions.append("hide_actor")
+
         if matched_spells or any(term in lowered for term in ["cast", "\u65bd\u6cd5", "\u6cd5\u672f"]):
             suggestions.append("cast_spell")
         if any(term.casefold() in lowered for term in HOSTILE_ACTION_TERMS):
@@ -1967,6 +2008,8 @@ class DMGraphRunner:
         suggested_tools = self._suggested_resolution_tools(state, normalized_input, phase_name)
         intent_source = "deterministic"
         intent_tags = ["hostile_attack"] if hostile_terms else []
+        if any(term in normalized_input.casefold() for term in ("躲藏", "潜行", "隐匿", "偷袭", "突袭", "伏击", "hide", "sneak", "ambush")):
+            intent_tags.append("stealth_approach")
         agent_fallback = None
         preset_signal = bool(action_terms or suggested_tools or rule_intent.get("should_retrieve") or question_shape)
         if (
@@ -2125,6 +2168,13 @@ class DMGraphRunner:
 
     def _hostile_action_resolved(self, state: GameState, graph_state: DMGraphState) -> bool:
         active = state.get_active_char()
+        initial = graph_state.get("initial_game_state") or {}
+        if active and (initial.get("encounter") or {}).get("active") and any(
+            item.get("actor_id") == active.character_id and item.get("action_spent")
+            for item in self._tool_result_payloads(graph_state, "hide_actor")
+        ):
+            # 战斗中的躲藏已经使用动作；普通角色不能被强制再攻击，伏击意图留待后续行动。
+            return True
         # 无法行动本身也是权威结果，不能继续向倒地角色索要一次不存在的攻击。
         if active and (active.hp_current <= 0 or str(active.defeat_state or "active") != "active"):
             return True
@@ -2799,6 +2849,18 @@ class DMGraphRunner:
         tool_name: str,
         args: Dict[str, Any],
     ) -> str:
+        if tool_name == "start_encounter" and "stealth_approach" in (graph_state.get("turn_intent") or {}).get("intent_tags", []):
+            from stealth_rules import is_invisible
+            state = GameState.model_validate(graph_state["game_state"])
+            active = state.get_active_char()
+            hidden = is_invisible(active)
+            attempted = any(item.get("actor_id") == active.character_id for item in self._tool_result_payloads(graph_state, "hide_actor")) if active else False
+            if not hidden and args.get("surprised_refs") and args.get("surprise_basis", "hidden") != "other":
+                return "An ambush cannot mark targets surprised after an unconfirmed or failed hide; resolve hide_actor first or start normally with approach_reason."
+            if args.get("surprise_basis") == "other" and not str(args.get("approach_reason") or "").strip():
+                return "Explain the independent, established reason for unawareness without hiding. Do not invent a successful Hide."
+            if not hidden and not attempted and not str(args.get("approach_reason") or "").strip():
+                return "Adjudicate the stealth approach BEFORE initiative: call hide_actor with real cover/sight conditions, or explain why hiding is impossible/enemies are alert in approach_reason."
         if tool_name == "adjust_hp" and int(args.get("amount") or 0) < 0:
             target_ref = str(args.get("target_ref") or "").strip().casefold()
             resolved_target_names = {target_ref}
@@ -4140,6 +4202,8 @@ class DMGraphRunner:
             return ""
         if str(result.payload.get("visibility") or "public").strip().casefold() == "hidden":
             return ""
+        if result.payload.get("passive") or result.payload.get("already_hidden"):
+            return ""
         if result.tool_name in ATTACK_ROLL_TOOL_NAMES:
             return f"**战斗｜{result.summary.strip()}**"
         if result.tool_name in PUBLIC_ROLL_TOOL_NAMES:
@@ -4693,6 +4757,7 @@ class DMGraphRunner:
                         or combatant.ac != character.ac
                         or combatant.initiative_bonus != character.initiative_bonus
                         or combatant.status_effects != list(character.status_effects)
+                        or combatant.hiding != character.hiding
                         or combatant.defeat_state != character.defeat_state
                         or combatant.stats != character.stats
                         or combatant.skills != expected_skills
