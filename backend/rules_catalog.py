@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from library import Library, TERM_TRANSLATIONS
 from models import Character, GameState, InventoryItem, PendingCustomEquipment, ResourcePool, SpellSlot
+from item_effects import enrich_effect_fields, lookup_item_rules
 from starter_shop import get_shop_catalog, get_shop_item, get_shop_item_by_name
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "character_builder_2024.json")
@@ -473,8 +474,18 @@ class RuleCatalog:
             return dexterity_mod
         return strength_mod
 
+    def enrich_inventory_item(self, character: Character, item: InventoryItem, *, strict: bool = False) -> InventoryItem:
+        enriched, definition = enrich_effect_fields(item, library=self.library, strict=strict)
+        if enriched.type == "weapon" and definition.get("damage_die"):
+            enriched.damage_expression = self._format_damage_expression(
+                definition["damage_die"], self._weapon_ability_modifier(character, definition),
+            )
+        # 拾取和读取不自动装备护甲，不改变金币、数量、属性或当前动作。
+        return enriched
+
     def _character_weapon_attack_profile(self, character: Character, item: InventoryItem) -> Dict[str, Any]:
-        catalog_item = get_shop_item_by_name(item.name) or {}
+        item = self.enrich_inventory_item(character, item)
+        catalog_item = lookup_item_rules(item.rules_name or item.name) or {}
         item_data = {**item.model_dump(mode="python"), **catalog_item}
         ability_modifier = self._weapon_ability_modifier(character, item_data)
         attack_bonus = (
@@ -506,9 +517,11 @@ class RuleCatalog:
         requested_damage_expression: str = "",
     ) -> Dict[str, Any]:
         weapons = [
-            item
+            enriched
             for item in character.inventory
-            if item.type == "weapon" and int(item.quantity or 0) > 0
+            if int(item.quantity or 0) > 0
+            for enriched in [self.enrich_inventory_item(character, item)]
+            if enriched.type == "weapon"
         ]
         if not weapons:
             raise ValueError(f"Character has no weapon attack on the character sheet: {character.name}")
@@ -522,6 +535,7 @@ class RuleCatalog:
                 if normalized_name
                 in {
                     str(item.name or "").strip().casefold(),
+                    str(item.rules_name or "").strip().casefold(),
                     str(self.library.localize_game_terms(item.name) or "").strip().casefold(),
                 }
             ]

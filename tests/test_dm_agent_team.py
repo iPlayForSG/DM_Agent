@@ -12,7 +12,7 @@ from game_logic import GameLogic
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.prebuilt import ToolNode
-from models import ActionSuggestion, AdventureHook, Character, GameState
+from models import AdventureHook, Character, GameState
 
 
 class DMAgentTeamTests(unittest.TestCase):
@@ -201,27 +201,23 @@ class DMAgentTeamTests(unittest.TestCase):
         self.assertIn("dm_controlled_turn", [item["validator"] for item in result["validation_issues"]])
         self.assertIn("execute_tools", [item["node_name"] for item in result["node_traces"]])
 
-    def test_runtime_topology_exposes_dm_and_post_commit_suggestions(self) -> None:
+    def test_runtime_topology_exposes_only_dm(self) -> None:
         runner = DMGraphRunner(rag_engine=None, checkpoint_mode="memory")
         try:
             topology = runner.registered_agent_topology()
             expected = {
                 AgentRole.DM.value: sorted(AGENT_SPECS[AgentRole.DM].tool_names),
-                AgentRole.SUGGESTIONS.value: sorted(AGENT_SPECS[AgentRole.SUGGESTIONS].tool_names),
             }
             self.assertEqual(topology, expected)
             self.assertIsInstance(runner.dm_agent.tool_node, ToolNode)
-            self.assertIsInstance(runner.suggestion_agent.tool_node, ToolNode)
             self.assertTrue(
                 all(isinstance(tool, BaseTool) for tool in runner.dm_agent.tools.values())
             )
-            self.assertTrue(
-                all(isinstance(tool, BaseTool) for tool in runner.suggestion_agent.tools.values())
-            )
+            self.assertFalse(hasattr(runner, "suggestion_agent"))
         finally:
             runner.close()
 
-    def test_rules_context_and_suggestion_projection_are_isolated_services(self) -> None:
+    def test_rules_context_is_an_isolated_service(self) -> None:
         class DisabledRAG:
             def is_ready(self):
                 return False
@@ -253,22 +249,6 @@ class DMAgentTeamTests(unittest.TestCase):
             )
             self.assertIn("retrieve_rules", [item["node_name"] for item in rules_result["node_traces"]])
 
-            runner._generate_action_suggestion_projection = lambda *_args, **_kwargs: (
-                [
-                    ActionSuggestion(label="检查门扣", action="我检查礼拜堂橡木门上的门扣。"),
-                    ActionSuggestion(label="查看刮痕", action="我查看橡木门旁的刮痕。"),
-                    ActionSuggestion(label="聆听嗡鸣", action="我贴近门缝聆听里面的嗡鸣。"),
-                ],
-                {"source": "test"},
-            )
-            suggestions, metadata = runner.suggestion_agent.project(
-                state,
-                "礼拜堂的橡木门紧闭，门扣旁留着刮痕，门缝里传出嗡鸣。",
-                "我观察这扇门。",
-            )
-            self.assertEqual(len(suggestions), 3)
-            self.assertEqual(metadata["tool_name"], "set_player_action_suggestions")
-            self.assertTrue(metadata["tool_ok"])
         finally:
             runner.close()
 

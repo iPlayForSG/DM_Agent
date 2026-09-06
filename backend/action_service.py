@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, Optional
 
+from spell_effects import effect_patch
 from game_logic import GameLogic
 from library import Library
 from models import ChatMessage, GameState, SessionEvent, ToolResult
@@ -77,19 +78,20 @@ class GameActionService:
     def advance_turn(self, state: GameState) -> Dict[str, Any]:
         logic = GameLogic(state)
         combatant = logic.advance_turn()
-        if not combatant:
+        if not combatant and not logic.effect_events:
             raise ValueError("No active encounter or initiative order")
         payload = {
-            "current_combatant_id": combatant.combatant_id,
-            "current_combatant_name": combatant.name,
+            "current_combatant_id": combatant.combatant_id if combatant else None,
+            "current_combatant_name": combatant.name if combatant else "",
+            "effect_events": list(logic.effect_events),
             "round_number": state.encounter.round_number if state.encounter else 0,
         }
         return self._append_result(
             state,
-            summary=f"回合推进至 {combatant.name}",
+            summary=f"回合推进至 {combatant.name}" if combatant else "所有战斗员暂时无法行动",
             event_type="turn_advanced",
             payload=payload,
-            patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
+            patch=GameLogic._merge_patches({"encounter": state.encounter.model_dump(mode="json") if state.encounter else None, "active_character_id": state.active_character_id}, effect_patch(logic)),
         )
 
     # Combat actions mutate authoritative state first, then emit a timeline/tool record.
@@ -192,6 +194,7 @@ class GameActionService:
             "target_defeat_state": result["target_defeat_state"],
             "target_defeat_state_display": target_defeat_state_display,
         }
+        payload["effect_events"] = result.get("effect_events", [])
         concentration_check = result.get("concentration_check")
         if concentration_check:
             payload["concentration_check"] = concentration_check
@@ -276,6 +279,9 @@ class GameActionService:
         source_ref: str = "",
         spell_name: str = "",
     ) -> Dict[str, Any]:
+        from spell_effects import is_laughter
+        if is_laughter(spell_name):
+            raise ValueError("塔莎狂笑术的豁免由施法、伤害或回合结束自动结算，不可另行重掷。")
         logic = GameLogic(state)
         requested_save_name = save_name
         canonical_save_name = self.rules.normalize_save_name(save_name)
@@ -352,7 +358,7 @@ class GameActionService:
         )
 
     def cast_spell(self, state: GameState, caster_ref: str, spell_name: str,
-                   slot_level: int = 0, target_ref: str = "", damage_type: str = "") -> Dict[str, Any]:
+                   slot_level: int = 0, target_ref: str = "", damage_type: str = "", target_refs=None) -> Dict[str, Any]:
         from spell_resolution import cast_spell, resolve_spell_attack
         logic = GameLogic(state)
         caster = self._linked_character(state, logic, caster_ref)
@@ -366,7 +372,7 @@ class GameActionService:
                 raise ValueError("Unsupported spell damage type")
             if not damage_type and len(profile["damage_types"]) > 1:
                 raise ValueError("Choose a damage type for this spell")
-        payload, patch = cast_spell(state, self.rules, caster_ref, spell_name, slot_level)
+        payload, patch = cast_spell(state, self.rules, caster_ref, spell_name, slot_level, target_ref, target_refs)
         summary = f"{payload['caster_name']} 施放 {payload['spell_name']}"
         if payload["resolved_slot_level"]:
             summary += f"，消耗 {payload['resolved_slot_level']} 环法术位"
@@ -471,6 +477,14 @@ class GameActionService:
         notes: str = "",
         source: str = "",
         tags: Optional[list[str]] = None,
+        rules_name: str = "",
+        damage_expression: str = "",
+        damage_type: str = "",
+        healing_expression: str = "",
+        effect_description: str = "",
+        properties: Optional[list[str]] = None,
+        spell_name: str = "",
+        spell_level: Optional[int] = None,
     ) -> Dict[str, Any]:
         logic = GameLogic(state)
         result = logic.add_inventory_item(
@@ -481,6 +495,9 @@ class GameActionService:
             notes=notes,
             source=source,
             tags=tags,
+            rules_name=rules_name, damage_expression=damage_expression, damage_type=damage_type,
+            healing_expression=healing_expression, effect_description=effect_description,
+            properties=properties, spell_name=spell_name, spell_level=spell_level,
         )
         if not result:
             raise ValueError(f"Character not found for inventory update: {character_ref}")
@@ -501,6 +518,7 @@ class GameActionService:
                 "notes": item.notes,
                 "source": item.source,
                 "tags": list(item.tags),
+                "item": item.model_dump(mode="json"),
             },
             patch=result["patch"],
         )

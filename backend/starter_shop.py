@@ -1,6 +1,7 @@
 """Starter-equipment purchase catalog used by the character builder."""
 
 from copy import deepcopy
+from library import TERM_TRANSLATIONS
 from typing import Any, Dict, List, Optional
 
 
@@ -69,5 +70,9 @@ def get_shop_item(item_id: str) -> Optional[Dict[str, Any]]:
 
 
 def get_shop_item_by_name(name: str) -> Optional[Dict[str, Any]]:
-    item = _SHOP_BY_NAME.get(name)
+    normalized = str(name or "").strip().casefold()
+    if not normalized:
+        return None
+    item = next((entry for entry in STARTER_SHOP_ITEMS
+                 if normalized in {entry["name"].casefold(), TERM_TRANSLATIONS.get(entry["name"], "").casefold()}), None)
     return deepcopy(item) if item else None

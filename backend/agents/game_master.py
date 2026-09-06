@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from models import GameState
+from combat_flow import guidance, handoff_ready, needs_advance, finishing_tools
 
 from .specs import AGENT_SPECS, AgentRole
 from .state import DM_BRAIN_PARENT_FIELDS, DMBrainState
@@ -60,6 +61,18 @@ class GameMasterAgent:
         if not self.runner.enable_model:
             return self.runner._draft_response_placeholder(state)
 
+        game = GameState.model_validate(state["game_state"])
+        flow = state.get("combat_flow", {})
+        state = dict(state)
+        flow_guidance = guidance(game, flow, state.get("initial_game_state"))
+        if flow_guidance:
+            state["messages"] = [*state.get("messages", []), self.runner._system_prompt_message(flow_guidance)]
+        enemies_alive = bool(game.encounter and any(c.side == "enemy" and c.hp_current > 0 and c.defeat_state == "active" for c in game.encounter.combatants.values()))
+        if handoff_ready(game, flow) and enemies_alive:
+            state["allowed_tools"] = []
+            state["validation_status"] = "ok"
+        elif needs_advance(game, flow) and enemies_alive:
+            state["allowed_tools"] = finishing_tools(game)
         available_names = [
             name
             for name in state.get("allowed_tools", [])
@@ -69,6 +82,7 @@ class GameMasterAgent:
         if available_names:
             model = model.bind_tools([self.tools[name] for name in available_names])
         result = self.runner._run_dm_model_step(state, model=model)
+        result["allowed_tools"] = state["allowed_tools"]
         return self._serialize_tool_batch(result)
 
     def _serialize_tool_batch(self, result: Dict[str, Any]) -> DMBrainState:
@@ -122,6 +136,8 @@ class GameMasterAgent:
         if route != "finalize_turn":
             return route
         if self.runner.enable_model and self.runner._authoritative_resolution_pending(state):
+            return "validate_state"
+        if self.runner.enable_model and needs_advance(GameState.model_validate(state["game_state"]), state.get("combat_flow", {})):
             return "validate_state"
         if self.runner.enable_model and self.runner._dm_controlled_turn_pending(state):
             return "validate_state"

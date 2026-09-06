@@ -12,23 +12,18 @@ test("retry removes the DM reply and its transient projections while keeping a r
       { index: 3, sender: "dm", text: "符号沿刻痕流动。" },
       { optimistic: true, sender: "player", text: "临时输入" },
     ],
-    actionSuggestions: [{ label: "检查符号", action: "我检查符号。" }],
     workflowEvents: [{ node_name: "finalize_turn" }],
     dmThinking: { status: "completed", output: "观察规则与现场。" },
-    actionSuggestionsLoading: true,
   };
 
   const result = prepareDmRetryUiRollback(current, 3);
 
   assert.deepEqual(result.next.messages.map((item) => item.index), [0, 1, 2]);
-  assert.deepEqual(result.next.actionSuggestions, []);
   assert.deepEqual(result.next.workflowEvents, []);
   assert.equal(result.next.dmThinking.status, "idle");
   assert.equal(result.next.dmThinking.output, "");
   assert.strictEqual(result.snapshot.messages, current.messages);
-  assert.strictEqual(result.snapshot.actionSuggestions, current.actionSuggestions);
   assert.strictEqual(result.snapshot.dmThinking, current.dmThinking);
-  assert.equal(result.snapshot.actionSuggestionsLoading, true);
 });
 
 test("rewrite immediately replaces the player message and removes the later UI branch", () => {
@@ -41,10 +36,8 @@ test("rewrite immediately replaces the player message and removes the later UI b
       { index: 4, chatIndex: 4, sender: "dm", text: "符号沿刻痕流动。" },
       { optimistic: true, sender: "player", text: "未结算输入" },
     ],
-    actionSuggestions: [{ label: "检查符号", action: "我检查符号。" }],
     workflowEvents: [{ node_name: "finalize_turn" }],
     dmThinking: { status: "completed", output: "观察规则与现场。" },
-    actionSuggestionsLoading: true,
   };
 
   const result = preparePlayerRewriteUiRollback(
@@ -67,14 +60,11 @@ test("rewrite immediately replaces the player message and removes the later UI b
     deliveryState: "sending",
     deliveryLabel: "正在重写…",
   });
-  assert.deepEqual(result.next.actionSuggestions, []);
   assert.deepEqual(result.next.workflowEvents, []);
   assert.equal(result.next.dmThinking.status, "idle");
   assert.strictEqual(result.snapshot.messages, current.messages);
-  assert.strictEqual(result.snapshot.actionSuggestions, current.actionSuggestions);
   assert.strictEqual(result.snapshot.workflowEvents, current.workflowEvents);
   assert.strictEqual(result.snapshot.dmThinking, current.dmThinking);
-  assert.equal(result.snapshot.actionSuggestionsLoading, true);
 });
 
 test("rewrite keeps only messages before the selected player action", () => {
@@ -85,7 +75,6 @@ test("rewrite keeps only messages before the selected player action", () => {
       { index: 2, chatIndex: 2, sender: "player", text: "第二步。" },
       { index: 3, chatIndex: 3, sender: "system", text: "后续记录。" },
     ],
-    actionSuggestions: [],
     workflowEvents: [],
     dmThinking: { status: "idle", output: "" },
   };
@@ -95,4 +84,15 @@ test("rewrite keeps only messages before the selected player action", () => {
   assert.deepEqual(result.next.messages.map((item) => item.index), [0, 1, 2]);
   assert.equal(result.next.messages[2].text, "改写后的第二步。");
   assert.equal(result.next.messages[2].optimistic, true);
+});
+
+test("确定失败与未知断线使用不同骰点状态，错误原因保留在卡片", async () => {
+  const { interruptedThinking } = await import("./retryUi.js");
+  const current = {rollRecords:[{record_id:"r",settlement:"pending"}],output:"准备调查。"};
+  const known = interruptedThinking(current,{message:"原剧情已保留",turnFailure:{code:"turn_not_committed",branch_preserved:true,roll_records:[{record_id:"r",settlement:"rolled_back"}]}});
+  assert.equal(known.rollRecords[0].settlement,"rolled_back");
+  assert.equal(known.errorMessage,"原剧情已保留");
+  assert.equal(known.expanded,false);
+  const unknown = interruptedThinking(current,new Error("连接中断"));
+  assert.equal(unknown.rollRecords[0].settlement,"unknown");
 });

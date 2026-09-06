@@ -3,7 +3,7 @@
 import hashlib
 import re
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Literal, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -94,6 +94,12 @@ class InventoryItem(BaseModel):
     attack_bonus: Optional[int] = None
     damage_expression: str = ""
     damage_type: str = ""
+    # 规则名用于别名/带外观名称的战利品；效果资料与实际使用结算分开。
+    rules_name: str = ""
+    healing_expression: str = ""
+    effect_description: str = ""
+    spell_name: str = ""
+    spell_level: Optional[int] = Field(default=None, ge=0, le=9)
     armor_class_bonus: int = 0
     properties: List[str] = Field(default_factory=list)
 
@@ -224,13 +230,6 @@ class Character(BaseModel):
         )
 
 
-class ActionSuggestion(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    label: str = ""
-    action: str = ""
-
-
 class RollRecord(BaseModel):
     """本轮实际掷骰的显示记录；不参与规则计算或事务判定。"""
     record_id: str
@@ -259,9 +258,7 @@ class ChatMessage(BaseModel):
     role: str
     content: str
     kind: str = "message"
-    # 行动灵感属于产生它的主持回复；单独记录生成状态，才能区分“尚未生成”和“已生成但当前无建议”。
-    action_suggestions: List[ActionSuggestion] = Field(default_factory=list)
-    action_suggestions_generated: bool = False
+    narrative_mode: Literal["story", "combat"] = "story"
 
 
 class ToolResult(BaseModel):
@@ -345,7 +342,6 @@ class AdventureHook(BaseModel):
     tone: str = "grim"
     difficulty: str = "medium"
     opening_scene: str = ""
-    opening_suggestions: List[Dict[str, str]] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -640,7 +636,6 @@ class TurnTrace(BaseModel):
     input_warnings: List[str] = Field(default_factory=list)
     pending_input: Dict[str, Any] = Field(default_factory=dict)
     suggested_tools: List[str] = Field(default_factory=list)
-    action_suggestions: List[ActionSuggestion] = Field(default_factory=list)
     allowed_tools: List[str] = Field(default_factory=list)
     validation_notes: List[str] = Field(default_factory=list)
     validation_issues: List[ValidationIssue] = Field(default_factory=list)
@@ -657,6 +652,21 @@ class TurnTrace(BaseModel):
         data = dict(value)
         data["trace_id"] = data.get("trace_id") or random_id("trace")
         return data
+
+
+class ActiveSpellEffect(BaseModel):
+    effect_id: str
+    cast_id: str
+    spell_name: str
+    caster_id: str
+    target_id: str
+    save_name: str = "wisdom"
+    save_dc: int
+    expires_at_seconds: int
+    next_save_at_seconds: int = 0
+    conditions: List[str] = Field(default_factory=list)
+    # 只清理由本效果引入的状态；重叠效果结束时移交状态所有权。
+    added_conditions: List[str] = Field(default_factory=list)
 
 
 class SpellAttackCast(BaseModel):
@@ -677,6 +687,8 @@ class GameState(BaseModel):
     schema_version: int = 4
     state_version: str = ""
     pending_spell_attacks: List[SpellAttackCast] = Field(default_factory=list)
+    active_spell_effects: List[ActiveSpellEffect] = Field(default_factory=list)
+    rules_time_seconds: int = 0
     game_id: str = ""
     title: str = ""
     created_at: Optional[str] = None
@@ -685,6 +697,9 @@ class GameState(BaseModel):
     characters: Dict[str, Character] = Field(default_factory=dict)
     monster_templates: Dict[str, MonsterTemplate] = Field(default_factory=dict)
     active_character_id: Optional[str] = None
+    # 当前行动者会随先攻变化，不能同时作为主控身份。旧存档按队伍首位恢复主控。
+    primary_character_id: Optional[str] = None
+    combat_controllers: Dict[str, Literal["player", "dm"]] = Field(default_factory=dict)
 
     scene: str = "setup"
     turn_number: int = 0
@@ -751,6 +766,9 @@ class GameState(BaseModel):
         elif not active_character_id and normalized_characters:
             data["active_character_id"] = next(iter(normalized_characters.keys()))
 
+        if data.get("primary_character_id") not in normalized_characters:
+            data["primary_character_id"] = next(iter(normalized_characters), None)
+
         data["scene"] = str(data.get("scene", "setup")).lower()
         data.setdefault("adventure_log", [])
         data.setdefault("evidence_records", [])
@@ -794,6 +812,15 @@ class GameState(BaseModel):
         data.setdefault("schema_version", 4)
         return data
 
+    def get_primary_character_id(self) -> Optional[str]:
+        return self.primary_character_id if self.primary_character_id in self.characters else next(iter(self.characters), None)
+
+    def is_player_controlled(self, character_id: str) -> bool:
+        return character_id in self.characters and (
+            character_id == self.get_primary_character_id()
+            or self.combat_controllers.get(character_id, "dm") == "player"
+        )
+
     def get_active_char(self) -> Optional[Character]:
         if self.active_character_id and self.active_character_id in self.characters:
             return self.characters[self.active_character_id]
@@ -826,6 +853,5 @@ class TurnResult(BaseModel):
     rag_metadata: Dict[str, Any] = Field(default_factory=dict)
     input_warnings: List[str] = Field(default_factory=list)
     validation_issues: List[ValidationIssue] = Field(default_factory=list)
-    action_suggestions: List[ActionSuggestion] = Field(default_factory=list)
     state_delta: Dict[str, Any] = Field(default_factory=dict)
     game_state: GameState

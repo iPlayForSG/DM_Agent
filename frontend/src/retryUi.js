@@ -1,3 +1,5 @@
+import { mergeRollRecords } from "./rollUi.js";
+
 export const createEmptyDmThinking = () => ({
   status: "idle",
   expanded: false,
@@ -7,15 +9,15 @@ export const createEmptyDmThinking = () => ({
   rollRecords: [],
   startedAt: 0,
   waitingForModel: false,
+  errorMessage: "",
+  retryMessage: "",
 });
 
 export function prepareDmRetryUiRollback(current, targetMessageIndex) {
   const snapshot = {
     messages: current.messages,
-    actionSuggestions: current.actionSuggestions,
     workflowEvents: current.workflowEvents,
     dmThinking: current.dmThinking,
-    actionSuggestionsLoading: Boolean(current.actionSuggestionsLoading),
   };
   return {
     snapshot,
@@ -25,7 +27,6 @@ export function prepareDmRetryUiRollback(current, targetMessageIndex) {
         && Number.isInteger(item.index)
         && item.index < targetMessageIndex
       )),
-      actionSuggestions: [],
       workflowEvents: [],
       dmThinking: createEmptyDmThinking(),
     },
@@ -40,10 +41,8 @@ export function preparePlayerRewriteUiRollback(
 ) {
   const snapshot = {
     messages: current.messages,
-    actionSuggestions: current.actionSuggestions,
     workflowEvents: current.workflowEvents,
     dmThinking: current.dmThinking,
-    actionSuggestionsLoading: Boolean(current.actionSuggestionsLoading),
   };
   const targetMessage = (current.messages || []).find((item) => (
     !item.optimistic
@@ -73,9 +72,23 @@ export function preparePlayerRewriteUiRollback(
     next: {
       // 服务端会按 rewind snapshot 回退；响应到达前先让浏览器展示同一条历史边界，避免旧分支继续留在画面上。
       messages: [...precedingMessages, rewrittenMessage],
-      actionSuggestions: [],
       workflowEvents: [],
       dmThinking: createEmptyDmThinking(),
     },
+  };
+}
+
+export function interruptedThinking(current, error) {
+  const failure = error?.turnFailure;
+  const confirmed = failure?.code === "turn_not_committed" && failure.branch_preserved === true;
+  const records = confirmed
+    ? mergeRollRecords(current.rollRecords, failure.roll_records || [])
+    : current.rollRecords;
+  return {
+    ...current, status: "error", expanded: false, waitingForModel: false, retryMessage: "",
+    errorMessage: error?.message || "主持连接中断，请重新载入存档确认进度。",
+    rollRecords: records.map(record => ({ ...record,
+      settlement: confirmed ? (["rolled_back", "not_applied"].includes(record.settlement) ? record.settlement : "rolled_back") : "unknown",
+    })),
   };
 }

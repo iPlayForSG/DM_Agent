@@ -5,12 +5,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from agent_tools import AgentToolService
-from dm_graph import DMGraphRunner, LANGGRAPH_TOOL_SCHEMAS
-from game_logic import GameLogic
+from dm_graph import DMGraphRunner
 from prompts import build_dm_instruction
-from models import ActionSuggestion, AdventureHook, Character, ChatMessage, GameState
-from tool_registry import ToolRegistry
+from models import AdventureHook, Character, ChatMessage, GameState
 
 
 class ActionSuggestionTest(unittest.TestCase):
@@ -72,118 +69,8 @@ class ActionSuggestionTest(unittest.TestCase):
 
         self.assertEqual(cleaned, "守卫把灯举高，门后的走廊传来潮湿的回声。")
 
-    def test_builds_three_structured_action_suggestions(self) -> None:
-        suggestions = DMGraphRunner._build_action_suggestions(
-            self._exploration_state(),
-            "守卫指向旧矿坑入口。门边有血迹、脚印和一只被撬开的箱子。",
-        )
 
-        self.assertEqual(len(suggestions), 3)
-        self.assertTrue(all(item.label and item.action for item in suggestions))
-        combined = "\n".join(f"{item.label} {item.action}" for item in suggestions)
-        self.assertTrue(any(anchor in combined for anchor in ["旧矿坑", "血迹", "脚印", "箱子"]))
-        self.assertFalse(any(item.label in {"询问知情者", "调查线索", "调查现场"} for item in suggestions))
-
-    def test_opening_scene_suggestions_are_scene_specific(self) -> None:
-        state = self._exploration_state()
-        state.campaign.available_adventures = [
-            AdventureHook(
-                adventure_id="adv-gray",
-                title="灰岩下的低语",
-                summary="灰岩矿坑传出嗡鸣，羊群失踪后只留下焦黑蹄印。",
-                opening_scene=(
-                    "老巡林客哈拉尔递来沾着暗色污迹的碎布，边缘绣有齿痕状符文。"
-                    "酒馆老板说陌生兜帽人每到黄昏都会前往废弃矿道。"
-                ),
-            )
-        ]
-        state.campaign.selected_adventure_id = "adv-gray"
-
-        suggestions = DMGraphRunner._build_action_suggestions(
-            state,
-            (
-                "哈拉尔的羊群昨夜遭殃，只留下焦黑蹄印。"
-                "酒馆老板提到陌生兜帽人，灰岩矿坑方向仍传来低沉嗡鸣。"
-            ),
-        )
-
-        combined = "\n".join(f"{item.label} {item.action}" for item in suggestions)
-        self.assertEqual(len(suggestions), 3)
-        self.assertTrue(any(anchor in combined for anchor in ["哈拉尔", "兜帽人", "灰岩矿坑", "碎布", "符文", "蹄印"]))
-        self.assertNotIn("最近的知情者", combined)
-        self.assertNotIn("眼前最可疑的线索", combined)
-
-    def test_suggestion_tool_requires_exactly_three_items(self) -> None:
-        registry = ToolRegistry.from_schemas(LANGGRAPH_TOOL_SCHEMAS)
-        state = self._exploration_state()
-
-        result = registry.validate_call(
-            state=state,
-            tool_name="set_player_action_suggestions",
-            args={"suggestions": [{"label": "调查", "action": "我调查现场。"}]},
-            allowed_tools=["set_player_action_suggestions"],
-        )
-
-        self.assertFalse(result.ok)
-        self.assertIn("exactly three", result.error)
-
-    def test_suggestion_tool_rejects_generic_boilerplate(self) -> None:
-        registry = ToolRegistry.from_schemas(LANGGRAPH_TOOL_SCHEMAS)
-        state = self._exploration_state()
-
-        result = registry.validate_call(
-            state=state,
-            tool_name="set_player_action_suggestions",
-            args={
-                "suggestions": [
-                    {"label": "询问知情者", "action": "我找最近的知情者交谈，询问这里发生了什么，以及谁掌握更多线索。"},
-                    {"label": "调查线索", "action": "我仔细调查眼前最可疑的线索，寻找痕迹、机关或隐藏的信息。"},
-                    {"label": "调查现场", "action": "我仔细查看现场，寻找能说明下一步方向的细节。"},
-                ]
-            },
-            allowed_tools=["set_player_action_suggestions"],
-        )
-
-        self.assertFalse(result.ok)
-        self.assertIn("scene-specific", result.error)
-
-    def test_suggestion_tool_returns_structured_payload_without_state_mutation(self) -> None:
-        service = AgentToolService(rag_engine=None, monster_storage=None, rules_catalog=None)
-        execution = service.set_player_action_suggestions(
-            self._exploration_state(),
-            [
-                {"label": "查看蹄印", "action": "我仔细调查羊圈附近的焦黑蹄印。"},
-                {"label": "追踪兜帽人", "action": "我沿着兜帽人前往废弃矿道的路线寻找足迹。"},
-                {"label": "前往矿坑", "action": "我直接去灰岩矿坑入口，但先在外面观察动静。"},
-            ],
-        )
-
-        self.assertTrue(execution.ok)
-        self.assertEqual(len(execution.payload["suggestions"]), 3)
-        self.assertIsNone(execution.tool_result)
-        self.assertIsNone(execution.timeline_event)
-        self.assertEqual(execution.state_patch, {})
-
-    def test_chat_message_round_trip_keeps_bound_action_suggestions(self) -> None:
-        message = ChatMessage(
-            role="assistant",
-            content="旧矿坑入口传来嗡鸣。",
-            action_suggestions=[
-                ActionSuggestion(label="查看入口", action="我查看旧矿坑入口的木梁。"),
-            ],
-            action_suggestions_generated=True,
-        )
-
-        restored = ChatMessage.model_validate_json(message.model_dump_json())
-
-        self.assertTrue(restored.action_suggestions_generated)
-        self.assertEqual(restored.action_suggestions[0].label, "查看入口")
-
-        legacy = ChatMessage.model_validate({"role": "assistant", "content": "旧存档回复。"})
-        self.assertFalse(legacy.action_suggestions_generated)
-        self.assertEqual(legacy.action_suggestions, [])
-
-    def test_conversation_question_gets_optional_scene_suggestions(self) -> None:
+    def test_conversation_commits_without_reply_suggestions(self) -> None:
         state = self._exploration_state()
         runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
 
@@ -193,7 +80,7 @@ class ActionSuggestionTest(unittest.TestCase):
                 "initial_game_state": state.model_dump(mode="json"),
                 "user_input": "询问他报酬如何",
                 "final_response": "奥德里克摊开手掌，报出镇议会能凑出的金币、补给和一封公会证明。",
-                "allowed_tools": ["set_player_action_suggestions"],
+                "allowed_tools": [],
                 "turn_profile": "conversation",
                 "tool_results": [],
                 "timeline_append": [],
@@ -201,7 +88,7 @@ class ActionSuggestionTest(unittest.TestCase):
         )
 
         self.assertEqual(result["turn_status"], "completed")
-        self.assertIsInstance(result["action_suggestions"], list)
+        self.assertNotIn("action_suggestions", result)
         self.assertIn("报出镇议会", result["final_response"])
 
     def test_conversation_finalize_does_not_synthesize_fallback_suggestions(self) -> None:
@@ -226,7 +113,7 @@ class ActionSuggestionTest(unittest.TestCase):
                 "initial_game_state": state.model_dump(mode="json"),
                 "user_input": "询问他报酬如何",
                 "final_response": "奥德里克说镇议会能凑出五十枚金币、一个月免费食宿，还能让你去旧军械库挑一件盾牌或药水。",
-                "allowed_tools": ["set_player_action_suggestions"],
+                "allowed_tools": [],
                 "turn_profile": "conversation",
                 "tool_results": [],
                 "timeline_append": [],
@@ -234,51 +121,10 @@ class ActionSuggestionTest(unittest.TestCase):
         )
 
         self.assertEqual(result["turn_status"], "completed")
-        self.assertEqual(result["action_suggestions"], [])
+        self.assertNotIn("action_suggestions", result)
 
-    def test_conversation_turn_requests_structured_suggestions_without_making_them_transactional(self) -> None:
-        state = self._exploration_state()
 
-        self.assertTrue(
-            DMGraphRunner._action_suggestions_required(
-                state,
-                {
-                    "turn_profile": "conversation",
-                    "allowed_tools": ["set_player_action_suggestions"],
-                },
-            )
-        )
-
-    def test_combat_suggestions_wait_until_control_returns_to_player(self) -> None:
-        state = self._exploration_state()
-        logic = GameLogic(state)
-        logic.start_encounter(["地精"], enemy_hp=7, enemy_ac=12)
-        party = next(item for item in state.encounter.combatants.values() if item.side == "party")
-        enemy = next(item for item in state.encounter.combatants.values() if item.side == "enemy")
-        logic.set_initiative(party.combatant_id, 18)
-        logic.set_initiative(enemy.combatant_id, 8)
-
-        self.assertTrue(DMGraphRunner._action_suggestions_required(state, {"turn_profile": "combat_resolution"}))
-
-        logic.advance_turn()
-
-        self.assertEqual(state.encounter.current_combatant_id, enemy.combatant_id)
-        self.assertFalse(DMGraphRunner._action_suggestions_required(state, {"turn_profile": "combat_resolution"}))
-
-        runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
-        runner._generate_action_suggestion_projection = lambda *_args, **_kwargs: self.fail(
-            "Suggestion projection must not call the model during a DM-controlled turn."
-        )
-        suggestions, metadata = runner.suggestion_agent.project(
-            state,
-            "地精仍在行动。",
-            "我保持警戒。",
-        )
-        self.assertEqual(suggestions, [])
-        self.assertTrue(metadata["skipped"])
-        self.assertEqual(metadata["skipped_reason"], "not_player_decision_point")
-
-    def test_action_resolution_commits_before_async_suggestion_projection(self) -> None:
+    def test_action_resolution_commits_without_reply_suggestions(self) -> None:
         state = self._exploration_state()
         runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
 
@@ -288,7 +134,7 @@ class ActionSuggestionTest(unittest.TestCase):
                 "initial_game_state": state.model_dump(mode="json"),
                 "user_input": "我观察矿坑入口。",
                 "final_response": "矿坑入口的木梁已经腐烂，里面传来低沉嗡鸣。",
-                "allowed_tools": ["set_player_action_suggestions"],
+                "allowed_tools": [],
                 "turn_profile": "action_resolution",
                 "tool_results": [],
                 "timeline_append": [],
@@ -296,7 +142,7 @@ class ActionSuggestionTest(unittest.TestCase):
         )
 
         self.assertEqual(result["turn_status"], "completed")
-        self.assertEqual(result["action_suggestions"], [])
+        self.assertNotIn("action_suggestions", result)
         self.assertIn("矿坑入口", result["final_response"])
         self.assertFalse(
             any(issue["validator"] == "action_suggestion_protocol" for issue in result["validation_issues"])
@@ -312,7 +158,7 @@ class ActionSuggestionTest(unittest.TestCase):
                 "initial_game_state": state.model_dump(mode="json"),
                 "user_input": "我观察矿坑入口。",
                 "final_response": "矿坑里传来嗡鸣。你可以调查血迹，或者立刻进入矿坑。",
-                "allowed_tools": ["set_player_action_suggestions"],
+                "allowed_tools": [],
                 "turn_profile": "action_resolution",
                 "tool_results": [],
                 "timeline_append": [],
@@ -320,7 +166,7 @@ class ActionSuggestionTest(unittest.TestCase):
         )
 
         self.assertEqual(result["turn_status"], "completed")
-        self.assertEqual(result["action_suggestions"], [])
+        self.assertNotIn("action_suggestions", result)
         self.assertEqual(result["final_response"], "矿坑里传来嗡鸣。")
 
     def test_dm_loop_never_runs_post_commit_suggestion_tool(self) -> None:
@@ -470,7 +316,7 @@ class ActionSuggestionTest(unittest.TestCase):
         self.assertIsNone(DMGraphRunner._reply_length_issue(rewritten, state))
         self.assertNotIn("冗长的原始叙事", rewritten)
         self.assertIn("压缩", editor_model.calls[0][-1].content)
-        self.assertIn("唯一验收标准", editor_model.calls[0][-1].content)
+        self.assertIn("事实与叙事节奏不变", editor_model.calls[0][-1].content)
 
     def test_finalize_rewrites_short_response_before_committing(self) -> None:
         state = self._exploration_state()
@@ -516,7 +362,7 @@ class ActionSuggestionTest(unittest.TestCase):
         self.assertNotEqual(result["final_response"], "石阶上有血迹。")
         self.assertEqual(committed.chat_history[-1].content, result["final_response"])
         self.assertIn("扩写", editor_model.calls[0][-1].content)
-        self.assertIn("唯一验收标准", editor_model.calls[0][-1].content)
+        self.assertIn("事实与叙事节奏不变", editor_model.calls[0][-1].content)
         length_trace = next(item for item in result["node_traces"] if item["node_name"] == "enforce_reply_length")
         self.assertEqual(length_trace["status"], "completed")
         self.assertEqual(length_trace["metadata"]["attempt_count"], 1)
@@ -602,113 +448,6 @@ class ActionSuggestionTest(unittest.TestCase):
         self.assertEqual(result["turn_status"], "failed")
         self.assertEqual(result["final_response"], failure_message)
         self.assertFalse(any(item["node_name"] == "enforce_reply_length" for item in result["node_traces"]))
-
-    def test_action_suggestion_projection_returns_scene_specific_items(self) -> None:
-        state = self._exploration_state()
-
-        class ProjectionModel:
-            def bind(self, **_kwargs):
-                return self
-
-            def invoke(self, _messages):
-                return type(
-                    "ProjectionResponse",
-                    (),
-                    {
-                        "content": (
-                            '{"suggestions":['
-                            '{"anchor":"血迹","label":"检查血迹","action":"我检查旧矿坑入口旁的血迹，判断留下它的时间。"},'
-                            '{"anchor":"短矛","label":"查看短矛","action":"我查看旧矿坑木梁旁的断裂短矛，寻找所属势力的标记。"},'
-                            '{"anchor":"矿坑","label":"侦察矿坑","action":"我绕着旧矿坑入口侦察，确认里面是否有近期活动。"}'
-                            "]}"
-                        ),
-                        "tool_calls": [],
-                    },
-                )()
-
-        runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
-        runner._model = ProjectionModel()
-        response = "旧矿坑入口旁有新鲜血迹，腐朽木梁下压着一截断裂短矛。"
-
-        suggestions, metadata = runner._generate_action_suggestion_projection(
-            state,
-            {"user_input": "我观察旧矿坑入口。"},
-            response,
-        )
-
-        self.assertEqual(len(suggestions), 3)
-        self.assertEqual(metadata["status"], "completed")
-        self.assertTrue(all("旧矿坑" in item.action for item in suggestions))
-
-    def test_action_suggestion_projection_falls_back_to_confirmed_scene_anchors(self) -> None:
-        state = self._exploration_state()
-
-        class InvalidProjectionModel:
-            def bind(self, **_kwargs):
-                return self
-
-            def invoke(self, _messages):
-                return type(
-                    "ProjectionResponse",
-                    (),
-                    {
-                        "content": (
-                            '{"suggestions":['
-                            '{"label":"调查现场","action":"我寻找能说明下一步方向的细节。"},'
-                            '{"label":"保持警戒","action":"我观察可能的伏击。"},'
-                            '{"label":"谨慎前进","action":"我沿着最可疑的方向前进。"}'
-                            "]}"
-                        ),
-                        "tool_calls": [],
-                    },
-                )()
-
-        runner = DMGraphRunner(rag_engine=None, tool_service=None, enable_model=False)
-        runner._model = InvalidProjectionModel()
-        response = "礼拜堂橡木门虚掩着，锈锁有三道新刮痕，门缝里传来低沉嗡鸣。"
-
-        suggestions, metadata = runner._generate_action_suggestion_projection(
-            state,
-            {"user_input": "我检查门扣、锈锁和门缝。"},
-            response,
-        )
-
-        self.assertEqual(len(suggestions), 3)
-        self.assertEqual(metadata["status"], "fallback")
-        combined = "\n".join(f"{item.label} {item.action}" for item in suggestions)
-        self.assertTrue(all(any(anchor in item.action for anchor in ["礼拜堂", "橡木门", "门扣", "锈锁", "门缝", "刮痕", "嗡鸣"]) for item in suggestions))
-        self.assertNotIn("调查现场", combined)
-
-    def test_action_suggestion_fallback_ignores_unconfirmed_player_nouns_and_negated_facts(self) -> None:
-        state = self._exploration_state()
-        response = "你没有看到任何钥匙或守卫，只有空荡的石室和地上灰尘。"
-
-        suggestions = DMGraphRunner._grounded_action_suggestion_fallback(
-            state,
-            {"user_input": "我检查祭坛上的红宝石钥匙和躲在柱后的守卫。"},
-            response,
-        )
-
-        combined = "\n".join(f"{item.label} {item.action}" for item in suggestions)
-        self.assertEqual(suggestions, [])
-        self.assertNotIn("钥匙", combined)
-        self.assertNotIn("守卫", combined)
-        self.assertNotIn("祭坛", combined)
-
-    def test_action_suggestion_anchors_ignore_negated_and_figurative_nouns(self) -> None:
-        response = (
-            "橡木门虚掩着，锈锁有三道新痕。内里无足音，也无烛火。"
-            "低沉嗡鸣宛如石棺余震，门缝渗出腐殖土气味。"
-        )
-
-        anchors = DMGraphRunner._confirmed_action_anchor_terms(response, limit=24)
-
-        self.assertIn("橡木门", anchors)
-        self.assertIn("锈锁", anchors)
-        self.assertIn("嗡鸣", anchors)
-        self.assertNotIn("足音", anchors)
-        self.assertNotIn("烛火", anchors)
-        self.assertNotIn("石棺", anchors)
 
 
 if __name__ == "__main__":

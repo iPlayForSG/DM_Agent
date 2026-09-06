@@ -10,7 +10,8 @@
 | `backend/model_backends.py` | OpenAI-compatible/Claude Code/Codex provider 常量与 CLI `BaseChatModel` 适配 | LangChain、CLI subprocess | 临时目录、结构化 schema、凭据隔离、真实 CLI smoke |
 | `backend/codex_transport.py` | 临时只读 app-server 会话、真实公开正文 delta、超时与进程清理 | Codex JSON-RPC、subprocess | 本机协议、无宿主工具、无私有推理输出、adapter、真实流式验证 |
 | `backend/dm_graph.py` | LangGraph 父图、上下文、确定性校验、事务提交 | agents、tools、RAG、models | phase policy、工具预算、interrupt、trace、workflow tests |
-| `backend/agents/` | 持续 DM 私有循环、阶段能力、工具适配和建议投影 | LangChain/LangGraph、tool registry | `specs.py` capability、runtime topology tests |
+| `backend/combat_flow.py` | 本次对话的玩家行动者、DM 连续结算及玩家决策交接 | GameState、GameLogic | 图状态、工具适配器、控制切换、多人回归 |
+| `backend/agents/` | 持续 DM 私有循环、阶段能力、工具适配 | LangChain/LangGraph、tool registry | `specs.py` capability、runtime topology tests |
 
 逐端点清单不在 memory 中重复维护：后端定义以 `backend/main.py` 的 FastAPI 路由和 `backend/models.py` 的 schema 为准；浏览器消费契约以 `frontend/src/api.js` 和相关 API 测试为准。
 
@@ -22,11 +23,15 @@
 | `backend/tool_registry.py` | 工具 schema、风险和运行前守卫 | models、rules catalog | agent specs、phase allowlist、tool tests |
 | `backend/agent_tools.py` | Agent 工具执行与统一 `ToolResult` | GameLogic、RuleCatalog | action service 对称行为、timeline、delta |
 | `backend/action_service.py` | 本地动作 API 的确定性执行 | GameLogic、RuleCatalog | agent tool 行为、main routes、action options |
-| `backend/spell_resolution.py` | 共用施法记账、cast_id 凭据与法术攻击结算 | GameLogic、RuleCatalog、SpellAttackCast | Agent/本地动作、工具 guardrail、法术目标 UI、回合边界 |
+| `backend/spell_resolution.py` | 共用施法记账、cast_id 法术攻击及塔莎狂笑术目标豁免的原子入口 | GameLogic、RuleCatalog、SpellAttackCast | Agent/本地动作、工具 guardrail、法术目标 UI、回合边界 |
+| `backend/spell_effects.py` | 有来源的塔莎狂笑术效果、重复豁免、专注与时间清理 | ActiveSpellEffect、GameLogic、RollRecord | 施法/伤害/回合/非战斗时间、所有权、失败回滚与存档 |
+| `backend/combat_status.py` | 只读状态栏投影：增益、减益、专注、来源与期限 | GameState、Library、spell effects | action-options 版本、角色/战斗员 UI、旧专注记录 |
 | `backend/game_logic.py` | 骰子、攻击、伤害、先攻、镜像同步 | models | current actor、action ledger、concentration、combat tests |
 | `backend/stealth_rules.py` | Hide 来源状态、DC15 隐匿、主动/被动察觉、失效及优劣势合并 | GameLogic、RuleCatalog、HidingState | Agent 工具/阶段能力、进战与攻击/言语施法、角色镜像、REST/SSE、旧存档 |
+| `backend/inventory_narration.py` | 已提交物品/金币差值与权威叙事标记 | GameState、Counter | finalize/长度后处理、失败回滚、前端语义强调 |
 | `backend/roll_capture.py` | 请求局部实际骰点观察、工具成败与回合结算标记 | RollRecord、turn_stream | game_logic、ability_scores、dm_graph、main 消息/暂停持久化、玩家投影 |
 | `backend/encounter_math.py` | 遭遇 XP 预算、难度分级、CR 估算（纯计算，无状态） | 无 | 只读工具 payload、5e.tools 表格出处、`test_encounter_math.py` |
+| `backend/item_effects.py` | 已收录消耗品数值、物品规则引用与卷轴效果说明（只读，不执行效果） | starter shop、Library、InventoryItem | 拾取/schema、旧库存投影、治疗/伤害字段、不同环级叠放保护 |
 | `backend/rules_catalog.py` | 构筑目录、派生值、法术/装备校验 | JSON catalog、ability service | builder API、角色保存、攻击/法术工具 |
 | `backend/ability_scores.py` | 购点、标准数组、4d6 去最低和记录验证 | RuleCatalog constants | builder UI、Character schema、相关测试 |
 

@@ -7,7 +7,6 @@ from typing import Dict, Tuple
 
 class AgentRole(str, Enum):
     DM = "dm"
-    SUGGESTIONS = "suggestions"
 
 
 @dataclass(frozen=True)
@@ -49,6 +48,8 @@ BASE_DM_TOOL_NAMES = (
     "end_hiding",
     "roll_saving_throw",
     "cast_spell",
+    "end_concentration",
+    "advance_time",
     "save_monster_template",
     "estimate_encounter_difficulty",
     "estimate_monster_cr",
@@ -122,10 +123,5 @@ AGENT_SPECS = {
         "authoritative tools, and narrate the resolved outcome in your own voice. The current phase and allowed tool "
         "set are capability constraints, not a handoff to another persona.",
         DM_TOOL_NAMES,
-    ),
-    AgentRole.SUGGESTIONS: AgentSpec(
-        AgentRole.SUGGESTIONS,
-        "Return exactly three concise actions grounded in confirmed narration. Never alter game state.",
-        ("set_player_action_suggestions",),
     ),
 }

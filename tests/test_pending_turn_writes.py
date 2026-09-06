@@ -149,14 +149,18 @@ class PendingTurnWriteTests(unittest.TestCase):
         self.assertIsNone(saved.pending_turn)
         self.assertEqual(self.quantity(saved), 2)
 
-    def test_suggestion_cache_and_storage_metadata_do_not_invalidate_resume(self):
+    def test_legacy_suggestion_fields_do_not_invalidate_resume(self):
         state = self.storage.load_game(self.game_id)
-        state.chat_history[-1].action_suggestions_generated = True
-        self.storage.save_game(self.game_id, state, projection_only=True)
+        # 模拟旧版本合成存档仍带建议缓存，加载时忽略它且不影响真实选择恢复。
+        payload = state.model_dump(mode="json")
+        payload["chat_history"][-1].update(action_suggestions=[{"label": "旧建议", "action": "旧行动"}], action_suggestions_generated=True)
+        import json
+        atomic_write(self.storage._get_path(self.game_id), json.dumps(payload).encode("utf-8"))
         response = self.client.post(self.prefix + "/turns", json={"message": "继续追赶"})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["turn_status"], "completed")
-        self.assertTrue(self.storage.load_game(self.game_id).chat_history[1].action_suggestions_generated)
+        self.assertIsNone(self.storage.load_game(self.game_id).pending_turn)
+        self.assertEqual(self.quantity(self.storage.load_game(self.game_id)), 2)
 
     def test_legacy_pending_drift_preserves_saved_inventory_and_aborts_checkpoint(self):
         changed = self.storage.load_game(self.game_id)

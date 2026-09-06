@@ -70,6 +70,10 @@ function parseSseBlock(block) {
 
 function streamErrorMessage(data) {
   if (!data) return "流式回合请求失败。";
+  if (data.code === "turn_not_committed") {
+    const reason = /连接|connection|httpConnectionFailed/i.test(String(data.detail || "")) ? "模型连接失败" : "本次尝试未能完成";
+    return `${reason}，所有待定变化均未提交，原剧情已保留。可以重新尝试。`;
+  }
   const detail = typeof data === "string" ? data : data.detail || data.error || JSON.stringify(data);
   if (/connection error|connection reset|peer closed|timed?\s*out|network|dm agent request failed|model invocation failed/i.test(String(detail))) {
     return "模型服务连接中断。请重新载入存档确认当前进度后再试。";
@@ -151,6 +155,13 @@ export async function createGame(payload) {
   });
 }
 
+export async function updateCombatControl(gameId, characterId, controller, stateVersion) {
+  return request(`/games/${encodeURIComponent(gameId)}/characters/${encodeURIComponent(characterId)}/combat-control`, {
+    method: "PUT",
+    body: JSON.stringify({ controller, state_version: stateVersion }),
+  });
+}
+
 export async function loadGame(gameId) {
   return request(`/games/${encodeURIComponent(gameId)}`);
 }
@@ -200,18 +211,6 @@ export async function updateReplyLength(gameId, payload) {
   });
 }
 
-export async function loadActionSuggestions(gameId, { timeoutMs = 45000 } = {}) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await request(`/games/${encodeURIComponent(gameId)}/action-suggestions`, {
-      method: "POST",
-      signal: controller.signal,
-    });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
 
 export async function loadModelConfig() {
   return request("/llm/config");
@@ -378,6 +377,7 @@ async function requestTurnStream(path, body, handlers) {
     }
     if (parsed.event === "turn.error") {
       streamError = new Error(streamErrorMessage(parsed.data));
+      streamError.turnFailure = parsed.data;
       handlers.onError?.(parsed.data);
     }
   };

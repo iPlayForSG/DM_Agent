@@ -63,3 +63,14 @@ test("silent stream times out and warns against replaying an uncertain action", 
   assert.equal(cancelled, true);
   reader.releaseLock();
 });
+
+test("明确未提交错误携带回滚骰点，不能退化为连接未知", async (t) => {
+  const payload = { code: "turn_not_committed", branch_preserved: true, roll_records: [{record_id:"r",settlement:"rolled_back"}] };
+  t.mock.method(globalThis,"fetch",async()=>new Response(`event: turn.error\ndata: ${JSON.stringify(payload)}\n\n`));
+  await assert.rejects(streamTurn("synthetic","action"), error => {
+    assert.equal(error.turnFailure.code,"turn_not_committed");
+    assert.equal(error.turnFailure.roll_records[0].settlement,"rolled_back");
+    assert.match(error.message,/原剧情已保留/);
+    return true;
+  });
+});

@@ -23,3 +23,9 @@ test("玩家时间线隐藏暗骰但保留旧事件和公开骰点", () => {
   assert.equal(isPlayerVisibleTimelineEvent({ payload: { visibility: "public" } }), true);
   assert.equal(isPlayerVisibleTimelineEvent({ payload: {} }), true);
 });
+
+test("物品增减标记用独立样式，普通粗体不染色", () => {
+  assert.equal(narrativeEmphasisClass("strong","物品｜角色：绳索 +2（现有 3）"),"narrative-inventory-change");
+  assert.equal(narrativeEmphasisClass("em","物品｜角色：绳索 +2"),"");
+  assert.equal(narrativeEmphasisClass("strong","拿走绳索"),"");
+});

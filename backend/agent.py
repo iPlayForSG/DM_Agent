@@ -9,11 +9,7 @@ from typing import Any, Dict, List, Optional
 from urllib import parse as urllib_parse
 
 from dotenv import load_dotenv
-
-try:
-    import requests
-except ImportError:
-    requests = None
+import requests
 
 from agent_tools import AgentToolService
 from dm_graph import DMGraphRunner
@@ -28,7 +24,7 @@ from model_backends import (
     default_reasoning_effort,
     probe_cli,
 )
-from models import ActionSuggestion, AdventureHook, Character, GameState, TurnResult
+from models import AdventureHook, Character, GameState, TurnResult
 from rag import RAGEngine
 from rules_catalog import RuleCatalog
 from storage import MonsterStorage
@@ -106,7 +102,7 @@ class DMAgent:
 
     @property
     def backend_name(self) -> str:
-        return "langgraph" if self.dm_graph_runner.is_available else "langgraph-unavailable"
+        return "langgraph"
 
     @property
     def checkpoint_backend(self) -> str:
@@ -312,15 +308,6 @@ class DMAgent:
 
         probe_url = f"{self.base_url.rstrip('/')}/models"
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        if requests is None:
-            return {
-                **payload,
-                "ready": False,
-                "status_code": 0,
-                "reason": "missing_dependency",
-                "detail": "requests is not installed.",
-                "probe_url": probe_url,
-            }
         try:
             response = requests.get(probe_url, headers=headers, timeout=timeout_s)
             detail = response.text[:240]
@@ -625,16 +612,6 @@ class DMAgent:
     def clean_player_response(self, response: str) -> str:
         return self.dm_graph_runner.clean_player_response(response)
 
-    def build_action_suggestions(self, state: GameState, response: str) -> List[ActionSuggestion]:
-        return self.dm_graph_runner.build_action_suggestions_for_response(state, response)
-
-    def project_action_suggestions(
-        self,
-        state: GameState,
-        response: str,
-        user_input: str = "",
-    ) -> tuple[List[ActionSuggestion], Dict[str, Any]]:
-        return self.dm_graph_runner.suggestion_agent.project(state, response, user_input)
 
     async def run_turn(self, state: GameState, user_input: str) -> TurnResult:
         return self.dm_graph_runner.run_turn(state, user_input)

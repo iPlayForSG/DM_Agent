@@ -127,6 +127,7 @@ class GameLogic:
 
     def __init__(self, state: GameState):
         self.state = state
+        self.effect_events: List[Dict[str, Any]] = []
 
     # Patch helpers keep HTTP/API deltas shallow while the in-memory state stays authoritative.
     @staticmethod
@@ -480,6 +481,11 @@ class GameLogic:
         encounter = encounter or self.state.encounter
         if not encounter:
             return {}
+        # 先攻进入队员回合时同步活动角色，避免交还玩家后仍由旧角色承接“我”的指令。
+        # 主控身份单独持久化，不随这里的当前行动者变化。
+        current = encounter.get_current_combatant()
+        if current and current.linked_character_id in self.state.characters:
+            self.state.active_character_id = current.linked_character_id
         turn_key = self._turn_action_key(encounter)
         encounter.turn_action_key = turn_key
         encounter.turn_action_used = False
@@ -494,6 +500,7 @@ class GameLogic:
         if encounter.current_combatant_id:
             encounter.reactions_used.pop(encounter.current_combatant_id, None)
         return {
+            "active_character_id": self.state.active_character_id,
             "encounter": {
                 "turn_action_key": encounter.turn_action_key,
                 "turn_action_used": encounter.turn_action_used,
@@ -544,11 +551,11 @@ class GameLogic:
             return
         turn_key = self._turn_action_key(encounter)
         key_field, used_field, tool_field = self._turn_slot_fields(action_cost)
-        slot_key = getattr(encounter, key_field, "")
+        slot_key = getattr(encounter, key_field)
         if slot_key and slot_key != turn_key:
             self._reset_turn_action_state(encounter)
-        if getattr(encounter, used_field, False) and getattr(encounter, key_field, "") == turn_key:
-            used_tool = getattr(encounter, tool_field, "") or f"a {self._turn_slot_label(action_cost)}"
+        if getattr(encounter, used_field) and getattr(encounter, key_field) == turn_key:
+            used_tool = getattr(encounter, tool_field) or f"a {self._turn_slot_label(action_cost)}"
             raise ValueError(
                 f"{current.name} has already used their {self._turn_slot_label(action_cost)} this turn: {used_tool}"
             )
@@ -706,7 +713,35 @@ class GameLogic:
         )
 
     # HP and status mutations keep character and encounter mirrors in sync.
+    def _effect_transaction(self, operation, *args, **kwargs):
+        if not self.state.active_spell_effects:
+            return operation(*args, **kwargs)
+        before = self.state.model_copy(deep=True)
+        event_count = len(self.effect_events)
+        try:
+            return operation(*args, **kwargs)
+        except Exception:
+            # 自动重复豁免可能嵌在攻击/推进内；中途故障不能留下前半段伤害或解除状态。
+            for field in type(self.state).model_fields:
+                setattr(self.state, field, getattr(before, field))
+            del self.effect_events[event_count:]
+            raise
+
+    def _settle_spell_effects(self, result, target_ref="", damage_amount=0):
+        if result is None or not (self.state.active_spell_effects or self.effect_events):
+            return result
+        from spell_effects import cleanup, repeat_saves, effect_patch
+        cleanup(self)
+        if damage_amount > 0 and self.state.active_spell_effects:
+            repeat_saves(self, target_ref, "受到伤害")
+        result["patch"] = self._merge_patches(result.get("patch", {}), effect_patch(self))
+        result["effect_events"] = list(self.effect_events)
+        return result
+
     def update_target_hp(self, identifier: str, amount: int) -> Optional[Dict[str, Any]]:
+        return self._effect_transaction(lambda: self._settle_spell_effects(self._update_target_hp_base(identifier, amount), identifier, max(0, -amount)))
+
+    def _update_target_hp_base(self, identifier: str, amount: int) -> Optional[Dict[str, Any]]:
         concentration_check: Optional[Dict[str, Any]] = None
         damage_amount = max(0, -int(amount))
         character = self.get_character(identifier)
@@ -795,6 +830,9 @@ class GameLogic:
         }
 
     def set_defeat_state(self, identifier: str, defeat_state: str) -> Optional[Dict[str, Any]]:
+        return self._settle_spell_effects(self._set_defeat_state_base(identifier, defeat_state))
+
+    def _set_defeat_state_base(self, identifier: str, defeat_state: str) -> Optional[Dict[str, Any]]:
         normalized = self._normalize_defeat_state(defeat_state)
         character = self.get_character(identifier)
         if character:
@@ -848,6 +886,12 @@ class GameLogic:
         return {"target_type": "combatant", "target": combatant, "patch": patch}
 
     def add_status(self, identifier: str, status: str) -> Optional[Dict[str, Any]]:
+        if self.state.active_spell_effects and (self.get_character(identifier) or self.get_combatant(identifier)):
+            from spell_effects import preserve_manual_condition
+            preserve_manual_condition(self, identifier, status)
+        return self._settle_spell_effects(self._add_status_base(identifier, status))
+
+    def _add_status_base(self, identifier: str, status: str) -> Optional[Dict[str, Any]]:
         character = self.get_character(identifier)
         if character:
             if status not in character.status_effects:
@@ -879,9 +923,16 @@ class GameLogic:
             return {}
         character.concentration_spell = ""
         character.concentration_spell_level = 0
+        if self.state.active_spell_effects:
+            from spell_effects import cleanup, effect_patch
+            cleanup(self)
+            return effect_patch(self)
         return {"characters": {character.character_id: {"concentration_spell": "", "concentration_spell_level": 0}}}
 
     def remove_status(self, identifier: str, status: str) -> Optional[Dict[str, Any]]:
+        if self.state.active_spell_effects and (self.get_character(identifier) or self.get_combatant(identifier)):
+            from spell_effects import require_condition_removable
+            require_condition_removable(self, identifier, status)
         character = self.get_character(identifier)
         if character:
             character.status_effects = [effect for effect in character.status_effects if effect != status]
@@ -941,6 +992,11 @@ class GameLogic:
         damage_type: str = "",
         armor_class_bonus: int = 0,
         properties: Optional[List[str]] = None,
+        rules_name: str = "",
+        healing_expression: str = "",
+        effect_description: str = "",
+        spell_name: str = "",
+        spell_level: Optional[int] = None,
     ) -> Optional[Dict[str, Any]]:
         character = self.get_character(character_ref)
         if not character:
@@ -951,7 +1007,9 @@ class GameLogic:
             return None
 
         existing = next((entry for entry in character.inventory if entry.name == normalized_name), None)
+        previous = existing
         if existing:
+            existing = existing.model_copy(deep=True)
             existing.quantity += max(1, quantity)
             if is_equipped:
                 existing.is_equipped = True
@@ -989,6 +1047,34 @@ class GameLogic:
                 armor_class_bonus=armor_class_bonus,
                 properties=list(properties or []),
             )
+
+        # 先在副本上验证与补全，再发布库存；资料错误不能留下半次拾取。
+        from item_effects import lookup_item_rules
+        from rules_catalog import RuleCatalog
+        for field, value in {"rules_name": rules_name, "healing_expression": healing_expression,
+                             "effect_description": effect_description, "spell_name": spell_name}.items():
+            if value:
+                setattr(item, field, value.strip())
+        if spell_level is not None:
+            if not 0 <= spell_level <= 9:
+                raise ValueError("卷轴环级必须在0到9之间")
+            item.spell_level = spell_level
+        if rules_name and not lookup_item_rules(rules_name):
+            raise ValueError(f"未收录的物品规则名称：{rules_name}")
+        for expression in (item.damage_expression, item.healing_expression):
+            if expression and not re.fullmatch(r"(?:[1-9]\d*d[1-9]\d*(?:[+-]\d+)?|\d+)", expression):
+                raise ValueError("物品骰式需为ndy、ndy+z或固定数值")
+        item = RuleCatalog().enrich_inventory_item(character, item, strict=True)
+        if previous is not None:
+            old_rules = RuleCatalog().enrich_inventory_item(character, previous)
+            # 同名不同环级/效果不能升级整叠库存；用不同名称区分后再拾取。
+            for field in ("rules_name", "damage_expression", "damage_type", "healing_expression",
+                          "effect_description", "spell_name", "spell_level"):
+                old_value, new_value = getattr(old_rules, field), getattr(item, field)
+                if old_value not in (None, "") and new_value != old_value:
+                    raise ValueError("同名物品的规则效果不同，请用不同名称区分后再添加")
+            character.inventory[character.inventory.index(previous)] = item
+        else:
             character.inventory.append(item)
 
         patch = {
@@ -1470,7 +1556,15 @@ class GameLogic:
         modifier = match.group(3) or ""
         return f"{dice_count}d{sides}{modifier}"
 
-    def resolve_attack(
+    def resolve_attack(self, attacker_ref: str, target_ref: str, attack_bonus: int,
+                       damage_expression: str, damage_type: str = "", resolution_mode: str = "normal",
+                       roll_mode: str = "normal", attacker_sees_invisible: bool = False,
+                       target_sees_invisible: bool = False) -> Optional[Dict[str, Any]]:
+        return self._effect_transaction(self._resolve_attack_base, attacker_ref, target_ref, attack_bonus,
+                                        damage_expression, damage_type, resolution_mode, roll_mode,
+                                        attacker_sees_invisible, target_sees_invisible)
+
+    def _resolve_attack_base(
         self,
         attacker_ref: str,
         target_ref: str,
@@ -1511,7 +1605,8 @@ class GameLogic:
             with dice_context(kind="damage", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击伤害", dc=None):
                 damage_total, damage_detail = DiceRoller.roll(damage_roll)
             damage_total = max(0, damage_total)
-            hp_result = self.update_target_hp(target_ref, -damage_total)
+            # 先确定致死/非致死的最终败北状态，再触发持续法术的受伤事件。
+            hp_result = self._update_target_hp_base(target_ref, -damage_total)
             if hp_result:
                 patch = self._merge_patches(patch, hp_result["patch"])
                 target = hp_result["target"]
@@ -1526,6 +1621,9 @@ class GameLogic:
                     if defeat_result:
                         patch = self._merge_patches(patch, defeat_result["patch"])
 
+        if hit and damage_total > 0:
+            settled = self._settle_spell_effects({"patch": patch}, target_ref, damage_total)
+            patch = settled["patch"]
         return {
             "attacker_name": self.get_actor_name(attacker_ref),
             "target_name": target.name,
@@ -1545,6 +1643,7 @@ class GameLogic:
             "target_hp_current": target.hp_current,
             "target_defeat_state": getattr(target, "defeat_state", "active"),
             "concentration_check": concentration_check,
+            "effect_events": list(self.effect_events),
             "patch": patch,
         }
 
@@ -1636,6 +1735,9 @@ class GameLogic:
         return {"combatant": combatant, "total": total, "detail": detail, "expression": expression, "roll_mode": roll_mode}
 
     def advance_turn(self) -> Optional[Combatant]:
+        if self.state.active_spell_effects and self.state.encounter and self.state.encounter.active:
+            from spell_effects import advance_with_effects
+            return self._effect_transaction(advance_with_effects, self)
         encounter = self.state.encounter
         if not encounter or not encounter.initiative_order:
             return None
@@ -1663,6 +1765,7 @@ class GameLogic:
         next_index = (current_index + 1) % len(eligible_order)
         if next_index == 0:
             encounter.round_number += 1
+            self.state.rules_time_seconds += 6
         encounter.current_combatant_id = eligible_order[next_index]
         self._reset_turn_action_state(encounter)
         return encounter.get_current_combatant()
@@ -1784,6 +1887,7 @@ class GameLogic:
             f"Scene: {self.state.scene}",
             f"Turn: {self.state.turn_number}",
             f"Title: {self.state.title or self.state.game_id or 'Untitled Adventure'}",
+            "Party combat controllers: " + ", ".join(f"{c.name}: {'player' if self.state.is_player_controlled(c.character_id) else 'DM'}" for c in self.state.characters.values()),
         ]
 
         selected_adventure = self.state.campaign.selected_adventure()
@@ -1874,6 +1978,10 @@ class GameLogic:
                     )
                 )
 
+        if self.state.active_spell_effects:
+            lines.append("Authoritative ongoing spell effects (repeat saves are automatic):")
+            for effect in self.state.active_spell_effects:
+                lines.append(f"- {effect.spell_name}: {self.get_actor_name(effect.caster_id)} -> {self.get_actor_name(effect.target_id)}; {', '.join(effect.conditions)}; {effect.save_name} DC {effect.save_dc}; ends at game-time {effect.expires_at_seconds}s (now {self.state.rules_time_seconds}s). Turn-end save; damage save has advantage.")
         if self.state.adventure_log:
             lines.append("Recent adventure log:")
             for entry in self.state.adventure_log[-5:]:

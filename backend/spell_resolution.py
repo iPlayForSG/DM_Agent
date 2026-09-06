@@ -27,7 +27,7 @@ def get_attack_cast(state: GameState, caster_ref: str, cast_id: str) -> SpellAtt
     return cast
 
 
-def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name: str, slot_level: int = 0):
+def _cast_spell_bookkeeping(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name: str, slot_level: int = 0):
     logic = GameLogic(state)
     caster = logic.get_character(caster_ref) or logic._concentration_character(caster_ref)
     if not caster:
@@ -44,6 +44,8 @@ def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name
     previous = caster.concentration_spell
     rules.consume_spell_slot(caster, resolved_slot)
     if details.get("concentration"):
+        from spell_effects import end_concentration
+        end_concentration(logic, caster.character_id, "改为维持新的专注法术")
         caster.concentration_spell = canonical_name
         caster.concentration_spell_level = int(details.get("level") or 0)
     action_patch = logic.mark_actor_slot_used(caster.character_id, cost, "cast_spell")
@@ -72,14 +74,49 @@ def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name
         "remaining_slots": {level: {"total": slot.total, "used": slot.used} for level, slot in caster.spells.slots.items()},
         "cast_id": cast.cast_id if cast else "", "attack_count": cast.attacks_remaining if cast else 0,
         "damage_types": cast.damage_types if cast else [],
+        "effect_events": list(logic.effect_events),
     }
-    return payload, GameLogic._merge_patches(action_patch, {
+    from spell_effects import effect_patch
+    return payload, GameLogic._merge_patches(action_patch, effect_patch(logic), {
         "characters": {caster.character_id: {
             "spells": caster.spells.model_dump(mode="json"), "concentration_spell": caster.concentration_spell,
             "concentration_spell_level": caster.concentration_spell_level,
         }},
         "pending_spell_attacks": [item.model_dump(mode="json") for item in state.pending_spell_attacks],
     })
+
+
+def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name: str,
+               slot_level: int = 0, target_ref: str = "", target_refs=None):
+    from spell_effects import is_laughter, validate_laughter_targets, apply_laughter
+    details = rules.library.get_spell_details(spell_name) or {}
+    canonical = str(details.get("name") or spell_name)
+    if not (is_laughter(canonical) or is_laughter(details.get("nameEN", ""))):
+        return _cast_spell_bookkeeping(state, rules, caster_ref, spell_name, slot_level)
+    # 所有目标、资源与槽位检查在副本上执行；任何一步失败都不遗留扣费或部分状态。
+    work = state.model_copy(deep=True)
+    logic = GameLogic(work)
+    caster = logic.get_character(caster_ref) or logic._concentration_character(caster_ref)
+    if not caster:
+        raise ValueError(f"Spell caster not found: {caster_ref}")
+    validation = rules.can_cast_spell(caster, spell_name, slot_level or None)
+    if not validation["ok"]:
+        raise ValueError(validation["error"])
+    refs = list(target_refs or [])
+    if target_ref:
+        refs.insert(0,target_ref)
+    target_ids = validate_laughter_targets(logic, refs, int(validation["resolved_slot_level"]))
+    profile = rules.get_spell_save_profile(caster, spell_name)
+    payload, patch = _cast_spell_bookkeeping(work, rules, caster_ref, spell_name, slot_level)
+    patch = GameLogic._merge_patches(patch, apply_laughter(logic,caster,payload["spell_name"],target_ids,profile))
+    payload.update({"target_ids":target_ids,"effect_resolution":"completed",
+                    "effect_events":[*payload["effect_events"],*logic.effect_events],
+                    "active_effects":[e.model_dump(mode="json") for e in work.active_spell_effects],
+                    "current_concentration_spell": caster.concentration_spell,
+                    "effect_rule":"初次豁免已结算；仅失败目标获得失能/倒地。回合末与受伤重掷由规则层自动结算；不导致武器脱手。"})
+    for field in ("characters","encounter","active_character_id","pending_spell_attacks","active_spell_effects","rules_time_seconds"):
+        setattr(state,field,getattr(work,field))
+    return payload, patch
 
 
 def resolve_spell_attack(state: GameState, caster_ref: str, target_ref: str, cast_id: str,

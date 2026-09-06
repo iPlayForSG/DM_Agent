@@ -14,7 +14,6 @@ React/Vite UI
   -> failed 时恢复 initial_game_state
   -> finalize_turn 原子提交
   -> JSON GameState + SQLite checkpoint
-  -> 独立 SuggestionAgent 投影
 ```
 
 前端的本地动作 API 可绕过 LLM，但仍通过 `GameActionService` 复用 `GameLogic` 和 `RuleCatalog` 的确定性规则。
@@ -23,9 +22,11 @@ React/Vite UI
 
 - API 层 `backend/main.py`：请求模型、HTTP 状态码、SSE 事件、存档读写时机。
 - 编排层 `backend/dm_graph.py`：阶段能力、上下文、工具预算、校验/修复、叙事与事务边界。
-- Agent 层 `backend/agents/`：持续 DM 私有循环与提交后建议投影；适配器才把工具结果投影回父图。
+- Agent 层 `backend/agents/`：持续 DM 私有循环；适配器才把工具结果投影回父图。
 - 规则执行层：`agent_tools.py` / `action_service.py` 组织操作，`game_logic.py` 结算，`rules_catalog.py` 提供角色卡和目录事实，`encounter_math.py` 提供无状态的遭遇预算与 CR 估算。
 - `stealth_rules.py` 将躲藏来源与通用魔法隐形分开；`Character.hiding` 与战斗镜像同步，`surprised_at_start` 保存开场裁定，先攻及攻击从状态计算优劣势。场景视线与未察觉前提仍由 DM 明确提供，工具不能将玩家文字直接等同于成功。
+- `combat_flow.py` 保存单次图调用的行动者与交接进度；主控身份由 `GameState.primary_character_id` 固定，其他队友默认 DM 控制，`combat_controllers` 只保存本局覆盖。旧存档以队伍首位作为主控，不能随当前行动者改变。
+- 持续法术由 `spell_effects.py` 维护有来源的效果；当前规则化塔莎狂笑术。初次豁免与施法原子结算，伤害、回合末、专注和游戏内时间驱动后续事件；状态栏只投影这些事实，不根据剧情文本推断成功。
 - 数据层 `models.py`：API、存档和图状态共享的 Pydantic schema。
 - 持久化层 `storage.py`：每游戏/角色/怪物一个 JSON；rewind 保存完整 `GameState`。
 - 剧情记忆层 `campaign_memory.py`：只从权威 `GameState` 派生有限提示上下文，不拥有独立业务状态。
@@ -69,7 +70,7 @@ React/Vite UI
 - 主持过程展示公开的下一步处理说明、叙事增量和当前模型等待，不把已完成的内部阶段清单当作思考。CLI 回合的多次模型调用共用请求级 deadline；修复循环另有工具轮次硬上限。
 - 主持回复上方的折叠骰点记录明确允许玩家查看明骰与暗骰。REST/SSE 仅在类型化 `roll_records` 出口保留暗骰，普通工具消息、trace 和时间线仍按玩家投影过滤；记录标明待提交、已提交、回滚或未生效，不能用观察值声称业务已提交。
 - 回合意图采用确定性词表快速路由；词表、规则和问句信号均未命中时，当前 DM 模型只能从有限 turn type、intent tag 和工具白名单中补充分类。分类只决定能力建议，不是世界事实。
-- 明确的直接攻击携带 `hostile_attack` 直到结算完成：探索阶段先用 `start_encounter` 建立权威遭遇，再在同一玩家回合按 combat phase 刷新工具面；没有玩家 `attack_target` 结果时不能用纯叙事成功提交，也不会先做回复长度扩写。
+- 明确的直接攻击携带 `hostile_attack` 直到结算完成：探索阶段先用 `start_encounter` 建立权威遭遇，再在同一玩家回合按 combat phase 刷新工具面；未结算且玩家仍可执行该动作时不能用纯叙事成功提交；动作已耗尽、无法行动或抵达下一玩家决策点时按权威状态收尾，不能复用旧指令。
 - CLI 仅传输消息和应用工具调用：独立临时目录、Claude 禁用自身工具；Codex 使用 ephemeral/read-only thread、显式应用指令和空能力根，禁用宿主工具、MCP、Hook、插件及项目规则加载，并拒绝意外客户端工具请求。app-server 不支持 exec 的 `--ignore-user-config` 参数，隔离依赖协议参数与显式覆盖；仅复用原生登录态，确定性工具仍是状态变化唯一入口。
 - 向量与词法检索共享规则来源但能力不同；默认词法模式不探测向量，显式 vector 模式的 fallback 必须公开 vector error，不得把降级伪装成向量成功。
 

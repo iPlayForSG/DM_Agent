@@ -270,24 +270,29 @@ class SurpriseRulesTests(unittest.TestCase):
                 "surprised_refs":["Goblin"],"surprise_reason":"The guard has not noticed the hidden attacker"}}]),
             AIMessage(content="", tool_calls=[{"id":"attack","name":"attack_target","args":{
                 "attacker_ref":self.actor.character_id,"target_ref":"Goblin","attack_name":"Dagger"}}]),
-            AIMessage(content="你从断墙后出手，匕首击中了地精，随后暴露了位置。"),
+            AIMessage(content="", tool_calls=[{"id":"advance-player","name":"advance_turn","args":{}}]),
+            AIMessage(content="地精犹豫，放弃进攻。", tool_calls=[{"id":"advance-enemy","name":"advance_turn","args":{}}]),
+            AIMessage(content="你从断墙后出手，匕首击中了地精，随后暴露了位置。地精错失反击，轮到你继续行动。"),
         ], "我借墙躲藏后偷袭地精。", [15, 12, 19, 18, 4, 15, 16, 2])
         self.assertEqual(result.turn_status, "completed", result.response)
-        self.assertEqual(calls, 4)
+        self.assertEqual(calls, 6)
         self.assertEqual([r.roll_mode for r in rolls if r.kind == "initiative"], ["advantage", "disadvantage"])
         self.assertEqual(next(r for r in rolls if r.kind == "attack").roll_mode, "advantage")
         self.assertIsNone(result.game_state.get_active_char().hiding)
-        self.assertEqual([r.tool_name for r in result.tool_results], ["hide_actor","encounter.start","combat.attack_target"])
+        self.assertEqual([r.tool_name for r in result.tool_results], ["hide_actor","encounter.start","combat.attack_target","encounter.advance_turn","encounter.advance_turn"])
 
     def test_combat_hide_can_finish_without_forced_second_action(self):
         logic = GameLogic(self.state)
         encounter = logic.start_encounter(["Goblin"])
         for c in encounter.combatants.values(): logic.set_initiative(c.combatant_id, 20 if c.side == "party" else 1)
-        result, _, calls = self.run_scripted_turn([self.hide_message(), AIMessage(content="你藏在断墙后。本回合的动作已用于躲藏，等待之后再出手。")],
+        result, _, calls = self.run_scripted_turn([self.hide_message(),
+            AIMessage(content="", tool_calls=[{"id":"advance-player","name":"advance_turn","args":{}}]),
+            AIMessage(content="地精没有找到攻击机会。", tool_calls=[{"id":"advance-enemy","name":"advance_turn","args":{}}]),
+            AIMessage(content="你藏在断墙后；地精错失机会，轮到你决定下一步。")],
                                                  "我躲藏后准备偷袭。", [15])
         self.assertEqual(result.turn_status, "completed", result.response)
-        self.assertEqual(calls, 2)
-        self.assertTrue(result.game_state.encounter.turn_action_used)
+        self.assertEqual(calls, 4)
+        self.assertFalse(result.game_state.encounter.turn_action_used)
         self.assertIsNotNone(result.game_state.get_active_char().hiding)
 
     def test_failed_turn_rolls_back_hide_state(self):

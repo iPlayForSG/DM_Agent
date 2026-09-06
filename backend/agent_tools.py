@@ -11,6 +11,7 @@ from encounter_math import (
     estimate_encounter_difficulty,
     normalize_cr,
 )
+from spell_effects import effect_patch
 from game_logic import DiceRoller, GameLogic
 from library import Library
 from models import Character, GameState, MonsterTemplate, MonsterTextEntry, SessionEvent, Stats, ToolResult
@@ -231,27 +232,6 @@ class AgentToolService:
             content=normalized_method,
         )
 
-    def set_player_action_suggestions(
-        self,
-        state: GameState,
-        suggestions: List[Dict[str, Any]],
-    ) -> AgentToolExecution:
-        normalized: List[Dict[str, str]] = []
-        for item in suggestions or []:
-            if not isinstance(item, dict):
-                continue
-            label = " ".join(str(item.get("label") or "").split()).strip()
-            action = " ".join(str(item.get("action") or "").split()).strip()
-            if label and action:
-                normalized.append({"label": label, "action": action})
-
-        if len(normalized) != 3:
-            return self._error("set_player_action_suggestions requires exactly three valid suggestions.")
-
-        return AgentToolExecution(
-            ok=True,
-            payload={"suggestions": normalized},
-        )
 
     def roll_dice(
         self,
@@ -296,6 +276,7 @@ class AgentToolService:
             "hp_current": target.hp_current,
             "hp_max": target.hp_max,
         }
+        payload["effect_events"] = result.get("effect_events", [])
         concentration_check = result.get("concentration_check")
         if concentration_check:
             payload["concentration_check"] = concentration_check
@@ -387,17 +368,31 @@ class AgentToolService:
         notes: str = "",
         source: str = "",
         tags: Optional[List[str]] = None,
+        rules_name: str = "",
+        damage_expression: str = "",
+        damage_type: str = "",
+        healing_expression: str = "",
+        effect_description: str = "",
+        properties: Optional[list[str]] = None,
+        spell_name: str = "",
+        spell_level: Optional[int] = None,
     ) -> AgentToolExecution:
         logic = GameLogic(state)
-        result = logic.add_inventory_item(
-            character_ref=character_ref,
-            item_name=item_name,
-            quantity=quantity,
-            item_type=item_type,
-            notes=notes,
-            source=source,
-            tags=tags,
-        )
+        try:
+            result = logic.add_inventory_item(
+                character_ref=character_ref,
+                item_name=item_name,
+                quantity=quantity,
+                item_type=item_type,
+                notes=notes,
+                source=source,
+                tags=tags,
+                rules_name=rules_name, damage_expression=damage_expression, damage_type=damage_type,
+                healing_expression=healing_expression, effect_description=effect_description,
+                properties=properties, spell_name=spell_name, spell_level=spell_level,
+            )
+        except ValueError as exc:
+            return self._error(str(exc))
         if not result:
             return self._error(f"Character not found: {character_ref}")
 
@@ -413,6 +408,7 @@ class AgentToolService:
             "notes": item.notes,
             "source": item.source,
             "tags": list(item.tags),
+            "item": item.model_dump(mode="json"),
         }
         return self._success(
             tool_name="character.add_inventory_item",
@@ -680,6 +676,7 @@ class AgentToolService:
                     logic.roll_initiative(combatant.combatant_id)
 
         state.characters, state.encounter, state.scene, state.campaign = work.characters, work.encounter, work.scene, work.campaign
+        state.active_character_id = work.active_character_id
 
         payload = {
             "encounter_id": encounter.encounter_id,
@@ -697,7 +694,7 @@ class AgentToolService:
             summary=f"遭遇开始：{len(enemy_names)} 组敌人",
             payload=payload,
             event_type="encounter_started",
-            state_patch={"scene": "combat", "encounter": encounter.model_dump(mode="json")},
+            state_patch={"scene": "combat", "encounter": encounter.model_dump(mode="json"), "active_character_id": state.active_character_id},
         )
 
     def add_enemy(
@@ -958,6 +955,7 @@ class AgentToolService:
             "target_defeat_state_display": target_defeat_state_display,
             "reason": reason,
         }
+        payload["effect_events"] = result.get("effect_events", [])
         concentration_check = result.get("concentration_check")
         if concentration_check:
             payload["concentration_check"] = concentration_check
@@ -1076,6 +1074,9 @@ class AgentToolService:
         source_ref: str = "",
         spell_name: str = "",
     ) -> AgentToolExecution:
+        from spell_effects import is_laughter
+        if is_laughter(spell_name):
+            return self._error("塔莎狂笑术的豁免由施法、伤害或回合结束自动结算，不可另行重掷。")
         logic = GameLogic(state)
         roll_mode_error = self._roll_mode_error(reason, roll_mode)
         if roll_mode_error:
@@ -1166,10 +1167,10 @@ class AgentToolService:
         )
 
     def cast_spell(self, state: GameState, caster_ref: str, spell_name: str,
-                   slot_level: int = 0, reason: str = "") -> AgentToolExecution:
+                   slot_level: int = 0, reason: str = "", target_ref: str = "", target_refs: Optional[List[str]] = None) -> AgentToolExecution:
         from spell_resolution import cast_spell
         try:
-            payload, patch = cast_spell(state, self.rules_catalog, caster_ref, spell_name, slot_level)
+            payload, patch = cast_spell(state, self.rules_catalog, caster_ref, spell_name, slot_level, target_ref, target_refs)
         except ValueError as exc:
             return self._error(str(exc))
         payload["reason"] = reason
@@ -1179,6 +1180,31 @@ class AgentToolService:
         return self._success(tool_name="magic.cast_spell", summary=summary, payload=payload,
                              event_type="spell_cast", content=reason, state_patch=patch)
 
+
+    def end_concentration(self, state: GameState, caster_ref: str) -> AgentToolExecution:
+        from spell_effects import end_concentration
+        logic = GameLogic(state)
+        try:
+            patch = end_concentration(logic, caster_ref)
+        except ValueError as exc:
+            return self._error(str(exc))
+        return self._success(tool_name="magic.end_concentration", summary=f"{logic.get_actor_name(caster_ref)} 结束专注",
+                             payload={"effect_events": logic.effect_events}, state_patch=patch, event_type="concentration_ended")
+
+    def advance_time(self, state: GameState, seconds: int, reason: str) -> AgentToolExecution:
+        from spell_effects import advance_time
+        if not reason.strip():
+            return self._error("推进游戏内时间必须说明实际经过的场景过程。")
+        work = state.model_copy(deep=True)
+        logic = GameLogic(work)
+        try:
+            patch = advance_time(logic, seconds)
+        except ValueError as exc:
+            return self._error(str(exc))
+        for field in ("characters", "encounter", "active_spell_effects", "rules_time_seconds"):
+            setattr(state, field, getattr(work, field))
+        return self._success(tool_name="time.advance", summary=f"经过 {seconds} 秒：{reason}",
+                             payload={"seconds":seconds,"effect_events":logic.effect_events}, state_patch=patch, event_type="time_advanced")
 
     def use_item(
         self,
@@ -1299,7 +1325,7 @@ class AgentToolService:
             summary=f"{combatant.name} 先攻设为 {combatant.initiative}",
             payload=payload,
             event_type="initiative_set",
-            state_patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
+            state_patch=GameLogic._merge_patches({"encounter": state.encounter.model_dump(mode="json") if state.encounter else None, "active_character_id": state.active_character_id}, effect_patch(logic)),
         )
 
     def roll_initiative(self, state: GameState, combatant_ref: str) -> AgentToolExecution:
@@ -1321,26 +1347,27 @@ class AgentToolService:
             summary=f"{combatant.name} 先攻 {combatant.initiative}，掷骰 {result['expression']}",
             payload=payload,
             event_type="initiative_rolled",
-            state_patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
+            state_patch=GameLogic._merge_patches({"encounter": state.encounter.model_dump(mode="json") if state.encounter else None, "active_character_id": state.active_character_id}, effect_patch(logic)),
         )
 
     def advance_turn(self, state: GameState) -> AgentToolExecution:
         logic = GameLogic(state)
         combatant = logic.advance_turn()
-        if not combatant:
+        if not combatant and not logic.effect_events:
             return self._error("No active encounter or initiative order")
 
         payload = {
-            "current_combatant_id": combatant.combatant_id,
-            "current_combatant_name": combatant.name,
+            "current_combatant_id": combatant.combatant_id if combatant else None,
+            "current_combatant_name": combatant.name if combatant else "",
+            "effect_events": list(logic.effect_events),
             "round_number": state.encounter.round_number if state.encounter else 0,
         }
         return self._success(
             tool_name="encounter.advance_turn",
-            summary=f"回合推进至 {combatant.name}",
+            summary=f"回合推进至 {combatant.name}" if combatant else "所有战斗员暂时无法行动",
             payload=payload,
             event_type="turn_advanced",
-            state_patch={"encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
+            state_patch=GameLogic._merge_patches({"encounter": state.encounter.model_dump(mode="json") if state.encounter else None, "active_character_id": state.active_character_id}, effect_patch(logic)),
         )
 
     # --- Setup catalog reads -------------------------------------------------

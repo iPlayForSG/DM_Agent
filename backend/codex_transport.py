@@ -12,6 +12,10 @@ import threading
 import time
 
 
+class TransientModelConnectionError(RuntimeError):
+    """服务端明确报告的临时连接失败；可重试模型请求，但不能重放游戏工具。"""
+
+
 def app_server_command(executable: str, mcp_transports=None) -> list[str]:
     overrides = {
         "notify": "[]", "model_provider": '"openai"',
@@ -197,6 +201,12 @@ def stream_codex_events(executable: str, prompt: str, *, schema: dict, model: st
                 elif method == "turn/completed":
                     turn = params.get("turn", {})
                     if turn.get("status") != "completed":
+                        error = turn.get("error") or {}
+                        info = error.get("codexErrorInfo") if isinstance(error, dict) else None
+                        if isinstance(info, dict) and "httpConnectionFailed" in info:
+                            status = (info.get("httpConnectionFailed") or {}).get("httpStatusCode")
+                            if status is None or status in {408, 429} or (isinstance(status, int) and 500 <= status < 600):
+                                raise TransientModelConnectionError("主持模型连接暂时失败。")
                         raise RuntimeError(f"Codex turn {turn.get('status')}: {turn.get('error') or 'not completed'}")
                     yield {"type": "turn.completed"}
                     break

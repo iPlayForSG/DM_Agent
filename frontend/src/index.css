@@ -2238,74 +2238,7 @@ button[class^="btn-"] {
   margin-top: 4px;
 }
 
-.action-suggestions {
-  padding: 12px 16px 0;
-  background: var(--panel);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
 
-.action-suggestions-loading {
-  min-height: 38px;
-  padding: 10px 16px 0;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  background: var(--panel);
-  color: var(--paper-dim);
-  font-size: 0.82rem;
-}
-
-.action-suggestions-loading-mark {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--verdigris);
-  box-shadow: 0 0 0 0 rgba(75, 128, 106, 0.34);
-  animation: suggestion-loading-pulse 1.4s ease-out infinite;
-}
-
-@keyframes suggestion-loading-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(75, 128, 106, 0.34); opacity: 0.72; }
-  60% { box-shadow: 0 0 0 7px rgba(75, 128, 106, 0); opacity: 1; }
-  100% { box-shadow: 0 0 0 0 rgba(75, 128, 106, 0); opacity: 0.72; }
-}
-
-/* 建议行动 = 玩家高光时刻，浅绿底（DESIGN.md §7） */
-.action-suggestion {
-  min-height: 72px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(75, 128, 106, 0.32);
-  background: rgba(75, 128, 106, 0.08);
-  color: var(--paper);
-  text-align: left;
-}
-
-.action-suggestion span,
-.action-suggestion small {
-  display: block;
-}
-
-.action-suggestion span {
-  font-size: 0.9rem;
-  font-weight: 850;
-}
-
-.action-suggestion small {
-  margin-top: 5px;
-  color: var(--paper-dim);
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.action-suggestion:hover:not(:disabled) {
-  border-color: rgba(75, 128, 106, 0.55);
-  background: rgba(75, 128, 106, 0.14);
-  transform: translateY(-1px);
-}
 
 .rewrite-bar {
   display: flex;
@@ -3075,7 +3008,6 @@ button[class^="btn-"] {
 }
 
 .mini-action,
-.action-suggestion,
 .delete-inline,
 .batch-delete-bar,
 .class-card,
@@ -3418,9 +3350,6 @@ button[class^="btn-"] {
     grid-template-columns: 1fr;
   }
 
-  .action-suggestions {
-    grid-template-columns: 1fr;
-  }
 
   .ability-pool {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3484,9 +3413,6 @@ button[class^="btn-"] {
     transition-duration: 0.01ms !important;
   }
 
-  .action-suggestions-loading-mark {
-    animation: none;
-  }
 }
 
 .anime-fade-in { animation: fadeIn 0.28s ease; }
@@ -3496,3 +3422,32 @@ button[class^="btn-"] {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pop { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+/* 战斗颜色属于消息本身，遭遇结束后历史卡片仍保留标识。 */
+.combat-narrative .message.dm .bubble { border-top-color: #ab674e; background: color-mix(in srgb, var(--panel) 92%, #ab674e); }
+.combat-control-button { flex-shrink: 0; font-size: 11px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
+.combat-control-button:disabled { opacity: .5; cursor: default; }
+.combat-continue { margin: 8px 16px; }
+
+.party-card:not(.party-card-primary) > summary > .avatar { grid-column: 1; grid-row: 1 / span 2; }
+.party-card:not(.party-card-primary) .party-card-title { grid-column: 2; grid-row: 1; }
+.party-card:not(.party-card-primary) .party-card-hp { grid-column: 2; grid-row: 2; }
+.combat-control-button { grid-column: 3; grid-row: 2; white-space: nowrap; justify-self: end; }
+
+/* 物品标记由服务端状态差值产生，文本仍写明增减量，不能只依赖颜色识别。 */
+.message.dm .narrative-inventory-change { color: #287167; background: #edf7f3; border-left: 3px solid #4b8b7d; padding: 3px 7px; border-radius: 3px; }
+.dm-inline-error { margin: 10px 14px; padding: 10px 12px; color: var(--danger); background: #fff3f0; border: 1px solid #ead0c8; border-radius: 6px; font-size: .88rem; }
+.dm-reconnect-status { margin: 10px 14px; color: var(--paper-dim); font-size: .88rem; }
+
+.combat-status-strip { display: grid; gap: 7px; margin-top: 9px; min-width: 0; }
+.combat-status-entry { display: flex; gap: 8px; border-left: 3px solid var(--line); padding: 5px 8px; background: var(--panel-soft); border-radius: 3px; }
+.combat-status-entry > div { min-width: 0; overflow-wrap: anywhere; }
+.combat-status-kind { font-size: .7rem; white-space: nowrap; color: var(--paper-dim); padding-top: 2px; }
+.combat-status-summary { font-size: .78rem; color: var(--paper); margin-top: 3px; }
+.combat-status-source, .combat-status-empty { font-size: .72rem; color: var(--paper-dim); }
+.status-debuff { border-left-color: var(--wax); background: #fcf2f0; }
+.status-buff { border-left-color: var(--verdigris); background: #eff7f2; }
+.status-concentration { border-left-color: #5c7d9a; background: #eef4f9; }
+
+/* 使用效果与数量分行，保留每发/每回合等规则限定。 */
+.item-effect-summary { display: block; margin-top: 4px; line-height: 1.5; overflow-wrap: anywhere; color: var(--paper-dim); }

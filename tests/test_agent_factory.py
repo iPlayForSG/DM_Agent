@@ -9,16 +9,13 @@ from dm_graph import LANGGRAPH_TOOL_SCHEMAS
 
 
 class DMAgentSpecTests(unittest.TestCase):
-    def test_runtime_has_one_dm_identity_and_one_post_commit_projection(self) -> None:
-        self.assertEqual(set(AGENT_SPECS), {AgentRole.DM, AgentRole.SUGGESTIONS})
+    def test_runtime_has_only_one_dm_identity(self) -> None:
+        self.assertEqual(set(AGENT_SPECS), {AgentRole.DM})
         self.assertNotIn(
             "set_player_action_suggestions",
             AGENT_SPECS[AgentRole.DM].tool_names,
         )
-        self.assertEqual(
-            AGENT_SPECS[AgentRole.SUGGESTIONS].tool_names,
-            ("set_player_action_suggestions",),
-        )
+        self.assertIn("request_player_choice", AGENT_SPECS[AgentRole.DM].tool_names)
 
     def test_dm_owns_every_phase_capability(self) -> None:
         dm_tools = set(AGENT_SPECS[AgentRole.DM].tool_names)

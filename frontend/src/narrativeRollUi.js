@@ -1,5 +1,6 @@
 export const PUBLIC_ROLL_PREFIX = "骰点｜";
 export const ATTACK_ROLL_PREFIX = "战斗｜";
+export const INVENTORY_PREFIX = "物品｜";
 
 export function narrativeEmphasisClass(tagName, text) {
   const normalizedTag = String(tagName || "").toLowerCase();
@@ -9,6 +10,9 @@ export function narrativeEmphasisClass(tagName, text) {
   }
   if (normalizedTag === "strong" && normalizedText.startsWith(ATTACK_ROLL_PREFIX)) {
     return "narrative-attack-result";
+  }
+  if (normalizedTag === "strong" && normalizedText.startsWith(INVENTORY_PREFIX)) {
+    return "narrative-inventory-change";
   }
   return "";
 }

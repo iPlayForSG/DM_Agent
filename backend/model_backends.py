@@ -306,10 +306,12 @@ class CodingAgentCLIChatModel(BaseChatModel):
             )
 
     def _iter_codex_json_events(self, executable: str, prompt: str) -> Iterator[Dict[str, Any]]:
-        from codex_transport import stream_codex_events
+        from codex_transport import stream_codex_events, TransientModelConnectionError
         try:
             yield from stream_codex_events(executable, prompt, schema=CLI_RESPONSE_SCHEMA,
                                            model=self.model_name, effort=self.reasoning_effort, timeout_s=remaining_turn_seconds(self.timeout_s))
+        except TransientModelConnectionError:
+            raise
         except RuntimeError as exc:
             raise RuntimeError(self._safe_error_detail(str(exc))) from exc
 

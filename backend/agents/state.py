@@ -11,6 +11,9 @@ class DMBrainState(TypedDict, total=False):
     agent_role: str
     game_state: Dict[str, Any]
     initial_game_state: Dict[str, Any]
+    combat_flow: Dict[str, Any]
+    last_tool_error: str
+    repeated_tool_errors: int
     user_input: str
     thread_id: str
     phase: str
@@ -43,7 +46,6 @@ class DMBrainState(TypedDict, total=False):
     turn_status: str
     pending_input: Dict[str, Any]
     final_response: str
-    action_suggestions: List[Dict[str, Any]]
     active_agent: str
     tool_results: List[Dict[str, Any]]
     state_delta: Dict[str, Any]

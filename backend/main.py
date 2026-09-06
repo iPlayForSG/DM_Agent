@@ -3,7 +3,7 @@
 import asyncio
 import json
 import re
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,12 +19,13 @@ from adventure_service import (
     generate_initial_adventures,
     is_ai_generated_adventure_id,
     is_model_generated_adventure_id,
-    opening_action_suggestions,
 )
+from combat_status import combat_status_entries
+from spell_effects import is_laughter
 from game_logic import GameLogic
 from library import Library
 from model_backends import DEFAULT_MODEL_PROVIDER
-from models import ActionSuggestion, Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
+from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from starter_shop import get_shop_item_by_name
 from storage import CharacterStorage, GameStorage, MonsterStorage, StateConflictError, PENDING_TURN_ACTION_MESSAGE
@@ -47,7 +48,6 @@ game_storage = GameStorage()
 char_storage = CharacterStorage()
 monster_storage = MonsterStorage()
 agent = DMAgent()
-_action_suggestion_locks: Dict[str, asyncio.Lock] = {}
 rule_catalog = RuleCatalog()
 action_service = GameActionService()
 ability_score_service = AbilityScoreService(rule_catalog)
@@ -64,6 +64,11 @@ def shutdown_event():
 
 
 # Request payloads stay intentionally thin and map 1:1 to frontend form state.
+class CombatControlRequest(BaseModel):
+    controller: Literal["player", "dm"]
+    state_version: str
+
+
 class ChatRequest(BaseModel):
     message: str
 
@@ -122,6 +127,7 @@ class CastSpellActionRequest(BaseModel):
     spell_name: str
     slot_level: int = 0
     target_ref: str = ""
+    target_refs: List[str] = Field(default_factory=list)
     damage_type: str = ""
 
 
@@ -230,8 +236,6 @@ def health_payload():
             "batch_delete": True,
             "ai_generated_adventures": True,
             "llm_profiles": True,
-            "action_suggestions": True,
-            "action_suggestion_tool": True,
             "reply_length_settings": True,
             "ability_score_generation": True,
         },
@@ -305,12 +309,8 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
             )
         )
 
-    for index, tool_result in enumerate(trace.tool_results or []):
-        if hasattr(tool_result, "model_dump"):
-            payload = tool_result.model_dump(mode="json")
-        else:
-            payload = dict(tool_result or {})
-        result_payload = payload.get("payload", {})
+    for index, tool_result in enumerate(trace.tool_results):
+        result_payload = tool_result.model_dump(mode="json")["payload"]
         # 暗骰可以留在 DM 的权威 trace 中供后续裁定，但绝不能进入玩家可见的 SSE 思考面板。
         if str(result_payload.get("visibility") or "public").strip().casefold() == "hidden":
             continue
@@ -320,20 +320,20 @@ def _turn_detail_event_payloads(result: TurnResult, game_id: str, mode: str) -> 
                 {
                     **base_payload,
                     "index": index,
-                    "tool_name": payload.get("tool_name", ""),
-                    "status": payload.get("status", "success"),
-                    "summary": payload.get("summary", ""),
+                    "tool_name": tool_result.tool_name,
+                    "status": tool_result.status,
+                    "summary": tool_result.summary,
                     "payload": result_payload,
                 },
             )
         )
 
-    issues = list(trace.validation_issues or [])
-    for index, note in enumerate(trace.validation_notes or []):
+    issues = trace.validation_issues
+    for index, note in enumerate(trace.validation_notes):
         issue_payload: Dict[str, Any] = {}
         if index < len(issues):
             issue = issues[index]
-            issue_payload = issue.model_dump(mode="json") if hasattr(issue, "model_dump") else dict(issue or {})
+            issue_payload = issue.model_dump(mode="json")
         events.append(
             (
                 "validation.note",
@@ -418,58 +418,11 @@ def _state_before_last_assistant_message(state: GameState) -> GameState:
     return snapshot
 
 
-def _action_suggestions_for_state(state: GameState) -> List[Dict[str, Any]]:
-    for message in reversed(_visible_chat_messages(state)):
-        if message.role == "assistant":
-            return [item.model_dump(mode="json") for item in message.action_suggestions]
-    return []
-
-
-def _latest_assistant_suggestion_status(state: GameState) -> tuple[List[Dict[str, Any]], bool]:
-    for message in reversed(_visible_chat_messages(state)):
-        if message.role == "assistant":
-            return (
-                [item.model_dump(mode="json") for item in message.action_suggestions],
-                bool(message.action_suggestions_generated),
-            )
-    return [], False
-
-
-def _bind_action_suggestions_to_reply(
-    state: GameState,
-    message_index: int,
-    response: str,
-    suggestions: List[ActionSuggestion],
-) -> bool:
-    if message_index < 0 or message_index >= len(state.chat_history):
-        return False
-    message = state.chat_history[message_index]
-    if message.kind == "tool_result" or message.role != "assistant" or message.content != response:
-        return False
-    message.action_suggestions = list(suggestions)
-    message.action_suggestions_generated = True
-    return True
-
-
-def _merge_persisted_action_suggestions(target: GameState, persisted: GameState) -> None:
-    # 主回合和提交后投影可以交叠；合并已经落盘的消息投影，避免较早加载的回合快照把缓存覆盖掉。
-    for index, source in enumerate(persisted.chat_history):
-        if index >= len(target.chat_history) or not source.action_suggestions_generated:
-            continue
-        destination = target.chat_history[index]
-        if destination.role != source.role or destination.kind != source.kind or destination.content != source.content:
-            continue
-        if not destination.action_suggestions_generated:
-            destination.action_suggestions = list(source.action_suggestions)
-            destination.action_suggestions_generated = True
-
-
-def _action_suggestion_lock(game_id: str) -> asyncio.Lock:
-    lock = _action_suggestion_locks.get(game_id)
-    if lock is None:
-        lock = asyncio.Lock()
-        _action_suggestion_locks[game_id] = lock
-    return lock
+class TurnNotCommittedError(RuntimeError):
+    """失败的重试/重写已有确定结算状态，且原分支没有被改写。"""
+    def __init__(self, result: TurnResult):
+        super().__init__(result.response or "回合失败，原剧情分支未改变。")
+        self.roll_records = [record.model_dump(mode="json") for record in result.roll_records]
 
 
 async def _execute_turn_and_save(
@@ -487,11 +440,8 @@ async def _execute_turn_and_save(
     result, mode = await _execute_turn_request(state, message, stream_event=stream_event)
     if preserve_on_failure and result.turn_status == "failed":
         # 重写/重试尚未产生有效新分支时，前端恢复旧消息，存储也必须保留同一旧分支。
-        raise RuntimeError(result.response or "回合失败，原剧情分支未改变。")
+        raise TurnNotCommittedError(result)
 
-    persisted_state = game_storage.load_game(game_id)
-    if persisted_state:
-        _merge_persisted_action_suggestions(result.game_state, persisted_state)
 
     assistant_message_index = base_message_index + 1
     game_storage.save_turn(
@@ -603,31 +553,18 @@ def delete_games_payload(game_ids: List[str]) -> Dict[str, Any]:
 
 def _derive_character_attack_options(character: Character):
     attacks = []
-    str_mod = rule_catalog.get_ability_modifier(character, "strength")
-    dex_mod = rule_catalog.get_ability_modifier(character, "dexterity")
-
-    for item in character.inventory:
-        if item.type != "weapon":
+    for raw_item in character.inventory:
+        item = rule_catalog.enrich_inventory_item(character, raw_item)
+        if item.type != "weapon" or item.quantity <= 0:
             continue
-
-        properties = set(item.properties or [])
-        if "Ranged" in properties or "Thrown" in properties or "Finesse" in properties:
-            ability_mod = max(str_mod, dex_mod)
-        else:
-            ability_mod = str_mod
-
-        attack_bonus = item.attack_bonus if item.attack_bonus is not None else ability_mod + proficiency_bonus_for_level(character.level)
-        attacks.append(
-            {
-                "name": item.name,
-                "name_display": library.localize_game_terms(item.name),
-                "attack_bonus": attack_bonus,
-                "damage_expression": item.damage_expression,
-                "damage_type": item.damage_type,
-                "damage_type_display": library.localize_game_terms(item.damage_type),
-                "source": "inventory",
-            }
-        )
+        try:
+            profile = rule_catalog._character_weapon_attack_profile(character, item)
+        except ValueError:
+            profile = {"attack_bonus": item.attack_bonus, "damage_expression": item.damage_expression,
+                       "damage_type": item.damage_type}
+        attacks.append({"name": item.name, "name_display": library.localize_game_terms(item.name),
+                        **profile, "damage_type_display": library.localize_game_terms(profile["damage_type"]),
+                        "source": "inventory"})
     return attacks
 
 
@@ -699,7 +636,7 @@ def _derive_monster_feature_options(monster: MonsterTemplate):
         ("reactions", "reaction"),
     ]
     for source, action_cost in groups:
-        for entry in getattr(monster, source, []) or []:
+        for entry in getattr(monster, source):
             name = _monster_feature_name(entry)
             features.append(
                 {
@@ -817,6 +754,7 @@ def _build_spell_options(character: Character):
         try:
             profile = rule_catalog.get_spell_attack_profile(character, option["name"], option["level"])
             option["requires_attack_target"] = bool(profile)
+            option["requires_effect_target"] = is_laughter(option["name"]) or is_laughter(option.get("nameEN", ""))
             option["damage_types"] = profile["damage_types"] if profile else []
             option["damage_type_labels"] = {kind: library.localize_game_terms(kind) for kind in option["damage_types"]}
         except ValueError as exc:
@@ -826,15 +764,17 @@ def _build_spell_options(character: Character):
 
 
 def _build_item_options(character: Character):
+    from item_effects import effect_display
     options = []
-    for item in character.inventory:
-        catalog_item = get_shop_item_by_name(item.name) or {}
+    for raw_item in character.inventory:
+        item = rule_catalog.enrich_inventory_item(character, raw_item)
+        catalog_item = get_shop_item_by_name(item.rules_name or item.name) or {}
         description = str(catalog_item.get("description") or catalog_item.get("desc") or "").strip()
         notes = str(item.notes or catalog_item.get("notes") or "").strip()
-        # 自定义备注优先保留，目录说明仅补充阅读；缺少说明时不推测物品效果。
-        options.append({
-            **item.model_dump(mode="json"),
-            "description": "\n\n".join(dict.fromkeys(text for text in (description, notes) if text)),
+        effects = effect_display(item, library=library)
+        # 旧库存只读补全；保留拾取备注，不在GET中触发装备或使用效果。
+        options.append({**item.model_dump(mode="json"), **effects,
+            "description": "\n\n".join(dict.fromkeys(text for text in (description, effects["effect_description"], notes) if text)),
         })
     return _add_display_fields(options)
 
@@ -924,6 +864,8 @@ def action_options_payload(state: GameState):
                 "ref": character.character_id,
                 "name": character.name,
                 "type": "character",
+                "is_primary": character.character_id == state.get_primary_character_id(),
+                "combat_controller": "player" if state.is_player_controlled(character.character_id) else "dm",
                 "side": "party",
                 "is_current_actor": is_current_actor,
                 "can_act": character.hp_current > 0 and character.defeat_state == "active" and not GameLogic.is_incapacitated(character),
@@ -989,6 +931,8 @@ def action_options_payload(state: GameState):
                     actors[-1]["attacks"] = _derive_monster_attack_options(monster)
                     actors[-1]["features"] = _derive_monster_feature_options(monster)
 
+    for actor in actors:
+        actor["status_entries"] = combat_status_entries(state, actor["ref"])
     return {
         "phase": state.campaign.phase,
         "state_version": state.state_version,
@@ -1298,6 +1242,21 @@ async def get_game_action_options(game_id: str):
     return action_options_payload(state)
 
 
+@app.put("/api/v1/games/{game_id}/characters/{character_id}/combat-control")
+async def update_combat_control(game_id: str, character_id: str, req: CombatControlRequest):
+    state = _load_mutable_game_or_404(game_id)
+    if character_id not in state.characters:
+        raise HTTPException(status_code=404, detail="队员不存在。")
+    if character_id == state.get_primary_character_id() and req.controller != "player":
+        raise HTTPException(status_code=400, detail="主控角色由玩家控制。")
+    if req.state_version != state.state_version:
+        raise HTTPException(status_code=409, detail="游戏状态已变化，请刷新后重试。")
+    # 控制偏好不重置行动资源，也不跳过当前回合；后续对话按新的控制权推进。
+    state.combat_controllers[character_id] = req.controller
+    game_storage.save_game(game_id, state)
+    return {"game_state": state, "action_options": action_options_payload(state)}
+
+
 @app.post("/api/v1/games/{game_id}/reply-length")
 async def update_game_reply_length(game_id: str, req: ReplyLengthSettingsRequest):
     state = _load_mutable_game_or_404(game_id)
@@ -1365,14 +1324,11 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
             "潮湿的空气贴着斗篷边缘，远处的路标在风里轻轻晃动。现在，轮到你决定第一步。"
         )
     opening_message = agent.clean_player_response(opening_message)
-    action_suggestions = opening_action_suggestions(selected)
     state.adventure_log.append(f"选择冒险：{selected.title}")
     state.chat_history.append(
         ChatMessage(
             role="assistant",
             content=opening_message,
-            action_suggestions=action_suggestions,
-            action_suggestions_generated=True,
         )
     )
     state.timeline.append(
@@ -1388,7 +1344,6 @@ async def select_adventure(game_id: str, req: SelectAdventureRequest):
     return {
         "status": "selected",
         "adventure": selected.model_dump(mode="json"),
-        "action_suggestions": [item.model_dump(mode="json") for item in action_suggestions],
         "game_state": state,
     }
 
@@ -1549,7 +1504,6 @@ async def delete_game_message(game_id: str, message_index: int):
         "status": "rewound",
         "message_index": message_index,
         "game_state": snapshot,
-        "action_suggestions": _action_suggestions_for_state(snapshot),
     }
 
 
@@ -1708,6 +1662,14 @@ def _stream_turn_response(game_id: str, state: GameState, message: str, *, expec
 
         try:
             result, mode = await turn_task
+        except TurnNotCommittedError as exc:
+            yield _sse_event("turn.error", {
+                "game_id": game_id, "mode": initial_mode, "code": "turn_not_committed",
+                "detail": str(exc), "turn_status": "failed", "branch_preserved": True,
+                "roll_records": exc.roll_records,
+            })
+            yield _sse_event("turn.finished", {"status": "failed", "game_id": game_id})
+            return
         except Exception as exc:
             yield _sse_event(
                 "turn.error",
@@ -1782,82 +1744,6 @@ async def get_game_turn_traces(game_id: str, limit: int = 20):
         "limit": normalized_limit,
         "traces": traces,
     }
-
-
-@app.post("/api/v1/games/{game_id}/action-suggestions")
-async def project_game_action_suggestions(game_id: str):
-    async with _action_suggestion_lock(game_id):
-        state = _load_game_or_404(game_id)
-        stored_suggestions, generated = _latest_assistant_suggestion_status(state)
-        if generated:
-            return {
-                "game_id": game_id,
-                "turn_number": state.turn_number,
-                "action_suggestions": stored_suggestions,
-                "generated": True,
-                "metadata": {"status": "cached"},
-            }
-
-        visible_history = _visible_chat_messages(state)
-        assistant_message_index = next(
-            (
-                index
-                for index in range(len(state.chat_history) - 1, -1, -1)
-                if state.chat_history[index].kind != "tool_result"
-                and state.chat_history[index].role == "assistant"
-            ),
-            -1,
-        )
-        response = state.chat_history[assistant_message_index].content if assistant_message_index >= 0 else ""
-        user_input = next(
-            (message.content for message in reversed(visible_history) if message.role == "user"),
-            "",
-        )
-        if not response:
-            return {
-                "game_id": game_id,
-                "turn_number": state.turn_number,
-                "action_suggestions": [],
-                "generated": False,
-            }
-
-        projected_turn_number = state.turn_number
-        suggestions, metadata = await asyncio.to_thread(
-            agent.project_action_suggestions,
-            state,
-            response,
-            user_input,
-        )
-
-        # 投影在主回合提交后运行；迟到结果只能写回原回复，不能用旧快照覆盖已经推进的新回合。
-        latest_state = _load_game_or_404(game_id)
-        if _bind_action_suggestions_to_reply(latest_state, assistant_message_index, response, suggestions):
-            game_storage.save_game(game_id, latest_state, projection_only=True)
-            if latest_state.turn_number != projected_turn_number:
-                latest_suggestions, latest_generated = _latest_assistant_suggestion_status(latest_state)
-                return {
-                    "game_id": game_id,
-                    "turn_number": latest_state.turn_number,
-                    "action_suggestions": latest_suggestions,
-                    "generated": latest_generated,
-                    "metadata": {**metadata, "status": "stale"},
-                }
-            return {
-                "game_id": game_id,
-                "turn_number": latest_state.turn_number,
-                "action_suggestions": [item.model_dump(mode="json") for item in suggestions],
-                "generated": True,
-                "metadata": metadata,
-            }
-
-        latest_suggestions, latest_generated = _latest_assistant_suggestion_status(latest_state)
-        return {
-            "game_id": game_id,
-            "turn_number": latest_state.turn_number,
-            "action_suggestions": latest_suggestions,
-            "generated": latest_generated,
-            "metadata": {**metadata, "status": "stale"},
-        }
 
 
 # Deterministic local action routes complement the freer LangGraph text turns.
@@ -1943,6 +1829,7 @@ async def cast_spell_action(game_id: str, req: CastSpellActionRequest):
             slot_level=req.slot_level,
             target_ref=req.target_ref,
             damage_type=req.damage_type,
+            target_refs=req.target_refs,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -40,6 +40,8 @@ class ToolGuardrailResult:
 
 TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "lookup_rules": {"side_effect": "read", "risk_level": "low"},
+    "end_concentration": {"side_effect": "state_write", "risk_level": "medium"},
+    "advance_time": {"side_effect": "state_write", "risk_level": "medium", "blocks_active_encounter": True},
     "generate_ability_scores": {"side_effect": "random", "risk_level": "low"},
     "list_character_options": {"side_effect": "read", "risk_level": "low"},
     "list_class_spells": {"side_effect": "read", "risk_level": "low"},
@@ -57,7 +59,6 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
         "risk_level": "high",
         "blocks_active_encounter": True,
     },
-    "set_player_action_suggestions": {"side_effect": "ui_write", "risk_level": "low"},
     "roll_dice": {"side_effect": "random", "risk_level": "low"},
     "hide_actor": {"side_effect": "state_write", "risk_level": "medium", "current_actor_arg": "actor_ref", "consumes_turn_action": True},
     "search_hidden": {"side_effect": "state_write", "risk_level": "medium"},
@@ -216,10 +217,6 @@ class ToolRegistry:
         if schema_error:
             return self._reject(tool_name, schema_error, contract=contract)
 
-        if tool_name == "set_player_action_suggestions":
-            suggestion_error = self._validate_player_action_suggestions(normalized_args)
-            if suggestion_error:
-                return self._reject(tool_name, suggestion_error, contract=contract)
         if tool_name == "request_player_choice":
             choice_error = self._validate_player_choice_request(normalized_args)
             if choice_error:
@@ -299,66 +296,6 @@ class ToolRegistry:
                 return f"Invalid value for `{field_name}` on {contract.name}: {value!r}."
         return ""
 
-    @staticmethod
-    def _validate_player_action_suggestions(args: Dict[str, Any]) -> str:
-        suggestions = args.get("suggestions")
-        if not isinstance(suggestions, list):
-            return "`suggestions` must be an array for set_player_action_suggestions."
-        if len(suggestions) != 3:
-            return "set_player_action_suggestions requires exactly three suggestions."
-        seen_labels: set[str] = set()
-        seen_actions: set[str] = set()
-        generic_labels = {
-            "询问知情者",
-            "调查线索",
-            "调查现场",
-            "交涉打听",
-            "谨慎前进",
-            "保持警戒",
-            "检查入口",
-            "观察战场",
-            "准备攻击",
-            "战术移动",
-        }
-        generic_phrases = [
-            "最近的知情者",
-            "这里发生了什么",
-            "谁掌握更多线索",
-            "眼前最可疑的线索",
-            "痕迹、机关或隐藏的信息",
-            "寻找能说明下一步方向的细节",
-            "附近的人交谈",
-            "沿着最可疑的方向",
-            "敌人的位置、掩体、危险地形",
-            "最有威胁的敌人",
-            "更有利的位置",
-            "可能的伏击",
-        ]
-        for index, item in enumerate(suggestions, start=1):
-            if not isinstance(item, dict):
-                return f"Suggestion {index} must be an object with label and action."
-            label = " ".join(str(item.get("label") or "").split()).strip()
-            action = " ".join(str(item.get("action") or "").split()).strip()
-            if not label:
-                return f"Suggestion {index} label cannot be empty."
-            if not action:
-                return f"Suggestion {index} action cannot be empty."
-            if len(label) > 24:
-                return f"Suggestion {index} label is too long; keep it button-sized."
-            if len(action) > 160:
-                return f"Suggestion {index} action is too long; keep it editable for the player."
-            if label in generic_labels or any(phrase in action for phrase in generic_phrases):
-                return (
-                    "set_player_action_suggestions must be scene-specific; "
-                    f"suggestion {index} is generic instead of referencing concrete NPCs, locations, clues, or threats."
-                )
-            label_key = label.casefold()
-            action_key = action.casefold()
-            if label_key in seen_labels or action_key in seen_actions:
-                return "set_player_action_suggestions suggestions must be distinct."
-            seen_labels.add(label_key)
-            seen_actions.add(action_key)
-        return ""
 
     @staticmethod
     def _validate_player_choice_request(args: Dict[str, Any]) -> str:
@@ -645,12 +582,9 @@ class ToolRegistry:
 
         feature_definition: Dict[str, Any] = {}
         if contract.feature_name_arg and args is not None:
-            try:
-                from game_logic import GameLogic
+            from game_logic import GameLogic
 
-                feature_definition = GameLogic.feature_definition_for(str(args.get(contract.feature_name_arg) or ""))
-            except Exception:
-                feature_definition = {}
+            feature_definition = GameLogic.feature_definition_for(str(args.get(contract.feature_name_arg) or ""))
 
         if feature_definition.get("action_cost"):
             raw_action_cost = str(feature_definition.get("action_cost"))
@@ -673,8 +607,8 @@ class ToolRegistry:
             return ""
         key_field, used_field, tool_field = self._turn_slot_fields(action_cost)
         turn_key = f"{encounter.round_number}:{current.combatant_id}"
-        if getattr(encounter, used_field, False) and getattr(encounter, key_field, "") == turn_key:
-            used_tool = getattr(encounter, tool_field, "") or f"a {self._turn_slot_label(action_cost)}"
+        if getattr(encounter, used_field) and getattr(encounter, key_field) == turn_key:
+            used_tool = getattr(encounter, tool_field) or f"a {self._turn_slot_label(action_cost)}"
             return f"Current turn {self._turn_slot_label(action_cost)} already used by `{current.name}`: {used_tool}."
         return ""
 

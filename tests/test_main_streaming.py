@@ -17,7 +17,7 @@ os.environ.setdefault("RAG_AUTO_CONTEXT_RESULTS", "0")
 
 import main as api_main
 from game_logic import GameLogic
-from models import ActionSuggestion, Character, ChatMessage, GameState, NodeTrace, PendingTurnState, ResourcePool, ToolResult, TurnResult, TurnTrace, ValidationIssue
+from models import Character, ChatMessage, GameState, NodeTrace, PendingTurnState, ResourcePool, ToolResult, TurnResult, TurnTrace, ValidationIssue
 from turn_stream import emit_turn_stream_event
 
 
@@ -63,7 +63,6 @@ class FakeAgent:
         self.result = result
         self.run_calls = 0
         self.resume_calls = 0
-        self.projection_calls = 0
         self.run_inputs = []
         self.checkpoint_backend = "sqlite"
         self.checkpoint_db_path = "backend/Game/langgraph_checkpoints.sqlite"
@@ -88,16 +87,6 @@ class FakeAgent:
         self.resume_calls += 1
         return self.result
 
-    def project_action_suggestions(self, state: GameState, response: str, user_input: str = ""):
-        self.projection_calls += 1
-        return (
-            [
-                ActionSuggestion(label="查看铁栅", action="我查看铁栅上的新鲜刮痕。"),
-                ActionSuggestion(label="聆听锁链", action="我贴近铁栅，辨认锁链声来自哪里。"),
-                ActionSuggestion(label="检查地面", action="我检查铁栅前的地面，寻找近期活动痕迹。"),
-            ],
-            {"status": "completed"},
-        )
 
     def close(self) -> None:
         return None
@@ -673,37 +662,31 @@ class TurnStreamingApiTests(unittest.TestCase):
         self.assertEqual(payload["traces"][0]["turn_number"], 2)
         self.assertEqual(payload["traces"][1]["turn_number"], 3)
 
-    def test_action_suggestions_are_saved_on_the_reply_and_reused(self) -> None:
-        state = GameState(game_id="suggestion-cache-test", title="Suggestion Cache Test", turn_number=4)
-        state.scene = "exploration"
-        state.campaign.phase = "exploration"
-        state.chat_history.extend(
-            [
-                ChatMessage(role="user", content="我检查铁栅。"),
-                ChatMessage(role="assistant", content="铁栅后传来缓慢的锁链声。"),
-            ]
-        )
+
+    def test_removed_reply_suggestions_endpoint_cannot_generate_or_save(self) -> None:
+        state = GameState(game_id="removed-suggestions", title="Synthetic")
+        state.chat_history.append(ChatMessage.model_validate({
+            "role": "assistant", "content": "铁栅后传来锁链声。",
+            "action_suggestions": [{"label": "旧建议", "action": "旧行动"}],
+            "action_suggestions_generated": True,
+        }))
         fake_storage = FakeStorage(state)
         fake_agent = FakeAgent(TurnResult(response="unused", game_state=state.model_copy(deep=True)))
-
         with patched_runtime(fake_agent, fake_storage):
             with TestClient(api_main.app) as client:
-                generated = client.post("/api/v1/games/suggestion-cache-test/action-suggestions")
-                cached = client.post("/api/v1/games/suggestion-cache-test/action-suggestions")
-                reloaded = client.get("/api/v1/games/suggestion-cache-test")
-
-        self.assertEqual(generated.status_code, 200)
-        self.assertEqual(generated.json()["metadata"]["status"], "completed")
-        self.assertTrue(generated.json()["generated"])
-        self.assertEqual(cached.status_code, 200)
-        self.assertEqual(cached.json()["metadata"]["status"], "cached")
-        self.assertEqual(fake_agent.projection_calls, 1)
-        saved_reply = fake_storage.saved_state.chat_history[-1]
-        self.assertTrue(saved_reply.action_suggestions_generated)
-        self.assertEqual(len(saved_reply.action_suggestions), 3)
-        reloaded_reply = reloaded.json()["chat_history"][-1]
-        self.assertTrue(reloaded_reply["action_suggestions_generated"])
-        self.assertEqual(len(reloaded_reply["action_suggestions"]), 3)
+                response = client.post("/api/v1/games/removed-suggestions/action-suggestions")
+                loaded = client.get("/api/v1/games/removed-suggestions")
+                schema = client.get("/openapi.json").json()
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn("/api/v1/games/{game_id}/action-suggestions", schema["paths"])
+        self.assertIn("/api/v1/games/{game_id}/action-options", schema["paths"])
+        self.assertEqual(fake_agent.run_calls, 0)
+        self.assertIsNone(fake_storage.saved_state)
+        self.assertEqual(loaded.status_code, 200)
+        reply = loaded.json()["chat_history"][-1]
+        self.assertEqual(reply["content"], "铁栅后传来锁链声。")
+        self.assertNotIn("action_suggestions", reply)
+        self.assertNotIn("action_suggestions_generated", reply)
 
     def test_use_feature_action_endpoint_uses_inferred_feature_metadata(self) -> None:
         state = GameState(game_id="feature-api-test", title="Feature Api Test")

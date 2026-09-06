@@ -2044,8 +2044,6 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(combatant.hp_max, 45)
 
     def test_completed_turn_records_node_traces(self) -> None:
-        if not self.runner.is_available:
-            self.skipTest("LangGraph is unavailable in this runtime.")
         state = self._build_state(with_selected_adventure=True)
 
         result = self.runner.run_turn(state, "I search the altar for clues.")
@@ -2061,8 +2059,6 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("finalize_turn", node_names)
 
     def test_explicit_end_encounter_executes_without_duplicate_confirmation(self) -> None:
-        if not self.runner.is_available:
-            self.skipTest("LangGraph is unavailable in this runtime.")
         state = self._build_state(with_selected_adventure=True)
         GameLogic(state).start_encounter(["Goblin"], enemy_hp=7, enemy_ac=12)
         runner = DMGraphRunner(
@@ -2337,8 +2333,11 @@ class DMGraphWorkflowTests(unittest.TestCase):
 
     def test_missing_resume_checkpoint_aborts_without_replaying_choice(self) -> None:
         class MissingCheckpointGraph:
-            def invoke(self, *_args, **_kwargs):
+            def get_state(self, *_args, **_kwargs):
                 raise RuntimeError("checkpoint missing for thread")
+
+            def invoke(self, *_args, **_kwargs):
+                raise AssertionError("A missing checkpoint must not replay the turn")
 
         state = self._build_state(with_selected_adventure=True)
         state.pending_turn = PendingTurnState(
@@ -2359,8 +2358,6 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("重新描述行动", result.response)
 
     def test_real_checkpointer_missing_resume_state_aborts_safely(self) -> None:
-        if not self.runner.is_available:
-            self.skipTest("LangGraph is unavailable in this runtime.")
         state = self._build_state(with_selected_adventure=True)
         state.pending_turn = PendingTurnState(
             thread_id="missing-real-checkpoint",
@@ -2380,8 +2377,6 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("暂存变化未提交", result.response)
 
     def test_legacy_tool_confirmation_is_invalidated_without_execution(self) -> None:
-        if not self.runner.is_available:
-            self.skipTest("LangGraph is unavailable in this runtime.")
         state = self._build_state(with_selected_adventure=True)
         state.pending_turn = PendingTurnState(
             thread_id="legacy-confirmation",
@@ -2399,8 +2394,6 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertIn("暂存变化未提交", result.response)
 
     def test_empty_turn_requests_more_input_without_advancing_turn(self) -> None:
-        if not self.runner.is_available:
-            self.skipTest("LangGraph is unavailable in this runtime.")
         state = self._build_state(with_selected_adventure=True)
 
         result = self.runner.run_turn(state, "")
@@ -2415,8 +2408,6 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(len(result.game_state.turn_traces), 1)
 
     def test_resume_turn_completes_after_pending_input(self) -> None:
-        if not self.runner.is_available:
-            self.skipTest("LangGraph is unavailable in this runtime.")
         state = self._build_state(with_selected_adventure=True)
         paused = self.runner.run_turn(state, "")
 
@@ -2433,8 +2424,6 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(len(resumed.game_state.turn_traces), 2)
 
     def test_sqlite_checkpoint_survives_new_runner_instance(self) -> None:
-        if not self.runner.is_available:
-            self.skipTest("LangGraph is unavailable in this runtime.")
         with tempfile.TemporaryDirectory() as tmpdir:
             checkpoint_path = os.path.join(tmpdir, "checkpoints.sqlite")
             runner_a = DMGraphRunner(

@@ -9,6 +9,7 @@ from langgraph.types import Command
 
 from agent_tools import merge_patch
 from models import GameState
+from combat_flow import after_tool
 
 from .specs import AGENT_SPECS, AgentRole
 from .state import DMBrainState
@@ -50,6 +51,7 @@ class AgentToolFactory:
     ) -> Command:
         graph_state = dict(runtime.state)
         state = GameState.model_validate(graph_state["game_state"])
+        before = state.model_copy(deep=True)
         allowed_tools = [
             name
             for name in graph_state.get("allowed_tools", [])
@@ -92,6 +94,9 @@ class AgentToolFactory:
                     allowed_tools,
                 )
 
+        if not execution.ok:
+            # 失败工具不能把部分结算发布给下一次模型调用。
+            state = before
         tool_results = list(graph_state.get("tool_results", []))
         timeline_append = list(graph_state.get("timeline_append", []))
         state_delta = dict(graph_state.get("state_delta", {}))
@@ -141,6 +146,11 @@ class AgentToolFactory:
                 status="cancelled" if player_choice_cancelled else "completed" if execution.ok else "failed",
             ),
         }
+        error_key = "" if execution.ok else f"{tool_name}: {execution.error}"
+        update["last_tool_error"] = error_key
+        update["repeated_tool_errors"] = (int(graph_state.get("repeated_tool_errors", 0)) + 1 if error_key == graph_state.get("last_tool_error") else 1) if error_key else 0
+        if execution.ok:
+            update["combat_flow"] = after_tool(before, state, graph_state.get("combat_flow", {}), tool_name)
         if player_choice_cancelled:
             # 玩家暂缓真正的剧情选择时，整个 staged transaction 回滚，不能留下选择前的依赖写入。
             update.update(

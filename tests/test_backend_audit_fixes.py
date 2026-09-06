@@ -124,20 +124,13 @@ class PersistenceRegressionTests(unittest.TestCase):
             self.storage.save_turn("test", self.state, expected_version=expected, snapshots={}, prune_from=0)
         self.assertEqual(self.storage.load_game("test").title, "replacement")
 
-    def test_projection_cache_does_not_invalidate_business_version(self):
-        self.state.chat_history.append(ChatMessage(role="assistant", content="cached"))
-        self.storage.save_game("test", self.state)
-        version = self.state.state_version
-        projected = self.storage.load_game("test")
-        projected.chat_history[0].action_suggestions_generated = True
-        self.storage.save_game("test", projected, projection_only=True)
-        self.assertEqual(self.storage.load_game("test").state_version, version)
 
-    def test_projection_mode_cannot_bypass_business_versioning(self):
+    def test_removed_projection_mode_cannot_bypass_business_versioning(self):
         changed = self.storage.load_game("test")
         changed.title = "unauthorized projection change"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             self.storage.save_game("test", changed, projection_only=True)
+        self.assertNotEqual(self.storage.load_game("test").title, changed.title)
 
     def test_separate_processes_cannot_both_commit_the_same_version(self):
         gate = Path(self.directory.name) / "go"
@@ -453,7 +446,9 @@ class SpellRegressionTests(unittest.TestCase):
                 if tools[-1].name == "cast_spell":
                     cast_id = json.loads(tools[-1].content)["cast_id"]
                     return AIMessage(content="", tool_calls=[{"id": "attack", "name": "attack_target", "args": {"attacker_ref": hero, "target_ref": enemy, "cast_id": cast_id}}])
-                return AIMessage(content="火焰击中了敌人。")
+                if len(tools) < 4:
+                    return AIMessage(content="敌人错失反击机会。" if len(tools) == 3 else "", tool_calls=[{"id": f"advance-{len(tools)}", "name": "advance_turn", "args": {}}])
+                return AIMessage(content="火焰击中了敌人，敌人没有反击；轮到你决定下一步。")
 
         runner = DMGraphRunner(rag_engine=DummyRAGEngine(), tool_service=self.service, enable_model=True, api_key="synthetic", checkpoint_mode="memory")
         runner._model = Model()

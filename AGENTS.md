@@ -26,7 +26,7 @@ DM_Agent 是本地优先的 D&D 2024 单人跑团应用。React/Vite 前端通�
 
 - `backend/main.py`：FastAPI 入口、REST/SSE、存档回退和本地动作 API。
 - `backend/dm_graph.py`：LangGraph 父图、上下文装配、阶段能力、确定性修复、提交和回滚。
-- `backend/agents/`：持续 DM 私有子图、阶段能力、真实 `StructuredTool` 适配器和提交后建议投影。
+- `backend/agents/`：持续 DM 私有子图、阶段能力、真实 `StructuredTool` 适配器。
 - `backend/agent_tools.py`：供 Agent 调用的确定性状态工具。
 - `backend/action_service.py`：不经过模型的本地确定性动作入口。
 - `backend/game_logic.py`：骰子、检定、攻击、伤害、集中、先攻和遭遇规则。
@@ -79,7 +79,7 @@ git diff --check
 - DM 控制的行动者必须结算或明确放弃动作，并推进回合；不能只用叙事跳过。
 - 校验修复使用受限工具，不在 validator 中隐藏修改业务事实。
 - `finalize_turn` 是主回合唯一提交点；失败回合恢复初始快照。
-- 行动建议是提交后的非事务投影，不得影响主回合成功与否；敌方回合不显示玩家建议。
+- 玩家通过自由输入决定行动；不生成自动回复选项。真正缺少玩家决定时使用 `request_player_choice`，确定性本地动作仍使用 `action-options`。
 - 删除和重写消息依赖完整 rewind snapshot，不做仅聊天记录的表面删除。
 - `risk_level` 只描述内部校验、事务和回滚要求，不自动触发玩家确认；只有缺少明确意图且真正涉及玩家决定权的分叉才通过 LangGraph interrupt 请求具体选择。
 - interrupt 暂停结果不得发布 staged state；取消、失败或 checkpoint 丢失都必须恢复初始快照，checkpoint 不等同于剧情分支。
@@ -135,7 +135,7 @@ git diff --check
 ## Code Review Rules
 
 - 优先报告可复现的正确性、回滚、越权状态变更和前后端契约问题，给出具体触发条件、影响与代码位置。
-- 重点检查失败工具是否改变输入状态、暂停是否泄露 staged state、提交后建议是否影响主回合，以及异步旧结果是否覆盖新游戏快照。
+- 重点检查失败工具是否改变输入状态、暂停是否泄露 staged state，以及异步旧结果是否覆盖新游戏快照。
 - 格式和常规 lint 交给既有命令；审查不能以历史测试通过代替本次验证，也不能把未实测的模型或浏览器行为称为已验证。
 
 ## ExecPlan 协议

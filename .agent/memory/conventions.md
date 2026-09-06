@@ -14,16 +14,16 @@
 - deterministic validation 先于最终提交，修复必须通过工具。
 - 模型/provider 错误变成失败 TurnResult，不能让请求崩溃或提交半状态。
 - `risk_level` 只约束内部校验与事务；明确玩家指令和确定性结算不因风险级别自动请求确认。只有缺少玩家决定时用 `request_player_choice` 触发 interrupt，恢复使用同一 thread/checkpoint。
-- `pending_turn` 存在时，本局本地动作、遭遇与设置写入返回 409；继续/取消选择、明确剧情回退和只读/建议投影保留各自入口。恢复前若公开业务状态偏离 checkpoint 初始快照，结束旧暂停并保留当前已保存事实。
+- `pending_turn` 存在时，本局本地动作、遭遇与设置写入返回 409；继续/取消选择、明确剧情回退和只读查询保留各自入口。恢复前若公开业务状态偏离 checkpoint 初始快照，结束旧暂停并保留当前已保存事实。
 - `finalize_turn` 成功时才推进 `turn_number`；失败时回滚工具变化。
-- 回复长度是偏好：最多编辑两次，不通过硬截断破坏 Markdown 或规则事实。
+- 回复长度是偏好：默认最多编辑三次，不通过硬截断破坏 Markdown 或规则事实。
 
 ## API 与前端
 
 - API 统一使用 `/api/v1`。
 - 前端消费后端的 `action_options`、当前行动者和派生显示字段。
 - 异步结果必须通过 game lifecycle、sync request、game id 和 turn number 等守卫，防止旧请求覆盖新存档。
-- action suggestions 必须恰好三个、互异、场景特定；仅填充输入框，不自动提交。
+- 不生成自动回复选项；玩家自由输入，必要的剧情选择仍使用 `request_player_choice`。确定性 `action-options` 与回复建议是不同功能。
 - 标准怪物资产只读；游戏内保存使用 game-scoped monster template。
 
 ## Schema 与兼容

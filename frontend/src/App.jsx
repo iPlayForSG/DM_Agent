@@ -6,6 +6,7 @@ import { isPlayerVisibleTimelineEvent, narrativeEmphasisClass } from "./narrativ
 import { mergeRollRecords, rollSettlementLabel } from "./rollUi";
 import {
   createEmptyDmThinking,
+  interruptedThinking,
   prepareDmRetryUiRollback,
   preparePlayerRewriteUiRollback,
 } from "./retryUi";
@@ -23,7 +24,6 @@ import {
   endEncounter,
   generateAbilityScores,
   loadActionOptions,
-  loadActionSuggestions,
   loadCharacter,
   loadCharacterBuilder,
   loadGame,
@@ -47,6 +47,7 @@ import {
   setEncounterInitiative,
   streamTurn,
   updateReplyLength,
+  updateCombatControl,
   updateModelConfig,
   useItemAction as itemActionRequest,
 } from "./api";
@@ -288,6 +289,9 @@ const EQUIPMENT_TYPE_LABELS = {
   pack: "套组",
   tool: "工具",
   weapon: "武器",
+  potion: "药水",
+  consumable: "消耗品",
+  scroll: "卷轴",
 };
 const EMPTY_PENDING_ITEM = { name: "", quantity: 1, reserved_cost_gp: 0, notes: "" };
 const EMPTY_CHAR = {
@@ -331,6 +335,7 @@ const mapMessages = (history = [], timeline = []) => {
       sender: m.role === "assistant" ? "dm" : m.role === "user" ? "player" : "system",
       text: m.role === "system" ? localizeSceneText(m.content) : m.content,
       turnStatus: String(assistantEvent?.payload?.turn_status || ""),
+      narrativeMode: m.narrative_mode || "story",
       rollRecords: m.roll_records || [],
       rollRecordsRecorded: Boolean(m.roll_records_recorded),
     });
@@ -461,7 +466,9 @@ const formatEquipmentLine = (item) => {
   const details = [];
   if (item.quantity && item.quantity > 1) details.push(`数量 ${item.quantity}`);
   if (item.type_display || item.type) details.push(item.type_display || localizeEquipmentType(item.type));
-  if (item.damage_expression) details.push(item.damage_expression);
+  if (item.damage_expression) details.push(`伤害 ${item.damage_expression}`);
+  if (item.healing_expression) details.push(`治疗 ${item.healing_expression}`);
+  if (item.spell_name) details.push(`${item.spell_level ?? "?"}环 · ${item.spell_name}`);
   if (item.damage_type_display || item.damage_type) details.push(item.damage_type_display || item.damage_type);
   if (item.armor_class_bonus) details.push(`护甲 +${item.armor_class_bonus}`);
   if (item.is_equipped) details.push("已装备");
@@ -493,8 +500,8 @@ const formatSpellSlotStatus = ([level, slot]) => {
 };
 const formatAttackSummary = (attack) => {
   const details = [];
-  if (attack?.attack_bonus !== undefined && attack?.attack_bonus !== "") details.push(`命中 ${formatSigned(attack.attack_bonus)}`);
-  if (attack?.damage_expression) details.push(attack.damage_expression);
+  if (attack?.attack_bonus !== undefined && attack?.attack_bonus !== null && attack?.attack_bonus !== "") details.push(`命中 ${formatSigned(attack.attack_bonus)}`);
+  details.push(attack?.damage_expression || "伤害资料未完整记录");
   if (attack?.damage_type_display || attack?.damage_type) details.push(attack.damage_type_display || attack.damage_type);
   return [localizeName(attack), details.join(" · ")].filter(Boolean).join(" · ");
 };
@@ -744,7 +751,7 @@ function DmThinkingPanel({ thinking, onToggle }) {
   if (!thinking || thinking.status === "idle") return null;
   const isError = thinking.status === "error";
   const isWaiting = thinking.status === "waiting";
-  const title = isRunning ? "主持人处理中…" : isError ? "主持过程已中断" : isWaiting ? "等待你的选择" : "主持过程";
+  const title = isRunning ? "主持人处理中…" : isError ? "主持过程" : isWaiting ? "等待你的选择" : "主持过程";
   const elapsed = thinking.startedAt ? Math.max(0, Math.floor((now - thinking.startedAt) / 1000)) : 0;
   const statusLabel = isRunning ? `${elapsed} 秒` : isError ? "已中断" : isWaiting ? "待继续" : "已完成";
   const activity = thinking.waitingForModel
@@ -765,6 +772,8 @@ function DmThinkingPanel({ thinking, onToggle }) {
         <span className="dm-thinking-title">{title}</span>
         <span className="dm-thinking-status" role="status" aria-live="polite">{statusLabel}</span>
       </button>
+      {isError && thinking.errorMessage && <p className="dm-inline-error" role="alert">{thinking.errorMessage}</p>}
+      {isRunning && thinking.retryMessage && <p className="dm-reconnect-status" role="status">{thinking.retryMessage}</p>}
       {thinking.expanded && (
         <div id="dm-thinking-output" className="dm-thinking-output markdown-body" data-streamed-chars={thinking.output.length}>
           {isRunning && <p className="dm-current-activity" role="status">{activity}{elapsed >= 45 ? " 等待较久，连接仍由心跳检查；请勿重复发送。" : ""}</p>}
@@ -816,7 +825,22 @@ function EvidencePanel({ evidence = [] }) {
     </section>
   );
 }
-function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant, localActionsLocked = false }) {
+function CombatStatusStrip({ entries = [], name, loading = false }) {
+  const labels = { buff: "增益", debuff: "减益", concentration: "专注", status: "状态" };
+  return <aside className="combat-status-strip" aria-label={`${name}当前状态`}>
+    {loading ? <span className="combat-status-empty">状态待同步</span> : entries.length === 0 ? <span className="combat-status-empty">暂无状态记录</span> : entries.map(entry => (
+      <div key={entry.id} className={`combat-status-entry status-${entry.kind}`}>
+        <span className="combat-status-kind">{labels[entry.kind] || "状态"}</span>
+        <div><DescriptionTooltip label={entry.name} description={entry.description} metadata={[entry.source].filter(Boolean)} />
+          {entry.summary && <div className="combat-status-summary">{entry.summary}</div>}
+          {entry.source && <div className="combat-status-source">{entry.source}</div>}
+        </div>
+      </div>
+    ))}
+  </aside>;
+}
+
+function CombatantPanel({ encounter, combatants, statusByRef = {}, statusReady = true, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant, localActionsLocked = false }) {
   const nextActorId = encounter?.active && encounter?.turn_order_started ? encounter.current_combatant_id : null;
   return (
     <section className="side-section combat-panel">
@@ -837,6 +861,7 @@ function CombatantPanel({ encounter, combatants, initiativeDrafts, setInitiative
                 {nextActorId === combatant.combatant_id && <span className="combatant-turn-badge" title="下一次对话从该行动者继续">接下来行动</span>}
               </div>
               <div className="timeline-content">{formatCombatantStateLine(combatant)}</div>
+              <CombatStatusStrip name={combatant.name} entries={statusByRef[combatant.linked_character_id || combatant.combatant_id]} loading={!statusReady} />
               {combatant.surprised_at_start && <div className="timeline-content">开战时被突袭 · 仅影响先攻</div>}
               {combatant.initiative_roll_mode && combatant.initiative_roll_mode !== "normal" && <div className="timeline-content">先攻{combatant.initiative_roll_mode === "advantage" ? "优势" : "劣势"}</div>}
               {SHOW_DM_CONTROLS_IN_PLAYER_SESSION && (
@@ -914,7 +939,7 @@ function TurnActionResources({ character, actor, encounter }) {
   );
 }
 
-function CharacterStatusCard({ character, actor, encounter, primary = false }) {
+function CharacterStatusCard({ character, actor, encounter, primary = false, onToggleControl, controlDisabled, statusReady = true }) {
   const [isOpen, setIsOpen] = useState(primary);
   const [inventoryOpen, setInventoryOpen] = useState(true);
   const stats = character?.stats || {};
@@ -938,6 +963,11 @@ function CharacterStatusCard({ character, actor, encounter, primary = false }) {
           <strong>{character.name}</strong>
           <span>{character.class_name_display || localizeClassName(character.class_name)} · {character.level}级</span>
         </span>
+        {!primary && <button type="button" className="combat-control-button" disabled={controlDisabled}
+          aria-label={`${character.name}：${actor?.combat_controller === "player" ? "玩家控制，切换为 DM 控制" : "DM 控制，切换为玩家控制"}`}
+          onClick={(event) => { event.preventDefault(); event.stopPropagation(); onToggleControl(character.character_id, actor?.combat_controller === "player" ? "dm" : "player"); }}>
+          {actor?.combat_controller === "player" ? "玩家控制" : "DM 控制"}
+        </button>}
         <span className="party-card-hp">{formatHpBarLabel(character.hp_current, character.hp_max)}</span>
       </summary>
       <div className="party-card-body">
@@ -968,6 +998,7 @@ function CharacterStatusCard({ character, actor, encounter, primary = false }) {
             {statuses.map((status) => <span key={status} className="tag">{status}</span>)}
           </div>
         )}
+        {encounter?.active && <CombatStatusStrip name={character.name} entries={actor?.status_entries} loading={!statusReady} />}
         <TurnActionResources character={character} actor={actor} encounter={encounter} />
         {resources.length > 0 && (
           <section className="sheet-section">
@@ -1003,7 +1034,7 @@ function CharacterStatusCard({ character, actor, encounter, primary = false }) {
               <DescriptionTooltip label={item.name_display || item.name}
                 description={item.description_display || item.description || item.notes_display || item.notes}
                 metadata={[item.type_display || localizeEquipmentType(item.type)]} />
-              <small>{formatEquipmentLine(item) || item.type_display || localizeEquipmentType(item.type)}</small>
+              <small>{formatEquipmentLine(item) || item.type_display || localizeEquipmentType(item.type)}{item.effect_summary && <span className="item-effect-summary">{item.effect_summary}</span>}</small>
             </div>
           ))}
         </details>
@@ -1024,7 +1055,7 @@ function CharacterSheetDetail({ character }) {
   const stats = character.stats || {};
   const resources = Object.entries(character.resources || {});
   const inventory = character.inventory || [];
-  const attacks = inventory.filter((item) => item.damage_expression || (item.attack_bonus !== null && item.attack_bonus !== undefined));
+  const attacks = inventory.filter((item) => item.type === "weapon" && item.quantity > 0);
   const spells = character.spells || {};
   const cantrips = spells.cantrips_display || spells.cantrips || [];
   const prepared = spells.prepared_display || spells.prepared || [];
@@ -1185,8 +1216,6 @@ export default function App() {
   const [selectedGameChars, setSelectedGameChars] = useState([]), [newGameId, setNewGameId] = useState("");
   const [activeGameId, setActiveGameId] = useState(null), [gameState, setGameState] = useState(null), [actionOptions, setActionOptions] = useState({ actors: [] });
   const [actionDraft, setActionDraft] = useState({ ...EMPTY_ACTIONS }), [messages, setMessages] = useState([]);
-  const [actionSuggestions, setActionSuggestions] = useState([]);
-  const [isActionSuggestionsLoading, setIsActionSuggestionsLoading] = useState(false);
   const [workflowEvents, setWorkflowEvents] = useState([]);
   const [dmThinking, setDmThinking] = useState(createEmptyDmThinking);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
@@ -1216,7 +1245,6 @@ export default function App() {
   const chatInputRef = useRef(null);
   const activeGameIdRef = useRef(null);
   const latestTurnNumberRef = useRef(0);
-  const actionSuggestionRequestRef = useRef(0);
   const gameLifecycleRef = useRef(0);
   const gameSyncRequestRef = useRef(0);
   const optimisticMessageIdRef = useRef(0);
@@ -1339,7 +1367,7 @@ export default function App() {
     || spellActor?.can_act === false
     || selectedSpellOption?.available === false
     || (selectedSpellOption?.action_cost === "reaction" && spellActor?.reaction_available === false)
-    || (selectedSpellOption?.requires_attack_target && !actionDraft.spell.target_ref)
+    || ((selectedSpellOption?.requires_attack_target || selectedSpellOption?.requires_effect_target) && !actionDraft.spell.target_ref)
     || ((selectedSpellOption?.damage_types || []).length > 1 && !actionDraft.spell.damage_type)
     || (selectedSpellOption.requires_slot && !selectedSpellOption.available_slot_levels.includes(Number(actionDraft.spell.slot_level || 0)));
   const useItemDisabled = !selectedItemOption
@@ -1379,7 +1407,8 @@ export default function App() {
     ];
   }
   const chatComposerDisabled = gameState?.campaign?.phase === "adventure_selection";
-  const isGameMutationBusy = isLoading || isReplyLengthSaving;
+  const [isControlSaving, setIsControlSaving] = useState(false);
+  const isGameMutationBusy = isLoading || isReplyLengthSaving || isControlSaving;
   const chatSubmitDisabled = chatComposerDisabled || isGameMutationBusy;
   const selectedGameDeleteSet = new Set(selectedGameDeleteIds);
   const selectedCharacterDeleteSet = new Set(selectedCharacterDeleteIds);
@@ -1780,26 +1809,6 @@ export default function App() {
     if (!preserveRewrite) setRewriteTarget(null);
   }
 
-  function normalizeActionSuggestions(items) {
-    return (items || [])
-      .filter((item) => item?.label && item?.action)
-      .slice(0, 3);
-  }
-
-  function storedActionSuggestionProjection(state) {
-    const latestAssistantMessage = [...(state?.chat_history || [])]
-      .reverse()
-      .find((message) => message?.kind !== "tool_result" && message?.role === "assistant");
-    return {
-      suggestions: normalizeActionSuggestions(latestAssistantMessage?.action_suggestions),
-      generated: Boolean(latestAssistantMessage?.action_suggestions_generated),
-    };
-  }
-
-  function invalidateActionSuggestionProjection() {
-    actionSuggestionRequestRef.current += 1;
-    setIsActionSuggestionsLoading(false);
-  }
 
   function beginGameLifecycle(gameId) {
     const lifecycleToken = gameLifecycleRef.current + 1;
@@ -1820,12 +1829,10 @@ export default function App() {
     gameSyncRequestRef.current += 1;
     activeGameIdRef.current = null;
     latestTurnNumberRef.current = 0;
-    invalidateActionSuggestionProjection();
     setActiveGameId(null);
     setGameState(null);
     setActionOptions({ actors: [] });
     setActionDraft({ ...EMPTY_ACTIONS });
-    setActionSuggestions([]);
     setMessages([]);
     setWorkflowEvents([]);
     setDmThinking(createEmptyDmThinking());
@@ -1841,48 +1848,14 @@ export default function App() {
     setView("home");
   }
 
-  function requestActionSuggestionProjection(gameId, turnNumber, lifecycleToken = gameLifecycleRef.current) {
-    if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-    const requestId = actionSuggestionRequestRef.current + 1;
-    actionSuggestionRequestRef.current = requestId;
-    setIsActionSuggestionsLoading(true);
-    void loadActionSuggestions(gameId)
-      .then((payload) => {
-        if (
-          actionSuggestionRequestRef.current === requestId
-          && isCurrentGameLifecycle(gameId, lifecycleToken)
-          && latestTurnNumberRef.current === Number(turnNumber || 0)
-          && Number(payload.turn_number || 0) === Number(turnNumber || 0)
-        ) {
-          setActionSuggestions(normalizeActionSuggestions(payload.action_suggestions));
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (actionSuggestionRequestRef.current === requestId && isCurrentGameLifecycle(gameId, lifecycleToken)) {
-          setIsActionSuggestionsLoading(false);
-        }
-      });
-  }
 
   async function syncGame(gameId, state, options = {}) {
     const lifecycleToken = options.lifecycleToken ?? gameLifecycleRef.current;
-    if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return { suggestions: [], generated: false };
+    if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
 
-    const storedProjection = storedActionSuggestionProjection(state);
-    const hasExplicitSuggestions = Object.prototype.hasOwnProperty.call(options, "actionSuggestions");
-    const normalizedSuggestions = normalizeActionSuggestions(
-      hasExplicitSuggestions ? options.actionSuggestions : storedProjection.suggestions,
-    );
-    const suggestionsGenerated = hasExplicitSuggestions
-      ? normalizedSuggestions.length === 3
-        || Boolean(options.actionSuggestionsGenerated)
-        || storedProjection.generated
-      : storedProjection.generated;
     const syncRequestId = gameSyncRequestRef.current + 1;
     gameSyncRequestRef.current = syncRequestId;
     applyGameSnapshot(state, options.actionOptions, { preserveRewrite: options.preserveRewrite });
-    setActionSuggestions(normalizedSuggestions);
     const expectedTurnNumber = Number(state?.turn_number || 0);
     void loadActionOptions(gameId)
       .then((nextActionOptions) => {
@@ -1897,7 +1870,6 @@ export default function App() {
       .catch(() => {
         // The authoritative game snapshot remains usable when this optional projection fails.
       });
-    return { suggestions: normalizedSuggestions, generated: suggestionsGenerated };
   }
 
   async function saveReplyLengthSettings() {
@@ -1917,7 +1889,7 @@ export default function App() {
     try {
       const result = await updateReplyLength(gameId, { min_chars: minChars, max_chars: maxChars });
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      await syncGame(gameId, result.game_state, { actionSuggestions, preserveRewrite: true, lifecycleToken });
+      await syncGame(gameId, result.game_state, { preserveRewrite: true, lifecycleToken });
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) setReplyLengthMessage("已应用。");
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) setReplyLengthMessage(err.message || "保存失败。");
@@ -1942,13 +1914,6 @@ export default function App() {
     return `至多 ${maxChars} 字`;
   }
 
-  function fillActionSuggestion(suggestion) {
-    const action = String(suggestion?.action || "").trim();
-    if (!action) return;
-    setRewriteTarget(null);
-    setInput(action);
-    window.requestAnimationFrame(() => chatInputRef.current?.focus());
-  }
 
   function buildAttackDraft(attackerRef, attackName, currentAttack) {
     if (!attackerRef) {
@@ -2045,7 +2010,6 @@ export default function App() {
   }, [actionOptions]);
 
   async function enterGame(gameId) {
-    invalidateActionSuggestionProjection();
     const lifecycleToken = beginGameLifecycle(gameId);
     setIsLoading(true);
     setError("");
@@ -2054,7 +2018,6 @@ export default function App() {
     setWorkflowEvents([]);
     setDmThinking(createEmptyDmThinking());
     setActionOptions({ actors: [] });
-    setActionSuggestions([]);
     setRewriteTarget(null);
     setInput("");
     setReplyLengthMessage("");
@@ -2062,14 +2025,7 @@ export default function App() {
     try {
       const state = await loadGame(gameId);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const suggestionProjection = await syncGame(gameId, state, { lifecycleToken });
-      if (
-        isCurrentGameLifecycle(gameId, lifecycleToken)
-        && state?.campaign?.phase !== "adventure_selection"
-        && !suggestionProjection.generated
-      ) {
-        requestActionSuggestionProjection(gameId, state.turn_number, lifecycleToken);
-      }
+      await syncGame(gameId, state, { lifecycleToken });
     } catch (err) {
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
       leaveGame();
@@ -2385,10 +2341,8 @@ export default function App() {
     try {
       setError("");
       const result = await createGame({ game_id: gameId, title: gameId, character_ids: selectedGameChars });
-      invalidateActionSuggestionProjection();
       const lifecycleToken = beginGameLifecycle(gameId);
       setWorkflowEvents([]);
-      setActionSuggestions([]);
       setRewriteTarget(null);
       setReplyLengthMessage("");
       setView("chat");
@@ -2404,15 +2358,10 @@ export default function App() {
     setIsLoading(true);
     setPendingAdventureId(adventureId);
     setError("");
-    invalidateActionSuggestionProjection();
-    setActionSuggestions([]);
     try {
       const result = await selectAdventure(gameId, adventureId);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (isCurrentGameLifecycle(gameId, lifecycleToken) && !suggestionProjection.generated) {
-        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
-      }
+      await syncGame(gameId, result.game_state, { lifecycleToken });
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) setError(err.message || "选择冒险失败。");
     } finally {
@@ -2450,6 +2399,9 @@ export default function App() {
             metadata: { mode: data?.mode, checkpoint_backend: data?.checkpoint_backend },
           });
         }
+        if (eventName === "agent.output.retrying") {
+          setDmThinking((current) => ({ ...current, output: current.waitingForModel ? current.output.slice(0, current.segmentStart ?? current.output.length) : current.output, retryMessage: data.message, waitingForModel: true }));
+        }
         if (eventName === "turn.error") {
           setDmThinking((current) => ({ ...current, status: "error", expanded: false }));
         }
@@ -2472,11 +2424,12 @@ export default function App() {
               ...current,
               output: needsSeparator ? `${current.output}\n\n` : current.output,
               segmentCount: current.segmentCount + 1,
+              segmentStart: current.output.length,
               waitingForModel: true,
             };
           }
           if (phase === "delta" && data?.text) {
-            return { ...current, output: `${current.output}${data.text}` };
+            return { ...current, retryMessage: "", output: `${current.output}${data.text}` };
           }
           if (phase === "completed") return { ...current, waitingForModel: false };
           return current;
@@ -2490,7 +2443,7 @@ export default function App() {
         if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
         setDmThinking((current) => ({ ...current, waitingForModel: false,
           status: data?.turn_status === "input_required" ? "waiting" : data?.turn_status === "failed" ? "error" : "completed",
-          expanded: false, rollRecords: data?.roll_records || [] }));
+          expanded: false, retryMessage: "", errorMessage: data?.turn_status === "failed" ? data.response : "", rollRecords: data?.roll_records || [] }));
       },
       onNode: (node) => {
         pushWorkflowEvent(node);
@@ -2570,24 +2523,14 @@ export default function App() {
       expanded: true,
       rollRecords: gameState?.pending_turn?.roll_records || [],
     });
-    invalidateActionSuggestionProjection();
-    setActionSuggestions([]);
     if (options.clearInput) setInput("");
     try {
       const result = await streamTurn(gameId, message, createTurnStreamHandlers(gameId, lifecycleToken));
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (
-        isCurrentGameLifecycle(gameId, lifecycleToken)
-        && result.turn_status === "completed"
-        && !suggestionProjection.generated
-      ) {
-        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
-      }
+      await syncGame(gameId, result.game_state, { lifecycleToken });
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
-        setDmThinking((current) => ({ ...current, status: "error", expanded: false,
-          rollRecords: current.rollRecords.map((record) => ({ ...record, settlement: "unknown" })) }));
+        setDmThinking((current) => interruptedThinking(current, err));
         setError(err.message || "发送消息失败。");
         setMessages((current) => current.map((item) => item.optimisticMessageId === optimisticMessageId
           ? { ...item, deliveryState: "failed" }
@@ -2626,10 +2569,8 @@ export default function App() {
 
     const retryUiRollback = prepareDmRetryUiRollback({
       messages,
-      actionSuggestions,
       workflowEvents,
       dmThinking,
-      actionSuggestionsLoading: isActionSuggestionsLoading,
     }, message.index);
     const retryUiSnapshot = retryUiRollback.snapshot;
     setRetryingMessageIndex(message.index);
@@ -2639,32 +2580,18 @@ export default function App() {
     setMessages(retryUiRollback.next.messages);
     setWorkflowEvents(retryUiRollback.next.workflowEvents);
     setDmThinking({ ...retryUiRollback.next.dmThinking, status: "running", expanded: true });
-    invalidateActionSuggestionProjection();
-    setActionSuggestions(retryUiRollback.next.actionSuggestions);
     try {
       const result = await retryGameMessage(gameId, message.index, createTurnStreamHandlers(gameId, lifecycleToken));
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const suggestionProjection = await syncGame(gameId, result.game_state, {
-        actionSuggestions: result.action_suggestions,
+      await syncGame(gameId, result.game_state, {
         lifecycleToken,
       });
-      if (
-        isCurrentGameLifecycle(gameId, lifecycleToken)
-        && result.turn_status === "completed"
-        && !suggestionProjection.generated
-      ) {
-        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
-      }
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
         // HTTP/网络层失败表示服务端没有返回新的权威快照；恢复被乐观移除的整组回复投影。
         setMessages(retryUiSnapshot.messages);
-        setActionSuggestions(retryUiSnapshot.actionSuggestions);
         setWorkflowEvents(retryUiSnapshot.workflowEvents);
-        setDmThinking((current) => ({ ...current, status: "error", expanded: false, rollRecords: current.rollRecords.map((record) => ({ ...record, settlement: "unknown" })) }));
-        if (retryUiSnapshot.actionSuggestionsLoading) {
-          requestActionSuggestionProjection(gameId, gameState?.turn_number, lifecycleToken);
-        }
+        setDmThinking((current) => interruptedThinking(current, err));
         setError(err.message || "重试本回合失败。请稍后再试。");
       }
     } finally {
@@ -2685,18 +2612,10 @@ export default function App() {
     setIsLoading(true);
     setError("");
     setWorkflowEvents([]);
-    invalidateActionSuggestionProjection();
     try {
       const result = await deleteGameMessage(gameId, message.index);
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (
-        isCurrentGameLifecycle(gameId, lifecycleToken)
-        && !suggestionProjection.generated
-        && result.game_state?.campaign?.phase !== "adventure_selection"
-      ) {
-        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
-      }
+      await syncGame(gameId, result.game_state, { lifecycleToken });
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) setInput("");
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) setError(err.message || "删除消息失败。");
@@ -2728,10 +2647,8 @@ export default function App() {
     const optimisticMessageId = `${gameId}-rewrite-${++optimisticMessageIdRef.current}`;
     const rewriteUiRollback = preparePlayerRewriteUiRollback({
       messages,
-      actionSuggestions,
       workflowEvents,
       dmThinking,
-      actionSuggestionsLoading: isActionSuggestionsLoading,
     }, targetMessageIndex, message, optimisticMessageId);
     const rewriteUiSnapshot = rewriteUiRollback.snapshot;
     setIsLoading(true);
@@ -2740,30 +2657,17 @@ export default function App() {
     setMessages(rewriteUiRollback.next.messages);
     setWorkflowEvents(rewriteUiRollback.next.workflowEvents);
     setDmThinking({ ...rewriteUiRollback.next.dmThinking, status: "running", expanded: true });
-    invalidateActionSuggestionProjection();
-    setActionSuggestions(rewriteUiRollback.next.actionSuggestions);
     setInput("");
     try {
       const result = await rewriteGameMessage(gameId, targetMessageIndex, message, createTurnStreamHandlers(gameId, lifecycleToken));
       if (!isCurrentGameLifecycle(gameId, lifecycleToken)) return;
-      const suggestionProjection = await syncGame(gameId, result.game_state, { actionSuggestions: result.action_suggestions, lifecycleToken });
-      if (
-        isCurrentGameLifecycle(gameId, lifecycleToken)
-        && result.turn_status === "completed"
-        && !suggestionProjection.generated
-      ) {
-        requestActionSuggestionProjection(gameId, result.game_state?.turn_number, lifecycleToken);
-      }
+      await syncGame(gameId, result.game_state, { lifecycleToken });
     } catch (err) {
       if (isCurrentGameLifecycle(gameId, lifecycleToken)) {
         // 请求失败时没有可采用的新权威快照，恢复提交前的完整对话和临时投影。
         setMessages(rewriteUiSnapshot.messages);
-        setActionSuggestions(rewriteUiSnapshot.actionSuggestions);
         setWorkflowEvents(rewriteUiSnapshot.workflowEvents);
-        setDmThinking((current) => ({ ...current, status: "error", expanded: false, rollRecords: current.rollRecords.map((record) => ({ ...record, settlement: "unknown" })) }));
-        if (rewriteUiSnapshot.actionSuggestionsLoading) {
-          requestActionSuggestionProjection(gameId, gameState?.turn_number, lifecycleToken);
-        }
+        setDmThinking((current) => interruptedThinking(current, err));
         setError(err.message || "重写消息失败。");
         setInput((current) => current.trim() ? current : message);
       }
@@ -2779,6 +2683,19 @@ export default function App() {
     }
     await submitChatMessage(input, { clearInput: true });
   }
+  async function toggleCombatControl(characterId, controller) {
+    const gameId = activeGameId;
+    const lifecycleToken = gameLifecycleRef.current;
+    if (!gameId || isGameMutationBusy || localActionsLocked) return;
+    setIsControlSaving(true);
+    try {
+      const result = await updateCombatControl(gameId, characterId, controller, gameState.state_version);
+      await syncGame(gameId, result.game_state, { lifecycleToken, actionOptions: result.action_options });
+    } catch (err) {
+      if (isCurrentGameLifecycle(gameId, lifecycleToken)) setError(err.message || "切换控制失败。");
+    } finally { setIsControlSaving(false); }
+  }
+
   async function respondToPendingTurn(response) { await submitChatMessage(response); }
 
   function allowLocalMutation() {
@@ -2893,17 +2810,16 @@ export default function App() {
   const timeline = (gameState?.timeline || []).filter(isPlayerVisibleTimelineEvent).slice(-12).reverse();
   const evidenceRecords = gameState?.evidence_records || [];
   const partyCharacters = Object.values(gameState?.characters || {});
-  const activeCharacterId = gameState?.active_character_id || partyCharacters[0]?.character_id || "";
+  const activeCharacterId = gameState?.primary_character_id || partyCharacters[0]?.character_id || "";
   const characterActorById = Object.fromEntries(charActors.map((actor) => [actor.ref, actor]));
   const currentCombatant = encounter?.combatants?.[encounter.current_combatant_id];
+  const statusProjectionCurrent = Boolean(gameState && actionOptions?.state_version === gameState.state_version);
+  const combatStatusByRef = Object.fromEntries((actionOptions?.actors || []).map(actor => [actor.ref, actor.status_entries || []]));
   const playerDecisionAvailable = !encounter?.active || Boolean(
     currentCombatant?.side === "party"
     && currentCombatant?.linked_character_id
-    && gameState?.characters?.[currentCombatant.linked_character_id]
+    && characterActorById[currentCombatant.linked_character_id]?.combat_controller === "player"
   );
-  const visibleActionSuggestions = (
-    gameState?.campaign?.phase === "adventure_selection" || !playerDecisionAvailable
-  ) ? [] : actionSuggestions;
 
   return (
     <div className="app-container">
@@ -3632,7 +3548,7 @@ export default function App() {
                     && Number.isInteger(message.index);
                   const isFailedDmMessage = canRetryDmMessage && message.turnStatus === "failed";
                   return (
-                    <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender}`}>
+                    <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender} ${message.narrativeMode === "combat" ? "combat-narrative" : ""}`}>
                       {message.sender === "dm" && <RollLedger records={message.rollRecords} recorded={message.rollRecordsRecorded} />}
                       <div className={`message ${message.sender} anime-pop`}>
                         <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
@@ -3695,7 +3611,7 @@ export default function App() {
                 )}
                 {(isLoading || ["waiting", "error"].includes(dmThinking.status)) && dmThinking.status !== "idle" && <RollLedger records={dmThinking.rollRecords} />}
                 <DmThinkingPanel
-                  thinking={dmThinking}
+                  thinking={{ ...dmThinking, errorMessage: dmThinking.errorMessage || error }}
                   onToggle={() => setDmThinking((current) => ({ ...current, expanded: !current.expanded }))}
                 />
                 {SHOW_WORKFLOW_TRACE_IN_PLAYER_SESSION && workflowEvents.length > 0 && (
@@ -3876,7 +3792,7 @@ export default function App() {
                         {spellOptions.map((spell) => <option key={spell.name} value={spell.name}>{spell.label}</option>)}
                       </select>
                       <input value={actionDraft.spell.slot_level} onChange={(e) => setActionDraft((p) => ({ ...p, spell: { ...p.spell, slot_level: e.target.value } }))} placeholder="法术位" disabled={!selectedSpellOption?.requires_slot} />
-                      {selectedSpellOption?.requires_attack_target && <select aria-label="法术攻击目标" value={actionDraft.spell.target_ref || ""} onChange={(e) => setActionDraft((p) => ({ ...p, spell: { ...p.spell, target_ref: e.target.value } }))}>
+                      {(selectedSpellOption?.requires_attack_target || selectedSpellOption?.requires_effect_target) && <select aria-label="法术目标" value={actionDraft.spell.target_ref || ""} onChange={(e) => setActionDraft((p) => ({ ...p, spell: { ...p.spell, target_ref: e.target.value } }))}>
                         <option value="">法术攻击目标</option>
                         {actorList.map((actor) => <option key={`spell-target-${actor.value}`} value={actor.value}>{actor.label}</option>)}
                       </select>}
@@ -3947,6 +3863,9 @@ export default function App() {
                           actor={characterActorById[character.character_id]}
                           encounter={encounter}
                           primary={character.character_id === activeCharacterId}
+                          onToggleControl={toggleCombatControl}
+                          controlDisabled={isGameMutationBusy || localActionsLocked}
+                          statusReady={statusProjectionCurrent}
                         />
                       ))}
                     </div>
@@ -3955,6 +3874,8 @@ export default function App() {
                 <CombatantPanel
                   encounter={encounter}
                   combatants={combatants}
+                  statusByRef={combatStatusByRef}
+                  statusReady={statusProjectionCurrent}
                   initiativeDrafts={initiativeDrafts}
                   setInitiativeDrafts={setInitiativeDrafts}
                   saveEncounterInitiative={saveEncounterInitiative}
@@ -3964,27 +3885,8 @@ export default function App() {
                 />
               </div>
             </div>
-            {isActionSuggestionsLoading && playerDecisionAvailable && (
-              <div className="action-suggestions-loading" role="status" aria-live="polite">
-                <span className="action-suggestions-loading-mark" aria-hidden="true" />
-                <span>正在准备行动灵感</span>
-              </div>
-            )}
-            {visibleActionSuggestions.length > 0 && (
-              <div className="action-suggestions" aria-label="行动建议">
-                {visibleActionSuggestions.map((suggestion, index) => (
-                  <button
-                    key={`${suggestion.label}-${index}`}
-                    type="button"
-                    className="action-suggestion"
-                    onClick={() => fillActionSuggestion(suggestion)}
-                    disabled={chatSubmitDisabled}
-                  >
-                    <span>{suggestion.label}</span>
-                    <small>{suggestion.action}</small>
-                  </button>
-                ))}
-              </div>
+            {encounter?.active && !playerDecisionAvailable && !localActionsLocked && (
+              <button type="button" className="btn-text combat-continue" disabled={isGameMutationBusy} onClick={() => submitChatMessage("继续战斗，结算到下一位玩家行动。")}>继续战斗至玩家行动</button>
             )}
             {rewriteTarget && (
               <div className="rewrite-bar">
@@ -4053,6 +3955,8 @@ export default function App() {
                 <CombatantPanel
                   encounter={encounter}
                   combatants={combatants}
+                  statusByRef={combatStatusByRef}
+                  statusReady={statusProjectionCurrent}
                   initiativeDrafts={initiativeDrafts}
                   setInitiativeDrafts={setInitiativeDrafts}
                   saveEncounterInitiative={saveEncounterInitiative}

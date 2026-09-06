@@ -11,6 +11,8 @@ from datetime import datetime
 from uuid import uuid4
 from typing import List, Optional
 
+from pydantic import ValidationError
+
 from models import Character, CharacterSummary, GameState, GameSummary, MonsterSummary, MonsterTemplate
 
 GAME_DIR = os.path.join(os.path.dirname(__file__), "Game")
@@ -125,28 +127,13 @@ class GameStorage:
             "state_version": uuid4().hex,
         }
 
-    def save_game(self, game_id: str, state: GameState, *, expected_version: Optional[str] = None,
-                  projection_only: bool = False) -> None:
+    def save_game(self, game_id: str, state: GameState, *, expected_version: Optional[str] = None) -> None:
         with self._lock(game_id):
             current_payload = self._check_version(game_id, state.state_version if expected_version is None else expected_version)
             # 恢复/回退走显式 save_turn；普通写入不能越过正在等待玩家选择的事务。
-            if current_payload and current_payload.get("pending_turn") and not projection_only:
+            if current_payload and current_payload.get("pending_turn"):
                 raise StateConflictError(PENDING_TURN_ACTION_MESSAGE)
             metadata = self._save_metadata(game_id, state)
-            if projection_only:
-                # 建议缓存不是权威回合变化；主回合会合并缓存，不应因此产生业务版本冲突。
-                current = self._load_game(game_id)
-                def authoritative_payload(value):
-                    payload = value.model_dump(mode="json")
-                    for field in ("updated_at", "state_version"):
-                        payload.pop(field, None)
-                    for message in payload["chat_history"]:
-                        message.pop("action_suggestions", None)
-                        message.pop("action_suggestions_generated", None)
-                    return payload
-                if current is None or authoritative_payload(current) != authoritative_payload(state):
-                    raise ValueError("Projection-only writes may only update existing message suggestions")
-                metadata["state_version"] = state.state_version
             content = state.model_copy(update=metadata).model_dump_json(indent=2).encode("utf-8")
             atomic_write(self._get_path(game_id), content)
             for key, value in metadata.items():
@@ -206,7 +193,7 @@ class GameStorage:
             if not state.title:
                 state.title = state.game_id
             return state
-        except Exception as exc:
+        except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as exc:
             print(f"Error loading game {game_id}: {exc}")
             return None
 
@@ -261,7 +248,7 @@ class GameStorage:
             state.game_id = game_id
             state.title = state.title or game_id
             return state
-        except Exception as exc:
+        except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as exc:
             print(f"Error loading rewind snapshot {game_id}@{message_index}: {exc}")
             return None
 
@@ -299,7 +286,7 @@ class CharacterStorage:
             with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
             return Character.model_validate(data)
-        except Exception:
+        except (OSError, UnicodeError, json.JSONDecodeError, ValidationError):
             return None
 
     def load_character(self, identifier: str) -> Optional[Character]:
@@ -358,7 +345,7 @@ class MonsterStorage:
             with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
             return MonsterTemplate.model_validate(data)
-        except Exception:
+        except (OSError, UnicodeError, json.JSONDecodeError, ValidationError):
             return None
 
     def load_monster(self, identifier: str) -> Optional[MonsterTemplate]:
