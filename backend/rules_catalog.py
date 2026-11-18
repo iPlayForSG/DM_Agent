@@ -1,4 +1,4 @@
-"""Rule catalog and validation helpers for level-1 character creation and play."""
+"""Rule catalog and validation helpers for level-aware character creation and play."""
 
 import json
 import os
@@ -7,7 +7,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 from library import Library, TERM_TRANSLATIONS
-from models import Character, GameState, InventoryItem, PendingCustomEquipment, ResourcePool, SpellSlot
+from models import Character, GameState, InventoryItem, PendingCustomEquipment, ResourcePool, SpellSlot, Stats
 from item_effects import enrich_effect_fields, lookup_item_rules
 from starter_shop import get_shop_catalog, get_shop_item, get_shop_item_by_name
 
@@ -132,6 +132,8 @@ class RuleCatalog:
         classes: List[Dict[str, Any]] = []
         for class_def in self.data.get("classes", []):
             class_copy = deepcopy(class_def)
+            from class_resources import resource_profile
+            class_copy["resources"] = resource_profile(class_def["name"], 1, Stats().model_dump())
             custom_purchase_option = self.get_custom_purchase_option(class_def)
             class_copy["custom_purchase_budget_gp"] = (
                 int(custom_purchase_option.get("gold_gp", 0))
@@ -379,7 +381,7 @@ class RuleCatalog:
             "fire": ("火焰", "fire"), "cold": ("寒冷", "cold"), "force": ("力场", "force"),
             "lightning": ("闪电", "lightning"), "thunder": ("雷鸣", "thunder"),
             "acid": ("强酸", "acid"), "poison": ("毒素", "poison"),
-            "necrotic": ("黯蚀", "坏死", "necrotic"), "radiant": ("光耀", "radiant"),
+            "necrotic": ("黯蚀", "暗蚀", "坏死", "necrotic"), "radiant": ("光耀", "radiant"),
             "psychic": ("心灵", "psychic"),
         }
         # 先读取伤害骰后紧邻的类型；选择型法术再从目录限定的候选类型中选择。
@@ -609,11 +611,16 @@ class RuleCatalog:
     ) -> str:
         if not self._solo_level_one_party(state):
             return ""
-        if len([name for name in enemy_names if str(name or "").strip()]) > 1:
-            return "A solo level-1 party cannot start against multiple new enemies without explicit balancing support."
         if int(enemy_hp or 0) > 15 or int(enemy_ac or 0) > 14:
             return "For a solo level-1 party, a new encounter enemy must use at most 15 HP and AC 14."
         return ""
+
+    def encounter_participant_advice(self, state: GameState, enemy_names: List[str]) -> List[str]:
+        count = len([name for name in enemy_names if str(name or "").strip()])
+        if self._solo_level_one_party(state) and count > 1:
+            # 难度提醒不能改变已经成立的现场事实，更不能把旁边的敌人从先攻中删去。
+            return [f"单名1级角色面对{count}名敌人，行动次数处于劣势。按场景保留全部参战者；可用estimate_encounter_difficulty评估难度，不因人数删除敌人。"]
+        return []
 
     def solo_level_one_monster_template_error(
         self,
@@ -766,12 +773,15 @@ class RuleCatalog:
             inventory.append(pending_item)
 
         character.inventory = inventory
-        character.gold_gp = max(0, budget_gp - spent_gp)
+        from money import adjust
+        remaining_gp = max(0, budget_gp - spent_gp)
+        if remaining_gp:
+            adjust(character, remaining_gp, 'gp')
         self._canonicalize_inventory(character)
         return {"budget_gp": budget_gp, "spent_gp": spent_gp}
 
     # Builder validation keeps save data coherent before it is persisted.
-    def validate_character(self, character: Character) -> List[str]:
+    def validate_character(self, character: Character, *, for_creation: bool = False) -> List[str]:
         errors: List[str] = []
         if not str(character.name or "").strip():
             errors.append("Character name is required")
@@ -792,7 +802,9 @@ class RuleCatalog:
         if not class_def:
             errors.append(f"Unknown class: {character.class_name}")
 
-        stat_values = self.get_stat_values(character)
+        # 基础属性用于购点/掷骰验收；升级后的属性不能再按1级预算计算。
+        ability_character = character.model_copy(update={"stats": character.base_stats}) if character.base_stats else character
+        stat_values = self.get_stat_values(ability_character)
         generation_method = str(character.ability_generation_method or "point_buy").strip().lower()
         if generation_method == "point_buy":
             point_buy = self.get_point_buy_config()
@@ -802,7 +814,7 @@ class RuleCatalog:
                         f"Ability score {stat_name}={stat_value} is outside the supported range "
                         f"{point_buy['minimum']}-{point_buy['maximum']}"
                     )
-            point_buy_spend = self.get_point_buy_spend(character)
+            point_buy_spend = self.get_point_buy_spend(ability_character)
             if point_buy_spend is None:
                 errors.append("Ability scores do not match the configured point-buy table")
             elif point_buy_spend > point_buy["budget"]:
@@ -863,7 +875,7 @@ class RuleCatalog:
                 errors.append(
                     f"Selected {len(class_selected_skills)} class skills but only {class_def.get('skills_to_choose', 0)} are allowed"
                 )
-            elif character.level == 1 and len(class_selected_skills) != skill_target:
+            elif (character.level == 1 or for_creation) and len(class_selected_skills) != skill_target:
                 errors.append(
                     f"Selected {len(class_selected_skills)} class skills but level 1 requires exactly {skill_target}"
                 )
@@ -952,7 +964,7 @@ class RuleCatalog:
             elif int(details.get("level", 0)) != 0:
                 errors.append(f"Cantrip list contains a non-cantrip spell: {cantrip_name}")
 
-        if class_def and class_def.get("spellcasting_ability"):
+        if class_def and class_def.get("spellcasting_ability") and character.level == 1:
             starting_cantrip_count = int(class_def.get("starting_cantrips", 0)) if character.level == 1 else 0
             if character.level == 1 and starting_cantrip_count > 0 and len(character.spells.cantrips) != starting_cantrip_count:
                 errors.append(
@@ -975,10 +987,18 @@ class RuleCatalog:
             if int(rank) not in (0, 1, 2):
                 errors.append(f"Invalid proficiency rank for skill {skill}: {rank}")
 
+        if for_creation and class_def:
+            from level_creation import validate as validate_level
+            try:
+                errors.extend(validate_level(self, character))
+            except ValueError as exc:
+                errors.append(str(exc))
         return errors
 
     def apply_builder_defaults(self, character: Character) -> Character:
-        # Fill rule-driven defaults so the frontend can submit a smaller payload.
+        # 此入口只用于创建/构筑；不能用于重置运行中的受伤角色。
+        from level_creation import apply as apply_level
+        level_profile = apply_level(self, character) if self.get_class_def(character.class_name) else None
         background = self.get_background(character.background_name) if character.background_name else None
         class_def = self.get_class_def(character.class_name) if character.class_name else None
 
@@ -1000,12 +1020,6 @@ class RuleCatalog:
 
         # 可用性检查不能修改角色；失败工具和只读 guardrail 都会调用这里。
 
-        if class_def and not character.resources:
-            resources: Dict[str, ResourcePool] = {}
-            for resource_name, resource_def in class_def.get("resources", {}).items():
-                resources[resource_name] = ResourcePool(**resource_def)
-            character.resources = resources
-
         starter_option = self.get_starter_option(class_def, character.starter_option_id)
         if starter_option and not character.starter_option_id:
             character.starter_option_id = starter_option.get("id", "")
@@ -1017,8 +1031,11 @@ class RuleCatalog:
             character.inventory = [InventoryItem(**item_def) for item_def in resolved_items]
             self._canonicalize_inventory(character)
 
-        if not class_def and starter_option and character.gold_gp <= 0:
-            character.gold_gp = int(starter_option.get("gold_gp", 0))
+        from money import adjust, balance_cp
+        if not class_def and starter_option and balance_cp(character) <= 0:
+            starting_gp = int(starter_option.get("gold_gp", 0))
+            if starting_gp:
+                adjust(character, starting_gp, 'gp')
 
         if class_def and not character.spells.slots and class_def.get("starting_spell_slots"):
             character.spells.slots = {
@@ -1026,17 +1043,20 @@ class RuleCatalog:
                 for level, slot_total in class_def["starting_spell_slots"].items()
             }
 
-        if class_def and character.level == 1:
-            character.hp_max = self.get_expected_level_one_hp(character, class_def)
-            character.hp_current = character.hp_max
-        elif class_def and character.hp_max <= 0:
-            hit_die = int(class_def.get("hit_die", 8))
-            character.hp_max = max(1, hit_die + self.get_ability_modifier(character, "constitution"))
-            character.hp_current = character.hp_max
 
         if class_def:
             character.ac = self._calculate_starting_ac(character)
+            if level_profile and character.class_name == "Monk" and not any(i.is_equipped and i.type == "armor" for i in character.inventory):
+                character.ac = max(character.ac, 10 + self.get_ability_modifier(character, "dexterity") + self.get_ability_modifier(character, "wisdom"))
+                character.speed = 30 + int(level_profile["metrics"].get("Unarmored Movement", 0) or 0)
 
+        if character.level > 1:
+            if character.subclass_id in {"draconic-sorcery", "college-of-dance"} and not any(i.is_equipped and i.type == "armor" for i in character.inventory):
+                character.ac = max(character.ac, 10 + self.get_ability_modifier(character, "dexterity") + self.get_ability_modifier(character, "charisma"))
+            for skill in character.expertise_skills:
+                if character.skill_proficiencies.get(skill):
+                    character.skill_proficiencies[skill] = 2
+            character.initiative_bonus = self.get_ability_modifier(character, "dexterity")
         return character
 
     def can_cast_spell(

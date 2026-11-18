@@ -81,7 +81,8 @@ class RecoveryInventoryTests(unittest.TestCase):
         after.characters[self.hero].inventory[0].quantity=3
         after.characters[self.hero].inventory[0].is_equipped=True
         after.characters[self.hero].inventory[1].quantity=1
-        after.characters[self.hero].gold_gp+=2
+        from money import adjust
+        adjust(after.characters[self.hero], 2, 'gp')
         records=inventory_annotations(before,after)
         response=ensure_inventory_annotations('你拿起 Dagger，喝下 Potion。\n\n**物品｜凭空获得钻石 +99**',records)
         for term in ['Dagger +1','Potion -1','已装备','金币 +2']:self.assertIn(term,response)

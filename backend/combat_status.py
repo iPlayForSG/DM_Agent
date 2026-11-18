@@ -1,7 +1,7 @@
 """战斗状态的只读投影；不在浏览器复制效果结算。"""
 from game_logic import GameLogic
 from library import Library
-from spell_effects import actor,actor_id,canonical_condition,is_laughter
+from spell_effects import actor,actor_id,canonical_condition
 
 CONDITION_INFO = {
  'Dead': ('死亡','debuff','已记录死亡，无法行动。'),
@@ -36,10 +36,10 @@ def combat_status_entries(state, ref):
         remaining=max(0,effect.expires_at_seconds-state.rules_time_seconds)
         labels=[CONDITION_INFO.get(c,(library.localize_game_terms(c),'status',''))[0] for c in effect.conditions]
         duration=f'剩余至多 {remaining} 秒游戏时间' if remaining else '本轮施法者行动开始时到期'
-        entries.append({'id':effect.effect_id,'name':effect.spell_name,'kind':'debuff',
-                        'summary':'、'.join(labels)+f' · 感知 DC {effect.save_dc}',
+        entries.append({'id':effect.effect_id,'name':effect.spell_name,'kind':effect.kind,
+                        'summary':'、'.join(labels)+(f' · {library.localize_game_terms(effect.save_name.title())} DC {effect.save_dc}' if effect.save_name else ''),
                         'source':f'来源：{source.name if source else effect.caster_id} · {duration}',
-                        'description':'回合结束进行感知豁免；受到伤害时立即重掷且具有优势。成功、专注结束或持续时间到期时解除。效果维持时无法主动结束倒地，不会自动丢弃武器。'})
+                        'description':effect.description or '按来源效果的豁免、专注及期限条件解除。'})
     for status in value.status_effects:
         canonical=canonical_condition(status)
         if canonical in managed:continue
@@ -49,10 +49,20 @@ def combat_status_entries(state, ref):
     character=logic._concentration_character(ref)
     if character and character.concentration_spell:
         name=library.localize_game_terms(character.concentration_spell)
-        unconfirmed = is_laughter(character.concentration_spell) and not any(e.caster_id == character.character_id for e in state.active_spell_effects)
+        maintained = [e for e in state.active_spell_effects if e.requires_concentration and e.caster_id == character.character_id
+                      and library.normalize_spell_name(e.spell_name) == library.normalize_spell_name(character.concentration_spell)]
+        unconfirmed = not maintained
+        target_names = list(dict.fromkeys(logic.get_actor_name(e.target_id) for e in maintained))
+        source = (f"目标：{'、'.join(target_names)} · 剩余至多 {max(0, max(e.expires_at_seconds for e in maintained)-state.rules_time_seconds)} 秒游戏时间" if maintained else '')
         entries.append({'id':'concentration','name':'专注：'+name,'kind':'concentration',
-                        'summary':'尚无已确认的目标效果' if unconfirmed else '正在维持法术','source':'',
+                        'summary':'尚无已确认的目标效果' if unconfirmed else '正在维持法术','source':source,
                         'description':'失能、死亡、专注豁免失败或主动结束专注时终止；新专注法术会替换它。'})
+    from d20_bonuses import available
+    for bonus in available(logic, ref):
+        entries.append({'id': bonus.bonus_id, 'name': '诗人激励', 'kind': 'buff',
+                        'summary': bonus.expression,
+                        'source': f'来源：{logic.get_actor_name(bonus.source_id)} · 剩余 {bonus.expires_at_seconds-state.rules_time_seconds} 秒游戏时间',
+                        'description': 'D20检定失败后可选择消耗此骰，将骰值加到原检定；同一生物至多持有一枚。'})
     if value.hiding:
         entries.append({'id':'hiding','name':'躲藏中','kind':'buff','summary':f'发现 DC {value.hiding.stealth_total}',
                         'source':'','description':'攻击、言语施法、被发现或暴露可能结束躲藏。'})

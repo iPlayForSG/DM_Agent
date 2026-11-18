@@ -43,6 +43,8 @@ def _cast_spell_bookkeeping(state: GameState, rules: RuleCatalog, caster_ref: st
     profile = rules.get_spell_attack_profile(caster, canonical_name, resolved_slot)
     previous = caster.concentration_spell
     rules.consume_spell_slot(caster, resolved_slot)
+    from spell_effects import dispatch
+    dispatch(logic, "cast_spell", source_ref=caster.character_id)
     if details.get("concentration"):
         from spell_effects import end_concentration
         end_concentration(logic, caster.character_id, "改为维持新的专注法术")
@@ -88,12 +90,9 @@ def _cast_spell_bookkeeping(state: GameState, rules: RuleCatalog, caster_ref: st
 
 def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name: str,
                slot_level: int = 0, target_ref: str = "", target_refs=None):
-    from spell_effects import is_laughter, validate_laughter_targets, apply_laughter
-    details = rules.library.get_spell_details(spell_name) or {}
-    canonical = str(details.get("name") or spell_name)
-    if not (is_laughter(canonical) or is_laughter(details.get("nameEN", ""))):
-        return _cast_spell_bookkeeping(state, rules, caster_ref, spell_name, slot_level)
-    # 所有目标、资源与槽位检查在副本上执行；任何一步失败都不遗留扣费或部分状态。
+    from spell_rules import rule_for, RuleConflict, RulesUnavailable
+    from spell_effects import validate_targets, apply_rule, effect_patch
+    from rules_catalog import proficiency_bonus_for_level
     work = state.model_copy(deep=True)
     logic = GameLogic(work)
     caster = logic.get_character(caster_ref) or logic._concentration_character(caster_ref)
@@ -101,22 +100,42 @@ def cast_spell(state: GameState, rules: RuleCatalog, caster_ref: str, spell_name
         raise ValueError(f"Spell caster not found: {caster_ref}")
     validation = rules.can_cast_spell(caster, spell_name, slot_level or None)
     if not validation["ok"]:
-        raise ValueError(validation["error"])
+        raise RuleConflict(validation["error"])
+    if work.encounter and work.encounter.active and int(validation["resolved_slot_level"]) > 0:
+        if any(record.get("caster_id") == caster.character_id and record.get("turn_key") == spell_turn_key(work)
+               and record.get("slot_level", 0) > 0 for record in work.spell_cast_history):
+            raise RuleConflict("同一战斗回合已经消耗过法术位，请调整行动。")
+    details = validation["spell"]
+    canonical = validation["spell_name"]
+    rule = rule_for(details)
+    attack_profile = rules.get_spell_attack_profile(caster, canonical, int(validation["resolved_slot_level"]))
+    if rule is None and not attack_profile:
+        raise RulesUnavailable(f"{canonical}的规则资料尚未提供可执行的效果配置，不能将仅扣除资源当作完成施法。")
     refs = list(target_refs or [])
     if target_ref:
-        refs.insert(0,target_ref)
-    target_ids = validate_laughter_targets(logic, refs, int(validation["resolved_slot_level"]))
-    profile = rules.get_spell_save_profile(caster, spell_name)
-    payload, patch = _cast_spell_bookkeeping(work, rules, caster_ref, spell_name, slot_level)
-    patch = GameLogic._merge_patches(patch, apply_laughter(logic,caster,payload["spell_name"],target_ids,profile))
-    payload.update({"target_ids":target_ids,"effect_resolution":"completed",
-                    "effect_events":[*payload["effect_events"],*logic.effect_events],
-                    "active_effects":[e.model_dump(mode="json") for e in work.active_spell_effects],
-                    "current_concentration_spell": caster.concentration_spell,
-                    "effect_rule":"初次豁免已结算；仅失败目标获得失能/倒地。回合末与受伤重掷由规则层自动结算；不导致武器脱手。"})
-    for field in ("characters","encounter","active_character_id","pending_spell_attacks","active_spell_effects","rules_time_seconds"):
-        setattr(state,field,getattr(work,field))
-    return payload, patch
+        refs.insert(0, target_ref)
+    target_ids = validate_targets(logic, caster, refs, int(validation["resolved_slot_level"]), rule) if rule else []
+    payload, result_patch = _cast_spell_bookkeeping(work, rules, caster_ref, canonical, slot_level)
+    if rule:
+        class_def = rules.get_class_def(caster.class_name) or {}
+        ability = class_def.get("spellcasting_ability") or caster.spells.ability
+        modifier = rules.get_ability_modifier(caster, ability)
+        save_dc = 8 + proficiency_bonus_for_level(caster.level) + modifier
+        result_patch = GameLogic._merge_patches(result_patch, apply_rule(logic, caster, canonical, target_ids,
+            int(validation["resolved_slot_level"]), rule, save_dc, modifier))
+        payload.update({"target_ids": target_ids, "effect_resolution": "completed", "rule_id": rule["id"]})
+    else:
+        payload["effect_resolution"] = "pending_attack"
+    payload["effect_events"] = [*payload.get("effect_events", []), *logic.effect_events]
+    payload["current_concentration_spell"] = caster.concentration_spell
+    payload["active_effects"] = [effect.model_dump(mode="json") for effect in work.active_spell_effects]
+    work.spell_cast_history.append({"rule_id": rule["id"] if rule else "attack", "caster_id": caster.character_id,
+        "target_id": "", "at": work.rules_time_seconds, "slot_level": int(validation["resolved_slot_level"]),
+        "turn_key": spell_turn_key(work), "spell_name": canonical})
+    # 任一目标或后续效果失败时，整次施法（包含法术位、旧专注及NPC状态）均不发布。
+    for field in type(state).model_fields:
+        setattr(state, field, getattr(work, field))
+    return payload, GameLogic._merge_patches(result_patch, effect_patch(logic))
 
 
 def resolve_spell_attack(state: GameState, caster_ref: str, target_ref: str, cast_id: str,

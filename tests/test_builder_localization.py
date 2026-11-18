@@ -19,13 +19,15 @@ class BuilderLocalizationTests(unittest.TestCase):
 
     def assert_display_field_is_chinese(self, entry, field: str) -> None:
         raw = entry.get(field)
-        if not isinstance(raw, str) or not ASCII_WORD.search(raw):
+        # 骰式与D20检定记号不是未翻译英文，职业资源现在包含这些必要规则信息。
+        language_text = lambda value: re.sub(r"(?<![A-Za-z])\d*[dD]\d+(?![A-Za-z])", "", value) if field == "description" else value
+        if not isinstance(raw, str) or not ASCII_WORD.search(language_text(raw)):
             return
         display_field = f"{field}_display"
         self.assertIn(display_field, entry, f"{raw!r} 缺少 {display_field}")
         display = entry[display_field]
         self.assertNotEqual(display, raw)
-        self.assertIsNone(ASCII_WORD.search(display), f"{raw!r} 仍显示为 {display!r}")
+        self.assertIsNone(ASCII_WORD.search(language_text(display)), f"{raw!r} 仍显示为 {display!r}")
 
     def test_all_primary_character_choices_have_chinese_display_names(self) -> None:
         for category in ("species", "backgrounds", "classes", "origin_feats"):

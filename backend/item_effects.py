@@ -11,6 +11,9 @@ from starter_shop import get_shop_item_by_name
 
 
 ITEM_EFFECTS = [
+    # 临时武器等效规则所用短棒资料；不加入目前只处理整数金币的创建商店。
+    {"name": "Club", "aliases": ["短棒", "短棍"], "type": "weapon", "damage_die": "1d4",
+     "damage_type": "bludgeoning", "properties": ["Light"]},
     {"name": "Potion of Healing", "aliases": ["治疗药水", "治疗药", "治疗药剂", "治愈药水"],
      "type": "potion", "healing_expression": "2d4+2",
      "effect_description": "附赠动作饮用，或喂给5尺内的另一名生物；饮用者恢复2d4+2生命。"},

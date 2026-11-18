@@ -188,6 +188,8 @@ class GameStorage:
             with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
             state = GameState.model_validate(data)
+            from class_resources import migrate_game
+            migrate_game(state, data)
             if not state.game_id:
                 state.game_id = game_id
             if not state.title:
@@ -245,6 +247,8 @@ class GameStorage:
             with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
             state = GameState.model_validate(data)
+            from class_resources import migrate_game
+            migrate_game(state, data)
             state.game_id = game_id
             state.title = state.title or game_id
             return state
@@ -285,7 +289,10 @@ class CharacterStorage:
         try:
             with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
-            return Character.model_validate(data)
+            character = Character.model_validate(data)
+            from class_resources import migrate_character
+            migrate_character(character, data)
+            return character
         except (OSError, UnicodeError, json.JSONDecodeError, ValidationError):
             return None
 

@@ -26,7 +26,9 @@ React/Vite UI
 - 规则执行层：`agent_tools.py` / `action_service.py` 组织操作，`game_logic.py` 结算，`rules_catalog.py` 提供角色卡和目录事实，`encounter_math.py` 提供无状态的遭遇预算与 CR 估算。
 - `stealth_rules.py` 将躲藏来源与通用魔法隐形分开；`Character.hiding` 与战斗镜像同步，`surprised_at_start` 保存开场裁定，先攻及攻击从状态计算优劣势。场景视线与未察觉前提仍由 DM 明确提供，工具不能将玩家文字直接等同于成功。
 - `combat_flow.py` 保存单次图调用的行动者与交接进度；主控身份由 `GameState.primary_character_id` 固定，其他队友默认 DM 控制，`combat_controllers` 只保存本局覆盖。旧存档以队伍首位作为主控，不能随当前行动者改变。
-- 持续法术由 `spell_effects.py` 维护有来源的效果；当前规则化塔莎狂笑术。初次豁免与施法原子结算，伤害、回合末、专注和游戏内时间驱动后续事件；状态栏只投影这些事实，不根据剧情文本推断成功。
+- `spell_rules.py` 读取受信的声明式规则数据，`spell_resolution.py` 原子处理目标、资源与初次结算；`spell_effects.py` 共用豁免、条件、数值修正、治疗/伤害、来源终止事件与游戏时间。法术差异放在 `data/spell_effect_rules.json`，未知机制明确返回不可结算，不能把扣资源当作成功。攻击型法术仍使用 cast_id 后续结算。
+- 战斗外目标登记在 `GameState.scene_actors`，进入先攻时迁移同一实体并保留ID、生命和效果；不能为社交法术登记目标而强行开战。
+- `check_spell_sequence` 只读检查复合施法；未完成施法和未修复的失败规则操作阻止正常提交。`report_rule_conflict` 进入 `rules_feedback`，最终恢复初始业务快照，仅保存输入和简短规则说明，跳过叙事长度编辑。
 - 数据层 `models.py`：API、存档和图状态共享的 Pydantic schema。
 - 持久化层 `storage.py`：每游戏/角色/怪物一个 JSON；rewind 保存完整 `GameState`。
 - 剧情记忆层 `campaign_memory.py`：只从权威 `GameState` 派生有限提示上下文，不拥有独立业务状态。

@@ -32,6 +32,8 @@ class ResourcePool(BaseModel):
     max_value: int = 0
     recovery: str = "long_rest"
     description: str = ""
+    display_name: str = ""
+    short_rest_recovery: int = 0
 
 
 class Spellbook(BaseModel):
@@ -157,7 +159,16 @@ class Character(BaseModel):
     background_name: str = ""
     origin_feat: str = ""
     class_name: str = "Commoner"
-    level: int = 1
+    level: int = Field(default=1, ge=1, le=20, strict=True)
+    subclass_id: str = ""
+    subclass_name: str = ""
+    subclass_spell_variant: str = ""
+    bonus_spells: List[str] = Field(default_factory=list)
+    base_stats: Optional[Stats] = None
+    ability_increases: Dict[str, List[str]] = Field(default_factory=dict)
+    expertise_skills: List[str] = Field(default_factory=list)
+    mystic_arcanum: Dict[str, str] = Field(default_factory=dict)
+    class_features: List[Dict[str, Any]] = Field(default_factory=list)
     experience_points: int = 0
     inspiration: bool = False
     starter_option_id: str = ""
@@ -165,11 +176,12 @@ class Character(BaseModel):
     equipment_mode: str = "starter_package"
     custom_purchase_items: List[StarterPurchaseSelection] = Field(default_factory=list)
     custom_pending_item: PendingCustomEquipment = Field(default_factory=PendingCustomEquipment)
-    gold_gp: int = 0
+    currency_inventory_version: int = 1
 
     hp_current: int = 10
     hp_max: int = 10
     temp_hp: int = 0
+    temp_hp_source: str = ""
     ac: int = 10
     speed: int = 30
     initiative_bonus: int = 0
@@ -181,6 +193,7 @@ class Character(BaseModel):
     concentration_spell: str = ""
     concentration_spell_level: int = 0
     resources: Dict[str, ResourcePool] = Field(default_factory=dict)
+    class_resource_version: int = 1
     inventory: List[InventoryItem] = Field(default_factory=list)
     status_effects: List[str] = Field(default_factory=list)
     hiding: Optional[HidingState] = None
@@ -219,7 +232,8 @@ class Character(BaseModel):
                 for item_id, quantity in data["custom_purchase_items"].items()
             ]
         data["character_id"] = data.get("character_id") or stable_id("char", data.get("name", "character"))
-        return data
+        from money import migrate_character_money
+        return migrate_character_money(data)
 
     def to_summary(self) -> CharacterSummary:
         return CharacterSummary(
@@ -248,6 +262,9 @@ class RollRecord(BaseModel):
     visibility: str = "public"
     dc: Optional[int] = None
     success: Optional[bool] = None
+    # None表示旧记录没有提供该信息；技能检定不套用攻击自然20的重击规则。
+    natural: Optional[int] = None
+    critical: Optional[bool] = None
     settlement: str = "pending"
     tool_status: str = "succeeded"
 
@@ -258,7 +275,7 @@ class ChatMessage(BaseModel):
     role: str
     content: str
     kind: str = "message"
-    narrative_mode: Literal["story", "combat"] = "story"
+    narrative_mode: Literal["story", "combat", "rules_feedback"] = "story"
 
 
 class ToolResult(BaseModel):
@@ -455,11 +472,15 @@ class Combatant(BaseModel):
     combatant_id: str = ""
     name: str
     side: str = "enemy"
+    creature_type: str = ""
+    condition_immunities: List[str] = Field(default_factory=list)
+    source: str = ""
     linked_character_id: Optional[str] = None
     monster_template_id: Optional[str] = None
     hp_current: int = 10
     hp_max: int = 10
     temp_hp: int = 0
+    temp_hp_source: str = ""
     ac: int = 10
     initiative_bonus: int = 0
     initiative: Optional[int] = None
@@ -665,6 +686,16 @@ class ActiveSpellEffect(BaseModel):
     expires_at_seconds: int
     next_save_at_seconds: int = 0
     conditions: List[str] = Field(default_factory=list)
+    rule_id: str = ""
+    requires_concentration: bool = True
+    repeat_saves: Dict[str, str] = Field(default_factory=lambda: {"target_turn_end": "normal", "target_damaged": "advantage"})
+    end_events: List[str] = Field(default_factory=list)
+    immunities: List[str] = Field(default_factory=list)
+    ongoing: List[Dict[str, Any]] = Field(default_factory=list)
+    spell_modifier: int = 0
+    modifiers: Dict[str, Any] = Field(default_factory=dict)
+    kind: str = "debuff"
+    description: str = ""
     # 只清理由本效果引入的状态；重叠效果结束时移交状态所有权。
     added_conditions: List[str] = Field(default_factory=list)
 
@@ -681,13 +712,25 @@ class SpellAttackCast(BaseModel):
     attacks_remaining: int
 
 
+class GrantedDie(BaseModel):
+    bonus_id: str
+    kind: Literal["bardic_inspiration"] = "bardic_inspiration"
+    source_id: str
+    target_id: str
+    expression: Literal["1d6", "1d8", "1d10", "1d12"]
+    expires_at_seconds: int
+
+
 class GameState(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     schema_version: int = 4
     state_version: str = ""
+    granted_dice: List[GrantedDie] = Field(default_factory=list)
     pending_spell_attacks: List[SpellAttackCast] = Field(default_factory=list)
     active_spell_effects: List[ActiveSpellEffect] = Field(default_factory=list)
+    scene_actors: Dict[str, Combatant] = Field(default_factory=dict)
+    spell_cast_history: List[Dict[str, Any]] = Field(default_factory=list)
     rules_time_seconds: int = 0
     game_id: str = ""
     title: str = ""

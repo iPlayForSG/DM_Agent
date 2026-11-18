@@ -14,6 +14,8 @@ class DMBrainState(TypedDict, total=False):
     combat_flow: Dict[str, Any]
     last_tool_error: str
     repeated_tool_errors: int
+    rules_feedback: Dict[str, Any]
+    unresolved_operations: List[Dict[str, Any]]
     user_input: str
     thread_id: str
     phase: str

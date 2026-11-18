@@ -16,6 +16,8 @@ class RollCapture:
 
 _capture: ContextVar[RollCapture | None] = ContextVar("roll_capture", default=None)
 _metadata: ContextVar[dict] = ContextVar("roll_metadata", default={})
+_touched: ContextVar[list | None] = ContextVar("touched_rolls", default=None)
+_last_test: ContextVar[RollRecord | None] = ContextVar("last_test", default=None)
 _last_roll: ContextVar[RollRecord | None] = ContextVar("last_roll", default=None)
 
 
@@ -24,10 +26,12 @@ def capture_rolls(initial=()):
     capture = RollCapture([item.model_copy(deep=True) for item in initial])
     token = _capture.set(capture)
     last_token = _last_roll.set(None)
+    test_token = _last_test.set(None)
     try:
         yield capture
     finally:
         _last_roll.reset(last_token)
+        _last_test.reset(test_token)
         _capture.reset(token)
 
 
@@ -40,17 +44,33 @@ def dice_context(**metadata):
         _metadata.reset(token)
 
 
-def record_roll(*, expression, dice, kept, modifier, total, detail, roll_mode="normal"):
+def record_roll(*, record_id=None, expression, dice, kept, modifier, total, detail, roll_mode="normal"):
     capture = _capture.get()
     if capture is None:
         return
     record = RollRecord(
-        record_id=uuid4().hex, expression=expression, dice=list(dice), kept=list(kept),
+        record_id=record_id or uuid4().hex, expression=expression, dice=list(dice), kept=list(kept),
         modifier=modifier, total=total, detail=detail, roll_mode=roll_mode, **_metadata.get(),
     )
-    capture.records.append(record)
+    existing = next((i for i, entry in enumerate(capture.records) if entry.record_id == record.record_id), None)
+    if existing is None:
+        capture.records.append(record)
+    else:
+        capture.records[existing] = record
+    if _touched.get() is not None:
+        _touched.get().append(record)
+    if record.kind in {'attack', 'skill', 'save'}:
+        _last_test.set(record)
     _last_roll.set(record)
     emit_turn_stream_event("roll.recorded", {"roll_records": [record.model_dump(mode="json")]})
+
+
+def annotate_test_roll(**values):
+    token = _last_roll.set(_last_test.get())
+    try:
+        annotate_last_roll(**values)
+    finally:
+        _last_roll.reset(token)
 
 
 def annotate_last_roll(**values):
@@ -65,18 +85,24 @@ def annotate_last_roll(**values):
 @contextmanager
 def tool_roll_context(**metadata):
     capture = _capture.get()
-    start = len(capture.records) if capture else 0
+    touched = []
+    token = _touched.set(touched)
     outcome = {"ok": False}
     with dice_context(**metadata):
         try:
             yield outcome
+        except BaseException as exc:
+            from langgraph.errors import GraphInterrupt
+            outcome['interrupted'] = isinstance(exc, GraphInterrupt)
+            raise
         finally:
             if capture:
-                for record in capture.records[start:]:
-                    record.tool_status = "succeeded" if outcome["ok"] else "failed"
+                for record in touched:
+                    record.tool_status = "pending" if outcome.get('interrupted') else "succeeded" if outcome["ok"] else "failed"
+            _touched.reset(token)
 
 
 def settle_rolls(records, turn_status):
-    settlement = {"completed": "committed", "failed": "rolled_back"}.get(turn_status, "pending")
+    settlement = {"completed": "committed", "failed": "rolled_back", "rules_feedback": "rolled_back"}.get(turn_status, "pending")
     return [record.model_copy(update={"settlement": "not_applied" if record.tool_status == "failed" else settlement})
             for record in records]

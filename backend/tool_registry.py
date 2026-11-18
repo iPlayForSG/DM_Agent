@@ -39,6 +39,9 @@ class ToolGuardrailResult:
 
 
 TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
+    "check_spell_sequence": {"side_effect": "read", "risk_level": "low"},
+    "register_scene_actor": {"side_effect": "state_write", "risk_level": "low"},
+    "report_rule_conflict": {"side_effect": "interaction", "risk_level": "low"},
     "lookup_rules": {"side_effect": "read", "risk_level": "low"},
     "end_concentration": {"side_effect": "state_write", "risk_level": "medium"},
     "advance_time": {"side_effect": "state_write", "risk_level": "medium", "blocks_active_encounter": True},
@@ -67,6 +70,7 @@ TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
     "add_status": {"side_effect": "state_write", "risk_level": "medium"},
     "remove_status": {"side_effect": "state_write", "risk_level": "medium"},
     "append_adventure_log": {"side_effect": "story_write", "risk_level": "low"},
+    "adjust_currency": {"side_effect": "state_write", "risk_level": "medium"},
     "add_inventory_item": {"side_effect": "state_write", "risk_level": "medium"},
     "use_item": {
         "side_effect": "state_write",

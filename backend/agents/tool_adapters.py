@@ -83,17 +83,25 @@ class AgentToolFactory:
                     repair_error,
                     guardrail.metadata,
                 )
+            elif (tool_name == "report_rule_conflict"
+                  and any(self.runner._tool_result_payloads(graph_state, name) for name in
+                          ('attack_target', 'cast_spell', 'use_feature', 'use_item', 'advance_time', 'adjust_hp', 'add_inventory_item', 'adjust_currency'))
+                  and not graph_state.get('unresolved_operations')
+                  and not any(p.get('valid') is False for p in self.runner._tool_result_payloads(graph_state, 'check_spell_sequence'))):
+                execution = self.runner._tool_error_execution(tool_name,
+                    "当前没有未解决的失败操作，已有成功结算。内部修复或本轮已发生的击杀不是玩家规则冲突；继续尚未执行的合法行动并叙述已确认结果，不能重做成功攻击。")
             elif tool_name == "request_player_choice":
                 execution = self.runner._request_player_choice(graph_state, guardrail.args)
                 player_choice_cancelled = bool(execution.error_response.get("cancelled"))
             else:
-                execution = self.runner._execute_single_tool(
-                    state,
-                    tool_name,
-                    guardrail.args,
-                    allowed_tools,
-                )
+                from d20_bonuses import decision_context, graph_decision
+                with decision_context(graph_decision):
+                    execution = self.runner._execute_single_tool(state, tool_name, guardrail.args, allowed_tools)
 
+        if execution.ok:
+            from d20_bonuses import expire
+            expire(state)
+            execution.state_patch['granted_dice'] = [b.model_dump(mode='json') for b in state.granted_dice]
         if not execution.ok:
             # 失败工具不能把部分结算发布给下一次模型调用。
             state = before
@@ -146,6 +154,11 @@ class AgentToolFactory:
                 status="cancelled" if player_choice_cancelled else "completed" if execution.ok else "failed",
             ),
         }
+        from resolution_protocol import update_failures
+        update["unresolved_operations"] = update_failures(state, graph_state.get("unresolved_operations", []), tool_name, args, execution.ok, execution.error)
+        if tool_name == "report_rule_conflict" and execution.ok:
+            update["rules_feedback"] = {"message": execution.payload["message"]}
+            update["turn_status"] = "rules_feedback"
         error_key = "" if execution.ok else f"{tool_name}: {execution.error}"
         update["last_tool_error"] = error_key
         update["repeated_tool_errors"] = (int(graph_state.get("repeated_tool_errors", 0)) + 1 if error_key == graph_state.get("last_tool_error") else 1) if error_key else 0

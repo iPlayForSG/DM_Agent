@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import DescriptionTooltip from "./DescriptionTooltip";
+import LevelBuildChoices from "./LevelBuildChoices";
 import { isPlayerVisibleTimelineEvent, narrativeEmphasisClass } from "./narrativeRollUi";
-import { mergeRollRecords, rollSettlementLabel } from "./rollUi";
+import { mergeRollRecords, rollSettlementLabel, rollOutcomeLabel } from "./rollUi";
 import {
   createEmptyDmThinking,
   interruptedThinking,
@@ -26,12 +27,12 @@ import {
   loadActionOptions,
   loadCharacter,
   loadCharacterBuilder,
+  loadCharacterCreationOptions,
   loadGame,
   loadLobby,
   loadModelConfig,
   loadModelHealth,
   loadMonsterTemplate,
-  loadSpells,
   saveCharacter,
   saveMonsterTemplate,
   savingThrowAction,
@@ -279,6 +280,7 @@ const CREATOR_STEPS = [
   { id: "review", label: "总览" },
 ];
 const EQUIPMENT_TYPE_LABELS = {
+  currency: "货币",
   armor: "防具",
   ammo: "弹药",
   book: "书籍",
@@ -295,6 +297,7 @@ const EQUIPMENT_TYPE_LABELS = {
 };
 const EMPTY_PENDING_ITEM = { name: "", quantity: 1, reserved_cost_gp: 0, notes: "" };
 const EMPTY_CHAR = {
+  level: 1, subclass_id: "", subclass_spell_variant: "", bonus_spells: [], ability_increases: {}, expertise_skills: [], mystic_arcanum: {},
   name: "",
   species: "Human",
   background_name: "",
@@ -464,7 +467,7 @@ const localizeEquipmentType = (type) => EQUIPMENT_TYPE_LABELS[type] || type || "
 const localizeDefeatState = (state) => DEFEAT_STATE_LABELS[state] || state || "正常";
 const formatEquipmentLine = (item) => {
   const details = [];
-  if (item.quantity && item.quantity > 1) details.push(`数量 ${item.quantity}`);
+  if (item.type === "currency" || item.quantity > 1) details.push(`数量 ${item.quantity ?? 0}`);
   if (item.type_display || item.type) details.push(item.type_display || localizeEquipmentType(item.type));
   if (item.damage_expression) details.push(`伤害 ${item.damage_expression}`);
   if (item.healing_expression) details.push(`治疗 ${item.healing_expression}`);
@@ -565,7 +568,7 @@ function ShopCarousel({ group, quantities, onQuantityChange }) {
           return (
             <article key={item.id} className={`shop-card ${quantity > 0 ? "selected" : ""}`}>
               <div className="shop-card-copy">
-                <div className="timeline-summary">{itemName}</div>
+                <div className="timeline-summary"><DescriptionTooltip label={itemName} description={item.description_display || item.description || item.notes_display || item.notes} /></div>
                 <div className="timeline-content">{formatShopItemMeta(item)}</div>
               </div>
               <div className="quantity-stepper" aria-label={`${itemName}数量`}>
@@ -728,7 +731,7 @@ function RollLedger({ records = [], recorded = true }) {
               <div className="roll-record-context">
                 {record.roll_mode === "advantage" ? "优势 · " : record.roll_mode === "disadvantage" ? "劣势 · " : ""}
                 {record.dc != null ? `目标值 ${record.dc} · ` : ""}
-                {record.success != null ? `${record.success ? "成功" : "失败"} · ` : ""}
+                {rollOutcomeLabel(record) && <strong className="roll-outcome">{rollOutcomeLabel(record)} · </strong>}
                 {rollSettlementLabel(record)}
               </div>
               {record.reason && <p className="roll-reason">{record.reason}</p>}
@@ -840,12 +843,22 @@ function CombatStatusStrip({ entries = [], name, loading = false }) {
   </aside>;
 }
 
+function SceneActorPanel({ actors = [], ready = true }) {
+  const visible = actors.filter(actor => actor.scene_actor && actor.status_entries?.length > 0);
+  if (visible.length === 0) return null;
+  return <section className="side-section"><h3>场景人物状态</h3>
+    {visible.map(actor => <div key={actor.ref}><strong>{actor.name}</strong>
+      <CombatStatusStrip name={actor.name} entries={actor.status_entries} loading={!ready} />
+    </div>)}
+  </section>;
+}
+
 function CombatantPanel({ encounter, combatants, statusByRef = {}, statusReady = true, initiativeDrafts, setInitiativeDrafts, saveEncounterInitiative, rerollEncounterInitiative, dropEncounterCombatant, localActionsLocked = false }) {
   const nextActorId = encounter?.active && encounter?.turn_order_started ? encounter.current_combatant_id : null;
   return (
     <section className="side-section combat-panel">
       <h3>场上形势</h3>
-      {!encounter ? (
+      {!encounter?.active ? (
         <p className="empty-text">当前没有战斗。</p>
       ) : (
         <div className="combatant-list" aria-label="先攻行动顺序">
@@ -979,7 +992,6 @@ function CharacterStatusCard({ character, actor, encounter, primary = false, onT
           <span>护甲 {character.ac}</span>
           <span>速度 {character.speed}</span>
           <span>先攻 {formatSigned(character.initiative_bonus)}</span>
-          <span>{formatGoldLine(character.gold_gp)}</span>
         </div>
         <div className="stats-hex compact">
           {STATS.map((stat) => (
@@ -998,12 +1010,15 @@ function CharacterStatusCard({ character, actor, encounter, primary = false, onT
             {statuses.map((status) => <span key={status} className="tag">{status}</span>)}
           </div>
         )}
-        {encounter?.active && <CombatStatusStrip name={character.name} entries={actor?.status_entries} loading={!statusReady} />}
+        {(encounter?.active || !statusReady || actor?.status_entries?.length > 0 || character.concentration_spell) && <CombatStatusStrip name={character.name} entries={actor?.status_entries} loading={!statusReady} />}
         <TurnActionResources character={character} actor={actor} encounter={encounter} />
         {resources.length > 0 && (
           <section className="sheet-section">
-            <h4>资源</h4>
-            {resources.map(([name, resource]) => <div key={name} className="sheet-row"><span>{localizeClassResource(name)}</span><strong>{resource.current_value}/{resource.max_value}</strong></div>)}
+            <h4>职业资源</h4>
+            {resources.map(([name, resource]) => <div key={name} className="class-resource-entry">
+              <div className="sheet-row"><DescriptionTooltip label={resource.display_name || localizeClassResource(name)} description={resource.rules_text || resource.description_display || resource.description} metadata={[resource.rules_source].filter(Boolean)} /><strong>{resource.current_value}/{resource.max_value}</strong></div>
+              <small>{resource.short_rest_recovery ? `短休恢复 ${resource.short_rest_recovery} 次；长休恢复全部` : `${formatResourceRecovery(resource)}恢复全部`}</small>
+            </div>)}
           </section>
         )}
         {(cantrips.length > 0 || prepared.length > 0 || slots.length > 0) && (
@@ -1020,6 +1035,7 @@ function CharacterStatusCard({ character, actor, encounter, primary = false, onT
             {attacks.slice(0, 5).map((attack) => <div key={`${character.character_id}-${localizeName(attack)}`} className="sheet-row"><span>{formatAttackSummary(attack)}</span></div>)}
           </section>
         )}
+        {character.class_features?.length > 0 && <details className="sheet-section"><summary>职业特性 · {character.subclass_name || character.class_name} · {character.level}级</summary>{character.class_features.map((feature, index) => <div className="timeline-content" key={`${feature.name}-${index}`}>{feature.level}级 · {feature.name_display || feature.name}</div>)}</details>}
         {(skills.length > 0 || saves.length > 0) && (
           <section className="sheet-section">
             <h4>熟练</h4>
@@ -1083,7 +1099,6 @@ function CharacterSheetDetail({ character }) {
         <div><span>护甲</span><strong>{character.ac}</strong></div>
         <div><span>速度</span><strong>{character.speed}</strong></div>
         <div><span>先攻</span><strong>{formatSigned(character.initiative_bonus)}</strong></div>
-        <div><span>财富</span><strong>{formatGoldLine(character.gold_gp)}</strong></div>
       </section>
 
       <div className="character-sheet-grid">
@@ -1105,6 +1120,7 @@ function CharacterSheetDetail({ character }) {
           <h3>身份</h3>
           <div className="sheet-data-grid">
             <div><span>等级</span><strong>{character.level || 1}级</strong></div>
+            {character.subclass_name && <div><span>子职业</span><strong>{character.subclass_name}</strong></div>}
             <div><span>阵营</span><strong>{character.alignment_display || localizeAlignment(character.alignment) || "未说明"}</strong></div>
             <div><span>起源专长</span><strong>{localizeOriginFeat(character.origin_feat) || "未记录"}</strong></div>
             <div><span>经验值</span><strong>{character.experience_points || 0}</strong></div>
@@ -1118,17 +1134,18 @@ function CharacterSheetDetail({ character }) {
           <h3>熟练</h3>
           {skills.length === 0 && saves.length === 0 ? <p className="empty-text">没有记录熟练项。</p> : (
             <>
-              {skills.length > 0 && <p className="timeline-content">技能：{skills.map(([skill]) => localizeSkill(skill)).join("、")}</p>}
+              {skills.length > 0 && <p className="timeline-content">技能：{skills.map(([skill, rank]) => `${localizeSkill(skill)}${Number(rank) === 2 ? "（专精）" : ""}`).join("、")}</p>}
               {saves.length > 0 && <p className="timeline-content">豁免：{saves.map(([save]) => localizeStat(save)).join("、")}</p>}
             </>
           )}
         </section>
 
+        {character.class_features?.length > 0 && <section className="sheet-panel"><h3>职业特性</h3>{character.class_features.map((feature, index) => <div className="timeline-content" key={`${feature.name}-${index}`}>{feature.level}级 · {feature.name_display || feature.name}</div>)}</section>}
         <section className="sheet-panel">
           <h3>职业资源</h3>
           {resources.length === 0 ? <p className="empty-text">没有可追踪资源。</p> : resources.map(([name, resource]) => (
             <div key={name} className="sheet-row">
-              <span>{localizeClassResource(name)}</span>
+              <DescriptionTooltip label={resource.display_name || localizeClassResource(name)} description={resource.rules_text || resource.description_display || resource.description} metadata={[resource.rules_source].filter(Boolean)} />
               <strong>{resource.current_value}/{resource.max_value}</strong>
             </div>
           ))}
@@ -1216,6 +1233,9 @@ export default function App() {
   const [selectedGameChars, setSelectedGameChars] = useState([]), [newGameId, setNewGameId] = useState("");
   const [activeGameId, setActiveGameId] = useState(null), [gameState, setGameState] = useState(null), [actionOptions, setActionOptions] = useState({ actors: [] });
   const [actionDraft, setActionDraft] = useState({ ...EMPTY_ACTIONS }), [messages, setMessages] = useState([]);
+  const [levelProfile, setLevelProfile] = useState(null);
+  const [levelProfileError, setLevelProfileError] = useState("");
+  const [levelProfileLoading, setLevelProfileLoading] = useState(false);
   const [workflowEvents, setWorkflowEvents] = useState([]);
   const [dmThinking, setDmThinking] = useState(createEmptyDmThinking);
   const [input, setInput] = useState(""), [isLoading, setIsLoading] = useState(false), [error, setError] = useState("");
@@ -1261,7 +1281,25 @@ export default function App() {
     setInitiativeDrafts(nextDrafts);
   }, [gameState?.encounter]);
 
-  const classDef = builder.classes.find((c) => c.name === charDraft.class_name);
+  const baseClassDef = builder.classes.find((c) => c.name === charDraft.class_name);
+  const levelRequest = JSON.stringify({ class_name: charDraft.class_name, level: Number(charDraft.level || 1),
+    subclass_id: charDraft.subclass_id || "", stats: charDraft.stats, subclass_spell_variant: charDraft.subclass_spell_variant || "", bonus_spells: charDraft.bonus_spells || [],
+    ability_increases: charDraft.ability_increases || {}, mystic_arcanum: charDraft.mystic_arcanum || {} });
+  const currentLevelProfile = levelProfile?.request === levelRequest ? levelProfile.value : null;
+  const classDef = currentLevelProfile ? { ...baseClassDef, ...currentLevelProfile.class_config } : baseClassDef;
+  useEffect(() => {
+    const request = JSON.parse(levelRequest);
+    let cancelled = false;
+    if (!request.class_name) { setLevelProfile(null); setLevelProfileLoading(false); return undefined; }
+    setLevelProfileLoading(true); setLevelProfileError("");
+    loadCharacterCreationOptions(request).then((value) => {
+      if (cancelled) return;
+      setLevelProfile({ request: levelRequest, value });
+      setSpellList(value.spells || []);
+    }).catch((error) => { if (!cancelled) setLevelProfileError(error.message || "等级规则加载失败。"); })
+      .finally(() => { if (!cancelled) setLevelProfileLoading(false); });
+    return () => { cancelled = true; };
+  }, [levelRequest]);
   const background = builder.backgrounds.find((b) => b.name === charDraft.background_name);
   const backgroundSkills = new Set(background?.skill_proficiencies || []);
   const builderReady = builder.species.length > 0 && builder.backgrounds.length > 0 && builder.classes.length > 0;
@@ -1274,14 +1312,17 @@ export default function App() {
   const starterGoldGp = Number(selectedStarterOption?.gold_gp || 0);
   const equipmentShopItems = builder.equipment_shop_items || [];
   const equipmentShopById = Object.fromEntries(equipmentShopItems.map((item) => [item.id, item]));
+  const equipmentShopByName = Object.fromEntries(equipmentShopItems.flatMap((item) => [
+    [item.name, item], [item.name_display || item.name, item],
+  ]));
   const shopTypeOrder = ["armor", "weapon", "focus", "tool", "pack", "book", "clothing", "gear", "ammo"];
   const groupedShopItems = shopTypeOrder
     .map((type) => ({ type, items: equipmentShopItems.filter((item) => item.type === type) }))
     .filter((group) => group.items.length > 0);
   const starterResources = Object.entries(classDef?.resources || {});
   const startingSpellSlots = Object.entries(classDef?.starting_spell_slots || {});
-  const cantripOptions = spellList.filter((spell) => getSpellLevel(spell) === 0);
-  const levelOnePreparedSpells = spellList.filter((spell) => getSpellLevel(spell) > 0);
+  const cantripOptions = spellList.filter((spell) => getSpellLevel(spell) === 0 && !(currentLevelProfile?.forced_cantrips || []).includes(spell.name));
+  const levelOnePreparedSpells = spellList.filter((spell) => getSpellLevel(spell) > 0 && getSpellLevel(spell) <= Number(currentLevelProfile?.max_spell_level || 1) && !(currentLevelProfile?.forced_spells || []).includes(spell.name));
   const startingCantripCount = Number(classDef?.starting_cantrips || 0);
   const startingPreparedSpellCount = Number(classDef?.starting_prepared_spells || 0);
   const hasCantripSelection = Boolean(classDef?.spellcasting_ability) && startingCantripCount > 0;
@@ -1297,7 +1338,7 @@ export default function App() {
   const abilityAssignments = charDraft.ability_assignments || {};
   const abilityAssignmentComplete = abilityGenerationMethod === "point_buy"
     || (abilityPool.length === STATS.length && STATS.every((stat) => abilityAssignments[stat]));
-  const computedHpMax = classDef ? Math.max(1, Number(classDef.hit_die || 8) + Math.floor((Number(charDraft.stats?.constitution || 10) - 10) / 2)) : Number(charDraft.hp_max || 10);
+  const computedHpMax = currentLevelProfile?.hp_max || 10;
   const customPurchaseBudgetGp = Number(classDef?.custom_purchase_budget_gp || 0);
   const customPurchaseEntries = Object.entries(charDraft.custom_purchase_items || {}).filter(([, quantity]) => Number(quantity) > 0);
   const customPurchaseSpentGp = customPurchaseEntries.reduce((total, [itemId, quantity]) => total + Number(equipmentShopById[itemId]?.cost_gp || 0) * Number(quantity || 0), 0);
@@ -1327,7 +1368,12 @@ export default function App() {
       armor_class_bonus: Number(item.armor_class_bonus || 0),
     })) : starterEquipment),
     ...(pendingCustomPreviewItem ? [pendingCustomPreviewItem] : []),
-  ];
+  ].map((item) => ({
+    ...item,
+    ...(currentLevelProfile?.weapon_previews?.[item.name] || {}),
+    description: item.description_display || item.description
+      || equipmentShopByName[item.name]?.description_display || equipmentShopByName[item.name]?.description || "",
+  }));
   const actorList = (actionOptions.actors || []).map((a) => ({ value: a.ref, label: formatActorLabel(a) }));
   // 只接受同版本的动作选项，避免取消暂停后的新快照被迟到的旧选项继续锁住。
   const localActionsLocked = Boolean(gameState?.pending_turn) || Boolean(gameState
@@ -2139,12 +2185,12 @@ export default function App() {
       },
     }));
   }
-  async function chooseClass(c) {
+  function chooseClass(c) {
     setError("");
     const baseSkills = Object.fromEntries((background?.skill_proficiencies || []).map((skill) => [skill, 1]));
     setCharDraft((p) => ({
       ...p,
-      class_name: c.name,
+      class_name: c.name, subclass_id: "", subclass_spell_variant: "", bonus_spells: [], ability_increases: {}, expertise_skills: [], mystic_arcanum: {},
       starter_option_id: c.starter_equipment_options?.[0]?.id || "",
       starter_choice_ids: {},
       equipment_mode: "starter_package",
@@ -2159,15 +2205,7 @@ export default function App() {
       selectedCantrips: [],
       selectedSpells: [],
     }));
-    const hasBuilderSpellOptions = Boolean(c.spellcasting_ability) && (
-      Number(c.starting_cantrips || 0) > 0
-      || Object.values(c.starting_spell_slots || {}).some((total) => Number(total) > 0)
-    );
-    if (!hasBuilderSpellOptions) {
-      setSpellList([]);
-      return;
-    }
-    try { setSpellList(await loadSpells(c.name)); } catch { setSpellList([]); }
+    setSpellList([]);
   }
   function chooseBackground(name) {
     const bg = builder.backgrounds.find((x) => x.name === name);
@@ -2178,7 +2216,7 @@ export default function App() {
     );
     for (const skill of bg?.skill_proficiencies || []) nextSkills[skill] = 1;
     setError("");
-    setCharDraft((p) => ({ ...p, background_name: name, origin_feat: bg?.origin_feat || "", skill_proficiencies: nextSkills }));
+    setCharDraft((p) => ({ ...p, background_name: name, origin_feat: bg?.origin_feat || "", skill_proficiencies: nextSkills, expertise_skills: [] }));
   }
   function toggleSkill(skill) {
     if (backgroundSkills.has(skill)) return;
@@ -2186,13 +2224,13 @@ export default function App() {
     const picked = Object.entries(charDraft.skill_proficiencies || {}).filter(([name, rank]) => !backgroundSkills.has(name) && Number(rank) > 0 && name !== skill);
     if (!selected && picked.length >= classSkillTarget) return setError(`该职业最多只能额外选择 ${classSkillTarget} 项技能。`);
     setError("");
-    setCharDraft((p) => ({ ...p, skill_proficiencies: { ...p.skill_proficiencies, [skill]: selected ? 0 : 1 } }));
+    setCharDraft((p) => ({ ...p, skill_proficiencies: { ...p.skill_proficiencies, [skill]: selected ? 0 : 1 }, expertise_skills: selected ? (p.expertise_skills || []).filter((name) => name !== skill) : p.expertise_skills }));
   }
   function chooseStarterOption(optionId) { setError(""); setCharDraft((p) => ({ ...p, starter_option_id: optionId, starter_choice_ids: {} })); }
   function chooseStarterChoice(groupId, optionId) { setError(""); setCharDraft((p) => ({ ...p, starter_choice_ids: { ...p.starter_choice_ids, [groupId]: optionId } })); }
   function togglePreparedSpell(spellName) {
     if (!hasLevelOneSpellcasting) {
-      setError("当前职业在 1 级时没有可准备的法术位。");
+      setError("当前职业在所选等级没有可准备的法术位。");
       return;
     }
 
@@ -2239,6 +2277,10 @@ export default function App() {
 
     if (stepIndex === 1) {
       if (!charDraft.class_name) return "请先选择职业。";
+      if (levelProfileLoading || !currentLevelProfile) return levelProfileError || "正在计算当前等级的构筑规则。";
+      const coreErrors = (currentLevelProfile.choice_errors || []).filter((text) => !text.includes("玄奥秘法") && !text.includes("额外法术"));
+      if (coreErrors.length) return coreErrors[0];
+      if ((charDraft.expertise_skills || []).length !== currentLevelProfile.expertise_count) return `请选择 ${currentLevelProfile.expertise_count} 项技能专精。`;
       if (abilityGenerationMethod === "point_buy" && pointBuyRemaining < 0) return "属性购点超出预算，请调低属性。";
       if (!abilityAssignmentComplete) return "请先为六项属性分配完整的属性值。";
       if (selectedClassSkillCount !== classSkillTarget) return `请准确选择 ${classSkillTarget} 项职业技能。`;
@@ -2257,6 +2299,8 @@ export default function App() {
     }
 
     if (stepIndex === 3) {
+      if (levelProfileLoading || !currentLevelProfile) return levelProfileError || "等级规则尚未就绪。";
+      if (currentLevelProfile.choice_errors?.length) return currentLevelProfile.choice_errors[0];
       if (hasCantripSelection && cantripOptions.length === 0) return "戏法目录还没加载出来，请重新选择职业后再试。";
       if (hasLevelOneSpellcasting && startingPreparedSpellCount > 0 && levelOnePreparedSpells.length === 0) return "已准备法术目录还没加载出来，请重新选择职业后再试。";
       if (!cantripSelectionComplete) return `请准确选择 ${startingCantripCount} 个戏法。`;
@@ -2296,6 +2340,10 @@ export default function App() {
         background_name: charDraft.background_name,
         origin_feat: charDraft.origin_feat,
         class_name: charDraft.class_name,
+        level: Number(charDraft.level || 1), subclass_id: charDraft.subclass_id || "",
+        subclass_spell_variant: charDraft.subclass_spell_variant || "", bonus_spells: charDraft.bonus_spells || [],
+        base_stats: charDraft.stats, ability_increases: charDraft.ability_increases || {},
+        expertise_skills: charDraft.expertise_skills || [], mystic_arcanum: charDraft.mystic_arcanum || {},
         starter_option_id: charDraft.starter_option_id,
         starter_choice_ids: charDraft.starter_choice_ids,
         equipment_mode: charDraft.equipment_mode,
@@ -3252,6 +3300,13 @@ export default function App() {
               {creatorStep === 0 && (
                 <>
                   <div className="form-group">
+                    <label>创建等级</label>
+                    <select aria-label="创建等级" value={charDraft.level || 1} onChange={(event) => {
+                      const level = Number(event.target.value);
+                      setCharDraft((draft) => ({ ...draft, level, subclass_id: level >= 3 ? draft.subclass_id : "",
+                        ability_increases: {}, expertise_skills: [], mystic_arcanum: {}, subclass_spell_variant: "", bonus_spells: [], selectedCantrips: [], selectedSpells: [] }));
+                    }}>{Array.from({ length: 20 }, (_, index) => index + 1).map((level) => <option key={level} value={level}>{level} 级</option>)}</select>
+                    <p className="spell-meta">默认1级；升级生命使用固定成长值，装备沿用职业起始方案。</p>
                     <label>角色名</label>
                     <input value={charDraft.name} onChange={(e) => setCharDraft((p) => ({ ...p, name: e.target.value }))} />
                   </div>
@@ -3340,6 +3395,7 @@ export default function App() {
                       </div>
                     </>
                   )}
+                  {classDef && <LevelBuildChoices profile={currentLevelProfile || (levelProfile?.value.class_name === charDraft.class_name && levelProfile.value.level === Number(charDraft.level || 1) ? levelProfile.value : null)} draft={charDraft} setDraft={setCharDraft} loading={levelProfileLoading} error={levelProfileError} formatSkill={localizeSkill} formatStat={localizeStat} />}
                   <div className="form-group" style={{ marginTop: 24 }}>
                     <label>职业技能</label>
                     {!classDef ? <p className="info-text">先选择职业，才能分配职业技能。</p> : <><p className="spell-meta">需要选择 {classSkillTarget} 项职业技能，当前 {selectedClassSkillCount}/{classSkillTarget}。</p><div className="class-grid skill-choice-grid">
@@ -3430,7 +3486,7 @@ export default function App() {
                     <div className="builder-preview-card">
                       <h3>当前装备预览</h3>
                       {finalEquipmentPreview.length === 0 ? <p className="info-text">还没有选入任何起始装备。</p> : <div className="timeline-list">
-                        {finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || localizeEquipmentType(item.type)}</div>{(item.notes_display || item.notes) && <div className="timeline-content">{item.notes_display || item.notes}</div>}</div>)}
+                        {finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary"><DescriptionTooltip label={item.name_display || item.name} description={item.description_display || item.description || item.notes_display || item.notes} /></div><div className="timeline-content">{formatEquipmentLine(item) || localizeEquipmentType(item.type)}</div>{(item.notes_display || item.notes) && <div className="timeline-content">{item.notes_display || item.notes}</div>}</div>)}
                       </div>}
                     </div>
                   </div>
@@ -3442,20 +3498,23 @@ export default function App() {
                   <div className="builder-preview-grid">
                     <div className="builder-preview-card">
                       <h3>职业资源</h3>
-                      {!classDef ? <p className="info-text">选择职业后即可预览 1 级资源。</p> : starterResources.length === 0 ? <p className="info-text">当前职业没有可追踪的 1 级资源。</p> : <div className="timeline-list">{starterResources.map(([name, resource]) => <div key={name} className="timeline-item"><div className="timeline-summary">{localizeClassResource(name)} · {resource.current_value}/{resource.max_value}</div><div className="timeline-content">{resource.description_display || resource.description || "职业资源"} · 恢复方式：{formatResourceRecovery(resource)}</div></div>)}</div>}
+                      {!classDef ? <p className="info-text">选择职业后即可预览所选等级的资源。</p> : starterResources.length === 0 ? <p className="info-text">当前职业没有可追踪的职业资源。</p> : <div className="timeline-list">{starterResources.map(([name, resource]) => <div key={name} className="timeline-item"><div className="timeline-summary">{localizeClassResource(name)} · {resource.current_value}/{resource.max_value}</div><div className="timeline-content">{resource.description_display || resource.description || "职业资源"} · 恢复方式：{formatResourceRecovery(resource)}</div></div>)}</div>}
                     </div>
                     <div className="builder-preview-card">
                       <h3>起始法术位</h3>
-                      {!classDef ? <p className="info-text">选择职业后即可预览 1 级法术位。</p> : !classDef.spellcasting_ability ? <p className="info-text">当前职业起始时不具备施法能力。</p> : startingSpellSlots.length === 0 ? <div><p className="info-text">该职业在 1 级时没有可用法术位。</p><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p></div> : <div><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p><div className="timeline-list">{startingSpellSlots.map((slot) => <div key={slot[0]} className="timeline-item"><div className="timeline-summary">{formatSpellSlotLine(slot)}</div><div className="timeline-content">长休后恢复全部法术位。</div></div>)}</div></div>}
+                      {!classDef ? <p className="info-text">选择职业后即可预览所选等级的法术位。</p> : !classDef.spellcasting_ability ? <p className="info-text">当前职业起始时不具备施法能力。</p> : startingSpellSlots.length === 0 ? <div><p className="info-text">该职业在所选等级没有可用法术位。</p><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p></div> : <div><p className="spell-meta">施法属性：{localizeStat(classDef.spellcasting_ability)} · 方式：{localizeSpellcastingMode(classDef.spellcasting_mode)}</p><div className="timeline-list">{startingSpellSlots.map((slot) => <div key={slot[0]} className="timeline-item"><div className="timeline-summary">{formatSpellSlotLine(slot)}</div><div className="timeline-content">{charDraft.class_name === "Warlock" ? "契约法术位：短休或长休后恢复。" : "长休后恢复全部法术位。"}</div></div>)}</div></div>}
                     </div>
                   </div>
                   <div className="form-group">
                     <label>戏法</label>
-                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在 1 级时不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedCantrips.includes(spell.name)} onClick={() => toggleCantrip(spell.name)}><h4>{localizeName(spell)}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasCantripSelection ? <p className="info-text">当前职业在所选等级不获得戏法。</p> : <div><p className="spell-meta">需要选择 {startingCantripCount} 个戏法。</p><p className="spell-meta">已选 {charDraft.selectedCantrips.length}/{startingCantripCount}</p>{cantripOptions.length === 0 ? <p className="info-text">当前职业没有可用的戏法列表。</p> : <div className="spell-grid">{cantripOptions.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedCantrips.includes(spell.name)} onClick={() => toggleCantrip(spell.name)}><h4>{localizeName(spell)}</h4><p className="spell-meta">戏法 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
                   </div>
                   <div className="form-group">
                     <label>已准备法术</label>
-                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在 1 级时没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedSpells.includes(spell.name)} onClick={() => togglePreparedSpell(spell.name)}><h4>{localizeName(spell)}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
+                    {currentLevelProfile?.bonus_spell_count > 0 && <div className="form-group"><label>逸闻学院额外法术 · 选择2项</label>{[0, 1].map((index) => <select key={index} aria-label={`逸闻学院额外法术${index + 1}`} value={charDraft.bonus_spells?.[index] || ""} onChange={(event) => setCharDraft((draft) => { const choices = [...(draft.bonus_spells || ["", ""])]; choices[index] = event.target.value; return { ...draft, bonus_spells: choices }; })}><option value="">请选择</option>{currentLevelProfile.bonus_spell_options.map((spell) => <option key={spell.name} value={spell.name}>{spell.level}环 · {localizeName(spell)}</option>)}</select>)}</div>}
+                    {(currentLevelProfile?.forced_spells?.length > 0 || currentLevelProfile?.forced_cantrips?.length > 0) && <p className="info-text">职业自动获得（不占选择名额）：{[...(currentLevelProfile.forced_cantrips || []), ...(currentLevelProfile.forced_spells || [])].join("、")}</p>}
+                    {(currentLevelProfile?.arcanum_levels || []).map((level) => <div className="form-group" key={level}><label>{level}环玄奥秘法</label><select aria-label={`${level}环玄奥秘法`} value={charDraft.mystic_arcanum?.[level] || ""} onChange={(event) => setCharDraft((draft) => ({ ...draft, mystic_arcanum: { ...draft.mystic_arcanum, [level]: event.target.value } }))}><option value="">请选择</option>{spellList.filter((spell) => spell.level === level).map((spell) => <option key={spell.name} value={spell.name}>{localizeName(spell)}</option>)}</select></div>)}
+                    {!classDef?.spellcasting_ability ? <p className="info-text">当前职业在此构筑器中没有施法能力。</p> : !hasLevelOneSpellcasting ? <p className="info-text">当前职业在所选等级没有可准备的法术位。</p> : <div><p className="spell-meta">需要选择 {startingPreparedSpellCount} 个 1 环及以上法术。</p><p className="spell-meta">已选 {charDraft.selectedSpells.length}/{startingPreparedSpellCount}</p>{levelOnePreparedSpells.length === 0 ? <p className="info-text">当前职业没有可用的 1 环及以上法术列表。</p> : <div className="spell-grid">{levelOnePreparedSpells.map((spell) => <SpellChoiceButton key={spell.id || spell.name} selected={charDraft.selectedSpells.includes(spell.name)} onClick={() => togglePreparedSpell(spell.name)}><h4>{localizeName(spell)}</h4><p className="spell-meta">{spell.level} 环 · {spell.school_display || spell.school}</p></SpellChoiceButton>)}</div>}</div>}
                   </div>
                 </>
               )}
@@ -3469,17 +3528,17 @@ export default function App() {
                     <div className="timeline-content">起源专长：{background?.origin_feat_display || localizeOriginFeat(charDraft.origin_feat)}</div>
                   </div>
                   <div className="builder-preview-card">
-                    <h3>职业构筑</h3>
+                    <h3>职业构筑 · {charDraft.level || 1}级</h3><p className="spell-meta">{currentLevelProfile?.subclass_name || ""} · 熟练加值 +{currentLevelProfile?.proficiency_bonus || 2}</p>
                     <div className="timeline-summary">{classDef?.name_display || localizeClassName(charDraft.class_name)}</div>
                     <div className="timeline-content">生命上限 {computedHpMax} · 职业技能 {selectedClassSkillCount}/{classSkillTarget}</div>
                     <div className="timeline-content">属性生成：{ABILITY_METHOD_LABELS[abilityGenerationMethod]}</div>
-                    <div className="timeline-content">{STATS.map((stat) => `${localizeStat(stat)} ${charDraft.stats[stat]}`).join(" · ")}</div>
+                    <div className="timeline-content">{STATS.map((stat) => `${localizeStat(stat)} ${currentLevelProfile?.stats?.[stat] ?? charDraft.stats[stat]}`).join(" · ")}</div>
                   </div>
                   <div className="builder-preview-card">
                     <h3>装备</h3>
                     <div className="timeline-summary">{charDraft.equipment_mode === "custom_purchase" ? "自定义购买" : selectedStarterOption?.label_display || selectedStarterOption?.label || "标准套装"}</div>
                     <div className="timeline-content">预算 {formatGoldLine(equipmentBudgetGp)} · 剩余 {formatGoldLine(equipmentRemainingGp)}</div>
-                    {finalEquipmentPreview.length === 0 ? <p className="info-text">暂无装备。</p> : <div className="timeline-list">{finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary">{item.name_display || item.name}</div><div className="timeline-content">{formatEquipmentLine(item) || localizeEquipmentType(item.type)}</div>{(item.notes_display || item.notes) && <div className="timeline-content">{item.notes_display || item.notes}</div>}</div>)}</div>}
+                    {finalEquipmentPreview.length === 0 ? <p className="info-text">暂无装备。</p> : <div className="timeline-list">{finalEquipmentPreview.map((item, index) => <div key={`${item.name}-${index}`} className="timeline-item"><div className="timeline-summary"><DescriptionTooltip label={item.name_display || item.name} description={item.description_display || item.description || item.notes_display || item.notes} /></div><div className="timeline-content">{formatEquipmentLine(item) || localizeEquipmentType(item.type)}</div>{(item.notes_display || item.notes) && <div className="timeline-content">{item.notes_display || item.notes}</div>}</div>)}</div>}
                   </div>
                   <div className="builder-preview-card">
                     <h3>法术</h3>
@@ -3548,11 +3607,12 @@ export default function App() {
                     && Number.isInteger(message.index);
                   const isFailedDmMessage = canRetryDmMessage && message.turnStatus === "failed";
                   return (
-                    <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender} ${message.narrativeMode === "combat" ? "combat-narrative" : ""}`}>
+                    <div key={message.renderKey || `${message.sender}-${message.index ?? index}`} className={`message-stack ${message.sender} ${message.narrativeMode === "combat" ? "combat-narrative" : message.narrativeMode === "rules_feedback" ? "rules-feedback" : ""}`}>
                       {message.sender === "dm" && <RollLedger records={message.rollRecords} recorded={message.rollRecordsRecorded} />}
                       <div className={`message ${message.sender} anime-pop`}>
                         <div className="avatar">{message.sender === "dm" ? "主" : message.sender === "system" ? "系" : "玩"}</div>
                         <div className="bubble markdown-body">
+                          {message.narrativeMode === "rules_feedback" && <strong className="rules-feedback-label">行动需要调整</strong>}
                           <MarkdownBlock highlightQuotes highlightNarrativeRolls={message.sender === "dm"}>{message.text}</MarkdownBlock>
                         </div>
                       </div>
@@ -3593,7 +3653,7 @@ export default function App() {
                     <div className="pending-turn-title">轮到你选择</div>
                     <div className="pending-turn-prompt">{pendingTurn.prompt || "DM 正在等待你决定接下来的方向。"}</div>
                     <div className="pending-turn-actions">
-                      <button className="btn-text" onClick={() => respondToPendingTurn("暂不决定")} disabled={isGameMutationBusy}>暂不决定</button>
+                      {pendingTurn.details?.allow_cancel !== false && <button className="btn-text" onClick={() => respondToPendingTurn("暂不决定")} disabled={isGameMutationBusy}>暂不决定</button>}
                       {playerChoiceOptions.map((option) => (
                         <button key={option} className="btn-primary" onClick={() => respondToPendingTurn(option)} disabled={isGameMutationBusy}>{option}</button>
                       ))}
@@ -3871,6 +3931,7 @@ export default function App() {
                     </div>
                   )}
                 </section>
+                <SceneActorPanel actors={actionOptions?.actors} ready={statusProjectionCurrent} />
                 <CombatantPanel
                   encounter={encounter}
                   combatants={combatants}
@@ -3952,6 +4013,7 @@ export default function App() {
               <TimelinePanel timeline={timeline} title="时间线" emptyText="这局游戏还没有时间线记录。" />
               <div className="status-side-stack">
                 <EvidencePanel evidence={evidenceRecords} />
+                <SceneActorPanel actors={actionOptions?.actors} ready={statusProjectionCurrent} />
                 <CombatantPanel
                   encounter={encounter}
                   combatants={combatants}

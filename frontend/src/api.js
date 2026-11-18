@@ -102,6 +102,10 @@ export async function loadSpells(className) {
   return payload.spells || [];
 }
 
+export async function loadCharacterCreationOptions(payload) {
+  return request("/rules/character-creation-options", { method: "POST", body: JSON.stringify(payload) });
+}
+
 export async function loadCharacterBuilder() {
   return request("/rules/character-builder");
 }
@@ -456,5 +460,11 @@ export async function useFeatureAction(gameId, payload) {
   return request(`/games/${encodeURIComponent(gameId)}/actions/use-feature`, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function currencyAction(gameId, payload) {
+  return request(`/games/${encodeURIComponent(gameId)}/actions/currency`, {
+    method: "POST", body: JSON.stringify(payload),
   });
 }

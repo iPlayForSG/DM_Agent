@@ -118,7 +118,7 @@ class TurnWaitBudgetTests(unittest.TestCase):
         runner = DMGraphRunner(rag_engine=fixtures.DummyRAGEngine(), tool_service=object(), checkpoint_mode="memory")
         try:
             validated = runner._validate_state({"game_state": state.model_dump(mode="json"), "messages": [],
-                                                "tool_call_rounds": 12, "tool_round_limit": 12})
+                                                "tool_call_rounds": 24, "tool_round_limit": 24})
             self.assertEqual(validated["turn_status"], "failed")
             self.assertTrue(any(issue["validator"] == "repair_budget" for issue in validated["validation_issues"]))
         finally:

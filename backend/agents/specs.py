@@ -23,17 +23,20 @@ SETUP_CATALOG_TOOL_NAMES = (
     "validate_character_sheet",
 )
 
-PLAYER_CHOICE_TOOL_NAMES = ("request_player_choice",)
+PLAYER_CHOICE_TOOL_NAMES = ("request_player_choice", "report_rule_conflict")
 
 BASE_DM_TOOL_NAMES = (
     *PLAYER_CHOICE_TOOL_NAMES,
     "lookup_rules",
+    "register_scene_actor",
+    "check_spell_sequence",
     "roll_dice",
     "adjust_hp",
     "add_status",
     "remove_status",
     "append_adventure_log",
     "add_inventory_item",
+    "adjust_currency",
     "use_item",
     "use_feature",
     "record_evidence",

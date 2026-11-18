@@ -3,6 +3,7 @@
 from typing import Any, Dict, Optional
 
 from spell_effects import effect_patch
+from combat_feedback import attack_outcome_text, attack_damage_text
 from game_logic import GameLogic
 from library import Library
 from models import ChatMessage, GameState, SessionEvent, ToolResult
@@ -62,6 +63,9 @@ class GameActionService:
         patch: Optional[Dict[str, Any]] = None,
         content: str = "",
     ) -> Dict[str, Any]:
+        from d20_bonuses import expire
+        expire(state)
+        patch = {**(patch or {}), 'granted_dice': [b.model_dump(mode='json') for b in state.granted_dice]}
         event = SessionEvent(type=event_type, summary=summary, content=content, payload=payload)
         tool_result = ToolResult(tool_name=event_type, summary=summary, payload=payload)
         state.timeline.append(event)
@@ -74,6 +78,12 @@ class GameActionService:
             "state_delta": patch or {},
             "game_state": state,
         }
+
+    def adjust_currency(self, state: GameState, character_ref: str, amount: int, denomination: str, reason: str):
+        result = GameLogic(state).adjust_currency(character_ref, amount, denomination, reason)
+        return self._append_result(state,
+            summary=f"{result['character_name']}：{result['coin_name']} {amount:+d} | {reason}",
+            event_type='currency_adjusted', payload={k:v for k,v in result.items() if k != 'patch'}, patch=result['patch'])
 
     def advance_turn(self, state: GameState) -> Dict[str, Any]:
         logic = GameLogic(state)
@@ -105,6 +115,9 @@ class GameActionService:
         damage_type: str = "",
         resolution_mode: str = "normal",
         attack_name: str = "",
+        attack_mode: str = "normal",
+        distance_feet: Optional[float] = None,
+        equivalent_weapon: str = "",
         roll_mode: str = "normal",
         cast_id: str = "",
         attacker_sees_invisible: bool = False,
@@ -113,12 +126,14 @@ class GameActionService:
     ) -> Dict[str, Any]:
         if (attacker_sees_invisible or target_sees_invisible) and not reason.strip():
             raise ValueError("Seeing invisible actors requires an established visibility reason")
+        if attack_mode == "thrown" and resolution_mode != "normal":
+            raise ValueError("远程投掷不能使用近战击昏规则。")
         if cast_id:
             from spell_resolution import resolve_spell_attack
             result = resolve_spell_attack(state, attacker_ref, target_ref, cast_id, damage_type, roll_mode,
                                           attacker_sees_invisible, target_sees_invisible)
             return self._append_result(
-                state, summary=f"{result['attacker_name']} {result['spell_name']}：{result['attack_total']} vs AC {result['target_ac']}，伤害 {result['damage_total']}",
+                state, summary=f"{result['attacker_name']} {result['spell_name']}：{result['attack_total']} vs AC {result['target_ac']} -> {attack_outcome_text(result)}，{attack_damage_text(result)}",
                 event_type="attack_resolved", payload={key: value for key, value in result.items() if key != "patch"},
                 patch=result["patch"],
             )
@@ -129,12 +144,17 @@ class GameActionService:
         requested_damage_expression = damage_expression
         attacker = self._linked_character(state, logic, attacker_ref)
         if attacker:
-            profile = self.rules.resolve_character_attack_profile(
+            profile = {} if attack_mode != "normal" else self.rules.resolve_character_attack_profile(
                 attacker,
                 attack_name=attack_name,
                 requested_attack_bonus=attack_bonus,
                 requested_damage_expression=damage_expression,
             )
+            if attack_mode != "normal":
+                from weapon_use import profile as use_profile
+                profile = use_profile(self.rules, attacker, attack_name, attack_mode, distance_feet,
+                                      damage_type, equivalent_weapon, reason, roll_mode)
+                # 不提前抵消射程劣势，否则后续隐形优势会错误地再次获益。
             attack_bonus = int(profile["attack_bonus"])
             damage_expression = str(profile["damage_expression"])
             damage_type = str(profile["damage_type"])
@@ -164,6 +184,7 @@ class GameActionService:
             roll_mode=roll_mode,
             attacker_sees_invisible=attacker_sees_invisible,
             target_sees_invisible=target_sees_invisible,
+            range_disadvantage=bool(attacker and profile.get('range_disadvantage')),
         )
         if not result:
             raise ValueError(f"Attack target not found: {target_ref}")
@@ -174,6 +195,7 @@ class GameActionService:
             "attacker_name": result["attacker_name"],
             "target_name": result["target_name"],
             "target_ac": result["target_ac"],
+            "natural": result["natural"],
             "attack_total": result["attack_total"],
             "attack_detail": result["attack_detail"],
             "hit": result["hit"],
@@ -194,17 +216,22 @@ class GameActionService:
             "target_defeat_state": result["target_defeat_state"],
             "target_defeat_state_display": target_defeat_state_display,
         }
+        if attacker and attack_mode == 'thrown':
+            from weapon_use import release_thrown
+            result['patch'] = logic._merge_patches(result['patch'], release_thrown(attacker, resolved_attack_name))
+        if attacker and attack_mode != 'normal':
+            payload['weapon_use'] = profile
         payload["effect_events"] = result.get("effect_events", [])
         concentration_check = result.get("concentration_check")
         if concentration_check:
             payload["concentration_check"] = concentration_check
-        hit_display = "命中" if result["hit"] else "未命中"
+        hit_display = attack_outcome_text(result)
         summary = (
             f"{result['attacker_name']} 攻击 {result['target_name']}："
             f"{result['attack_total']} vs AC {result['target_ac']} -> {hit_display}"
         )
         if result["hit"]:
-            summary += f"，伤害 {result['damage_total']}"
+            summary += f"，{attack_damage_text(result)}"
             if damage_type:
                 summary += f" {damage_type_display}"
             summary += self._concentration_summary(concentration_check)
@@ -279,9 +306,9 @@ class GameActionService:
         source_ref: str = "",
         spell_name: str = "",
     ) -> Dict[str, Any]:
-        from spell_effects import is_laughter
-        if is_laughter(spell_name):
-            raise ValueError("塔莎狂笑术的豁免由施法、伤害或回合结束自动结算，不可另行重掷。")
+        from spell_rules import automatic_save_rule
+        if automatic_save_rule(spell_name, self.library):
+            raise ValueError("该法术的豁免由施法和来源事件自动结算，不可另行重掷。")
         logic = GameLogic(state)
         requested_save_name = save_name
         canonical_save_name = self.rules.normalize_save_name(save_name)
@@ -423,16 +450,21 @@ class GameActionService:
         resource_name: str = "",
         resource_cost: int = 0,
         reason: str = "",
+        target_ref: str = "",
+        distance_feet: Optional[float] = None,
+        target_can_perceive: Optional[bool] = None,
     ) -> Dict[str, Any]:
         result = GameLogic(state).resolve_feature_use(
             actor_ref=actor_ref,
             feature_name=feature_name,
             action_cost=action_cost,
             resource_name=resource_name,
-            resource_cost=resource_cost,
+            resource_cost=resource_cost, target_ref=target_ref, distance_feet=distance_feet, target_can_perceive=target_can_perceive,
         )
         feature_display = self.library.localize_game_terms(result["feature_name"])
         payload = {
+            "granted_die": result.get("granted_die"),
+            "target_name": result.get("target_name"),
             "actor_type": result["actor_type"],
             "actor_id": result["actor_id"],
             "actor_name": result["actor_name"],
@@ -450,6 +482,8 @@ class GameActionService:
             f"{result['actor_name']} 使用特性：{feature_display}"
             f"（{payload['action_cost_display']}）"
         )
+        if result.get('granted_die'):
+            summary += f" → {result['target_name']} 获得诗人激励 {result['granted_die']['expression']}（1小时）"
         if result["resource_cost"] > 0:
             summary += (
                 f"，消耗 {result['resource_cost']} 点 {self.library.localize_game_terms(result['resource_name'])}"

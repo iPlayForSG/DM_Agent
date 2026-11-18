@@ -1268,7 +1268,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         caster.class_name = "Wizard"
         caster.stats.intelligence = 16
         caster.spells.ability = "CHA"
-        caster.spells.cantrips = ["交友术"]
+        caster.spells.prepared = ["命令术"]
         target = Character(name="米拉", class_name="Fighter")
         target.stats.wisdom = 10
         state.characters[target.character_id] = target
@@ -1286,7 +1286,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
                 dc=99,
                 modifier=99,
                 source_ref=caster.character_id,
-                spell_name="交友术",
+                spell_name="命令术",
             )
 
         self.assertTrue(execution.ok, execution.response())
@@ -1295,7 +1295,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(execution.payload["dc_source"], "character_spellcasting")
         self.assertEqual(execution.payload["save_name"], "wisdom")
         self.assertEqual(execution.payload["modifier"], 0)
-        self.assertEqual(execution.payload["spell_name"], "交友术")
+        self.assertEqual(execution.payload["spell_name"], "命令术")
 
         wrong_save = service.roll_saving_throw(
             state,
@@ -1303,7 +1303,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
             save_name="力量",
             dc=99,
             source_ref=caster.character_id,
-            spell_name="交友术",
+            spell_name="命令术",
         )
         self.assertFalse(wrong_save.ok)
         self.assertIn("requires a wisdom saving throw", wrong_save.error)
@@ -1316,7 +1316,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
                 dc=99,
                 modifier=99,
                 source_ref=caster.character_id,
-                spell_name="交友术",
+                spell_name="命令术",
             )
         self.assertEqual(local_result["tool_result"].payload["dc"], 13)
         self.assertEqual(local_result["tool_result"].payload["dc_source"], "character_spellcasting")
@@ -1615,7 +1615,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
 
         self.assertTrue(execution.ok, execution.response())
         self.assertIn("智力（调查）检定", execution.payload["desc"])
-        self.assertIn("法术豁免 DC", execution.payload["desc"])
+        self.assertRegex(execution.payload["desc"], r"法术豁免\s*难度等级")
         tool_message = runner._tool_message_content(execution)
         self.assertIn('"desc"', tool_message)
         self.assertIn("智力（调查）检定", tool_message)
@@ -1662,6 +1662,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
             args={
                 "caster_ref": character.character_id,
                 "spell_name": "Healing Word",
+                "target_ref": character.character_id,
                 "slot_level": 1,
             },
             allowed_tools=["cast_spell"],
@@ -1683,6 +1684,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
             args={
                 "caster_ref": character.character_id,
                 "spell_name": "Healing Word",
+                "target_ref": character.character_id,
                 "slot_level": 1,
             },
             allowed_tools=["cast_spell"],
@@ -1692,7 +1694,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertEqual(execution.payload["action_cost"], "bonus_action")
         self.assertFalse(state.encounter.turn_action_used)
         self.assertTrue(state.encounter.turn_bonus_action_used)
-        self.assertEqual(character.spells.slots["1"].used, 1)
+        self.assertEqual(state.characters[character.character_id].spells.slots["1"].used, 1)
         self.assertTrue(attack_guardrail.ok)
         self.assertFalse(second_bonus_guardrail.ok)
         self.assertIn("bonus action already used", second_bonus_guardrail.error)
@@ -1935,7 +1937,7 @@ class DMGraphWorkflowTests(unittest.TestCase):
         self.assertTrue(execution.ok, execution.response())
         self.assertEqual(execution.payload["action_cost"], "action")
         self.assertTrue(execution.payload["concentration"])
-        self.assertEqual(character.concentration_spell, "剑刃防护")
+        self.assertEqual(state.characters[character.character_id].concentration_spell, "剑刃防护")
         self.assertEqual(
             execution.state_patch["characters"][character.character_id]["concentration_spell"],
             "剑刃防护",

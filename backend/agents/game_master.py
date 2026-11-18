@@ -130,7 +130,7 @@ class GameMasterAgent:
         return self.runner._validate_state(state)
 
     def _route_after_model(self, state: DMBrainState) -> str:
-        if str(state.get("turn_status") or "") == "failed":
+        if str(state.get("turn_status") or "") in {"failed", "rules_feedback"}:
             return "finalize_turn"
         route = self.runner._should_continue_after_model(state)
         if route != "finalize_turn":

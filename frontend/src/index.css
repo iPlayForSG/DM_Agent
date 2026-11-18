@@ -75,7 +75,7 @@ button {
   text-align: inherit;
   text-decoration: underline dotted var(--brass-2);
   text-underline-offset: 4px;
-  cursor: help;
+  cursor: default;
 }
 .description-trigger:hover, .description-trigger:focus-visible { color: var(--wax); }
 .description-trigger:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
@@ -86,9 +86,9 @@ button {
   z-index: 1000;
   width: min(360px, calc(100vw - 24px));
   max-height: min(440px, calc(100dvh - 24px));
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  padding: 16px 18px;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
@@ -99,6 +99,17 @@ button {
   overflow-wrap: anywhere;
 }
 .description-tooltip-title { display: block; font-size: 16px; }
+.description-tooltip { display: flex; flex-direction: column; }
+.description-tooltip-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px 9px 18px; border-bottom: 1px solid var(--line-soft); flex: 0 0 auto; }
+.description-tooltip-mode { display: block; color: var(--paper-dim); font-size: 11px; margin-top: 2px; }
+.description-tooltip-close { padding: 0; width: 30px; height: 30px; flex: 0 0 30px; border: 0; border-radius: 5px; background: transparent; color: inherit; font-size: 24px; line-height: 1; cursor: pointer; }
+.description-tooltip-close:hover { background: var(--line-soft); }
+.description-tooltip-close:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.description-tooltip-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding: 5px 18px 16px; }
+.description-tooltip.is-pinned { border-color: var(--brass); }
+.description-cursor-spinner { position: fixed; z-index: 1001; width: 13px; height: 13px; box-sizing: border-box; border: 2px solid rgb(160 137 92 / 30%); border-top-color: var(--brass); border-radius: 50%; pointer-events: none; animation: description-cursor-spin .65s linear infinite; }
+@keyframes description-cursor-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .description-cursor-spinner { animation: none; border-right-color: var(--brass); } }
 .description-tooltip-meta { margin-top: 5px; color: var(--paper-dim); font-size: 12px; }
 .description-tooltip-body { margin-top: 10px; white-space: pre-wrap; }
 .description-tooltip-extra { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); white-space: pre-wrap; }
@@ -3451,3 +3462,17 @@ button[class^="btn-"] {
 
 /* 使用效果与数量分行，保留每发/每回合等规则限定。 */
 .item-effect-summary { display: block; margin-top: 4px; line-height: 1.5; overflow-wrap: anywhere; color: var(--paper-dim); }
+
+.rules-feedback .bubble { border-left: 3px solid #b78b43; background: rgba(183,139,67,.08); }
+.rules-feedback-label { display: block; color: #a57932; margin-bottom: .5rem; }
+.description-tooltip-body p, .description-tooltip-extra p { margin: .45em 0; }
+.description-tooltip-body, .description-tooltip-extra { white-space: normal; }
+.description-tooltip-body :is(h1,h2,h3,h4,h5,h6) { font-size: 1em; line-height: 1.5; margin: .8em 0 .35em; }
+.description-tooltip-body table { display: block; overflow-x: auto; border-collapse: collapse; font-size: .88em; }
+.description-tooltip-body td, .description-tooltip-body th { border: 1px solid #d8d2c5; padding: .2em .4em; }
+.description-tooltip-body blockquote { margin: .5em 0; padding-left: .7em; border-left: 2px solid #d8d2c5; }
+.description-tooltip-body :is(ul, ol) { margin: .5em 0; padding-left: 1.25em; }
+.description-tooltip-body li + li { margin-top: .4em; }
+
+.class-resource-entry + .class-resource-entry { margin-top: .6rem; }
+.class-resource-entry small, .class-resource-description { color: var(--text-muted); font-size: .78rem; line-height: 1.5; }

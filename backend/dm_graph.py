@@ -19,6 +19,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.errors import GraphBubbleUp
 from langgraph.types import Command, interrupt
 from pydantic import ValidationError
 
@@ -66,6 +67,20 @@ SCENE_ANCHOR_NOUNS: tuple[str, ...] = (
 
 
 LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
+    {"name":"check_spell_sequence", "description":"Before executing multiple spells in one player instruction, check the whole intended sequence. This is read-only and rolls no dice. A conflict must be explained through report_rule_conflict so the player can revise. preserve_effects=True checks whether earlier effects would be ended by later spells; use false only when the player explicitly intends that consequence.",
+     "parameters":{"type":"object","properties":{"caster_ref":{"type":"string"},"preserve_effects":{"type":"boolean","default":True},
+         "casts":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","properties":{"spell_name":{"type":"string"},"slot_level":{"type":"integer"},"target_refs":{"type":"array","items":{"type":"string"}}},"required":["spell_name"]}}},"required":["caster_ref","casts"]}},
+
+    {"name": "register_scene_actor", "description": "Register an already established NPC as a rules target without starting combat. Reuse a known template or provide all six verified ability scores and creature type; never infer a saving throw from narrative mood. Existing identities and resources are not reset.",
+     "parameters": {"type": "object", "properties": {"name": {"type":"string"}, "source":{"type":"string"},
+         "creature_type":{"type":"string"}, "template_ref":{"type":"string"},
+         "ability_scores":{"type":"object","additionalProperties":{"type":"integer"}},
+         "hp_max":{"type":"integer","minimum":1},"ac":{"type":"integer","minimum":1},
+         "saving_throws":{"type":"object","additionalProperties":{"type":"integer"}},
+         "condition_immunities":{"type":"array","items":{"type":"string"}}},"required":["name","source"]}},
+    {"name": "report_rule_conflict", "description": "Stop this attempted action and explain a concrete rule conflict so the player can revise it. All staged gameplay changes are rolled back. Supply only a short player-facing explanation, optionally a correction; no scene narration or filler. Narrative length preferences do not apply. Do not blame player rules for technical failures or demand confirmation of already-recorded spell effects. State inspection is the DM's responsibility; name a concrete rule conflict.",
+     "parameters": {"type":"object","properties":{"message":{"type":"string","minLength":1,"maxLength":1200}},"required":["message"]}},
+
     {
         "name": "lookup_rules",
         "description": "Search the local D&D rules knowledge base for relevant snippets and sources.",
@@ -115,6 +130,8 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
+                "level": {"type": "integer", "minimum": 1, "maximum": 20, "default": 1},
+                "subclass_id": {"type": "string", "default": ""},
                 "category": {
                     "type": "string",
                     "enum": ["all", "species", "backgrounds", "origin_feats", "classes", "ability_generation"],
@@ -209,6 +226,13 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
                 "starter_choice_ids": {"type": "object", "default": {}},
                 "alignment": {"type": "string", "default": "Neutral"},
                 "set_active": {"type": "boolean", "default": True},
+                "level": {"type": "integer", "minimum": 1, "maximum": 20, "default": 1},
+                "subclass_id": {"type": "string", "default": ""},
+                "subclass_spell_variant": {"type": "string", "default": ""},
+                "bonus_spells": {"type": "array", "items": {"type": "string"}},
+                "ability_increases": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}, "description": "At each earned ASI level, choose two ability names for +1 each (same name twice grants +2)."},
+                "expertise_skills": {"type": "array", "items": {"type": "string"}},
+                "mystic_arcanum": {"type": "object", "additionalProperties": {"type": "string"}},
             },
             "required": ["name", "class_name"],
         },
@@ -307,9 +331,17 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         },
     },
     {
+        "name": "adjust_currency",
+        "description": "Receive or pay ordinary money in the character inventory, the only money ledger. Positive amount receives; negative amount pays. CP/SP/EP/GP/PP are exact denominations. The runtime checks funds and makes equivalent change if needed. Never use adjust_hp, prose, or a separate gold balance for payment; never convert gems/collectibles automatically. Report a currency only once, not also through add_inventory_item.",
+        "parameters": {"type":"object", "properties": {
+            "character_ref":{"type":"string"}, "amount":{"type":"integer"},
+            "denomination":{"type":"string", "description":"cp/sp/ep/gp/pp or exact Chinese coin name"},
+            "reason":{"type":"string"}}, "required":["character_ref","amount","denomination","reason"]},
+    },
+    {
         "name": "add_inventory_item",
         "description": (
-            "Add a named item, clue, or loot entry to a character inventory. Known items are enriched from the "
+            "For ordinary money prefer adjust_currency; this tool can receive named coins but cannot pay. Never record the same reward twice. Add a named item, clue, or loot entry to a character inventory. Known items are enriched from the "
             "rules catalog. For other usable items, look up their rules and record confirmed damage dice/type, "
             "healing dice, or effect conditions; identify the spell and level on known scrolls. "
             "Leave genuinely unidentified effects unknown, never fabricate them."
@@ -352,12 +384,15 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "use_feature",
-        "description": "Record a class feature, monster feature, trait, bonus action, or reaction use, consuming the chosen turn slot and optional character resource.",
+        "description": "Bardic Inspiration MUST specify target_ref, distance_feet and target_can_perceive; grants a real expiring recipient die. Do not finish the encounter before resolving declared legal bonus actions. Record a class feature, monster feature, trait, bonus action, or reaction use, consuming the chosen turn slot and optional character resource.",
         "parameters": {
             "type": "object",
             "properties": {
                 "actor_ref": {"type": "string"},
                 "feature_name": {"type": "string"},
+                "target_ref": {"type":"string"},
+                "distance_feet": {"type":"number", "minimum":0},
+                "target_can_perceive": {"type":"boolean"},
                 "action_cost": {
                     "type": "string",
                     "enum": ["action", "bonus_action", "reaction", "free"],
@@ -536,7 +571,7 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "attack_target",
-        "description": "Resolve an attack roll and damage. For a spell attack, pass the cast_id returned by cast_spell; the runtime derives spell math and does not spend the action twice. Resolve every remaining beam before final narration.",
+        "description": "Resolve an attack roll and damage. For throwing a held item set attack_mode=thrown, distance_feet, physical damage_type and reason; keep attack_name exactly the inventory name. Non-Thrown weapons use improvised 1d4, not melee math. Never repeat a successful attack. For a spell attack, pass the cast_id returned by cast_spell; the runtime derives spell math and does not spend the action twice. Resolve every remaining beam before final narration.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -546,6 +581,9 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
                 "cast_id": {"type": "string", "default": ""},
                 "target_ref": {"type": "string"},
                 "attack_name": {"type": "string", "default": ""},
+                "attack_mode": {"type":"string", "enum":["normal","melee","thrown","improvised_melee"], "default":"normal"},
+                "distance_feet": {"type":"number", "minimum":0},
+                "equivalent_weapon": {"type":"string", "description":"Only for established similarity to a catalogue weapon; explain in reason."},
                 "attack_bonus": {"type": "integer"},
                 "damage_expression": {"type": "string"},
                 "damage_type": {"type": "string", "default": ""},
@@ -597,7 +635,7 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "description": (
             "Validate spell access and spend a spell slot if required. The successful result includes the authoritative "
             "spell desc. If cast_id is present, call attack_target with that cast_id for each attack_count; do not invent "
-            "spell bonuses or use a weapon profile for the spell. Tasha's Hideous Laughter REQUIRES existing visible targets within 30 feet in target_ref/target_refs; it automatically resolves initial Wisdom saves and source-owned conditions. Do NOT roll or apply its conditions separately; advance_turn and damage automatically resolve repeat saves. Other spells may require explicit resolution tools."
+            "spell bonuses or use a weapon profile for the spell. Registered effect rules require explicit valid targets and resolve saves, effects, and their triggers atomically. Do not separately roll their saves or apply their conditions. Unknown required mechanics are rejected before resources are spent; do not describe bookkeeping alone as a resolved spell."
         ),
         "parameters": {
             "type": "object",
@@ -606,7 +644,7 @@ LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
                 "spell_name": {"type": "string"},
                 "slot_level": {"type": "integer", "default": 0},
                 "target_ref": {"type": "string", "default": ""},
-                "target_refs": {"type": "array", "items": {"type": "string"}, "description": "Distinct visible targets in spell range; Tasha targets are limited to the resolved slot level."},
+                "target_refs": {"type": "array", "items": {"type": "string"}, "description": "Distinct established targets in spell range; target limits and creature restrictions come from the spell rules."},
                 "reason": {"type": "string", "default": ""},
             },
             "required": ["caster_ref", "spell_name"],
@@ -950,6 +988,7 @@ PHASE_POLICIES: Dict[str, Dict[str, Any]] = {
 }
 
 ACTION_RESOLUTION_TERMS = [
+    "支付", "付款", "付钱", "收钱", "收下", "兑换", "pay", "payment",
     "search",
     "investigate",
     "inspect",
@@ -1045,6 +1084,7 @@ INTENT_FALLBACK_TAGS = {
     "stateful_action",
 }
 INTENT_FALLBACK_TOOLS = {
+    "adjust_currency",
     "hide_actor", "search_hidden", "end_hiding",
     "lookup_rules",
     "roll_skill_check",
@@ -1063,6 +1103,9 @@ INTENT_FALLBACK_TOOLS = {
 }
 
 TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
+    "register_scene_actor": {"register_scene_actor", "scene.register_actor"},
+    "check_spell_sequence": {"check_spell_sequence", "rules.check_spell_sequence"},
+    "report_rule_conflict": {"report_rule_conflict", "rules.feedback"},
     "hide_actor": {"hide_actor"},
     "search_hidden": {"search_hidden"},
     "end_hiding": {"end_hiding"},
@@ -1084,6 +1127,7 @@ TOOL_RESULT_ALIASES: Dict[str, set[str]] = {
     "add_status": {"add_status", "target.add_status"},
     "remove_status": {"remove_status", "target.remove_status"},
     "append_adventure_log": {"append_adventure_log", "log.append"},
+    "adjust_currency": {"adjust_currency", "currency.adjust"},
     "add_inventory_item": {"add_inventory_item", "character.add_inventory_item"},
     "use_item": {"use_item", "inventory.use_item"},
     "use_feature": {"use_feature", "feature.use"},
@@ -1124,9 +1168,11 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
         "tool_round_limit": 1,
         "tool_subset": [
             "request_player_choice",
+            "report_rule_conflict",
             "lookup_rules",
             "append_adventure_log",
             "add_inventory_item",
+            "adjust_currency",
             "record_evidence",
             "record_search_outcome",
             "record_chapter_progress",
@@ -1145,7 +1191,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
         "guidance": "Answer the rules question clearly and avoid unrelated state mutations or extra tool chatter.",
     },
     "action_resolution": {
-        "tool_round_limit": 2,
+        "tool_round_limit": 8,
         "tool_subset": [],
         "guidance": "Resolve the attempted action with the minimum tool sequence needed for correctness, then narrate the outcome cleanly.",
     },
@@ -1171,6 +1217,8 @@ class DMGraphState(TypedDict, total=False):
     combat_flow: Dict[str, Any]
     last_tool_error: str
     repeated_tool_errors: int
+    rules_feedback: Dict[str, Any]
+    unresolved_operations: List[Dict[str, Any]]
     user_input: str
     thread_id: str
     phase: str
@@ -1670,9 +1718,10 @@ class DMGraphRunner:
                 "intent_tags 只能从 hostile_attack、skill_action、spell_action、item_action、feature_action、"
                 "stateful_action 中选择；suggested_tools 只能从 lookup_rules、roll_skill_check、"
                 "roll_saving_throw、cast_spell、end_concentration、advance_time、use_item、use_feature、start_encounter、attack_target、"
-                "set_scene、append_adventure_log、record_evidence、record_search_outcome 中选择。"
+                "adjust_currency、set_scene、append_adventure_log、record_evidence、record_search_outcome 中选择。"
                 "玩家用武器、徒手、射击、伏击、偷袭或刺杀直接攻击生物时必须标记 hostile_attack；"
                 "施放法术但没有直接武器攻击时使用 spell_action，不要附加 hostile_attack；"
+                "等待、维持或结束已存在的法术不是重新施法；不要仅因出现法术名称建议cast_spell，实际游戏内等待可建议advance_time；"
                 "若尚无遭遇，同时建议 start_encounter 和 attack_target。不要把明确行动降级为 conversation。"
             ),
             self._human_prompt_message(
@@ -1930,6 +1979,7 @@ class DMGraphRunner:
             "add_status",
             "remove_status",
             "add_inventory_item",
+            "adjust_currency",
             "use_item",
             "record_evidence",
             "record_search_outcome",
@@ -2148,25 +2198,23 @@ class DMGraphRunner:
         # 若敌方先手已经让行动角色无法行动，这次攻击意图也已有权威失败结果，不能死循环索要攻击。
         return active.hp_current <= 0 or str(active.defeat_state or "active") != "active"
 
+    def _unresolved_declared_spells(self, graph_state: DMGraphState) -> List[str]:
+        from spell_rules import declared_spells
+        declared = declared_spells(graph_state, self.library)
+        resolved = {self.library.normalize_spell_name(payload.get("spell_name", ""))
+                    for payload in self._tool_result_payloads(graph_state, "cast_spell")
+                    if payload.get("effect_resolution") == "completed"}
+        resolved.update(self.library.normalize_spell_name(payload.get("spell_name", ""))
+                        for payload in self._tool_result_payloads(graph_state, "attack_target")
+                        if payload.get("spell_name") and payload.get("attacks_remaining") == 0)
+        return [name for name in declared if name not in resolved]
+
     def _managed_spell_pending(self, graph_state: DMGraphState) -> bool:
-        from spell_effects import LAUGHTER_NAMES
-        text = str(graph_state.get("user_input") or "").replace("’", "'").casefold()
-        intent = graph_state.get("turn_intent") or {}
-        tags = intent.get("intent_tags", [])
-        casting_intent = "spell_action" in tags or ("cast_spell" in intent.get("suggested_tools", []) and intent.get("turn_type") in {"action_resolution", "combat_resolution"})
-        flow = graph_state.get("combat_flow", {})
-        if flow.get("stop_at_player") and not flow.get("action_done"):
-            return False
-        if ("维持" in text or "保持" in text) and "专注" in text and not any(word in text for word in ("施放", "释放", "cast")):
-            return False
-        declared = casting_intent and any(name in text for name in LAUGHTER_NAMES)
-        if not declared or any(word in text for word in ("停止专注", "结束专注", "取消专注", "不施放", "不释放", "不要施放", "不要释放", "别施放", "放弃施放", "not cast", "don't cast")):
-            return False
-        return not any(p.get("effect_resolution") == "completed" for p in self._tool_result_payloads(graph_state, "cast_spell"))
+        return bool(self._unresolved_declared_spells(graph_state))
 
     def _authoritative_resolution_pending(self, graph_state: DMGraphState) -> bool:
         state = GameState.model_validate(graph_state["game_state"])
-        if state.pending_spell_attacks or self._managed_spell_pending(graph_state):
+        if graph_state.get("unresolved_operations") or state.pending_spell_attacks or self._managed_spell_pending(graph_state):
             return True
         if not self._hostile_intent(graph_state):
             return False
@@ -2455,8 +2503,35 @@ class DMGraphRunner:
         args: Dict[str, Any],
     ) -> str:
         if self._managed_spell_pending(graph_state) and tool_name in {"advance_turn", "add_status"}:
-            return "Resolve Tasha's Hideous Laughter with cast_spell and explicit targets first; do not skip its save or apply conditions manually."
-        if graph_state.get("combat_flow") and handoff_ready(GameState.model_validate(graph_state["game_state"]), graph_state["combat_flow"]) and tool_name != "end_encounter":
+            return "Resolve the declared spell through its complete cast_spell contract first; do not skip required saves or apply its conditions manually."
+        if tool_name == "cast_spell" and len(self._unresolved_declared_spells({**graph_state, "tool_results": []})) > 1:
+            checks = self._tool_result_payloads(graph_state, "check_spell_sequence")
+            if not checks:
+                return "Check the complete multi-spell sequence with check_spell_sequence before casting."
+            if not checks[-1].get("valid"):
+                return "The intended spell sequence conflicts with rules; use report_rule_conflict and let the player revise."
+            check = checks[-1]
+            declared = self._unresolved_declared_spells({**graph_state, "tool_results": []})
+            if not set(declared).issubset(set(check.get("spells", []))):
+                return "The preflight omitted a declared spell; check the complete intended sequence."
+            state = GameState.model_validate(graph_state["game_state"])
+            logic = GameLogic(state)
+            from spell_effects import actor_id
+            try:
+                source = actor_id(logic, args.get("caster_ref", ""))
+                refs = [*args.get("target_refs", [])] + ([args["target_ref"]] if args.get("target_ref") else [])
+                targets = sorted(actor_id(logic, ref) for ref in refs)
+            except ValueError as exc:
+                return str(exc)
+            canonical = self.library.normalize_spell_name(args.get("spell_name", ""))
+            next_index = sum('slot_level' in entry for entry in state.spell_cast_history) - check.get('cast_history_count', 0)
+            sequence = check.get('sequence', [])
+            expected = sequence[next_index:next_index + 1] if next_index >= 0 else []
+            if source != check.get("caster_id") or not any(entry["spell_name"] == canonical
+                    and sorted(entry["target_ids"]) == targets and (not args.get("slot_level") or entry["slot_level"] == args["slot_level"])
+                    for entry in expected):
+                return "This cast differs from the checked sequence; check the intended caster, targets and slot level first."
+        if graph_state.get("combat_flow") and handoff_ready(GameState.model_validate(graph_state["game_state"]), graph_state["combat_flow"]) and tool_name not in {"end_encounter", "report_rule_conflict"}:
             return "Next player decision reached; stop tools and request a new player action."
         if tool_name == "start_encounter" and "stealth_approach" in (graph_state.get("turn_intent") or {}).get("intent_tags", []):
             from stealth_rules import is_invisible
@@ -3000,11 +3075,16 @@ class DMGraphRunner:
         reason = str(intent_payload.get("reason") or "structured turn intent selected this profile")
 
         policy = self._turn_profile_policy(profile_name)
+        from spell_rules import declared_spells
+        declared = declared_spells({"user_input": user_input, "turn_intent": intent_payload}, self.library)
+        budget = int(policy.get("tool_round_limit") or self.max_tool_rounds)
+        if profile_name in {"action_resolution", "combat_resolution"}:
+            budget = min(24, max(budget, 4 + len(declared) * 4))
         return {
             "turn_profile": profile_name,
             "turn_profile_reason": reason,
             "turn_guidance": str(policy.get("guidance") or default_guidance),
-            "tool_round_limit": int(policy.get("tool_round_limit") or self.max_tool_rounds),
+            "tool_round_limit": budget,
             "allowed_tools": self._profile_allowed_tools(base_tools, profile_name),
         }
 
@@ -3063,6 +3143,8 @@ class DMGraphRunner:
             "combat_flow": initial_flow(state),
             "last_tool_error": "",
             "repeated_tool_errors": 0,
+            "rules_feedback": {},
+            "unresolved_operations": [],
             "tool_call_rounds": 0,
             "tool_results": [],
             "state_delta": {},
@@ -4017,7 +4099,7 @@ class DMGraphRunner:
     @staticmethod
     def _should_continue_after_validation(graph_state: DMGraphState) -> str:
         if (
-            str(graph_state.get("turn_status") or "") == "failed"
+            str(graph_state.get("turn_status") or "") in {"failed", "rules_feedback"}
             or str(graph_state.get("validation_status") or "") == "failed"
         ):
             return "finalize_turn"
@@ -4130,6 +4212,9 @@ class DMGraphRunner:
                 result = tool(state, **args)
                 outcome["ok"] = result.ok
                 return result
+        except GraphBubbleUp:
+            # 人类决定的interrupt必须交还图调度器，不能转成“工具失败”。
+            raise
         except TypeError as exc:
             return self._tool_error_execution(tool_name, f"Invalid tool arguments for {tool_name}: {exc}")
         except Exception as exc:
@@ -4172,12 +4257,18 @@ class DMGraphRunner:
         )
 
     def _validate_state(self, graph_state: DMGraphState) -> DMGraphState:
+        if graph_state.get("rules_feedback"):
+            return {"turn_status": "rules_feedback", "validation_status": "ok", "allowed_tools": [],
+                    "final_response": str(graph_state["rules_feedback"]["message"]),
+                    "rules_feedback": dict(graph_state["rules_feedback"])}
         state = GameState.model_validate(graph_state["game_state"])
         messages = list(graph_state.get("messages", []))
         timeline_append = list(graph_state.get("timeline_append", []))
         state_delta = dict(graph_state.get("state_delta", {}))
         validation_notes: List[str] = list(graph_state.get("validation_notes", []))
         validation_issues: List[Dict[str, Any]] = list(graph_state.get("validation_issues", []))
+        current_notes_start = len(validation_notes)
+        current_issues_start = len(validation_issues)
         logic = GameLogic(state)
         repair_tools: List[str] = []
         validation_status = "ok"
@@ -4232,23 +4323,13 @@ class DMGraphRunner:
 
         encounter = state.encounter
         if self._managed_spell_pending(graph_state):
-            caster = state.characters.get((graph_state.get("combat_flow") or {}).get("input_actor_id")) or state.get_active_char()
-            available = [int(level) for level, slot in caster.spells.slots.items() if int(level) >= 1 and slot.total > slot.used] if caster else []
-            try:
-                if not caster or not available:
-                    raise ValueError("No caster or available spell slot")
-                from rules_catalog import RuleCatalog
-                rules = RuleCatalog()
-                checked_caster = caster.model_copy(deep=True)
-                availability = rules.can_cast_spell(checked_caster, "塔莎狂笑术", min(available))
-                if not availability["ok"]:
-                    raise ValueError(availability["error"])
-                rules.get_spell_save_profile(checked_caster, "塔莎狂笑术")
-                logic.require_actor_slot_available(caster.character_id, "action", "cast_spell")
-            except ValueError as exc:
-                mark_failed(validator="spell_effect_resolution", summary=f"The required spell cannot currently be cast: {exc}")
-            else:
-                mark_repair(validator="spell_effect_resolution", tools=["cast_spell", "request_player_choice"], summary="Tasha's Hideous Laughter has not resolved target saves. Call cast_spell with target_ref/target_refs; the tool resolves initial saves and conditions atomically. Ask a story-facing choice only if the player's intended target is genuinely ambiguous.")
+            mark_repair(validator="spell_effect_resolution", tools=["register_scene_actor", "cast_spell", "report_rule_conflict", "request_player_choice", "check_spell_sequence"],
+                        summary="Declared spells still lack completed resolution. Register missing established targets, resolve the spell through cast_spell, or report a concrete rule conflict without narration.",
+                        metadata={"spells": self._unresolved_declared_spells(graph_state)})
+        if graph_state.get("unresolved_operations"):
+            mark_repair(validator="unresolved_operation", tools=["register_scene_actor", "report_rule_conflict", *[item["tool_name"] for item in graph_state["unresolved_operations"]]],
+                        summary="A required rules operation failed and has not been resolved. Correct that operation or provide short rule feedback; unrelated successful tools do not complete it.",
+                        metadata={"operations": [item["tool_name"] for item in graph_state["unresolved_operations"]]})
         if state.pending_spell_attacks:
             from spell_resolution import spell_turn_key
             active_casts = [cast for cast in state.pending_spell_attacks if cast.turn_key == spell_turn_key(state)]
@@ -4447,7 +4528,8 @@ class DMGraphRunner:
                             "turn_action_tool": encounter.turn_action_tool,
                         },
                     )
-                if needs_advance(state, graph_state.get("combat_flow", {})):
+                if (needs_advance(state, graph_state.get("combat_flow", {}))
+                        and any(c.side == 'enemy' and c.hp_current > 0 and c.defeat_state == 'active' for c in encounter.combatants.values())):
                     mark_repair(validator="player_turn_handoff", tools=finishing_tools(state),
                                 summary="The input player's primary action is spent. Resolve only an explicitly declared legal bonus action if needed, then call advance_turn, resolve subsequent DM actors, and stop BEFORE the next player-controlled actor acts. Do not replay the old action.")
                 if current and current.linked_character_id and current.linked_character_id in state.characters:
@@ -4471,8 +4553,8 @@ class DMGraphRunner:
                 if enemies and not active_enemies:
                     mark_repair(
                         validator="encounter_end_condition",
-                        summary="No active enemies remain; call end_encounter before final narration.",
-                        tools=["end_encounter"],
+                        summary="No active enemies remain. Resolve any explicitly declared legal bonus action first, then call end_encounter before final narration. The successful attack is complete; do not repeat it.",
+                        tools=["end_encounter", *[name for name in finishing_tools(state) if name in {"use_feature", "cast_spell", "use_item"}]],
                         metadata={"reason": "no_active_enemies"},
                     )
         elif state.scene == "combat":
@@ -4527,12 +4609,12 @@ class DMGraphRunner:
         )
 
         repair_tools = self._unique_texts(repair_tools, limit=8)
-        if validation_status == "repair_required" and int(graph_state.get("tool_call_rounds", 0) or 0) >= max(12, self.max_tool_rounds * 2, min(48, 4 * len(state.encounter.combatants) + 4) if state.encounter else 0):
+        if validation_status == "repair_required" and int(graph_state.get("tool_call_rounds", 0) or 0) >= max(24, self.max_tool_rounds * 2, min(48, 4 * len(state.encounter.combatants) + 4) if state.encounter else 0):
             # 修复可以补足必要动作，但不能每轮续期而绕过总工具预算。
             mark_failed(validator="repair_budget", summary="Required repairs exceeded the turn's tool budget; staged changes must roll back.")
         if validation_status == "repair_required":
             repair_requirements: List[str] = []
-            if self._has_validation_issue({"validation_issues": validation_issues}, "chapter_completion", "repair_required"):
+            if self._has_validation_issue({"validation_issues": validation_issues[current_issues_start:]}, "chapter_completion", "repair_required"):
                 repair_requirements.append(
                     "For chapter_completion, call record_chapter_progress with completed=true. "
                     "Do not call it with completed omitted or false."
@@ -4542,9 +4624,9 @@ class DMGraphRunner:
                 f"Allowed repair tools: {' | '.join(repair_tools) if repair_tools else 'none'}.\n"
                 f"Mandatory repair requirements: {' | '.join(repair_requirements) if repair_requirements else 'Use the exact repair requested by the issue.'}\n"
                 "Call the necessary repair tool now. Do not narrate outcomes until the repair tool succeeds.\n"
-                "Issues:\n- " + "\n- ".join(validation_notes[-6:])
+                "Issues:\n- " + "\n- ".join(validation_notes[current_notes_start:])
             )
-            messages.append(self._system_prompt_message(repair_text))
+            messages.append(SystemMessage(content=repair_text, id="current-state-validation"))
             turn_advice["allowed_tools"] = repair_tools
             turn_advice["suggested_tools"] = repair_tools
             turn_advice["turn_expectation"] = "Repair state with a tool call only; no final narration yet."
@@ -4555,9 +4637,11 @@ class DMGraphRunner:
                 int(graph_state.get("tool_call_rounds", 0) or 0) + 1,
             )
         else:
-            validation_message = self._build_validation_message(validation_notes)
-            if validation_message is not None:
-                messages.append(validation_message)
+            # add_messages按固定ID替换历史指令；审计历史仍保留，但不再反复命令DM重做。
+            text = "当前状态校验已通过。此前的修复要求已解除；成功工具的结果继续有效，不要重复攻击或把内部修复报告为玩家规则冲突。"
+            if validation_status != 'ok':
+                text = "当前校验未通过：" + "；".join(validation_notes[current_notes_start:])
+            messages.append(SystemMessage(content=text, id="current-state-validation"))
 
         if int(graph_state.get("repeated_tool_errors", 0)) >= 3:
             mark_failed(validator="repeated_tool_error", summary="The same tool failure repeated three times without progress; staged changes must roll back.")
@@ -4617,17 +4701,20 @@ class DMGraphRunner:
         state = GameState.model_validate(graph_state["game_state"])
         user_input = graph_state.get("user_input", "")
         pacing_scope = narrative_scope(state, graph_state.get("combat_flow", {}), graph_state.get("initial_game_state"))
-        narrative_mode = "story" if pacing_scope == "story" else "combat"
+        feedback = graph_state.get("rules_feedback") or {}
+        narrative_mode = "rules_feedback" if feedback else "story" if pacing_scope == "story" else "combat"
         length_state = state.model_copy(deep=True)
         if pacing_scope == "combat":
             length_state.campaign.reply_min_chars = 0
         turn_status = str(graph_state.get("turn_status") or "completed")
+        if feedback:
+            turn_status = "rules_feedback"
         if turn_status == "running":
             turn_status = "completed"
         final_response = self.library.localize_game_terms(
             graph_state.get("final_response") or "本回合没有生成可展示的最终回复。"
         )
-        final_response = self.clean_player_response(final_response)
+        final_response = str(feedback["message"]).strip() if feedback else self.clean_player_response(final_response)
         tool_results = [
             item if isinstance(item, ToolResult) else ToolResult.model_validate(item)
             for item in graph_state.get("tool_results", [])
@@ -4636,12 +4723,12 @@ class DMGraphRunner:
         validation_issues = list(graph_state.get("validation_issues", []))
         node_traces = list(graph_state.get("node_traces", []))
 
-        if (state.pending_spell_attacks or self._managed_spell_pending(graph_state)) and turn_status != "failed":
+        if (graph_state.get("unresolved_operations") or state.pending_spell_attacks or self._managed_spell_pending(graph_state)) and turn_status not in {"failed", "rules_feedback"}:
             turn_status = "failed"
-            final_response = "法术的攻击或目标豁免尚未完成结算，本回合未提交；请重试。"
+            final_response = "本次行动仍有未完成的规则结算，未消耗资源或推进剧情；请调整行动或重试。"
 
         if (
-            turn_status != "failed"
+            turn_status not in {"failed", "rules_feedback"}
             and self._hostile_intent(graph_state)
             and not self._hostile_action_resolved(state, graph_state)
         ):
@@ -4657,19 +4744,19 @@ class DMGraphRunner:
                 metadata={"intent_tags": list((graph_state.get("turn_intent") or {}).get("intent_tags") or [])},
             )
 
-        if turn_status != "failed":
+        if turn_status not in {"failed", "rules_feedback"}:
             final_response = self._ensure_public_roll_annotations(final_response, tool_results)
 
         inventory_records = inventory_annotations(
             GameState.model_validate(graph_state.get("initial_game_state") or graph_state["game_state"]),
             state, self.library.localize_game_terms,
-        ) if turn_status != "failed" else []
-        if turn_status != "failed":
+        ) if turn_status not in {"failed", "rules_feedback"} else []
+        if turn_status not in {"failed", "rules_feedback"}:
             final_response = ensure_inventory_annotations(final_response, inventory_records)
 
         # 长度是展示偏好而非规则事务：先用确定性字符数检查，再交给无工具的独立模型扩写或压缩。
         # 后处理未命中时保留最佳正文并记录内部 warning，不能用技术性校验文案打断玩家的回合。
-        if turn_status != "failed":
+        if turn_status not in {"failed", "rules_feedback"}:
             input_length_issue = self._reply_length_issue(final_response, length_state)
             if input_length_issue:
                 final_response, length_attempts = self._rewrite_response_to_length(final_response, length_state, pacing_scope=pacing_scope)
@@ -4707,7 +4794,9 @@ class DMGraphRunner:
                         }
                     )
 
-        if turn_status == "failed":
+        if turn_status == "rules_feedback" and graph_state.get('state_delta'):
+            final_response = "本轮尝试的全部变化均已撤销，伤害、物品和资源保持行动前状态。以下是尝试过程中遇到的限制，不代表已发生的剧情：\n\n" + final_response
+        if turn_status in {"failed", "rules_feedback"}:
             initial_payload = graph_state.get("initial_game_state") or graph_state.get("game_state", {})
             state = GameState.model_validate(initial_payload)
             state.pending_turn = None
@@ -4722,7 +4811,7 @@ class DMGraphRunner:
                 event_type="assistant_response",
                 summary="DM response",
                 content=final_response,
-                payload={"message": final_response, "turn_status": "failed"},
+                payload={"message": final_response, "turn_status": turn_status},
             )
             state.timeline.extend(player_events)
             state.timeline.append(assistant_event)
@@ -5071,10 +5160,12 @@ class DMGraphRunner:
                 # 兼容修复前已发生本地写入的暂停存档：保留公开已保存事实，丢弃旧私有事务。
                 base_state_changed = True
                 raise RuntimeError("checkpoint base state changed while paused")
-            result = self._graph.invoke(
-                Command(resume={"message": user_input}),
-                config=graph_config,
-            )
+            from d20_bonuses import replay_pending_rolls
+            with replay_pending_rolls(state.pending_turn.details.get('_dice_replay', [])):
+                result = self._graph.invoke(
+                    Command(resume={"message": user_input}),
+                    config=graph_config,
+                )
         except Exception as exc:
             error_text = str(exc).lower()
             if not any(token in error_text for token in ("checkpoint", "thread", "resume", "interrupt")):

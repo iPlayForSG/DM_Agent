@@ -1,0 +1,397 @@
+{
+  "source": "D&D 2024 PHB spell rules; declarative mechanics, no spell-name branches in the executor",
+  "rules": [
+    {
+      "id": "hideous_laughter",
+      "names": [
+        "Tasha's Hideous Laughter",
+        "Hideous Laughter",
+        "塔莎狂笑术"
+      ],
+      "save": "wisdom",
+      "duration": 60,
+      "concentration": true,
+      "target_base": 1,
+      "target_per_slot": 1,
+      "slot_base": 1,
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Incapacitated",
+            "Prone"
+          ]
+        }
+      ],
+      "repeat_saves": {
+        "target_turn_end": "normal",
+        "target_damaged": "advantage"
+      },
+      "description": "回合末重做豁免；受到伤害时优势重掷；效果维持时不能主动结束倒地。"
+    },
+    {
+      "id": "friends",
+      "names": [
+        "Friends",
+        "交友术"
+      ],
+      "save": "wisdom",
+      "duration": 60,
+      "concentration": true,
+      "target_base": 1,
+      "auto_save": [
+        "not_humanoid",
+        "fighting_caster",
+        "same_spell_24h"
+      ],
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Charmed"
+          ]
+        }
+      ],
+      "end_events": [
+        "target_damaged",
+        "caster_attack_roll",
+        "caster_dealt_damage",
+        "caster_forces_save"
+      ],
+      "description": "目标受伤，或施法者攻击、造成伤害、迫使任何人豁免时结束；结束时目标知道曾被魅惑。"
+    },
+    {
+      "id": "charm_person",
+      "names": [
+        "Charm Person",
+        "魅惑人类",
+        "魅惑类人",
+        "魅惑人类术"
+      ],
+      "save": "wisdom",
+      "duration": 3600,
+      "concentration": false,
+      "target_base": 1,
+      "target_per_slot": 1,
+      "slot_base": 1,
+      "target_types": [
+        "humanoid"
+      ],
+      "save_advantage": [
+        "fighting_caster"
+      ],
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Charmed"
+          ]
+        }
+      ],
+      "end_events": [
+        "caster_or_ally_harmed_target"
+      ],
+      "description": "目标对施法者友好；施法者或其同伴伤害目标时结束。结束时目标知道曾被魅惑。"
+    },
+    {
+      "id": "charm_monster",
+      "names": [
+        "Charm Monster",
+        "魅惑怪物"
+      ],
+      "save": "wisdom",
+      "duration": 3600,
+      "concentration": false,
+      "target_base": 1,
+      "target_per_slot": 1,
+      "slot_base": 4,
+      "save_advantage": [
+        "fighting_caster"
+      ],
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Charmed"
+          ]
+        }
+      ],
+      "end_events": [
+        "caster_or_ally_harmed_target"
+      ],
+      "description": "施法者或其同伴伤害目标时结束；结束时目标知道曾被魅惑。"
+    },
+    {
+      "id": "hold_person",
+      "names": [
+        "Hold Person",
+        "人类定身术"
+      ],
+      "save": "wisdom",
+      "duration": 60,
+      "concentration": true,
+      "target_base": 1,
+      "target_per_slot": 1,
+      "slot_base": 2,
+      "target_types": [
+        "humanoid"
+      ],
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Paralyzed"
+          ]
+        }
+      ],
+      "repeat_saves": {
+        "target_turn_end": "normal"
+      },
+      "description": "目标每回合结束重做感知豁免，成功结束。"
+    },
+    {
+      "id": "hold_monster",
+      "names": [
+        "Hold Monster",
+        "怪物定身术"
+      ],
+      "save": "wisdom",
+      "duration": 60,
+      "concentration": true,
+      "target_base": 1,
+      "target_per_slot": 1,
+      "slot_base": 5,
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Paralyzed"
+          ]
+        }
+      ],
+      "repeat_saves": {
+        "target_turn_end": "normal"
+      },
+      "description": "目标每回合结束重做感知豁免，成功结束。"
+    },
+    {
+      "id": "invisibility",
+      "names": [
+        "Invisibility",
+        "隐形术"
+      ],
+      "duration": 3600,
+      "concentration": true,
+      "target_base": 1,
+      "target_per_slot": 1,
+      "slot_base": 2,
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Invisible"
+          ]
+        }
+      ],
+      "end_events": [
+        "target_attack_roll",
+        "target_dealt_damage",
+        "target_cast_spell"
+      ],
+      "description": "目标攻击、造成伤害或施法后结束。"
+    },
+    {
+      "id": "heroism",
+      "names": [
+        "Heroism",
+        "英雄气概"
+      ],
+      "duration": 60,
+      "concentration": true,
+      "target_base": 1,
+      "target_per_slot": 1,
+      "slot_base": 1,
+      "default_target": "self",
+      "effects": [
+        {
+          "kind": "conditions",
+          "values": [
+            "Heroism"
+          ]
+        }
+      ],
+      "immunities": [
+        "Frightened"
+      ],
+      "ongoing": [
+        {
+          "event": "target_turn_start",
+          "kind": "temp_hp",
+          "modifier": "spellcasting"
+        }
+      ],
+      "kind": "buff",
+      "description": "免疫恐慌，在目标每回合开始获得等同于施法属性调整值的临时生命。"
+    },
+    {
+      "id": "cure_wounds",
+      "names": [
+        "Cure Wounds",
+        "疗伤术"
+      ],
+      "target_base": 1,
+      "effects": [
+        {
+          "kind": "healing",
+          "dice": "2d8",
+          "upcast_dice": "2d8",
+          "slot_base": 1,
+          "modifier": "spellcasting"
+        }
+      ],
+      "description": "恢复2d8加施法属性调整值生命；每升一环增加2d8。"
+    },
+    {
+      "id": "healing_word",
+      "names": [
+        "Healing Word",
+        "治愈真言"
+      ],
+      "target_base": 1,
+      "effects": [
+        {
+          "kind": "healing",
+          "dice": "2d4",
+          "upcast_dice": "2d4",
+          "slot_base": 1,
+          "modifier": "spellcasting"
+        }
+      ],
+      "description": "恢复2d4加施法属性调整值生命；每升一环增加2d4。"
+    },
+    {
+      "id": "inflict_wounds",
+      "names": [
+        "Inflict Wounds",
+        "造成伤口"
+      ],
+      "save": "constitution",
+      "target_base": 1,
+      "effects": [
+        {
+          "kind": "damage",
+          "dice": "2d10",
+          "upcast_dice": "1d10",
+          "slot_base": 1,
+          "damage_type": "necrotic",
+          "save_multiplier": 0.5
+        }
+      ],
+      "description": "体质豁免失败受到黯蚀伤害，成功减半。"
+    },
+    {
+      "id": "light",
+      "names": [
+        "Light",
+        "光亮术"
+      ],
+      "target_base": 0,
+      "effects": [
+        {
+          "kind": "narrative"
+        }
+      ]
+    },
+    {
+      "id": "mage_hand",
+      "names": [
+        "Mage Hand",
+        "法师之手"
+      ],
+      "target_base": 0,
+      "effects": [
+        {
+          "kind": "narrative"
+        }
+      ]
+    },
+    {
+      "id": "minor_illusion",
+      "names": [
+        "Minor Illusion",
+        "次级幻象"
+      ],
+      "target_base": 0,
+      "effects": [
+        {
+          "kind": "narrative"
+        }
+      ]
+    },
+    {
+      "id": "prestidigitation",
+      "names": [
+        "Prestidigitation",
+        "魔法伎俩"
+      ],
+      "target_base": 0,
+      "effects": [
+        {
+          "kind": "narrative"
+        }
+      ]
+    },
+    {
+      "id": "comprehend_languages",
+      "names": [
+        "Comprehend Languages",
+        "通晓语言"
+      ],
+      "target_base": 0,
+      "effects": [
+        {
+          "kind": "narrative"
+        }
+      ]
+    },
+    {
+      "id": "shield",
+      "names": [
+        "Shield",
+        "护盾术"
+      ],
+      "duration": 6,
+      "concentration": false,
+      "target_base": 1,
+      "default_target": "self",
+      "effects": [],
+      "modifiers": {
+        "ac_bonus": 5
+      },
+      "end_events": [
+        "caster_turn_start"
+      ],
+      "kind": "buff",
+      "description": "护甲等级+5，持续至施法者下一回合开始。",
+      "target_self": true
+    },
+    {
+      "id": "blade_ward",
+      "names": [
+        "Blade Ward",
+        "剑刃防护"
+      ],
+      "duration": 60,
+      "concentration": true,
+      "target_base": 1,
+      "default_target": "self",
+      "effects": [],
+      "modifiers": {
+        "incoming_attack_penalty": "1d4"
+      },
+      "kind": "buff",
+      "description": "针对目标的攻击检定减去1d4。",
+      "target_self": true
+    }
+  ]
+}

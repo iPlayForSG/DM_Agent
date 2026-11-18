@@ -21,7 +21,8 @@ from adventure_service import (
     is_model_generated_adventure_id,
 )
 from combat_status import combat_status_entries
-from spell_effects import is_laughter
+from spell_rules import rule_for
+from resource_rule_text import tooltip_fields as resource_tooltip_fields
 from game_logic import GameLogic
 from library import Library
 from model_backends import DEFAULT_MODEL_PROVIDER
@@ -93,6 +94,9 @@ class SelectAdventureRequest(BaseModel):
 
 
 class AttackActionRequest(BaseModel):
+    attack_mode: str = "normal"
+    distance_feet: float | None = None
+    equivalent_weapon: str = ""
     attacker_ref: str
     target_ref: str
     attack_bonus: int | None = None
@@ -137,7 +141,17 @@ class UseItemActionRequest(BaseModel):
     quantity: int = 1
 
 
+class CurrencyActionRequest(BaseModel):
+    character_ref: str
+    amount: int = Field(strict=True)
+    denomination: str
+    reason: str
+
+
 class UseFeatureActionRequest(BaseModel):
+    target_ref: str = ""
+    distance_feet: float | None = None
+    target_can_perceive: bool | None = None
     actor_ref: str
     feature_name: str
     action_cost: str = "action"
@@ -366,7 +380,7 @@ async def _execute_turn_request(
     def execute_in_worker() -> TurnResult:
         with turn_stream_context(stream_event), turn_time_budget(getattr(agent, "cli_timeout_s", 300)), capture_rolls(initial_rolls) as capture:
             result = asyncio.run(turn_method(state, message))
-            if result.turn_status != "failed":
+            if result.turn_status not in {"failed", "rules_feedback"}:
                 remaining_turn_seconds()
             records = settle_rolls(capture.records, result.turn_status)
             result.roll_records = records
@@ -613,7 +627,7 @@ def _derive_character_feature_options(character: Character):
         features.append(
             {
                 "name": str(definition.get("name") or resource_name),
-                "name_display": library.localize_game_terms(str(definition.get("name") or resource_name)),
+                "name_display": pool.display_name or library.localize_game_terms(str(definition.get("name") or resource_name)),
                 "action_cost": action_cost,
                 "action_cost_display": _action_cost_display(action_cost),
                 "resource_name": resource_name,
@@ -658,6 +672,11 @@ def _add_display_fields(value):
     if not isinstance(value, dict):
         return value
 
+    if isinstance(value.get("resources"), dict):
+        from resource_rule_text import project_resources
+        owner = value.get("class_name") or value.get("name") or ""
+        value = {**value, "resources": project_resources(value["resources"], owner, value.get("level", 1), value.get("subclass_id", ""))}
+
     localized = {key: _add_display_fields(item) for key, item in value.items()}
     display_keys = {
         "name",
@@ -685,7 +704,9 @@ def _add_display_fields(value):
         raw = value.get(key)
         if not isinstance(raw, str) or not raw.strip():
             continue
-        display = library.localize_game_terms(raw)
+        # 法术名称是整体标识，缺少中文译名时保留完整英文，避免“See 隐形术”式拼接。
+        spell = library.get_spell_details(raw) if key == "name" and ("school" in value or "nameEN" in value) else {}
+        display = spell.get("name", raw) if spell else library.localize_game_terms(raw)
         if display != raw:
             localized[f"{key}_display"] = display
     for key in ("properties", "tags", "traits", "status_effects", "cantrips", "prepared"):
@@ -754,7 +775,7 @@ def _build_spell_options(character: Character):
         try:
             profile = rule_catalog.get_spell_attack_profile(character, option["name"], option["level"])
             option["requires_attack_target"] = bool(profile)
-            option["requires_effect_target"] = is_laughter(option["name"]) or is_laughter(option.get("nameEN", ""))
+            option["requires_effect_target"] = bool((rule_for(details) or {}).get("target_base", 0))
             option["damage_types"] = profile["damage_types"] if profile else []
             option["damage_type_labels"] = {kind: library.localize_game_terms(kind) for kind in option["damage_types"]}
         except ValueError as exc:
@@ -872,7 +893,6 @@ def action_options_payload(state: GameState):
                 "reaction_available": not reaction_used,
                 "defeat_state": character.defeat_state,
                 "defeat_state_display": library.localize_game_terms(character.defeat_state.title()),
-                "gold_gp": character.gold_gp,
                 "starter_option_id": character.starter_option_id,
                 "spells": {
                     "cantrips": library.normalize_spell_names(character.spells.cantrips),
@@ -892,6 +912,9 @@ def action_options_payload(state: GameState):
                         "max_value": pool.max_value,
                         "recovery": pool.recovery,
                         "description": pool.description,
+                        "display_name": pool.display_name,
+                        "short_rest_recovery": pool.short_rest_recovery,
+                        **resource_tooltip_fields(character.class_name, name, character.level, character.subclass_id),
                     }
                     for name, pool in character.resources.items()
                 },
@@ -933,6 +956,15 @@ def action_options_payload(state: GameState):
 
     for actor in actors:
         actor["status_entries"] = combat_status_entries(state, actor["ref"])
+    known_refs = {entry["ref"] for entry in actors}
+    for value in state.scene_actors.values():
+        if value.combatant_id not in known_refs:
+            actors.append({"ref": value.combatant_id, "name": value.name, "type": "npc", "side": value.side,
+                "scene_actor": True, "is_current_actor": False, "can_act": value.hp_current > 0 and not GameLogic.is_incapacitated(value),
+                "hp_current": value.hp_current, "hp_max": value.hp_max, "ac": value.ac,
+                "status_entries": combat_status_entries(state, value.combatant_id), "attacks": [], "items": [], "features": [],
+                "spells": {"cantrips": [], "prepared": [], "slots": {}, "options": []},
+                "skills": list(value.skills), "saves": list(value.saving_throws)})
     return {
         "phase": state.campaign.phase,
         "state_version": state.state_version,
@@ -1049,6 +1081,27 @@ async def get_spells(class_name: str):
     return spells_payload(class_name)
 
 
+class CharacterCreationOptionsRequest(BaseModel):
+    class_name: str
+    level: int = Field(default=1, ge=1, le=20, strict=True)
+    subclass_id: str = ""
+    subclass_spell_variant: str = ""
+    bonus_spells: List[str] = Field(default_factory=list)
+    stats: Dict[str, int] = Field(default_factory=dict)
+    ability_increases: Dict[str, List[str]] = Field(default_factory=dict)
+    mystic_arcanum: Dict[str, str] = Field(default_factory=dict)
+
+
+@app.post("/api/v1/rules/character-creation-options")
+async def get_character_creation_options(req: CharacterCreationOptionsRequest):
+    from level_creation import options
+    try:
+        draft = Character(name="构筑预览", **req.model_dump())
+        return _add_display_fields(options(rule_catalog, draft))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/v1/rules/character-builder")
 async def get_character_builder_rules():
     return builder_payload()
@@ -1087,8 +1140,11 @@ async def list_characters():
 
 @app.post("/api/v1/characters")
 async def create_character(char: Character):
-    char = rule_catalog.apply_builder_defaults(char)
-    errors = rule_catalog.validate_character(char)
+    try:
+        char = rule_catalog.apply_builder_defaults(char)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    errors = rule_catalog.validate_character(char, for_creation=True)
     if errors:
         raise HTTPException(status_code=400, detail={"message": "Character validation failed", "errors": errors})
     char_storage.save_character(char)
@@ -1773,7 +1829,7 @@ async def attack_action(game_id: str, req: AttackActionRequest):
             attacker_sees_invisible=req.attacker_sees_invisible,
             target_sees_invisible=req.target_sees_invisible,
             reason=req.reason,
-            attack_name=req.attack_name,
+            attack_name=req.attack_name, attack_mode=req.attack_mode, distance_feet=req.distance_feet, equivalent_weapon=req.equivalent_weapon,
             cast_id=req.cast_id,
         )
     except Exception as exc:
@@ -1853,6 +1909,17 @@ async def use_item_action(game_id: str, req: UseItemActionRequest):
     return result
 
 
+@app.post("/api/v1/games/{game_id}/actions/currency")
+async def currency_action(game_id: str, req: CurrencyActionRequest):
+    state = _load_mutable_game_or_404(game_id)
+    try:
+        result = action_service.adjust_currency(state, **req.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    game_storage.save_game(game_id, result['game_state'])
+    return result
+
+
 @app.post("/api/v1/games/{game_id}/actions/use-feature")
 async def use_feature_action(game_id: str, req: UseFeatureActionRequest):
     state = _load_mutable_game_or_404(game_id)
@@ -1860,7 +1927,7 @@ async def use_feature_action(game_id: str, req: UseFeatureActionRequest):
         result = action_service.use_feature(
             state=state,
             actor_ref=req.actor_ref,
-            feature_name=req.feature_name,
+            feature_name=req.feature_name, target_ref=req.target_ref, distance_feet=req.distance_feet, target_can_perceive=req.target_can_perceive,
             action_cost=req.action_cost,
             resource_name=req.resource_name,
             resource_cost=req.resource_cost,

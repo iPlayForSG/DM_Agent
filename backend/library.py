@@ -285,6 +285,7 @@ TERM_TRANSLATIONS = {
     "clothing": "服饰",
     "focus": "法器",
     "gear": "装备",
+    "currency": "货币",
     "misc": "杂项",
     "pack": "套组",
     "tool": "工具",
@@ -352,23 +353,24 @@ class Library:
     def __new__(cls):
         # Keep the spell database in memory once per process.
         if cls._instance is None:
-            cls._instance = super(Library, cls).__new__(cls)
-            cls._instance.spells = {}
-            cls._instance._localized_aliases = None
-            cls._instance._localized_alias_lookup = None
-            cls._instance._load_data()
+            instance = super(Library, cls).__new__(cls)
+            instance.spells = {}
+            instance._localized_aliases = None
+            instance._localized_alias_lookup = None
+            instance._load_data()
+            cls._instance = instance
         return cls._instance
 
     def _load_data(self):
-        spells_path = os.path.join(DATA_DIR, "spells.json")
-        if os.path.exists(spells_path):
-            try:
-                with open(spells_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    # The current source format is {"SPELL_DATABASE": {"Class": [Spells]}}.
-                    self.spells = data.get("SPELL_DATABASE", {})
-            except Exception as e:
-                print(f"Error loading spells: {e}")
+        # 单一资料源避免本地旧表静默覆盖中文、别名或规则说明；迁移只在离线工具执行。
+        catalog_path = os.path.join(DATA_DIR, "spell_catalog_2024.json")
+        with open(catalog_path, "r", encoding="utf-8") as handle:
+            database = json.load(handle)["SPELL_DATABASE"]
+        if not isinstance(database, dict) or not all(isinstance(rows, list) for rows in database.values()):
+            raise ValueError("Invalid spell catalog: SPELL_DATABASE must contain class lists")
+        self.spells = database
+        self._localized_aliases = None
+        self._localized_alias_lookup = None
 
     def get_spells_by_class(self, class_name: str) -> List[Dict[str, Any]]:
         return self.spells.get(class_name, [])
@@ -384,7 +386,8 @@ class Library:
             for spell in class_spells:
                 name = str(spell.get("name") or "").strip()
                 name_en = str(spell.get("nameEN") or "").strip()
-                if name == normalized or name_en.casefold() == normalized_fold:
+                aliases = {str(value).strip().casefold() for value in spell.get("aliases", [])}
+                if name == normalized or name_en.casefold() == normalized_fold or normalized_fold in aliases:
                     return spell
         return {}
 
@@ -443,9 +446,15 @@ class Library:
             for spell in class_spells:
                 english = str(spell.get("nameEN") or "").strip()
                 chinese = str(spell.get("name") or "").strip()
-                if english and chinese:
+                if english and chinese and english != chinese:
                     aliases[english] = chinese
+                for old_name in spell.get("aliases", []):
+                    if old_name != chinese:
+                        aliases[str(old_name)] = chinese
         aliases.update(TERM_TRANSLATIONS)
+        from class_resources import LABELS
+        for name, label in LABELS.items():
+            aliases.setdefault(name, label)
         self._localized_alias_lookup = aliases
         self._localized_aliases = sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True)
         return self._localized_aliases

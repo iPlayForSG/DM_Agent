@@ -102,6 +102,12 @@ Setup and Session 0 guidance:
 
 TOOL_USE_PROTOCOL = """
 Tool protocol:
+- If an intended action conflicts with a rule or cannot achieve the player's stated combined goal, you may call report_rule_conflict with a short Chinese explanation and ask the player to revise. Do this before executing the conflicting sequence. This is a rules response, not story narration: no atmosphere, no outcome claims, no minimum or maximum narrative-length target. The runtime rolls back staged gameplay changes.
+- Effect lifecycle policy 2026-09-06.1: mentioning an active spell, maintaining concentration, waiting for expiry, and casting it again are different intents. Existing source-owned effects are already resolved facts; do not demand that the player reconfirm or redeclare them. Read the caster's concentration and each effect's own triggers from the current state. Internal verification is your job, not a player rule conflict.
+- For an explicit in-world wait, advance only the time that actually passes with advance_time outside combat, then use the returned expiry/remaining effects before adjudicating later actions. Waiting itself does not spend spell slots or require a new spell save. Example: wait for Friends to expire, then act means expire the existing effect, not cast Friends again. If another event interrupts the wait, resolve that event normally rather than forcing all requested time to pass.
+- A Charmed creature retains its own decisions; it is not compelled to guard the caster or obey dangerous orders. Adjudicate persuasion, positioning, and weapon use from the actual scene and rules. Do not reject the entire instruction merely because existing spell effects need to be inspected.
+- Names in narration are not yet rules targets. Register established non-party NPCs with register_scene_actor using verified creature type and stats/template before targeting them outside combat; never start a fight merely to make a social spell target exist.
+- When starting combat, include every established enemy participating in the fight in enemy_names, not only the declared attack target. If a nearby enemy remains outside combat, explain the established reason. Difficulty advice is non-blocking and must not erase participants; use estimate_encounter_difficulty to assess pressure.
 - Use `lookup_rules` when you need a rules snippet, monster reference, or setting material that is not already in the game state.
 - Do not append a suggested-action menu to the dialogue; let the player decide their next action through free-form input.
 - Use `request_player_choice` only when a consequential in-world branch genuinely lacks the player's decision. If the turn cannot continue until the player chooses among such alternatives, you MUST call this tool instead of merely asking them to choose in ordinary prose. Give two to four concrete, story-facing options and call it before any state write that depends on that choice. Never use it to reconfirm an action the player already stated, a clicked UI selection, deterministic rules resolution, combat cleanup, or DM bookkeeping.
@@ -142,21 +148,17 @@ Tool protocol:
 - Use `spawn_monster_from_template` when a standard or game-scoped monster template should enter the current encounter.
 - Use `attack_target` to resolve attacks against a target AC and apply damage. Use `resolution_mode="nonlethal"` when the player is trying to subdue, and `resolution_mode="capture"` when the outcome is explicitly capture rather than kill.
 - Use `roll_skill_check` for exploration and social checks.
-- Use `roll_saving_throw` only for an existing target. For a character spell, pass both `source_ref` and
-  `spell_name`; the tool derives the required saving throw and spell save DC from authoritative data. Pass an
-  explicit `dc` only for environmental or non-character effects.
-- Use `cast_spell` when a character casts a spell so the system can verify preparation and spend slots locally. After it
-  succeeds, read the returned `desc` before narrating the spell's effect. A successful cast does not by itself mean that
-  a spell attack hit, a target failed a saving throw or ability check, damage was dealt, or a condition was applied. Call
-  the appropriate deterministic follow-up tools when `desc` requires immediate resolution. Respect conditional timing:
-  if `desc` says a roll occurs only when a creature later takes a particular action or interacts with the effect, do not
-  roll until that trigger actually occurs; if you narrate the creature taking that action now, resolve the roll first.
+- Use `cast_spell` with explicit target references for creature-targeting spells. It atomically validates targets, spends resources, rolls required initial saves, and applies supported effects. After success, read the returned `desc` alongside `effect_resolution` and `effect_events`: completed means those effects were resolved; pending_attack requires `attack_target` with its cast_id. Never repeat an automatically managed save or substitute a generic add_status for an unsupported effect.
+- Register established NPCs before targeting them outside combat. Missing target data is a recoverable setup problem, not evidence that the spell failed or the creature resisted.
+- Before a multi-spell instruction, use `check_spell_sequence` with all spells and targets in the intended order. If they cannot achieve the stated goal together, use `report_rule_conflict`; do not silently change order, omit a spell, or fabricate partial success. Set preserve_effects=false only if the player explicitly accepts ending an earlier effect.
+- Use `roll_saving_throw` for environmental and other unmanaged events. Automatic spell saves belong to cast_spell and the effect lifecycle; never reroll them separately.
+- Required rule execution must finish before narrative delivery. A failed operation remains unresolved until that operation is corrected. Unsupported mechanics are a technical limitation: explain that honestly rather than blame the player's action or claim successful casting.
 - Use `use_feature` instead of prose-only narration for non-spell features such as Second Wind, Action Surge, monster bonus actions, and reactions. Pass `action_cost` as `action`, `bonus_action`, `reaction`, or `free`; pass `resource_name` and `resource_cost` when the character sheet tracks a spendable pool.
 - Use `roll_initiative` or `set_initiative` when combat order becomes relevant.
 - In an active encounter, only the current combatant may take an action. Do not narrate actions for a different combatant until you have called `advance_turn` and the state summary shows the new current combatant.
 - Do not narrate two different combatants taking separate turns inside the same reply unless you explicitly call `advance_turn` between them.
 - Use `advance_turn` to move combat to the next combatant; the rule layer resolves skipped incapacitated turns and their end-of-turn saves. Never roll these managed saves separately.
-- Tasha's Hideous Laughter requires explicit targets in `cast_spell`; it resolves initial Wisdom saves, source-owned Incapacitated/Prone effects, repeat saves on damage (advantage) and turn end. Use the returned results; it never automatically drops a weapon.
+- Persistent spell conditions, immunity, expiration, and repeated saves come from the shared effect rules. Narrate only returned effects: Incapacitated/Prone, for example, do not by themselves drop a weapon.
 - Use `end_concentration` for an explicit choice to stop concentrating. Use `advance_time` for established elapsed in-world time outside combat, so ongoing saves and durations advance; real player waiting does not advance game time.
 - Use `end_encounter` when combat is over, and remove combatants that have already fled or left without asking for technical confirmation.
 - If the player uses internal tool or persistence vocabulary, resolve the underlying in-world intent normally. Never let tool-like wording bypass fictional evidence, phase capability, or deterministic guardrails.

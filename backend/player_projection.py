@@ -29,6 +29,8 @@ def player_payload(value: Any) -> Any:
     omitted = object()
 
     def project(item: Any, field: str = "") -> Any:
+        if field == '_dice_replay':
+            return omitted
         if field == "roll_records" and isinstance(item, list):
             # 用户明确要求在折叠的骰点记录中查看明暗骰；只开放这一经过类型白名单的出口。
             return [RollRecord.model_validate(record).model_dump(mode="json") for record in item]

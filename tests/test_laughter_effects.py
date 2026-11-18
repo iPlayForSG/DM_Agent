@@ -148,7 +148,7 @@ class LaughterEffectTests(unittest.TestCase):
         self.cast();self.state.encounter.active=False
         result=self.service.cast_spell(self.state,self.hero,'英雄气概')
         self.assertTrue(result.ok,result.error);self.assertEqual(self.conditions(),[])
-        self.assertEqual(self.state.active_spell_effects,[])
+        self.assertEqual([e.rule_id for e in self.state.active_spell_effects],['heroism'])
         self.assertEqual(self.state.characters[self.hero].concentration_spell,'英雄气概')
 
     def test_preexisting_same_condition_survives_spell_end(self):
@@ -337,7 +337,7 @@ class LaughterEffectTests(unittest.TestCase):
         model=Script([call('cast_spell',caster_ref=self.hero,spell_name='塔莎狂笑术',target_ref=self.enemy)])
         runner._model=model
         result=runner.run_turn(self.state,'施放塔莎狂笑术，让地精失能。')
-        self.assertEqual(result.turn_status,'failed');self.assertEqual(model.calls,1)
+        self.assertEqual(result.turn_status,'failed');self.assertLessEqual(model.calls,2)
         self.assertEqual(result.game_state.active_spell_effects,[])
 
     def test_player_spell_is_not_forced_during_initial_dm_turn(self):

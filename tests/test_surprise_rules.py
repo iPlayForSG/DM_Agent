@@ -170,7 +170,7 @@ class SurpriseRulesTests(unittest.TestCase):
         failed = self.service.cast_spell(self.state, self.actor.character_id, "Unknown spell")
         self.assertFalse(failed.ok)
         self.assertIsNotNone(self.state.get_active_char().hiding)
-        success = self.service.cast_spell(self.state, self.actor.character_id, "Charm Person", 1)
+        success = self.service.cast_spell(self.state, self.actor.character_id, "Charm Person", 1, target_ref=self.actor.character_id)
         self.assertTrue(success.ok, success.error)
         self.assertIsNone(self.state.get_active_char().hiding)
 
@@ -234,7 +234,7 @@ class SurpriseRulesTests(unittest.TestCase):
         self.actor.class_name = "Bard"
         self.actor.spells = Spellbook(cantrips=["Friends"])
         self.hide()
-        result = self.service.cast_spell(self.state, self.actor.character_id, "Friends")
+        result = self.service.cast_spell(self.state, self.actor.character_id, "Friends", target_ref=self.actor.character_id)
         self.assertTrue(result.ok, result.error)
         self.assertIsNotNone(self.state.get_active_char().hiding)
 

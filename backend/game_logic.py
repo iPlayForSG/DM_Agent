@@ -49,13 +49,14 @@ class DiceRoller:
         if abs(modifier) > 100000:
             raise ValueError("Dice modifier is outside the supported range")
 
-        rolls = [random.randint(1, sides) for _ in range(count)]
+        from d20_bonuses import draw
+        rolls, record_id = draw(count, sides)
         total = sum(rolls) + modifier
 
         detail = f"[{','.join(map(str, rolls))}]"
         if modifier:
             detail += f"{modifier:+d}"
-        record_roll(expression=expression, dice=rolls, kept=rolls, modifier=modifier, total=total, detail=detail)
+        record_roll(record_id=record_id, expression=expression, dice=rolls, kept=rolls, modifier=modifier, total=total, detail=detail)
         return total, detail
 
     @staticmethod
@@ -63,9 +64,8 @@ class DiceRoller:
         normalized_mode = str(roll_mode or "normal").strip().casefold()
         if normalized_mode not in DiceRoller.VALID_ROLL_MODES:
             raise ValueError(f"Unsupported d20 roll mode: {roll_mode}")
-        rolls = [random.randint(1, 20)]
-        if normalized_mode != "normal":
-            rolls.append(random.randint(1, 20))
+        from d20_bonuses import draw
+        rolls, record_id = draw(2 if normalized_mode != "normal" else 1, 20)
         natural = (
             max(rolls)
             if normalized_mode == "advantage"
@@ -79,7 +79,7 @@ class DiceRoller:
             detail += f" -> [{natural}]"
         if modifier:
             detail += f"{modifier:+d}"
-        record_roll(expression=f"{len(rolls)}d20" + (f"{modifier:+d}" if modifier else ""),
+        record_roll(record_id=record_id, expression=f"{len(rolls)}d20" + (f"{modifier:+d}" if modifier else ""),
                     dice=rolls, kept=[natural], modifier=modifier, total=total, detail=detail, roll_mode=normalized_mode)
         return natural, total, detail
 
@@ -283,7 +283,7 @@ class GameLogic:
             "broken": broken,
             "reason": reason,
             "save": save_result,
-            "patch": patch,
+            "patch": self._route_actor_patch(patch),
         }
 
     def _resolve_evidence_ref(
@@ -371,16 +371,32 @@ class GameLogic:
         return None
 
     def get_combatant(self, identifier: str) -> Optional[Combatant]:
-        if not self.state.encounter:
-            return None
+        active = self.state.encounter.combatants if self.state.encounter else {}
+        if identifier in active:
+            return active[identifier]
+        if identifier in self.state.scene_actors:
+            return self.state.scene_actors[identifier]
+        matches = {c.combatant_id: c for c in [*active.values(), *self.state.scene_actors.values()]
+                   if c.name == identifier or c.linked_character_id == identifier}
+        if len(matches) > 1:
+            raise ValueError("人物名称不唯一，请使用明确的目标ID")
+        return next(iter(matches.values()), None)
 
-        if identifier in self.state.encounter.combatants:
-            return self.state.encounter.combatants[identifier]
-
-        for combatant in self.state.encounter.combatants.values():
-            if combatant.name == identifier or combatant.linked_character_id == identifier:
-                return combatant
-        return None
+    def _route_actor_patch(self, patch):
+        # 复用战斗员规则计算，但战斗外NPC的patch不能伪造一个活跃遭遇。
+        actors = dict((patch.get("encounter") or {}).get("combatants") or {})
+        outside = {key: value for key, value in actors.items() if key in self.state.scene_actors}
+        if not outside:
+            return patch
+        result = dict(patch)
+        result["scene_actors"] = {**result.get("scene_actors", {}), **outside}
+        encounter_patch = dict(result.get("encounter") or {})
+        inside = {key: value for key, value in actors.items() if key not in outside}
+        if inside: encounter_patch["combatants"] = inside
+        else: encounter_patch.pop("combatants", None)
+        if encounter_patch: result["encounter"] = encounter_patch
+        else: result.pop("encounter", None)
+        return result
 
     def get_actor_name(self, identifier: str) -> str:
         character = self.get_character(identifier)
@@ -591,6 +607,8 @@ class GameLogic:
         if self.state.encounter and self.state.encounter.active:
             return self.state.encounter
 
+        from scene_actors import archive_inactive_encounter
+        archive_inactive_encounter(self.state)
         encounter = EncounterState(encounter_id=random_id("enc"), active=True, round_number=1)
         for character in self.state.characters.values():
             combatant = Combatant(
@@ -601,6 +619,7 @@ class GameLogic:
                 hp_current=character.hp_current,
                 hp_max=character.hp_max,
                 temp_hp=character.temp_hp,
+                temp_hp_source=character.temp_hp_source,
                 ac=character.ac,
                 initiative_bonus=character.initiative_bonus,
                 status_effects=list(character.status_effects),
@@ -629,6 +648,7 @@ class GameLogic:
         combatant.hp_current = character.hp_current
         combatant.hp_max = character.hp_max
         combatant.temp_hp = character.temp_hp
+        combatant.temp_hp_source = character.temp_hp_source
         combatant.ac = character.ac
         combatant.initiative_bonus = character.initiative_bonus
         combatant.status_effects = list(character.status_effects)
@@ -650,6 +670,7 @@ class GameLogic:
         character.hp_current = combatant.hp_current
         character.hp_max = combatant.hp_max
         character.temp_hp = combatant.temp_hp
+        character.temp_hp_source = combatant.temp_hp_source
         character.ac = combatant.ac
         character.initiative_bonus = combatant.initiative_bonus
         character.status_effects = list(combatant.status_effects)
@@ -701,6 +722,8 @@ class GameLogic:
         return Combatant(
             combatant_id=random_id("cmb"),
             monster_template_id=monster.monster_id,
+            creature_type=monster.creature_type,
+            condition_immunities=list(monster.condition_immunities),
             name=label,
             side=side,
             hp_current=hp_override if hp_override is not None else monster.hp_max,
@@ -714,7 +737,7 @@ class GameLogic:
 
     # HP and status mutations keep character and encounter mirrors in sync.
     def _effect_transaction(self, operation, *args, **kwargs):
-        if not self.state.active_spell_effects:
+        if not (self.state.active_spell_effects or self.state.granted_dice):
             return operation(*args, **kwargs)
         before = self.state.model_copy(deep=True)
         event_count = len(self.effect_events)
@@ -733,6 +756,8 @@ class GameLogic:
         from spell_effects import cleanup, repeat_saves, effect_patch
         cleanup(self)
         if damage_amount > 0 and self.state.active_spell_effects:
+            from spell_effects import dispatch
+            dispatch(self, "damage", target_ref=target_ref, amount=damage_amount)
             repeat_saves(self, target_ref, "受到伤害")
         result["patch"] = self._merge_patches(result.get("patch", {}), effect_patch(self))
         result["effect_events"] = list(self.effect_events)
@@ -781,7 +806,7 @@ class GameLogic:
             return {
                 "target_type": "character",
                 "target": character,
-                "patch": patch,
+                "patch": self._route_actor_patch(patch),
                 "concentration_check": concentration_check,
             }
 
@@ -825,7 +850,7 @@ class GameLogic:
         return {
             "target_type": "combatant",
             "target": combatant,
-            "patch": patch,
+            "patch": self._route_actor_patch(patch),
             "concentration_check": concentration_check,
         }
 
@@ -883,9 +908,13 @@ class GameLogic:
             }
         if character:
             patch = self._merge_patches(patch, self._clear_incapacitated_concentration(character))
-        return {"target_type": "combatant", "target": combatant, "patch": patch}
+        return {"target_type": "combatant", "target": combatant, "patch": self._route_actor_patch(patch)}
 
     def add_status(self, identifier: str, status: str) -> Optional[Dict[str, Any]]:
+        from spell_effects import actor, immunity_conditions, canonical_condition
+        target = actor(self, identifier)
+        if target and canonical_condition(status) in immunity_conditions(self, target):
+            raise ValueError('目标对该状态免疫，不能添加该状态。')
         if self.state.active_spell_effects and (self.get_character(identifier) or self.get_combatant(identifier)):
             from spell_effects import preserve_manual_condition
             preserve_manual_condition(self, identifier, status)
@@ -916,7 +945,7 @@ class GameLogic:
         if character:
             patch["characters"] = {character.character_id: {"status_effects": character.status_effects}}
             patch = self._merge_patches(patch, self._clear_incapacitated_concentration(character))
-        return {"target_type": "combatant", "target": combatant, "patch": patch}
+        return {"target_type": "combatant", "target": combatant, "patch": self._route_actor_patch(patch)}
 
     def _clear_incapacitated_concentration(self, character: Character) -> Dict[str, Any]:
         if (not self.is_incapacitated(character) and character.defeat_state != "dead") or not character.concentration_spell:
@@ -942,7 +971,7 @@ class GameLogic:
                 patch["encounter"] = {
                     "combatants": {combatant.combatant_id: {"status_effects": combatant.status_effects}}
                 }
-            return {"target_type": "character", "target": character, "patch": patch}
+            return {"target_type": "character", "target": character, "patch": self._route_actor_patch(patch)}
 
         combatant = self.get_combatant(identifier)
         if not combatant:
@@ -953,7 +982,7 @@ class GameLogic:
         patch = {"encounter": {"combatants": {combatant.combatant_id: {"status_effects": combatant.status_effects}}}}
         if character:
             patch["characters"] = {character.character_id: {"status_effects": character.status_effects}}
-        return {"target_type": "combatant", "target": combatant, "patch": patch}
+        return {"target_type": "combatant", "target": combatant, "patch": self._route_actor_patch(patch)}
 
     def set_active_character(self, identifier: str) -> Optional[Character]:
         character = self.get_character(identifier)
@@ -976,6 +1005,16 @@ class GameLogic:
             return
         self.state.adventure_log.append(text)
         self.state.adventure_log = self.state.adventure_log[-50:]
+
+    def adjust_currency(self, character_ref: str, amount: int, denomination: str, reason: str):
+        from money import adjust
+        character = self.get_character(character_ref)
+        if not character:
+            raise ValueError(f"Character not found: {character_ref}")
+        if not reason.strip():
+            raise ValueError("钱币收支必须说明奖励、付款或兑换的依据。")
+        result = adjust(character, amount, denomination)
+        return {**result, 'character_id': character.character_id, 'character_name': character.name, 'reason': reason}
 
     def add_inventory_item(
         self,
@@ -1005,6 +1044,17 @@ class GameLogic:
         normalized_name = item_name.strip()
         if not normalized_name:
             return None
+
+        from money import denomination, adjust, COINS
+        coin = denomination(normalized_name)
+        if coin or item_type == 'currency':
+            if not coin:
+                raise ValueError("普通钱币需明确铜币、银币、银金币、金币或铂金币；收藏品请按普通物品记录。")
+            if type(quantity) is not int or quantity <= 0:
+                raise ValueError("获得钱币的数量须为正整数；支出请使用adjust_currency。")
+            result = adjust(character, quantity, coin)
+            item = next(i for i in character.inventory if i.name == COINS[coin][0])
+            return {'character': character, 'item': item, 'patch': result['patch']}
 
         existing = next((entry for entry in character.inventory if entry.name == normalized_name), None)
         previous = existing
@@ -1084,7 +1134,7 @@ class GameLogic:
                 }
             }
         }
-        return {"character": character, "item": item, "patch": patch}
+        return {"character": character, "item": item, "patch": self._route_actor_patch(patch)}
 
     def use_inventory_item(
         self,
@@ -1121,7 +1171,7 @@ class GameLogic:
                 }
             }
         }
-        return {"character": user, "item": item, "quantity": quantity, "patch": patch}
+        return {"character": user, "item": item, "quantity": quantity, "patch": self._route_actor_patch(patch)}
 
     @staticmethod
     def _normalize_feature_action_cost(action_cost: str) -> str:
@@ -1149,7 +1199,14 @@ class GameLogic:
         normalized = str(feature_name or "").strip().casefold()
         if not normalized:
             return {}
-        return dict(cls.FEATURE_DEFINITIONS.get(normalized) or {})
+        definition = cls.FEATURE_DEFINITIONS.get(normalized)
+        if definition:
+            return dict(definition)
+        from class_resources import FIXED_ACTIONS, LABELS
+        for name, cost in FIXED_ACTIONS.items():
+            if normalized in {name.casefold(), LABELS.get(name, '').casefold(), '诗人激励' if name == 'Bardic Inspiration' else ''}:
+                return {'name':name,'action_cost':cost,'resource_name':name,'resource_cost':1}
+        return {}
 
     def resolve_feature_use(
         self,
@@ -1158,6 +1215,9 @@ class GameLogic:
         action_cost: str = "action",
         resource_name: str = "",
         resource_cost: int = 0,
+        target_ref: str = "",
+        distance_feet: Optional[float] = None,
+        target_can_perceive: Optional[bool] = None,
     ) -> Dict[str, Any]:
         normalized_feature = str(feature_name or "").strip()
         if not normalized_feature:
@@ -1174,6 +1234,14 @@ class GameLogic:
         actor_id = character.character_id if character else combatant.combatant_id
         actor_name = character.name if character else combatant.name
         feature_definition = self.feature_definition_for(normalized_feature)
+        granted = None
+        if feature_definition.get("name") == "Bardic Inspiration":
+            from d20_bonuses import prepare_inspiration
+            if resource_name and resource_name != "Bardic Inspiration" or resource_cost not in (0, 1):
+                raise ValueError("诗人激励固定消耗一次诗人激励资源。")
+            if not character:
+                raise ValueError("诗人激励需要职业角色卡。")
+            granted = prepare_inspiration(self, character, target_ref, distance_feet, target_can_perceive)
         normalized_action_cost = self._normalize_feature_action_cost(
             feature_definition.get("action_cost") or action_cost
         )
@@ -1188,10 +1256,7 @@ class GameLogic:
             raise ValueError("Feature resource cost cannot be negative")
         normalized_resource_name = str(resource_name or feature_definition.get("resource_name") or "").strip()
         if parsed_resource_cost <= 0 and feature_definition.get("resource_cost") and character:
-            inferred_resource_name = normalized_resource_name or str(feature_definition.get("resource_name") or "")
-            _, inferred_resource = self._find_character_resource(character, inferred_resource_name)
-            if inferred_resource:
-                parsed_resource_cost = int(feature_definition.get("resource_cost") or 0)
+            parsed_resource_cost = int(feature_definition.get("resource_cost") or 0)
         if parsed_resource_cost > 0:
             if not normalized_resource_name:
                 raise ValueError("Feature resource name is required when resource_cost is greater than zero")
@@ -1233,7 +1298,14 @@ class GameLogic:
                 self.mark_actor_slot_used(actor_ref, normalized_action_cost, "use_feature"),
             )
 
+        if granted:
+            from d20_bonuses import expire
+            expire(self.state)
+            self.state.granted_dice.append(granted)
+            patch['granted_dice'] = [b.model_dump(mode='json') for b in self.state.granted_dice]
         return {
+            "granted_die": granted.model_dump(mode='json') if granted else None,
+            "target_name": self.get_actor_name(target_ref) if granted else "",
             "actor_type": actor_type,
             "actor_id": actor_id,
             "actor_name": actor_name,
@@ -1244,7 +1316,7 @@ class GameLogic:
             "resource_before": resource_payload.get("resource_before"),
             "resource_after": resource_payload.get("resource_after"),
             "feature_definition": feature_definition,
-            "patch": patch,
+            "patch": self._route_actor_patch(patch),
         }
 
     def record_evidence(
@@ -1296,7 +1368,7 @@ class GameLogic:
             patch,
             {"evidence_records": [item.model_dump(mode="json") for item in self.state.evidence_records]},
         )
-        return {"evidence": record, "character": character, "patch": patch}
+        return {"evidence": record, "character": character, "patch": self._route_actor_patch(patch)}
 
     def record_search_outcome(
         self,
@@ -1335,7 +1407,7 @@ class GameLogic:
             "search_records": [item.model_dump(mode="json") for item in self.state.search_records],
             "adventure_log": list(self.state.adventure_log),
         }
-        return {"search_record": record, "character": searcher, "patch": patch}
+        return {"search_record": record, "character": searcher, "patch": self._route_actor_patch(patch)}
 
     def add_major_experience(self, character_ref: str, entry: str) -> Optional[Dict[str, Any]]:
         character = self.get_character(character_ref)
@@ -1357,7 +1429,7 @@ class GameLogic:
                 }
             }
         }
-        return {"character": character, "entry": text, "patch": patch}
+        return {"character": character, "entry": text, "patch": self._route_actor_patch(patch)}
 
     def record_chapter_progress(
         self,
@@ -1413,7 +1485,7 @@ class GameLogic:
                 }
                 for character in self.state.characters.values()
             }
-        return {"chapter": record, "patch": patch}
+        return {"chapter": record, "patch": self._route_actor_patch(patch)}
 
     # Encounter lifecycle.
     def start_encounter(self, enemy_names: List[str], enemy_hp: int = 10, enemy_ac: int = 10,
@@ -1430,6 +1502,7 @@ class GameLogic:
 
         surprised_refs = surprised_refs or []
         valid_refs = set(enemy_names) | set(self.state.characters) | {c.name for c in self.state.characters.values()}
+        valid_refs.update(value.combatant_id for value in self.state.scene_actors.values() if value.name in enemy_names or value.combatant_id in enemy_names)
         if any(ref not in valid_refs for ref in surprised_refs) or (surprised_refs and not surprise_reason.strip()):
             raise ValueError("Surprise requires existing participants and an explicit unawareness reason")
         encounter = self._ensure_encounter()
@@ -1439,7 +1512,8 @@ class GameLogic:
             if not clean_name:
                 continue
             combatant = Combatant(
-                combatant_id=stable_id("cmb", f"{encounter.encounter_id}-{clean_name}"),
+                # 参战实例不能用名称slug作ID：中文被清除、长名称被截断时会互相覆盖。
+                combatant_id=random_id("cmb"),
                 name=clean_name,
                 side="enemy",
                 hp_current=enemy_hp,
@@ -1447,10 +1521,16 @@ class GameLogic:
                 ac=enemy_ac,
                 initiative_bonus=0,
             )
+            existing = next((value for key, value in self.state.scene_actors.items()
+                             if key == clean_name or value.name == clean_name), None)
+            if existing:
+                combatant = self.state.scene_actors.pop(existing.combatant_id)
+                combatant.side = "enemy"
+                combatant.initiative = None
             encounter.combatants[combatant.combatant_id] = combatant
 
         for combatant in encounter.combatants.values():
-            combatant.surprised_at_start = combatant.name in surprised_refs or combatant.linked_character_id in surprised_refs
+            combatant.surprised_at_start = combatant.combatant_id in surprised_refs or combatant.name in surprised_refs or combatant.linked_character_id in surprised_refs
             combatant.surprise_reason = surprise_reason if combatant.surprised_at_start else ""
         encounter.active = True
         encounter.round_number = max(1, encounter.round_number)
@@ -1471,7 +1551,7 @@ class GameLogic:
     ) -> Combatant:
         encounter = self._ensure_encounter()
         combatant = Combatant(
-            combatant_id=stable_id("cmb", f"{encounter.encounter_id}-{name}-{len(encounter.combatants)}"),
+            combatant_id=random_id("cmb"),
             name=name,
             side=side,
             hp_current=hp_max,
@@ -1559,10 +1639,10 @@ class GameLogic:
     def resolve_attack(self, attacker_ref: str, target_ref: str, attack_bonus: int,
                        damage_expression: str, damage_type: str = "", resolution_mode: str = "normal",
                        roll_mode: str = "normal", attacker_sees_invisible: bool = False,
-                       target_sees_invisible: bool = False) -> Optional[Dict[str, Any]]:
+                       target_sees_invisible: bool = False, range_disadvantage: bool = False) -> Optional[Dict[str, Any]]:
         return self._effect_transaction(self._resolve_attack_base, attacker_ref, target_ref, attack_bonus,
                                         damage_expression, damage_type, resolution_mode, roll_mode,
-                                        attacker_sees_invisible, target_sees_invisible)
+                                        attacker_sees_invisible, target_sees_invisible, range_disadvantage)
 
     def _resolve_attack_base(
         self,
@@ -1575,6 +1655,7 @@ class GameLogic:
         roll_mode: str = "normal",
         attacker_sees_invisible: bool = False,
         target_sees_invisible: bool = False,
+        range_disadvantage: bool = False,
     ) -> Optional[Dict[str, Any]]:
         target_character = self.get_character(target_ref)
         target_combatant = None if target_character else self.get_combatant(target_ref)
@@ -1582,17 +1663,31 @@ class GameLogic:
             return None
 
         target = target_character or target_combatant
+        from spell_effects import modifiers_for, require_harm_allowed
+        require_harm_allowed(self, attacker_ref, target_ref)
+        target_ac = target.ac + sum(modifiers_for(self, target_ref, 'ac_bonus'))
         from stealth_rules import actor_for, is_invisible, combine_roll_mode, end_hiding
         attacker = actor_for(self, attacker_ref)
         effective_mode = combine_roll_mode(roll_mode,
             advantage=is_invisible(attacker) and not target_sees_invisible,
-            disadvantage=is_invisible(target) and not attacker_sees_invisible)
-        with dice_context(kind="attack", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击检定", dc=target.ac):
-            natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus, roll_mode=effective_mode)
+            disadvantage=(is_invisible(target) and not attacker_sees_invisible) or range_disadvantage)
+        penalty = 0
+        for expression in modifiers_for(self, target_ref, 'incoming_attack_penalty'):
+            with dice_context(kind="effect", actor=target.name, target=self.get_actor_name(attacker_ref), label="防护效果", dc=None):
+                amount, _ = DiceRoller.roll(expression)
+                penalty += amount
+        with dice_context(kind="attack", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击检定", dc=target_ac):
+            natural, attack_total, attack_detail = DiceRoller.roll_d20(attack_bonus - penalty, roll_mode=effective_mode)
+        from d20_bonuses import apply_failed_test
+        attack_total, attack_detail, bonus_events = apply_failed_test(
+            self, attacker_ref, attack_total, target_ac, attack_detail, eligible=natural not in (1, 20))
         hiding_patch = end_hiding(self, attacker_ref) if attacker and attacker.hiding else {}
         critical = natural == 20
-        hit = critical or (natural != 1 and attack_total >= target.ac)
-        annotate_last_roll(success=hit)
+        hit = critical or (natural != 1 and attack_total >= target_ac)
+        from roll_capture import annotate_test_roll
+        annotate_test_roll(success=hit, natural=natural, critical=critical, total=attack_total, detail=attack_detail)
+        from spell_effects import dispatch
+        dispatch(self, "attack_roll", source_ref=attacker_ref, target_ref=target_ref)
 
         damage_total = 0
         damage_detail = ""
@@ -1602,7 +1697,7 @@ class GameLogic:
         if hit and damage_expression:
             if critical:
                 damage_roll = self._expand_critical_damage(damage_expression)
-            with dice_context(kind="damage", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击伤害", dc=None):
+            with dice_context(kind="damage", actor=self.get_actor_name(attacker_ref), target=target.name, label="攻击伤害", dc=None, critical=critical):
                 damage_total, damage_detail = DiceRoller.roll(damage_roll)
             damage_total = max(0, damage_total)
             # 先确定致死/非致死的最终败北状态，再触发持续法术的受伤事件。
@@ -1622,12 +1717,16 @@ class GameLogic:
                         patch = self._merge_patches(patch, defeat_result["patch"])
 
         if hit and damage_total > 0:
-            settled = self._settle_spell_effects({"patch": patch}, target_ref, damage_total)
+            dispatch(self, "damage", source_ref=attacker_ref, target_ref=target_ref, amount=damage_total)
+            settled = self._settle_spell_effects({"patch": self._route_actor_patch(patch)}, target_ref, damage_total)
             patch = settled["patch"]
+        if self.effect_events:
+            from spell_effects import effect_patch
+            patch = self._merge_patches(patch, effect_patch(self))
         return {
             "attacker_name": self.get_actor_name(attacker_ref),
             "target_name": target.name,
-            "target_ac": target.ac,
+            "target_ac": target_ac,
             "natural": natural,
             "attack_total": attack_total,
             "attack_detail": attack_detail,
@@ -1643,8 +1742,8 @@ class GameLogic:
             "target_hp_current": target.hp_current,
             "target_defeat_state": getattr(target, "defeat_state", "active"),
             "concentration_check": concentration_check,
-            "effect_events": list(self.effect_events),
-            "patch": patch,
+            "effect_events": [*self.effect_events, *bonus_events],
+            "patch": self._merge_patches(self._route_actor_patch(patch), {"granted_dice": [b.model_dump(mode="json") for b in self.state.granted_dice]}),
         }
 
     def roll_skill_check(
@@ -1657,8 +1756,13 @@ class GameLogic:
     ) -> Dict[str, Any]:
         with dice_context(kind="skill", actor=self.get_actor_name(actor_ref), label=skill_name, dc=dc if dc > 0 else None):
             natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
-        annotate_last_roll(success=None if dc <= 0 else total >= dc)
+        from d20_bonuses import apply_failed_test
+        total, detail, bonus_events = apply_failed_test(self, actor_ref, total, dc, detail)
+        from roll_capture import annotate_test_roll
+        annotate_test_roll(success=None if dc <= 0 else total >= dc, total=total, detail=detail)
         return {
+            "bonus_events": bonus_events,
+            "patch": {"granted_dice": [b.model_dump(mode="json") for b in self.state.granted_dice]},
             "actor_name": self.get_actor_name(actor_ref),
             "skill_name": skill_name,
             "modifier": modifier,
@@ -1680,8 +1784,13 @@ class GameLogic:
     ) -> Dict[str, Any]:
         with dice_context(kind="save", actor=self.get_actor_name(target_ref), label=save_name, dc=dc):
             natural, total, detail = DiceRoller.roll_d20(modifier, roll_mode=roll_mode)
-        annotate_last_roll(success=total >= dc)
+        from d20_bonuses import apply_failed_test
+        total, detail, bonus_events = apply_failed_test(self, target_ref, total, dc, detail)
+        from roll_capture import annotate_test_roll
+        annotate_test_roll(success=total >= dc, total=total, detail=detail)
         return {
+            "bonus_events": bonus_events,
+            "patch": {"granted_dice": [b.model_dump(mode="json") for b in self.state.granted_dice]},
             "target_name": self.get_actor_name(target_ref),
             "save_name": save_name,
             "modifier": modifier,
@@ -1735,7 +1844,7 @@ class GameLogic:
         return {"combatant": combatant, "total": total, "detail": detail, "expression": expression, "roll_mode": roll_mode}
 
     def advance_turn(self) -> Optional[Combatant]:
-        if self.state.active_spell_effects and self.state.encounter and self.state.encounter.active:
+        if (self.state.active_spell_effects or self.state.granted_dice) and self.state.encounter and self.state.encounter.active:
             from spell_effects import advance_with_effects
             return self._effect_transaction(advance_with_effects, self)
         encounter = self.state.encounter
@@ -1890,6 +1999,9 @@ class GameLogic:
             "Party combat controllers: " + ", ".join(f"{c.name}: {'player' if self.state.is_player_controlled(c.character_id) else 'DM'}" for c in self.state.characters.values()),
         ]
 
+        for bonus in self.state.granted_dice:
+            if bonus.expires_at_seconds > self.state.rules_time_seconds:
+                lines.append(f"Granted die: {self.get_actor_name(bonus.target_id)} holds {bonus.expression} Bardic Inspiration from {self.get_actor_name(bonus.source_id)}; expires in {bonus.expires_at_seconds-self.state.rules_time_seconds}s. Failed D20 tests handle consumption automatically or pause for the player's decision.")
         selected_adventure = self.state.campaign.selected_adventure()
         if selected_adventure:
             lines.append(f"Selected Adventure: {selected_adventure.title}")
@@ -1944,9 +2056,19 @@ class GameLogic:
                         f"HP {character.hp_current}/{character.hp_max} | AC {character.ac} | "
                         f"Init Bonus {character.initiative_bonus:+d} | "
                         f"Defeat State: {character.defeat_state} | "
-                        f"Status: {statuses} | Prepared Spells: {prepared_spells}"
+                        f"Status: {statuses} | Concentration: {self._library.normalize_spell_name(character.concentration_spell) if character.concentration_spell else 'none'} | Prepared Spells: {prepared_spells}"
                     )
                 )
+
+        for character in self.state.characters.values():
+            if character.class_features:
+                lines.append(f"{character.name} subclass: {character.subclass_name or 'none'}; class features: "
+                             + "; ".join(f"Lv.{feature['level']} {feature['name']}" for feature in character.class_features))
+
+        if self.state.scene_actors:
+            lines.append("Established scene actors (not automatically in combat):")
+            for value in self.state.scene_actors.values():
+                lines.append(f"- {value.name} [{value.combatant_id}] | {value.creature_type} | HP {value.hp_current}/{value.hp_max} | AC {value.ac} | saves {value.saving_throws} | conditions {value.status_effects}")
 
         if self.state.encounter and self.state.encounter.combatants:
             encounter = self.state.encounter
@@ -1955,10 +2077,12 @@ class GameLogic:
                 f"id={encounter.encounter_id} started={encounter.turn_order_started}"
             )
             current = encounter.get_current_combatant()
-            if current:
+            if current and encounter.active:
                 lines.append(f"Current Combatant: {current.name} ({current.side})")
             elif encounter.active:
                 lines.append("Current Combatant: none yet (initiative not finalized)")
+            else:
+                lines.append("Previous encounter ended; retained references below are not an active turn order.")
             for combatant_id in encounter.initiative_order or list(encounter.combatants.keys()):
                 combatant = encounter.combatants.get(combatant_id)
                 if not combatant:
@@ -1981,7 +2105,9 @@ class GameLogic:
         if self.state.active_spell_effects:
             lines.append("Authoritative ongoing spell effects (repeat saves are automatic):")
             for effect in self.state.active_spell_effects:
-                lines.append(f"- {effect.spell_name}: {self.get_actor_name(effect.caster_id)} -> {self.get_actor_name(effect.target_id)}; {', '.join(effect.conditions)}; {effect.save_name} DC {effect.save_dc}; ends at game-time {effect.expires_at_seconds}s (now {self.state.rules_time_seconds}s). Turn-end save; damage save has advantage.")
+                repeat = ', '.join(f'{event}={mode}' for event, mode in effect.repeat_saves.items()) or 'none'
+                initial_save = f'initial {effect.save_name} save already resolved (DC {effect.save_dc})' if effect.save_name else 'no initial saving throw required'
+                lines.append(f"- {effect.spell_name} [{effect.effect_id}]: {self.get_actor_name(effect.caster_id)} [{effect.caster_id}] -> {self.get_actor_name(effect.target_id)} [{effect.target_id}]; {', '.join(effect.conditions)}; concentration={'required' if effect.requires_concentration else 'not required'}; remaining {max(0, effect.expires_at_seconds-self.state.rules_time_seconds)}s; {initial_save}; repeat saves: {repeat}; end events: {effect.end_events}; game-time {self.state.rules_time_seconds}s.")
         if self.state.adventure_log:
             lines.append("Recent adventure log:")
             for entry in self.state.adventure_log[-5:]:

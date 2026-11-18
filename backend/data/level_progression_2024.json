@@ -1,0 +1,9967 @@
+{
+  "source": "5e.tools XPHB (2024), numeric progression and feature references",
+  "classes": {
+    "Bard": {
+      "name": "Bard",
+      "source": "XPHB",
+      "spellcasting_ability": "CHA",
+      "caster_progression": "full",
+      "cantrips": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "prepared": [
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        16,
+        16,
+        17,
+        17,
+        18,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "slots": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ],
+      "metrics": [
+        {
+          "Bardic Die": "1d6",
+          "Cantrips": 2,
+          "Prepared Spells": 4
+        },
+        {
+          "Bardic Die": "1d6",
+          "Cantrips": 2,
+          "Prepared Spells": 5
+        },
+        {
+          "Bardic Die": "1d6",
+          "Cantrips": 2,
+          "Prepared Spells": 6
+        },
+        {
+          "Bardic Die": "1d6",
+          "Cantrips": 3,
+          "Prepared Spells": 7
+        },
+        {
+          "Bardic Die": "1d8",
+          "Cantrips": 3,
+          "Prepared Spells": 9
+        },
+        {
+          "Bardic Die": "1d8",
+          "Cantrips": 3,
+          "Prepared Spells": 10
+        },
+        {
+          "Bardic Die": "1d8",
+          "Cantrips": 3,
+          "Prepared Spells": 11
+        },
+        {
+          "Bardic Die": "1d8",
+          "Cantrips": 3,
+          "Prepared Spells": 12
+        },
+        {
+          "Bardic Die": "1d8",
+          "Cantrips": 3,
+          "Prepared Spells": 14
+        },
+        {
+          "Bardic Die": "1d10",
+          "Cantrips": 4,
+          "Prepared Spells": 15
+        },
+        {
+          "Bardic Die": "1d10",
+          "Cantrips": 4,
+          "Prepared Spells": 16
+        },
+        {
+          "Bardic Die": "1d10",
+          "Cantrips": 4,
+          "Prepared Spells": 16
+        },
+        {
+          "Bardic Die": "1d10",
+          "Cantrips": 4,
+          "Prepared Spells": 17
+        },
+        {
+          "Bardic Die": "1d10",
+          "Cantrips": 4,
+          "Prepared Spells": 17
+        },
+        {
+          "Bardic Die": "1d12",
+          "Cantrips": 4,
+          "Prepared Spells": 18
+        },
+        {
+          "Bardic Die": "1d12",
+          "Cantrips": 4,
+          "Prepared Spells": 18
+        },
+        {
+          "Bardic Die": "1d12",
+          "Cantrips": 4,
+          "Prepared Spells": 19
+        },
+        {
+          "Bardic Die": "1d12",
+          "Cantrips": 4,
+          "Prepared Spells": 20
+        },
+        {
+          "Bardic Die": "1d12",
+          "Cantrips": 4,
+          "Prepared Spells": 21
+        },
+        {
+          "Bardic Die": "1d12",
+          "Cantrips": 4,
+          "Prepared Spells": 22
+        }
+      ],
+      "features": [
+        {
+          "name": "Bardic Inspiration",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Spellcasting",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Expertise",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Jack of All Trades",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Bard Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Font of Inspiration",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Countercharm",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Expertise",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Magical Secrets",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Superior Inspiration",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Words of Creation",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [
+        {
+          "expanded": {
+            "10": [
+              {
+                "all": "level=1;2;3;4;5|class=Cleric;Druid;Wizard"
+              }
+            ],
+            "s6": [
+              {
+                "all": "level=6|class=Cleric;Druid;Wizard"
+              }
+            ],
+            "s7": [
+              {
+                "all": "level=7|class=Cleric;Druid;Wizard"
+              }
+            ],
+            "s8": [
+              {
+                "all": "level=8|class=Cleric;Druid;Wizard"
+              }
+            ],
+            "s9": [
+              {
+                "all": "level=9|class=Cleric;Druid;Wizard"
+              }
+            ]
+          },
+          "prepared": {
+            "20": [
+              "power word heal|xphb",
+              "power word kill|xphb"
+            ]
+          }
+        }
+      ],
+      "arcanum": {},
+      "hit_die": 8,
+      "subclasses": [
+        {
+          "name": "College of Dance",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "College of Dance",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Inspiring Movement",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Tandem Footwork",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Leading Evasion",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "college-of-dance"
+        },
+        {
+          "name": "College of Glamour",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "College of Glamour",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Mantle of Majesty",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Unbreakable Majesty",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "charm person|xphb",
+                  "mirror image|xphb"
+                ],
+                "6": [
+                  "command|xphb"
+                ]
+              },
+              "innate": {
+                "6": [
+                  "command|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "college-of-glamour"
+        },
+        {
+          "name": "College of Lore",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "College of Lore",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Magical Discoveries",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Peerless Skill",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "6": [
+                  {
+                    "choose": "level=0;1;2;3|class=Cleric;Druid;Wizard"
+                  },
+                  {
+                    "choose": "level=0;1;2;3|class=Cleric;Druid;Wizard"
+                  }
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "college-of-lore"
+        },
+        {
+          "name": "College of Valor",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "College of Valor",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Extra Attack",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Battle Magic",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "college-of-valor"
+        }
+      ]
+    },
+    "Cleric": {
+      "name": "Cleric",
+      "source": "XPHB",
+      "spellcasting_ability": "WIS",
+      "caster_progression": "full",
+      "cantrips": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "prepared": [
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        16,
+        16,
+        17,
+        17,
+        18,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "slots": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ],
+      "metrics": [
+        {
+          "Channel Divinity": 0,
+          "Cantrips": 3,
+          "Prepared Spells": 4
+        },
+        {
+          "Channel Divinity": 2,
+          "Cantrips": 3,
+          "Prepared Spells": 5
+        },
+        {
+          "Channel Divinity": 2,
+          "Cantrips": 3,
+          "Prepared Spells": 6
+        },
+        {
+          "Channel Divinity": 2,
+          "Cantrips": 4,
+          "Prepared Spells": 7
+        },
+        {
+          "Channel Divinity": 2,
+          "Cantrips": 4,
+          "Prepared Spells": 9
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 10
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 11
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 12
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 14
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 15
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 16
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 16
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 17
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 17
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 18
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 18
+        },
+        {
+          "Channel Divinity": 3,
+          "Cantrips": 5,
+          "Prepared Spells": 19
+        },
+        {
+          "Channel Divinity": 4,
+          "Cantrips": 5,
+          "Prepared Spells": 20
+        },
+        {
+          "Channel Divinity": 4,
+          "Cantrips": 5,
+          "Prepared Spells": 21
+        },
+        {
+          "Channel Divinity": 4,
+          "Cantrips": 5,
+          "Prepared Spells": 22
+        }
+      ],
+      "features": [
+        {
+          "name": "Spellcasting",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Divine Order",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Channel Divinity",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Cleric Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Sear Undead",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Blessed Strikes",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Divine Intervention",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Improved Blessed Strikes",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Greater Divine Intervention",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [],
+      "arcanum": {},
+      "hit_die": 8,
+      "subclasses": [
+        {
+          "name": "Life Domain",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Life Domain",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Blessed Healer",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Supreme Healing",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "aid|xphb",
+                  "bless|xphb",
+                  "cure wounds|xphb",
+                  "lesser restoration|xphb"
+                ],
+                "5": [
+                  "mass healing word|xphb",
+                  "revivify|xphb"
+                ],
+                "7": [
+                  "aura of life|xphb",
+                  "death ward|xphb"
+                ],
+                "9": [
+                  "greater restoration|xphb",
+                  "mass cure wounds|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "life-domain"
+        },
+        {
+          "name": "Light Domain",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Light Domain",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Improved Warding Flare",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Corona of Light",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "burning hands|xphb",
+                  "faerie fire|xphb",
+                  "scorching ray|xphb",
+                  "see invisibility|xphb"
+                ],
+                "5": [
+                  "daylight|xphb",
+                  "fireball|xphb"
+                ],
+                "7": [
+                  "arcane eye|xphb",
+                  "wall of fire|xphb"
+                ],
+                "9": [
+                  "flame strike|xphb",
+                  "scrying|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "light-domain"
+        },
+        {
+          "name": "Trickery Domain",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Trickery Domain",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Trickster's Transposition",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Improved Duplicity",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "charm person|xphb",
+                  "disguise self|xphb",
+                  "invisibility|xphb",
+                  "pass without trace|xphb"
+                ],
+                "5": [
+                  "hypnotic pattern|xphb",
+                  "nondetection|xphb"
+                ],
+                "7": [
+                  "confusion|xphb",
+                  "dimension door|xphb"
+                ],
+                "9": [
+                  "dominate person|xphb",
+                  "modify memory|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "trickery-domain"
+        },
+        {
+          "name": "War Domain",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "War Domain",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "War God's Blessing",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Avatar of Battle",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "guiding bolt|xphb",
+                  "magic weapon|xphb",
+                  "shield of faith|xphb",
+                  "spiritual weapon|xphb"
+                ],
+                "5": [
+                  "crusader's mantle|xphb",
+                  "spirit guardians|xphb"
+                ],
+                "7": [
+                  "fire shield|xphb",
+                  "freedom of movement|xphb"
+                ],
+                "9": [
+                  "hold monster|xphb",
+                  "steel wind strike|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "war-domain"
+        }
+      ]
+    },
+    "Druid": {
+      "name": "Druid",
+      "source": "XPHB",
+      "spellcasting_ability": "WIS",
+      "caster_progression": "full",
+      "cantrips": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "prepared": [
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        16,
+        16,
+        17,
+        17,
+        18,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "slots": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ],
+      "metrics": [
+        {
+          "Wild Shape": 0,
+          "Cantrips": 2,
+          "Prepared Spells": 4
+        },
+        {
+          "Wild Shape": 2,
+          "Cantrips": 2,
+          "Prepared Spells": 5
+        },
+        {
+          "Wild Shape": 2,
+          "Cantrips": 2,
+          "Prepared Spells": 6
+        },
+        {
+          "Wild Shape": 2,
+          "Cantrips": 3,
+          "Prepared Spells": 7
+        },
+        {
+          "Wild Shape": 2,
+          "Cantrips": 3,
+          "Prepared Spells": 9
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 3,
+          "Prepared Spells": 10
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 3,
+          "Prepared Spells": 11
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 3,
+          "Prepared Spells": 12
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 3,
+          "Prepared Spells": 14
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 15
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 16
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 16
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 17
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 17
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 18
+        },
+        {
+          "Wild Shape": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 18
+        },
+        {
+          "Wild Shape": 4,
+          "Cantrips": 4,
+          "Prepared Spells": 19
+        },
+        {
+          "Wild Shape": 4,
+          "Cantrips": 4,
+          "Prepared Spells": 20
+        },
+        {
+          "Wild Shape": 4,
+          "Cantrips": 4,
+          "Prepared Spells": 21
+        },
+        {
+          "Wild Shape": 4,
+          "Cantrips": 4,
+          "Prepared Spells": 22
+        }
+      ],
+      "features": [
+        {
+          "name": "Druidic",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Primal Order",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Spellcasting",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Wild Companion",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Wild Shape",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Druid Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Wild Resurgence",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Elemental Fury",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Improved Elemental Fury",
+          "level": 15,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Beast Spells",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Archdruid",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [
+        {
+          "prepared": {
+            "1": [
+              "speak with animals|xphb"
+            ],
+            "2": [
+              "find familiar|xphb"
+            ]
+          }
+        }
+      ],
+      "arcanum": {},
+      "hit_die": 8,
+      "subclasses": [
+        {
+          "name": "Circle of the Land",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Circle of the Land",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Natural Recovery",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Nature's Ward",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Nature's Sanctuary",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "name": "Arid Land",
+              "prepared": {
+                "3": [
+                  "blur|xphb",
+                  "burning hands|xphb",
+                  "fire bolt|xphb"
+                ],
+                "5": [
+                  "fireball|xphb"
+                ],
+                "7": [
+                  "blight|xphb"
+                ],
+                "9": [
+                  "wall of stone|xphb"
+                ]
+              }
+            },
+            {
+              "name": "Polar Land",
+              "prepared": {
+                "3": [
+                  "fog cloud|xphb",
+                  "hold person|xphb",
+                  "ray of frost|xphb"
+                ],
+                "5": [
+                  "sleet storm|xphb"
+                ],
+                "7": [
+                  "ice storm|xphb"
+                ],
+                "9": [
+                  "cone of cold|xphb"
+                ]
+              }
+            },
+            {
+              "name": "Temperate Land",
+              "prepared": {
+                "3": [
+                  "misty step|xphb",
+                  "shocking grasp|xphb",
+                  "sleep|xphb"
+                ],
+                "5": [
+                  "lightning bolt|xphb"
+                ],
+                "7": [
+                  "freedom of movement|xphb"
+                ],
+                "9": [
+                  "tree stride|xphb"
+                ]
+              }
+            },
+            {
+              "name": "Tropical Land",
+              "prepared": {
+                "3": [
+                  "acid splash|xphb",
+                  "ray of sickness|xphb",
+                  "web|xphb"
+                ],
+                "5": [
+                  "stinking cloud|xphb"
+                ],
+                "7": [
+                  "polymorph|xphb"
+                ],
+                "9": [
+                  "insect plague|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "circle-of-the-land"
+        },
+        {
+          "name": "Circle of the Moon",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Circle of the Moon",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Improved Circle Forms",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Moonlight Step",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Lunar Form",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "cure wounds|xphb",
+                  "moonbeam|xphb",
+                  "starry wisp|xphb"
+                ],
+                "5": [
+                  "conjure animals|xphb"
+                ],
+                "7": [
+                  "fount of moonlight|xphb"
+                ],
+                "9": [
+                  "mass cure wounds|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "circle-of-the-moon"
+        },
+        {
+          "name": "Circle of the Sea",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Circle of the Sea",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Aquatic Affinity",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Stormborn",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Oceanic Gift",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "fog cloud|xphb",
+                  "gust of wind|xphb",
+                  "ray of frost|xphb",
+                  "shatter|xphb",
+                  "thunderwave|xphb"
+                ],
+                "5": [
+                  "lightning bolt|xphb",
+                  "water breathing|xphb"
+                ],
+                "7": [
+                  "control water|xphb",
+                  "ice storm|xphb"
+                ],
+                "9": [
+                  "conjure elemental|xphb",
+                  "hold monster|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "circle-of-the-sea"
+        },
+        {
+          "name": "Circle of the Stars",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Circle of the Stars",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Cosmic Omen",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Twinkling Constellations",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Full of Stars",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "3": [
+                  "guidance|xphb#c"
+                ]
+              },
+              "prepared": {
+                "3": [
+                  "guiding bolt|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "circle-of-the-stars"
+        }
+      ]
+    },
+    "Fighter": {
+      "name": "Fighter",
+      "source": "XPHB",
+      "spellcasting_ability": "",
+      "caster_progression": "",
+      "cantrips": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "prepared": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "slots": [],
+      "metrics": [
+        {
+          "Second Wind": "2",
+          "Weapon Mastery": "3"
+        },
+        {
+          "Second Wind": "2",
+          "Weapon Mastery": "3"
+        },
+        {
+          "Second Wind": "2",
+          "Weapon Mastery": "3"
+        },
+        {
+          "Second Wind": "3",
+          "Weapon Mastery": "4"
+        },
+        {
+          "Second Wind": "3",
+          "Weapon Mastery": "4"
+        },
+        {
+          "Second Wind": "3",
+          "Weapon Mastery": "4"
+        },
+        {
+          "Second Wind": "3",
+          "Weapon Mastery": "4"
+        },
+        {
+          "Second Wind": "3",
+          "Weapon Mastery": "4"
+        },
+        {
+          "Second Wind": "3",
+          "Weapon Mastery": "4"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "5"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "5"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "5"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "5"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "5"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "5"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "6"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "6"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "6"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "6"
+        },
+        {
+          "Second Wind": "4",
+          "Weapon Mastery": "6"
+        }
+      ],
+      "features": [
+        {
+          "name": "Fighting Style",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Second Wind",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Weapon Mastery",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Action Surge",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Tactical Mind",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Fighter Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Extra Attack",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Tactical Shift",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Indomitable",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Tactical Master",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Two Extra Attacks",
+          "level": 11,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Indomitable",
+          "level": 13,
+          "source": "XPHB"
+        },
+        {
+          "name": "Studied Attacks",
+          "level": 13,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 15,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Action Surge",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Indomitable",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Three Extra Attacks",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [],
+      "arcanum": {},
+      "hit_die": 10,
+      "subclasses": [
+        {
+          "name": "Battle Master",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Battle Master",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Know Your Enemy",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Improved Combat Superiority",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Relentless",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Ultimate Combat Superiority",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "battle-master"
+        },
+        {
+          "name": "Champion",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Champion",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Additional Fighting Style",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Heroic Warrior",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Superior Critical",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Survivor",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "champion"
+        },
+        {
+          "name": "Eldritch Knight",
+          "source": "XPHB",
+          "spellcasting_ability": "INT",
+          "caster_progression": "1/3",
+          "cantrips": [
+            0,
+            0,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "prepared": [
+            0,
+            0,
+            3,
+            4,
+            4,
+            4,
+            5,
+            6,
+            6,
+            7,
+            8,
+            8,
+            9,
+            10,
+            10,
+            11,
+            11,
+            11,
+            12,
+            13
+          ],
+          "slots": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              2,
+              0
+            ],
+            [
+              4,
+              3,
+              2,
+              0
+            ],
+            [
+              4,
+              3,
+              2,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              1
+            ],
+            [
+              4,
+              3,
+              3,
+              1
+            ]
+          ],
+          "metrics": [
+            {
+              "Spells Prepared": 0
+            },
+            {
+              "Spells Prepared": 0
+            },
+            {
+              "Spells Prepared": 3
+            },
+            {
+              "Spells Prepared": 4
+            },
+            {
+              "Spells Prepared": 4
+            },
+            {
+              "Spells Prepared": 4
+            },
+            {
+              "Spells Prepared": 5
+            },
+            {
+              "Spells Prepared": 6
+            },
+            {
+              "Spells Prepared": 6
+            },
+            {
+              "Spells Prepared": 7
+            },
+            {
+              "Spells Prepared": 8
+            },
+            {
+              "Spells Prepared": 8
+            },
+            {
+              "Spells Prepared": 9
+            },
+            {
+              "Spells Prepared": 10
+            },
+            {
+              "Spells Prepared": 10
+            },
+            {
+              "Spells Prepared": 11
+            },
+            {
+              "Spells Prepared": 11
+            },
+            {
+              "Spells Prepared": 11
+            },
+            {
+              "Spells Prepared": 12
+            },
+            {
+              "Spells Prepared": 13
+            }
+          ],
+          "features": [
+            {
+              "name": "Eldritch Knight",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "War Magic",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Eldritch Strike",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Arcane Charge",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Improved War Magic",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "expanded": {
+                "3": [
+                  {
+                    "all": "level=0|class=Wizard"
+                  },
+                  {
+                    "all": "level=1|class=Wizard"
+                  }
+                ],
+                "7": [
+                  {
+                    "all": "level=2|class=Wizard"
+                  }
+                ],
+                "13": [
+                  {
+                    "all": "level=3|class=Wizard"
+                  }
+                ],
+                "19": [
+                  {
+                    "all": "level=4|class=Wizard"
+                  }
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "eldritch-knight"
+        },
+        {
+          "name": "Psi Warrior",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {
+              "Die Size": 0,
+              "Number": 0
+            },
+            {
+              "Die Size": 0,
+              "Number": 0
+            },
+            {
+              "Die Size": "D6",
+              "Number": 4
+            },
+            {
+              "Die Size": "D6",
+              "Number": 4
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 8
+            },
+            {
+              "Die Size": "D8",
+              "Number": 8
+            },
+            {
+              "Die Size": "D10",
+              "Number": 8
+            },
+            {
+              "Die Size": "D10",
+              "Number": 8
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            }
+          ],
+          "features": [
+            {
+              "name": "Psi Warrior",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Telekinetic Adept",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Guarded Mind",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Bulwark of Force",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Telekinetic Master",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "innate": {
+                "18": {
+                  "daily": {
+                    "1": [
+                      "telekinesis|xphb"
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "psi-warrior"
+        }
+      ]
+    },
+    "Monk": {
+      "name": "Monk",
+      "source": "XPHB",
+      "spellcasting_ability": "",
+      "caster_progression": "",
+      "cantrips": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "prepared": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "slots": [],
+      "metrics": [
+        {
+          "Martial Arts": "1d6",
+          "Focus Points": 0,
+          "Unarmored Movement": 0
+        },
+        {
+          "Martial Arts": "1d6",
+          "Focus Points": 2,
+          "Unarmored Movement": 10
+        },
+        {
+          "Martial Arts": "1d6",
+          "Focus Points": 3,
+          "Unarmored Movement": 10
+        },
+        {
+          "Martial Arts": "1d6",
+          "Focus Points": 4,
+          "Unarmored Movement": 10
+        },
+        {
+          "Martial Arts": "1d8",
+          "Focus Points": 5,
+          "Unarmored Movement": 10
+        },
+        {
+          "Martial Arts": "1d8",
+          "Focus Points": 6,
+          "Unarmored Movement": 15
+        },
+        {
+          "Martial Arts": "1d8",
+          "Focus Points": 7,
+          "Unarmored Movement": 15
+        },
+        {
+          "Martial Arts": "1d8",
+          "Focus Points": 8,
+          "Unarmored Movement": 15
+        },
+        {
+          "Martial Arts": "1d8",
+          "Focus Points": 9,
+          "Unarmored Movement": 15
+        },
+        {
+          "Martial Arts": "1d8",
+          "Focus Points": 10,
+          "Unarmored Movement": 20
+        },
+        {
+          "Martial Arts": "1d10",
+          "Focus Points": 11,
+          "Unarmored Movement": 20
+        },
+        {
+          "Martial Arts": "1d10",
+          "Focus Points": 12,
+          "Unarmored Movement": 20
+        },
+        {
+          "Martial Arts": "1d10",
+          "Focus Points": 13,
+          "Unarmored Movement": 20
+        },
+        {
+          "Martial Arts": "1d10",
+          "Focus Points": 14,
+          "Unarmored Movement": 25
+        },
+        {
+          "Martial Arts": "1d10",
+          "Focus Points": 15,
+          "Unarmored Movement": 25
+        },
+        {
+          "Martial Arts": "1d10",
+          "Focus Points": 16,
+          "Unarmored Movement": 25
+        },
+        {
+          "Martial Arts": "1d12",
+          "Focus Points": 17,
+          "Unarmored Movement": 25
+        },
+        {
+          "Martial Arts": "1d12",
+          "Focus Points": 18,
+          "Unarmored Movement": 30
+        },
+        {
+          "Martial Arts": "1d12",
+          "Focus Points": 19,
+          "Unarmored Movement": 30
+        },
+        {
+          "Martial Arts": "1d12",
+          "Focus Points": 20,
+          "Unarmored Movement": 30
+        }
+      ],
+      "features": [
+        {
+          "name": "Martial Arts",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Unarmored Defense",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Monk's Focus",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Unarmored Movement",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Uncanny Metabolism",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Deflect Attacks",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Monk Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Slow Fall",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Extra Attack",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Stunning Strike",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Empowered Strikes",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Evasion",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Acrobatic Movement",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Heightened Focus",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Self-Restoration",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 11,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Deflect Energy",
+          "level": 13,
+          "source": "XPHB"
+        },
+        {
+          "name": "Disciplined Survivor",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Perfect Focus",
+          "level": 15,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Superior Defense",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Body and Mind",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [],
+      "arcanum": {},
+      "hit_die": 8,
+      "subclasses": [
+        {
+          "name": "Warrior of Mercy",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Warrior of Mercy",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Physician's Touch",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Flurry of Healing and Harm",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Hand of Ultimate Mercy",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "warrior-of-mercy"
+        },
+        {
+          "name": "Warrior of Shadow",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Warrior of Shadow",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Shadow Step",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Improved Shadow Step",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Cloak of Shadows",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "3": [
+                  "minor illusion|xphb#c"
+                ]
+              },
+              "innate": {
+                "3": {
+                  "resource": {
+                    "1": [
+                      "darkness|xphb"
+                    ]
+                  }
+                }
+              },
+              "resourceName": "Focus Point",
+              "ability": "wis"
+            }
+          ],
+          "arcanum": {},
+          "id": "warrior-of-shadow"
+        },
+        {
+          "name": "Warrior of the Elements",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Warrior of the Elements",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Elemental Burst",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Stride of the Elements",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Elemental Epitome",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "3": [
+                  "elementalism|xphb#c"
+                ]
+              },
+              "ability": "wis"
+            }
+          ],
+          "arcanum": {},
+          "id": "warrior-of-the-elements"
+        },
+        {
+          "name": "Warrior of the Open Hand",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Warrior of the Open Hand",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Wholeness of Body",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Fleet Step",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Quivering Palm",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "warrior-of-the-open-hand"
+        }
+      ]
+    },
+    "Paladin": {
+      "name": "Paladin",
+      "source": "XPHB",
+      "spellcasting_ability": "CHA",
+      "caster_progression": "artificer",
+      "cantrips": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "prepared": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        6,
+        7,
+        7,
+        9,
+        9,
+        10,
+        10,
+        11,
+        11,
+        12,
+        12,
+        14,
+        14,
+        15,
+        15
+      ],
+      "slots": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2
+        ]
+      ],
+      "metrics": [
+        {
+          "Channel Divinity": 0,
+          "Prepared Spells": 2
+        },
+        {
+          "Channel Divinity": 0,
+          "Prepared Spells": 3
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 4
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 5
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 6
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 6
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 7
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 7
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 9
+        },
+        {
+          "Channel Divinity": 2,
+          "Prepared Spells": 9
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 10
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 10
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 11
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 11
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 12
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 12
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 14
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 14
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 15
+        },
+        {
+          "Channel Divinity": 3,
+          "Prepared Spells": 15
+        }
+      ],
+      "features": [
+        {
+          "name": "Lay on Hands",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Spellcasting",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Weapon Mastery",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Fighting Style",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Paladin's Smite",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Channel Divinity",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Paladin Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Extra Attack",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Faithful Steed",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Aura of Protection",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Abjure Foes",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Aura of Courage",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Radiant Strikes",
+          "level": 11,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Restoring Touch",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 15,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Aura Expansion",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [
+        {
+          "prepared": {
+            "2": [
+              "divine smite|xphb"
+            ],
+            "5": [
+              "find steed|xphb"
+            ]
+          }
+        }
+      ],
+      "arcanum": {},
+      "hit_die": 10,
+      "subclasses": [
+        {
+          "name": "Oath of Devotion",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Oath of Devotion",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Aura of Devotion",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Smite of Protection",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Holy Nimbus",
+              "level": 20,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "protection from evil and good|xphb",
+                  "shield of faith|xphb"
+                ],
+                "5": [
+                  "aid|xphb",
+                  "zone of truth|xphb"
+                ],
+                "9": [
+                  "beacon of hope|xphb",
+                  "dispel magic|xphb"
+                ],
+                "13": [
+                  "freedom of movement|xphb",
+                  "guardian of faith|xphb"
+                ],
+                "17": [
+                  "commune|xphb",
+                  "flame strike|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "oath-of-devotion"
+        },
+        {
+          "name": "Oath of Glory",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Oath of Glory",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Aura of Alacrity",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Glorious Defense",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Living Legend",
+              "level": 20,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "guiding bolt|xphb",
+                  "heroism|xphb"
+                ],
+                "5": [
+                  "enhance ability|xphb",
+                  "magic weapon|xphb"
+                ],
+                "9": [
+                  "haste|xphb",
+                  "protection from energy|xphb"
+                ],
+                "13": [
+                  "compulsion|xphb",
+                  "freedom of movement|xphb"
+                ],
+                "17": [
+                  "legend lore|xphb",
+                  "yolande's regal presence|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "oath-of-glory"
+        },
+        {
+          "name": "Oath of the Ancients",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Oath of the Ancients",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Aura of Warding",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Undying Sentinel",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Elder Champion",
+              "level": 20,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "ensnaring strike|xphb",
+                  "speak with animals|xphb"
+                ],
+                "5": [
+                  "misty step|xphb",
+                  "moonbeam|xphb"
+                ],
+                "9": [
+                  "plant growth|xphb",
+                  "protection from energy|xphb"
+                ],
+                "13": [
+                  "ice storm|xphb",
+                  "stoneskin|xphb"
+                ],
+                "17": [
+                  "commune with nature|xphb",
+                  "tree stride|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "oath-of-the-ancients"
+        },
+        {
+          "name": "Oath of Vengeance",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Oath of Vengeance",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Relentless Avenger",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Soul of Vengeance",
+              "level": 15,
+              "source": "XPHB"
+            },
+            {
+              "name": "Avenging Angel",
+              "level": 20,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "bane|xphb",
+                  "hunter's mark|xphb"
+                ],
+                "5": [
+                  "hold person|xphb",
+                  "misty step|xphb"
+                ],
+                "9": [
+                  "haste|xphb",
+                  "protection from energy|xphb"
+                ],
+                "13": [
+                  "banishment|xphb",
+                  "dimension door|xphb"
+                ],
+                "17": [
+                  "hold monster|xphb",
+                  "scrying|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "oath-of-vengeance"
+        }
+      ]
+    },
+    "Ranger": {
+      "name": "Ranger",
+      "source": "XPHB",
+      "spellcasting_ability": "WIS",
+      "caster_progression": "artificer",
+      "cantrips": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "prepared": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        6,
+        7,
+        7,
+        9,
+        9,
+        10,
+        10,
+        11,
+        11,
+        12,
+        12,
+        14,
+        14,
+        15,
+        15
+      ],
+      "slots": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2
+        ]
+      ],
+      "metrics": [
+        {
+          "Favored Enemy": 2,
+          "Prepared Spells": 2
+        },
+        {
+          "Favored Enemy": 2,
+          "Prepared Spells": 3
+        },
+        {
+          "Favored Enemy": 2,
+          "Prepared Spells": 4
+        },
+        {
+          "Favored Enemy": 2,
+          "Prepared Spells": 5
+        },
+        {
+          "Favored Enemy": 3,
+          "Prepared Spells": 6
+        },
+        {
+          "Favored Enemy": 3,
+          "Prepared Spells": 6
+        },
+        {
+          "Favored Enemy": 3,
+          "Prepared Spells": 7
+        },
+        {
+          "Favored Enemy": 3,
+          "Prepared Spells": 7
+        },
+        {
+          "Favored Enemy": 4,
+          "Prepared Spells": 9
+        },
+        {
+          "Favored Enemy": 4,
+          "Prepared Spells": 9
+        },
+        {
+          "Favored Enemy": 4,
+          "Prepared Spells": 10
+        },
+        {
+          "Favored Enemy": 4,
+          "Prepared Spells": 10
+        },
+        {
+          "Favored Enemy": 5,
+          "Prepared Spells": 11
+        },
+        {
+          "Favored Enemy": 5,
+          "Prepared Spells": 11
+        },
+        {
+          "Favored Enemy": 5,
+          "Prepared Spells": 12
+        },
+        {
+          "Favored Enemy": 5,
+          "Prepared Spells": 12
+        },
+        {
+          "Favored Enemy": 6,
+          "Prepared Spells": 14
+        },
+        {
+          "Favored Enemy": 6,
+          "Prepared Spells": 14
+        },
+        {
+          "Favored Enemy": 6,
+          "Prepared Spells": 15
+        },
+        {
+          "Favored Enemy": 6,
+          "Prepared Spells": 15
+        }
+      ],
+      "features": [
+        {
+          "name": "Spellcasting",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Favored Enemy",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Weapon Mastery",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Deft Explorer",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Fighting Style",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ranger Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Extra Attack",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Roving",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Expertise",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Tireless",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 11,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Relentless Hunter",
+          "level": 13,
+          "source": "XPHB"
+        },
+        {
+          "name": "Nature's Veil",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 15,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Precise Hunter",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Feral Senses",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Foe Slayer",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [
+        {
+          "prepared": {
+            "1": [
+              "hunter's mark|xphb"
+            ]
+          }
+        }
+      ],
+      "arcanum": {},
+      "hit_die": 10,
+      "subclasses": [
+        {
+          "name": "Beast Master",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Beast Master",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Exceptional Training",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Bestial Fury",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Share Spells",
+              "level": 15,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "beast-master"
+        },
+        {
+          "name": "Fey Wanderer",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Fey Wanderer",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Beguiling Twist",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Fey Reinforcements",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Misty Wanderer",
+              "level": 15,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "3": [
+                  "charm person|xphb"
+                ],
+                "5": [
+                  "misty step|xphb"
+                ],
+                "9": [
+                  "summon fey|xphb"
+                ],
+                "13": [
+                  "dimension door|xphb"
+                ],
+                "17": [
+                  "mislead|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "fey-wanderer"
+        },
+        {
+          "name": "Gloom Stalker",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Gloom Stalker",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Iron Mind",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Stalker's Flurry",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Shadowy Dodge",
+              "level": 15,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "disguise self|xphb"
+                ],
+                "5": [
+                  "rope trick|xphb"
+                ],
+                "9": [
+                  "fear|xphb"
+                ],
+                "13": [
+                  "greater invisibility|xphb"
+                ],
+                "17": [
+                  "seeming|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "gloom-stalker"
+        },
+        {
+          "name": "Hunter",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Hunter",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Defensive Tactics",
+              "level": 7,
+              "source": "XPHB"
+            },
+            {
+              "name": "Superior Hunter's Prey",
+              "level": 11,
+              "source": "XPHB"
+            },
+            {
+              "name": "Superior Hunter's Defense",
+              "level": 15,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "hunter"
+        }
+      ]
+    },
+    "Rogue": {
+      "name": "Rogue",
+      "source": "XPHB",
+      "spellcasting_ability": "",
+      "caster_progression": "",
+      "cantrips": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "prepared": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "slots": [],
+      "metrics": [
+        {
+          "Sneak Attack": "1d6"
+        },
+        {
+          "Sneak Attack": "1d6"
+        },
+        {
+          "Sneak Attack": "2d6"
+        },
+        {
+          "Sneak Attack": "2d6"
+        },
+        {
+          "Sneak Attack": "3d6"
+        },
+        {
+          "Sneak Attack": "3d6"
+        },
+        {
+          "Sneak Attack": "4d6"
+        },
+        {
+          "Sneak Attack": "4d6"
+        },
+        {
+          "Sneak Attack": "5d6"
+        },
+        {
+          "Sneak Attack": "5d6"
+        },
+        {
+          "Sneak Attack": "6d6"
+        },
+        {
+          "Sneak Attack": "6d6"
+        },
+        {
+          "Sneak Attack": "7d6"
+        },
+        {
+          "Sneak Attack": "7d6"
+        },
+        {
+          "Sneak Attack": "8d6"
+        },
+        {
+          "Sneak Attack": "8d6"
+        },
+        {
+          "Sneak Attack": "9d6"
+        },
+        {
+          "Sneak Attack": "9d6"
+        },
+        {
+          "Sneak Attack": "10d6"
+        },
+        {
+          "Sneak Attack": "10d6"
+        }
+      ],
+      "features": [
+        {
+          "name": "Expertise",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Sneak Attack",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Thieves' Cant",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Weapon Mastery",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Cunning Action",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Rogue Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Steady Aim",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Cunning Strike",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Uncanny Dodge",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Expertise",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Evasion",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Reliable Talent",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Improved Cunning Strike",
+          "level": 11,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 13,
+          "source": "XPHB"
+        },
+        {
+          "name": "Devious Strikes",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Slippery Mind",
+          "level": 15,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Elusive",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Stroke of Luck",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [],
+      "arcanum": {},
+      "hit_die": 8,
+      "subclasses": [
+        {
+          "name": "Arcane Trickster",
+          "source": "XPHB",
+          "spellcasting_ability": "INT",
+          "caster_progression": "1/3",
+          "cantrips": [
+            0,
+            0,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            3
+          ],
+          "prepared": [
+            0,
+            0,
+            3,
+            4,
+            4,
+            4,
+            5,
+            6,
+            6,
+            7,
+            8,
+            8,
+            9,
+            10,
+            10,
+            11,
+            11,
+            11,
+            12,
+            13
+          ],
+          "slots": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              3,
+              2,
+              0
+            ],
+            [
+              4,
+              3,
+              2,
+              0
+            ],
+            [
+              4,
+              3,
+              2,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              0
+            ],
+            [
+              4,
+              3,
+              3,
+              1
+            ],
+            [
+              4,
+              3,
+              3,
+              1
+            ]
+          ],
+          "metrics": [
+            {
+              "Prepared Spells": 0
+            },
+            {
+              "Prepared Spells": 0
+            },
+            {
+              "Prepared Spells": 3
+            },
+            {
+              "Prepared Spells": 4
+            },
+            {
+              "Prepared Spells": 4
+            },
+            {
+              "Prepared Spells": 4
+            },
+            {
+              "Prepared Spells": 5
+            },
+            {
+              "Prepared Spells": 6
+            },
+            {
+              "Prepared Spells": 6
+            },
+            {
+              "Prepared Spells": 7
+            },
+            {
+              "Prepared Spells": 8
+            },
+            {
+              "Prepared Spells": 8
+            },
+            {
+              "Prepared Spells": 9
+            },
+            {
+              "Prepared Spells": 10
+            },
+            {
+              "Prepared Spells": 10
+            },
+            {
+              "Prepared Spells": 11
+            },
+            {
+              "Prepared Spells": 11
+            },
+            {
+              "Prepared Spells": 11
+            },
+            {
+              "Prepared Spells": 12
+            },
+            {
+              "Prepared Spells": 13
+            }
+          ],
+          "features": [
+            {
+              "name": "Arcane Trickster",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Magical Ambush",
+              "level": 9,
+              "source": "XPHB"
+            },
+            {
+              "name": "Versatile Trickster",
+              "level": 13,
+              "source": "XPHB"
+            },
+            {
+              "name": "Spell Thief",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "3": [
+                  "mage hand|xphb#c"
+                ]
+              },
+              "expanded": {
+                "3": [
+                  {
+                    "all": "level=0|class=Wizard"
+                  },
+                  {
+                    "all": "level=1|class=Wizard"
+                  }
+                ],
+                "7": [
+                  {
+                    "all": "level=2|class=Wizard"
+                  }
+                ],
+                "13": [
+                  {
+                    "all": "level=3|class=Wizard"
+                  }
+                ],
+                "19": [
+                  {
+                    "all": "level=4|class=Wizard"
+                  }
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "arcane-trickster"
+        },
+        {
+          "name": "Assassin",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Assassin",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Infiltration Expertise",
+              "level": 9,
+              "source": "XPHB"
+            },
+            {
+              "name": "Envenom Weapons",
+              "level": 13,
+              "source": "XPHB"
+            },
+            {
+              "name": "Death Strike",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "assassin"
+        },
+        {
+          "name": "Soulknife",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {
+              "Die Size": 0,
+              "Number": 0
+            },
+            {
+              "Die Size": 0,
+              "Number": 0
+            },
+            {
+              "Die Size": "D6",
+              "Number": 4
+            },
+            {
+              "Die Size": "D6",
+              "Number": 4
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 6
+            },
+            {
+              "Die Size": "D8",
+              "Number": 8
+            },
+            {
+              "Die Size": "D8",
+              "Number": 8
+            },
+            {
+              "Die Size": "D10",
+              "Number": 8
+            },
+            {
+              "Die Size": "D10",
+              "Number": 8
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D10",
+              "Number": 10
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            },
+            {
+              "Die Size": "D12",
+              "Number": 12
+            }
+          ],
+          "features": [
+            {
+              "name": "Soulknife",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Soul Blades",
+              "level": 9,
+              "source": "XPHB"
+            },
+            {
+              "name": "Psychic Veil",
+              "level": 13,
+              "source": "XPHB"
+            },
+            {
+              "name": "Rend Mind",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "soulknife"
+        },
+        {
+          "name": "Thief",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Thief",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Supreme Sneak",
+              "level": 9,
+              "source": "XPHB"
+            },
+            {
+              "name": "Use Magic Device",
+              "level": 13,
+              "source": "XPHB"
+            },
+            {
+              "name": "Thief's Reflexes",
+              "level": 17,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "thief"
+        }
+      ]
+    },
+    "Sorcerer": {
+      "name": "Sorcerer",
+      "source": "XPHB",
+      "spellcasting_ability": "CHA",
+      "caster_progression": "full",
+      "cantrips": [
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "prepared": [
+        2,
+        4,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        16,
+        16,
+        17,
+        17,
+        18,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "slots": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ],
+      "metrics": [
+        {
+          "Sorcery Points": 0,
+          "Cantrips": 4,
+          "Prepared Spells": 2
+        },
+        {
+          "Sorcery Points": 2,
+          "Cantrips": 4,
+          "Prepared Spells": 4
+        },
+        {
+          "Sorcery Points": 3,
+          "Cantrips": 4,
+          "Prepared Spells": 6
+        },
+        {
+          "Sorcery Points": 4,
+          "Cantrips": 5,
+          "Prepared Spells": 7
+        },
+        {
+          "Sorcery Points": 5,
+          "Cantrips": 5,
+          "Prepared Spells": 9
+        },
+        {
+          "Sorcery Points": 6,
+          "Cantrips": 5,
+          "Prepared Spells": 10
+        },
+        {
+          "Sorcery Points": 7,
+          "Cantrips": 5,
+          "Prepared Spells": 11
+        },
+        {
+          "Sorcery Points": 8,
+          "Cantrips": 5,
+          "Prepared Spells": 12
+        },
+        {
+          "Sorcery Points": 9,
+          "Cantrips": 5,
+          "Prepared Spells": 14
+        },
+        {
+          "Sorcery Points": 10,
+          "Cantrips": 6,
+          "Prepared Spells": 15
+        },
+        {
+          "Sorcery Points": 11,
+          "Cantrips": 6,
+          "Prepared Spells": 16
+        },
+        {
+          "Sorcery Points": 12,
+          "Cantrips": 6,
+          "Prepared Spells": 16
+        },
+        {
+          "Sorcery Points": 13,
+          "Cantrips": 6,
+          "Prepared Spells": 17
+        },
+        {
+          "Sorcery Points": 14,
+          "Cantrips": 6,
+          "Prepared Spells": 17
+        },
+        {
+          "Sorcery Points": 15,
+          "Cantrips": 6,
+          "Prepared Spells": 18
+        },
+        {
+          "Sorcery Points": 16,
+          "Cantrips": 6,
+          "Prepared Spells": 18
+        },
+        {
+          "Sorcery Points": 17,
+          "Cantrips": 6,
+          "Prepared Spells": 19
+        },
+        {
+          "Sorcery Points": 18,
+          "Cantrips": 6,
+          "Prepared Spells": 20
+        },
+        {
+          "Sorcery Points": 19,
+          "Cantrips": 6,
+          "Prepared Spells": 21
+        },
+        {
+          "Sorcery Points": 20,
+          "Cantrips": 6,
+          "Prepared Spells": 22
+        }
+      ],
+      "features": [
+        {
+          "name": "Spellcasting",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Innate Sorcery",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Font of Magic",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Metamagic",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Metamagic Options",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Sorcerer Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Sorcerous Restoration",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Sorcery Incarnate",
+          "level": 7,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Metamagic",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Metamagic",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Arcane Apotheosis",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [],
+      "arcanum": {},
+      "hit_die": 6,
+      "subclasses": [
+        {
+          "name": "Aberrant Sorcery",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Aberrant Sorcery",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Psionic Sorcery",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Psychic Defenses",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Revelation in Flesh",
+              "level": 14,
+              "source": "XPHB"
+            },
+            {
+              "name": "Warping Implosion",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "arms of hadar|xphb",
+                  "calm emotions|xphb",
+                  "detect thoughts|xphb",
+                  "dissonant whispers|xphb",
+                  "mind sliver|xphb#c"
+                ],
+                "5": [
+                  "hunger of hadar|xphb",
+                  "sending|xphb"
+                ],
+                "7": [
+                  "evard's black tentacles|xphb",
+                  "summon aberration|xphb"
+                ],
+                "9": [
+                  "rary's telepathic bond|xphb",
+                  "telekinesis|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "aberrant-sorcery"
+        },
+        {
+          "name": "Clockwork Sorcery",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Clockwork Sorcery",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Bastion of Law",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Trance of Order",
+              "level": 14,
+              "source": "XPHB"
+            },
+            {
+              "name": "Clockwork Cavalcade",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "aid|xphb",
+                  "alarm|xphb",
+                  "lesser restoration|xphb",
+                  "protection from evil and good|xphb"
+                ],
+                "5": [
+                  "dispel magic|xphb",
+                  "protection from energy|xphb"
+                ],
+                "7": [
+                  "freedom of movement|xphb",
+                  "summon construct|xphb"
+                ],
+                "9": [
+                  "greater restoration|xphb",
+                  "wall of force|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "clockwork-sorcery"
+        },
+        {
+          "name": "Draconic Sorcery",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Draconic Sorcery",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Elemental Affinity",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Dragon Wings",
+              "level": 14,
+              "source": "XPHB"
+            },
+            {
+              "name": "Dragon Companion",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "alter self|xphb",
+                  "chromatic orb|xphb",
+                  "command|xphb",
+                  "dragon's breath|xphb"
+                ],
+                "5": [
+                  "fear|xphb",
+                  "fly|xphb"
+                ],
+                "7": [
+                  "arcane eye|xphb",
+                  "charm monster|xphb"
+                ],
+                "9": [
+                  "legend lore|xphb",
+                  "summon dragon|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "draconic-sorcery"
+        },
+        {
+          "name": "Wild Magic Sorcery",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Wild Magic Sorcery",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Bend Luck",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Controlled Chaos",
+              "level": 14,
+              "source": "XPHB"
+            },
+            {
+              "name": "Tamed Surge",
+              "level": 18,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [],
+          "arcanum": {},
+          "id": "wild-magic-sorcery"
+        }
+      ]
+    },
+    "Warlock": {
+      "name": "Warlock",
+      "source": "XPHB",
+      "spellcasting_ability": "CHA",
+      "caster_progression": "pact",
+      "cantrips": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "prepared": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        10,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        15,
+        15
+      ],
+      "slots": [],
+      "metrics": [
+        {
+          "Invocations": 1,
+          "Cantrips": 2,
+          "Prepared Spells": 2,
+          "Spell Slots": 1,
+          "Slot Level": 1
+        },
+        {
+          "Invocations": 3,
+          "Cantrips": 2,
+          "Prepared Spells": 3,
+          "Spell Slots": 2,
+          "Slot Level": 1
+        },
+        {
+          "Invocations": 3,
+          "Cantrips": 2,
+          "Prepared Spells": 4,
+          "Spell Slots": 2,
+          "Slot Level": 2
+        },
+        {
+          "Invocations": 3,
+          "Cantrips": 3,
+          "Prepared Spells": 5,
+          "Spell Slots": 2,
+          "Slot Level": 2
+        },
+        {
+          "Invocations": 5,
+          "Cantrips": 3,
+          "Prepared Spells": 6,
+          "Spell Slots": 2,
+          "Slot Level": 3
+        },
+        {
+          "Invocations": 5,
+          "Cantrips": 3,
+          "Prepared Spells": 7,
+          "Spell Slots": 2,
+          "Slot Level": 3
+        },
+        {
+          "Invocations": 6,
+          "Cantrips": 3,
+          "Prepared Spells": 8,
+          "Spell Slots": 2,
+          "Slot Level": 4
+        },
+        {
+          "Invocations": 6,
+          "Cantrips": 3,
+          "Prepared Spells": 9,
+          "Spell Slots": 2,
+          "Slot Level": 4
+        },
+        {
+          "Invocations": 7,
+          "Cantrips": 3,
+          "Prepared Spells": 10,
+          "Spell Slots": 2,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 7,
+          "Cantrips": 4,
+          "Prepared Spells": 10,
+          "Spell Slots": 2,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 7,
+          "Cantrips": 4,
+          "Prepared Spells": 11,
+          "Spell Slots": 3,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 8,
+          "Cantrips": 4,
+          "Prepared Spells": 11,
+          "Spell Slots": 3,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 8,
+          "Cantrips": 4,
+          "Prepared Spells": 12,
+          "Spell Slots": 3,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 8,
+          "Cantrips": 4,
+          "Prepared Spells": 12,
+          "Spell Slots": 3,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 9,
+          "Cantrips": 4,
+          "Prepared Spells": 13,
+          "Spell Slots": 3,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 9,
+          "Cantrips": 4,
+          "Prepared Spells": 13,
+          "Spell Slots": 3,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 9,
+          "Cantrips": 4,
+          "Prepared Spells": 14,
+          "Spell Slots": 4,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 10,
+          "Cantrips": 4,
+          "Prepared Spells": 14,
+          "Spell Slots": 4,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 10,
+          "Cantrips": 4,
+          "Prepared Spells": 15,
+          "Spell Slots": 4,
+          "Slot Level": 5
+        },
+        {
+          "Invocations": 10,
+          "Cantrips": 4,
+          "Prepared Spells": 15,
+          "Spell Slots": 4,
+          "Slot Level": 5
+        }
+      ],
+      "features": [
+        {
+          "name": "Eldritch Invocations",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Pact Magic",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Eldritch Invocation Options",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Magical Cunning",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Warlock Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Contact Patron",
+          "level": 9,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Mystic Arcanum",
+          "level": 11,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Mystic Arcanum",
+          "level": 13,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Mystic Arcanum",
+          "level": 15,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Mystic Arcanum",
+          "level": 17,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Eldritch Master",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [
+        {
+          "prepared": {
+            "9": [
+              "contact other plane|xphb"
+            ]
+          }
+        }
+      ],
+      "arcanum": {
+        "11": {
+          "6": 1
+        },
+        "13": {
+          "7": 1
+        },
+        "15": {
+          "8": 1
+        },
+        "17": {
+          "9": 1
+        }
+      },
+      "hit_die": 8,
+      "subclasses": [
+        {
+          "name": "Archfey Patron",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Archfey Patron",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Misty Escape",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Beguiling Defenses",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Bewitching Magic",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "calm emotions|xphb",
+                  "faerie fire|xphb",
+                  "misty step|xphb",
+                  "phantasmal force|xphb",
+                  "sleep|xphb"
+                ],
+                "5": [
+                  "blink|xphb",
+                  "plant growth|xphb"
+                ],
+                "7": [
+                  "dominate beast|xphb",
+                  "greater invisibility|xphb"
+                ],
+                "9": [
+                  "dominate person|xphb",
+                  "seeming|xphb"
+                ]
+              },
+              "innate": {
+                "_": {
+                  "daily": {
+                    "cha": [
+                      "misty step|xphb"
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "archfey-patron"
+        },
+        {
+          "name": "Celestial Patron",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Celestial Patron",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Radiant Soul",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Celestial Resilience",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Searing Vengeance",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "1": [
+                  "sacred flame|xphb#c",
+                  "light|xphb#c"
+                ]
+              },
+              "prepared": {
+                "3": [
+                  "aid|xphb",
+                  "cure wounds|xphb",
+                  "guiding bolt|xphb",
+                  "lesser restoration|xphb"
+                ],
+                "5": [
+                  "daylight|xphb",
+                  "revivify|xphb"
+                ],
+                "7": [
+                  "guardian of faith|xphb",
+                  "wall of fire|xphb"
+                ],
+                "9": [
+                  "greater restoration|xphb",
+                  "summon celestial|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "celestial-patron"
+        },
+        {
+          "name": "Fiend Patron",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Fiend Patron",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Dark One's Own Luck",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Fiendish Resilience",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Hurl Through Hell",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "burning hands|xphb",
+                  "command|xphb",
+                  "scorching ray|xphb",
+                  "suggestion|xphb"
+                ],
+                "5": [
+                  "fireball|xphb",
+                  "stinking cloud|xphb"
+                ],
+                "7": [
+                  "fire shield|xphb",
+                  "wall of fire|xphb"
+                ],
+                "9": [
+                  "geas|xphb",
+                  "insect plague|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "fiend-patron"
+        },
+        {
+          "name": "Great Old One Patron",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Great Old One Patron",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Clairvoyant Combatant",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Eldritch Hex",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Thought Shield",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Create Thrall",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "3": [
+                  "detect thoughts|xphb",
+                  "dissonant whispers|xphb",
+                  "phantasmal force|xphb",
+                  "tasha's hideous laughter|xphb"
+                ],
+                "5": [
+                  "clairvoyance|xphb",
+                  "hunger of hadar|xphb"
+                ],
+                "7": [
+                  "confusion|xphb",
+                  "summon aberration|xphb"
+                ],
+                "9": [
+                  "modify memory|xphb",
+                  "telekinesis|xphb"
+                ]
+              },
+              "innate": {
+                "10": [
+                  "hex|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "great-old-one-patron"
+        }
+      ]
+    },
+    "Wizard": {
+      "name": "Wizard",
+      "source": "XPHB",
+      "spellcasting_ability": "INT",
+      "caster_progression": "full",
+      "cantrips": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "prepared": [
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        16,
+        16,
+        17,
+        18,
+        19,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "slots": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ],
+      "metrics": [
+        {
+          "Cantrips": 3,
+          "Prepared Spells": 4
+        },
+        {
+          "Cantrips": 3,
+          "Prepared Spells": 5
+        },
+        {
+          "Cantrips": 3,
+          "Prepared Spells": 6
+        },
+        {
+          "Cantrips": 4,
+          "Prepared Spells": 7
+        },
+        {
+          "Cantrips": 4,
+          "Prepared Spells": 9
+        },
+        {
+          "Cantrips": 4,
+          "Prepared Spells": 10
+        },
+        {
+          "Cantrips": 4,
+          "Prepared Spells": 11
+        },
+        {
+          "Cantrips": 4,
+          "Prepared Spells": 12
+        },
+        {
+          "Cantrips": 4,
+          "Prepared Spells": 14
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 15
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 16
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 16
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 17
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 18
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 19
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 21
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 22
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 23
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 24
+        },
+        {
+          "Cantrips": 5,
+          "Prepared Spells": 25
+        }
+      ],
+      "features": [
+        {
+          "name": "Spellcasting",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ritual Adept",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Arcane Recovery",
+          "level": 1,
+          "source": "XPHB"
+        },
+        {
+          "name": "Scholar",
+          "level": 2,
+          "source": "XPHB"
+        },
+        {
+          "name": "Wizard Subclass",
+          "level": 3,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 4,
+          "source": "XPHB"
+        },
+        {
+          "name": "Memorize Spell",
+          "level": 5,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 6,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 8,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 10,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 12,
+          "source": "XPHB"
+        },
+        {
+          "name": "Subclass Feature",
+          "level": 14,
+          "source": "XPHB"
+        },
+        {
+          "name": "Ability Score Improvement",
+          "level": 16,
+          "source": "XPHB"
+        },
+        {
+          "name": "Spell Mastery",
+          "level": 18,
+          "source": "XPHB"
+        },
+        {
+          "name": "Epic Boon",
+          "level": 19,
+          "source": "XPHB"
+        },
+        {
+          "name": "Signature Spells",
+          "level": 20,
+          "source": "XPHB"
+        }
+      ],
+      "additional_spells": [],
+      "arcanum": {},
+      "hit_die": 6,
+      "subclasses": [
+        {
+          "name": "Abjurer",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Abjurer",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Projected Ward",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Spell Breaker",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Spell Resistance",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "prepared": {
+                "10": [
+                  "counterspell|xphb",
+                  "dispel magic|xphb"
+                ]
+              },
+              "known": {
+                "3": [
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=A"
+                  },
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=A"
+                  }
+                ],
+                "5": [
+                  {
+                    "choose": "level=0;1;2;3|class=Wizard|school=A"
+                  }
+                ],
+                "7": [
+                  {
+                    "choose": "level=0;1;2;3;4|class=Wizard|school=A"
+                  }
+                ],
+                "9": [
+                  {
+                    "choose": "level=0;1;2;3;4;5|class=Wizard|school=A"
+                  }
+                ],
+                "11": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6|class=Wizard|school=A"
+                  }
+                ],
+                "13": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7|class=Wizard|school=A"
+                  }
+                ],
+                "15": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8|class=Wizard|school=A"
+                  }
+                ],
+                "17": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8;9|class=Wizard|school=A"
+                  }
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "abjurer"
+        },
+        {
+          "name": "Diviner",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Diviner",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Expert Divination",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "The Third Eye",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Greater Portent",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "innate": {
+                "10": [
+                  "see invisibility|xphb"
+                ]
+              },
+              "known": {
+                "3": [
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=D"
+                  },
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=D"
+                  }
+                ],
+                "5": [
+                  {
+                    "choose": "level=0;1;2;3|class=Wizard|school=D"
+                  }
+                ],
+                "7": [
+                  {
+                    "choose": "level=0;1;2;3;4|class=Wizard|school=D"
+                  }
+                ],
+                "9": [
+                  {
+                    "choose": "level=0;1;2;3;4;5|class=Wizard|school=D"
+                  }
+                ],
+                "11": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6|class=Wizard|school=D"
+                  }
+                ],
+                "13": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7|class=Wizard|school=D"
+                  }
+                ],
+                "15": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8|class=Wizard|school=D"
+                  }
+                ],
+                "17": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8;9|class=Wizard|school=D"
+                  }
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "diviner"
+        },
+        {
+          "name": "Evoker",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Evoker",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Sculpt Spells",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Empowered Evocation",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Overchannel",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "3": [
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=V"
+                  },
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=V"
+                  }
+                ],
+                "5": [
+                  {
+                    "choose": "level=0;1;2;3|class=Wizard|school=V"
+                  }
+                ],
+                "7": [
+                  {
+                    "choose": "level=0;1;2;3;4|class=Wizard|school=V"
+                  }
+                ],
+                "9": [
+                  {
+                    "choose": "level=0;1;2;3;4;5|class=Wizard|school=V"
+                  }
+                ],
+                "11": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6|class=Wizard|school=V"
+                  }
+                ],
+                "13": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7|class=Wizard|school=V"
+                  }
+                ],
+                "15": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8|class=Wizard|school=V"
+                  }
+                ],
+                "17": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8;9|class=Wizard|school=V"
+                  }
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "evoker"
+        },
+        {
+          "name": "Illusionist",
+          "source": "XPHB",
+          "spellcasting_ability": "",
+          "caster_progression": "",
+          "cantrips": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "prepared": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "slots": [],
+          "metrics": [
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {},
+            {}
+          ],
+          "features": [
+            {
+              "name": "Illusionist",
+              "level": 3,
+              "source": "XPHB"
+            },
+            {
+              "name": "Phantasmal Creatures",
+              "level": 6,
+              "source": "XPHB"
+            },
+            {
+              "name": "Illusory Self",
+              "level": 10,
+              "source": "XPHB"
+            },
+            {
+              "name": "Illusory Reality",
+              "level": 14,
+              "source": "XPHB"
+            }
+          ],
+          "additional_spells": [
+            {
+              "known": {
+                "3": [
+                  "minor illusion|xphb#c",
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=I"
+                  },
+                  {
+                    "choose": "level=0;1;2|class=Wizard|school=I"
+                  }
+                ],
+                "5": [
+                  {
+                    "choose": "level=0;1;2;3|class=Wizard|school=I"
+                  }
+                ],
+                "7": [
+                  {
+                    "choose": "level=0;1;2;3;4|class=Wizard|school=I"
+                  }
+                ],
+                "9": [
+                  {
+                    "choose": "level=0;1;2;3;4;5|class=Wizard|school=I"
+                  }
+                ],
+                "11": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6|class=Wizard|school=I"
+                  }
+                ],
+                "13": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7|class=Wizard|school=I"
+                  }
+                ],
+                "15": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8|class=Wizard|school=I"
+                  }
+                ],
+                "17": [
+                  {
+                    "choose": "level=0;1;2;3;4;5;6;7;8;9|class=Wizard|school=I"
+                  }
+                ]
+              },
+              "prepared": {
+                "6": [
+                  "summon beast|xphb",
+                  "summon fey|xphb"
+                ]
+              }
+            }
+          ],
+          "arcanum": {},
+          "id": "illusionist"
+        }
+      ]
+    }
+  }
+}

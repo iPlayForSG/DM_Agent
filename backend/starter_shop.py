@@ -21,7 +21,9 @@ STARTER_SHOP_ITEMS: List[Dict[str, Any]] = [
     {"id": "druidic_focus_yew_wand", "name": "Druidic Focus (Yew Wand)", "type": "focus", "cost_gp": 10},
     {"id": "drum", "name": "Drum", "type": "tool", "cost_gp": 6},
     {"id": "dungeoneers_pack", "name": "Dungeoneer's Pack", "type": "pack", "cost_gp": 12},
-    {"id": "entertainers_pack", "name": "Entertainer's Pack", "type": "pack", "cost_gp": 40},
+    # 2024 PHB p.225（本地5e.tools XPHB条目）；建卡与旧库存共用目录说明。
+    {"id": "entertainers_pack", "name": "Entertainer's Pack", "type": "pack", "cost_gp": 40,
+     "description": "艺人套组（D&D 2024）包含：\n背包1个、铺盖1套、铃铛1个、牛眼提灯1盏、戏服3套、镜子1面、油8瓶、口粮9天份、火绒盒1个、水袋1个。"},
     {"id": "explorers_pack", "name": "Explorer's Pack", "type": "pack", "cost_gp": 10},
     {"id": "flail", "name": "Flail", "type": "weapon", "cost_gp": 10, "damage_die": "1d8", "damage_type": "bludgeoning"},
     {"id": "flute", "name": "Flute", "type": "tool", "cost_gp": 2},

@@ -38,9 +38,6 @@ def inventory_annotations(before, after, localize=lambda value: value):
             if previous['equipped'] != current['equipped'] and current['quantity'] > 0:
                 action = '已装备' if current['equipped'] else '已卸下'
                 records.append((item_name, f"**物品｜{actor_name}：{item_name} {action}**"))
-        gold_delta = (new.gold_gp if new else 0) - (old.gold_gp if old else 0)
-        if gold_delta:
-            records.append(('金币', f"**物品｜{actor_name}：金币 {gold_delta:+g}（现有 {(new.gold_gp if new else 0):g}）**"))
     return records
 
 

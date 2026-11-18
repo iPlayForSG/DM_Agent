@@ -19,6 +19,7 @@ from rag import RAGEngine
 from rules_catalog import ABILITY_ALIAS, SKILL_TO_ABILITY, RuleCatalog
 from starter_shop import get_shop_catalog
 from storage import MonsterStorage
+from combat_feedback import attack_outcome_text, attack_damage_text
 from roll_capture import dice_context
 
 
@@ -358,6 +359,17 @@ class AgentToolService:
             content=entry,
         )
 
+    def adjust_currency(self, state: GameState, character_ref: str, amount: int, denomination: str, reason: str) -> AgentToolExecution:
+        try:
+            result = GameLogic(state).adjust_currency(character_ref, amount, denomination, reason)
+        except ValueError as exc:
+            return self._error(str(exc))
+        summary = f"{result['character_name']}：{result['coin_name']} {amount:+d} | {reason}"
+        if result['change_made']:
+            summary += '（已按等值钱币找零）'
+        return self._success(tool_name='currency.adjust', summary=summary,
+            payload={k:v for k,v in result.items() if k != 'patch'}, state_patch=result['patch'], event_type='currency_adjusted')
+
     def add_inventory_item(
         self,
         state: GameState,
@@ -604,6 +616,8 @@ class AgentToolService:
             return self._error(str(exc))
         # 合法检定失败仍保留动作消耗；参数/前提错误则完全不采用工作快照。
         state.characters, state.encounter = work.characters, work.encounter
+        state.granted_dice = work.granted_dice
+        patch['granted_dice'] = [b.model_dump(mode='json') for b in state.granted_dice]
         summary = f"{payload.get('actor_name', '')} {payload.get('label', tool_name)}"
         if "success" in payload:
             summary += f"：{payload.get('total', payload.get('stealth_total'))} vs DC {payload.get('dc', 15)}，{'成功' if payload['success'] else '失败'}"
@@ -637,6 +651,54 @@ class AgentToolService:
         return self._success(tool_name="end_hiding", summary=f"{actor.name} 结束躲藏：{reason}",
                              payload={"actor_name": actor.name, "reason": reason, "ended": bool(patch)},
                              event_type="stealth_resolved", state_patch=patch)
+
+    def register_scene_actor(self, state: GameState, name: str, source: str, creature_type: str = "",
+                             ability_scores: Optional[Dict[str, int]] = None, template_ref: str = "",
+                             hp_max: int = 10, ac: int = 10, saving_throws: Optional[Dict[str, int]] = None,
+                             condition_immunities: Optional[List[str]] = None) -> AgentToolExecution:
+        from scene_actors import register_actor
+        template = None
+        if template_ref:
+            template = state.monster_templates.get(template_ref) or (self.monster_storage.load_monster(template_ref) if self.monster_storage else None)
+            if not template:
+                return self._error("未找到指定NPC模板，请先读取目录确认模板ID")
+        work = state.model_copy(deep=True)
+        try:
+            actor, reused = register_actor(GameLogic(work), name, creature_type, ability_scores, source,
+                hp_max, ac, saving_throws, condition_immunities, template)
+        except ValueError as exc:
+            return self._error(str(exc))
+        state.scene_actors, state.encounter = work.scene_actors, work.encounter
+        return self._success(tool_name="scene.register_actor", summary=f"已确认场景人物：{actor.name}",
+            payload={"actor": actor.model_dump(mode="json"), "reused": reused},
+            state_patch={"scene_actors": {key: value.model_dump(mode="json") for key, value in state.scene_actors.items()},
+                         "encounter": state.encounter.model_dump(mode="json") if state.encounter else None},
+            event_type="scene_actor_registered")
+
+    def check_spell_sequence(self, state: GameState, caster_ref: str, casts: List[Dict[str, Any]], preserve_effects: bool = True) -> AgentToolExecution:
+        from action_preflight import check_spell_sequence
+        from spell_rules import RuleConflict
+        try:
+            payload = check_spell_sequence(state, self.rules_catalog, caster_ref, casts, preserve_effects)
+        except RuleConflict as exc:
+            payload = {"valid": False, "conflicts": [str(exc)]}
+        except ValueError as exc:
+            return self._error(str(exc))
+        return self._success(tool_name="rules.check_spell_sequence", summary="复合施法检查通过" if payload["valid"] else "；".join(payload["conflicts"]),
+                             payload=payload, event_type="spell_sequence_checked")
+
+    def report_rule_conflict(self, state: GameState, message: str) -> AgentToolExecution:
+        message = str(message or "").strip()
+        if not message or len(message) > 1200:
+            return self._error("规则反馈需为1至1200字的具体问题说明")
+        # 内部资料核验不是玩家决策，不能伪装成“行动需要调整”把修复责任交给玩家。
+        verification = re.search(r'核验|核对|核查|验证|verif', message, re.I)
+        internal_state = re.search(r'状态|规则层|后端|数据|state|backend|data', message, re.I)
+        delegation = re.search(r'请先|请你|重新声明|玩家|restate|confirm', message, re.I)
+        if verification and internal_state and delegation:
+            return self._error("这不是具体的玩家规则冲突。请自行读取已有权威状态并完成内部核对；已记录的法术效果无需玩家重新声明。等待效果到期应按实际经过的游戏时间调用advance_time，再裁定后续行动。")
+        return self._success(tool_name="rules.feedback", summary=message,
+                             payload={"message": message}, event_type="rules_feedback")
 
     def start_encounter(
         self,
@@ -682,6 +744,7 @@ class AgentToolService:
             "encounter_id": encounter.encounter_id,
             "enemy_names": enemy_names,
             "combatant_count": len(encounter.combatants),
+            "balance_advice": self.rules_catalog.encounter_participant_advice(state, enemy_names),
             "round_number": encounter.round_number,
             "surprised_names": [c.name for c in encounter.combatants.values() if c.surprised_at_start],
             "surprise_reason": surprise_reason,
@@ -848,6 +911,9 @@ class AgentToolService:
         resolution_mode: str = "normal",
         reason: str = "",
         attack_name: str = "",
+        attack_mode: str = "normal",
+        distance_feet: Optional[float] = None,
+        equivalent_weapon: str = "",
         roll_mode: str = "normal",
         cast_id: str = "",
         attacker_sees_invisible: bool = False,
@@ -855,6 +921,8 @@ class AgentToolService:
     ) -> AgentToolExecution:
         if (attacker_sees_invisible or target_sees_invisible) and not reason.strip():
             return self._error("Seeing invisible actors requires an established visibility reason")
+        if attack_mode == "thrown" and resolution_mode != "normal":
+            return self._error("远程投掷不能使用近战击昏规则。")
         if cast_id:
             from spell_resolution import resolve_spell_attack
             try:
@@ -864,7 +932,7 @@ class AgentToolService:
                 return self._error(str(exc))
             return self._success(
                 tool_name="combat.attack_target", event_type="attack_resolved",
-                summary=f"{result['attacker_name']} {result['spell_name']}：{result['attack_total']} vs AC {result['target_ac']}，伤害 {result['damage_total']}",
+                summary=f"{result['attacker_name']} {result['spell_name']}：{result['attack_total']} vs AC {result['target_ac']} -> {attack_outcome_text(result)}，{attack_damage_text(result)}",
                 payload={key: value for key, value in result.items() if key != "patch"}, state_patch=result["patch"],
             )
         logic = GameLogic(state)
@@ -887,7 +955,7 @@ class AgentToolService:
         attacker = self._linked_character(state, logic, attacker_ref)
         if attacker:
             try:
-                profile = self.rules_catalog.resolve_character_attack_profile(
+                profile = {} if attack_mode != "normal" else self.rules_catalog.resolve_character_attack_profile(
                     attacker,
                     attack_name=attack_name,
                     requested_attack_bonus=attack_bonus,
@@ -895,6 +963,14 @@ class AgentToolService:
                 )
             except ValueError as exc:
                 return self._error(str(exc))
+            if attack_mode != "normal":
+                from weapon_use import profile as use_profile
+                try:
+                    profile = use_profile(self.rules_catalog, attacker, attack_name, attack_mode, distance_feet,
+                                          damage_type, equivalent_weapon, reason, roll_mode)
+                except ValueError as exc:
+                    return self._error(str(exc))
+                # 射程劣势留到规则层与躲藏、不可见等全部来源一起抵消。
             attack_bonus = int(profile["attack_bonus"])
             damage_expression = str(profile["damage_expression"])
             damage_type = str(profile["damage_type"])
@@ -924,6 +1000,7 @@ class AgentToolService:
             roll_mode=roll_mode,
             attacker_sees_invisible=attacker_sees_invisible,
             target_sees_invisible=target_sees_invisible,
+            range_disadvantage=bool(attacker and profile.get('range_disadvantage')),
         )
         if not result:
             return self._error(f"Attack target not found: {target_ref}")
@@ -934,6 +1011,7 @@ class AgentToolService:
             "attacker_name": result["attacker_name"],
             "target_name": result["target_name"],
             "target_ac": result["target_ac"],
+            "natural": result["natural"],
             "attack_total": result["attack_total"],
             "attack_detail": result["attack_detail"],
             "hit": result["hit"],
@@ -955,18 +1033,23 @@ class AgentToolService:
             "target_defeat_state_display": target_defeat_state_display,
             "reason": reason,
         }
+        if attacker and attack_mode == 'thrown':
+            from weapon_use import release_thrown
+            result['patch'] = logic._merge_patches(result['patch'], release_thrown(attacker, resolved_attack_name))
+        if attacker and attack_mode != 'normal':
+            payload['weapon_use'] = profile
         payload["effect_events"] = result.get("effect_events", [])
         concentration_check = result.get("concentration_check")
         if concentration_check:
             payload["concentration_check"] = concentration_check
-        hit_display = "命中" if result["hit"] else "未命中"
+        hit_display = attack_outcome_text(result)
         summary = (
             f"{result['attacker_name']} 攻击 {result['target_name']}{self._roll_mode_summary(result['roll_mode'])}："
             f"{result['attack_total']} vs AC {result['target_ac']} -> "
             f"{hit_display}"
         )
         if result["hit"]:
-            summary += f"，伤害 {result['damage_total']}"
+            summary += f"，{attack_damage_text(result)}"
             if damage_type:
                 summary += f" {damage_type_display}"
             summary += self._concentration_summary(concentration_check)
@@ -1074,9 +1157,9 @@ class AgentToolService:
         source_ref: str = "",
         spell_name: str = "",
     ) -> AgentToolExecution:
-        from spell_effects import is_laughter
-        if is_laughter(spell_name):
-            return self._error("塔莎狂笑术的豁免由施法、伤害或回合结束自动结算，不可另行重掷。")
+        from spell_rules import automatic_save_rule
+        if automatic_save_rule(spell_name, self.library):
+            return self._error("该法术的豁免由施法和来源事件自动结算，不可另行重掷。")
         logic = GameLogic(state)
         roll_mode_error = self._roll_mode_error(reason, roll_mode)
         if roll_mode_error:
@@ -1136,6 +1219,9 @@ class AgentToolService:
         if resolved_dc <= 0:
             return self._error("Saving throw DC must be a positive integer")
 
+        from spell_effects import dispatch
+        if source_ref:
+            dispatch(logic, "forces_save", source_ref=source_ref, target_ref=target_ref)
         result = logic.roll_saving_throw(
             target_ref=target_ref,
             save_name=canonical_save_name,
@@ -1172,11 +1258,16 @@ class AgentToolService:
         try:
             payload, patch = cast_spell(state, self.rules_catalog, caster_ref, spell_name, slot_level, target_ref, target_refs)
         except ValueError as exc:
-            return self._error(str(exc))
+            from spell_rules import RuleConflict, RulesUnavailable
+            code = "rule_conflict" if isinstance(exc, RuleConflict) else "rules_unavailable" if isinstance(exc, RulesUnavailable) else "resolution_error"
+            return self._error(str(exc), {"ok": False, "code": code, "error": str(exc)})
         payload["reason"] = reason
         summary = f"{payload['caster_name']} 施放 {payload['spell_name']}"
         if payload["resolved_slot_level"]:
             summary += f"，消耗 {payload['resolved_slot_level']} 环法术位"
+        summaries = [event.get("summary") or (f"{event.get('spell_name', '')}：{event.get('reason', '')}" if event.get("type") == "effect_ended" else "") for event in payload.get("effect_events", [])]
+        if any(summaries):
+            summary += " | " + " | ".join(text for text in summaries if text)
         return self._success(tool_name="magic.cast_spell", summary=summary, payload=payload,
                              event_type="spell_cast", content=reason, state_patch=patch)
 
@@ -1201,7 +1292,7 @@ class AgentToolService:
             patch = advance_time(logic, seconds)
         except ValueError as exc:
             return self._error(str(exc))
-        for field in ("characters", "encounter", "active_spell_effects", "rules_time_seconds"):
+        for field in ("characters", "encounter", "scene_actors", "spell_cast_history", "active_spell_effects", "rules_time_seconds", "granted_dice"):
             setattr(state, field, getattr(work, field))
         return self._success(tool_name="time.advance", summary=f"经过 {seconds} 秒：{reason}",
                              payload={"seconds":seconds,"effect_events":logic.effect_events}, state_patch=patch, event_type="time_advanced")
@@ -1261,6 +1352,9 @@ class AgentToolService:
         resource_name: str = "",
         resource_cost: int = 0,
         reason: str = "",
+        target_ref: str = "",
+        distance_feet: Optional[float] = None,
+        target_can_perceive: Optional[bool] = None,
     ) -> AgentToolExecution:
         logic = GameLogic(state)
         try:
@@ -1269,13 +1363,15 @@ class AgentToolService:
                 feature_name=feature_name,
                 action_cost=action_cost,
                 resource_name=resource_name,
-                resource_cost=resource_cost,
+                resource_cost=resource_cost, target_ref=target_ref, distance_feet=distance_feet, target_can_perceive=target_can_perceive,
             )
         except ValueError as exc:
             return self._error(str(exc))
 
         feature_display = self.library.localize_game_terms(result["feature_name"])
         payload = {
+            "granted_die": result.get("granted_die"),
+            "target_name": result.get("target_name"),
             "actor_type": result["actor_type"],
             "actor_id": result["actor_id"],
             "actor_name": result["actor_name"],
@@ -1293,6 +1389,8 @@ class AgentToolService:
             f"{result['actor_name']} 使用特性：{feature_display}"
             f"（{payload['action_cost_display']}）"
         )
+        if result.get('granted_die'):
+            summary += f" → {result['target_name']} 获得诗人激励 {result['granted_die']['expression']}（1小时）"
         if result["resource_cost"] > 0:
             summary += (
                 f"，消耗 {result['resource_cost']} 点 {self.library.localize_game_terms(result['resource_name'])}"
@@ -1409,7 +1507,7 @@ class AgentToolService:
             ],
         }
 
-    def list_character_options(self, state: GameState, category: str = "all", name: str = "") -> AgentToolExecution:
+    def list_character_options(self, state: GameState, category: str = "all", name: str = "", level: int = 1, subclass_id: str = "") -> AgentToolExecution:
         normalized_category = str(category or "all").strip().lower()
         supported = {"all", "species", "backgrounds", "origin_feats", "classes", "ability_generation"}
         if normalized_category not in supported:
@@ -1434,6 +1532,14 @@ class AgentToolService:
             if not entry:
                 return self._error(f"Unknown {normalized_category[:-1] if normalized_category.endswith('s') else normalized_category}: {lookup}")
             payload["entry"] = entry
+            if normalized_category == "classes":
+                from level_creation import options as creation_options
+                if type(level) is not int or not 1 <= level <= 20:
+                    return self._error("角色等级必须为1到20的整数")
+                try:
+                    payload["level_options"] = creation_options(self.rules_catalog, Character(name="预览", class_name=entry["name"], level=level, subclass_id=subclass_id))
+                except ValueError as exc:
+                    return self._error(str(exc))
             summary = f"建卡目录：{lookup}"
         else:
             if normalized_category in {"all", "ability_generation"}:
@@ -1625,6 +1731,13 @@ class AgentToolService:
         starter_choice_ids: Optional[Dict[str, str]] = None,
         alignment: str = "Neutral",
         set_active: bool = True,
+        level: int = 1,
+        subclass_id: str = "",
+        subclass_spell_variant: str = "",
+        bonus_spells: Optional[List[str]] = None,
+        ability_increases: Optional[Dict[str, List[str]]] = None,
+        expertise_skills: Optional[List[str]] = None,
+        mystic_arcanum: Optional[Dict[str, str]] = None,
     ) -> AgentToolExecution:
         if state.campaign.setup_complete:
             return self._error("Party setup is already complete; use level_up or downtime tools instead.")
@@ -1639,8 +1752,13 @@ class AgentToolService:
         if any(existing.name == clean_name for existing in state.characters.values()):
             return self._error(f"A party member named {clean_name} already exists.")
 
+        if type(level) is not int or not 1 <= level <= 20:
+            return self._error("角色等级必须为1到20的整数")
         draft = Character(
-            name=clean_name,
+            name=clean_name, level=level, subclass_id=subclass_id,
+            subclass_spell_variant=subclass_spell_variant, bonus_spells=bonus_spells or [],
+            ability_increases=ability_increases or {}, expertise_skills=expertise_skills or [],
+            mystic_arcanum=mystic_arcanum or {},
             species=str(species or "Human").strip() or "Human",
             race=str(species or "Human").strip() or "Human",
             background_name=str(background_name or "").strip(),
@@ -1660,8 +1778,11 @@ class AgentToolService:
         draft.spells.cantrips = [str(item) for item in (cantrips or []) if str(item).strip()]
         draft.spells.prepared = [str(item) for item in (prepared_spells or []) if str(item).strip()]
 
-        draft = self.rules_catalog.apply_builder_defaults(draft)
-        errors = self.rules_catalog.validate_character(draft)
+        try:
+            draft = self.rules_catalog.apply_builder_defaults(draft)
+        except ValueError as exc:
+            return self._error(str(exc))
+        errors = self.rules_catalog.validate_character(draft, for_creation=True)
         if errors:
             # 校验失败时绝不落地半成品角色，让模型带着具体错误重试。
             return self._error(
