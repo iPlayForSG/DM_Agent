@@ -25,7 +25,8 @@ DM_Agent 是本地优先的 D&D 2024 单人跑团应用。React/Vite 前端通�
 ## 目录与模块导航
 
 - `backend/main.py`：FastAPI 入口、REST/SSE、存档回退和本地动作 API。
-- `backend/dm_graph.py`：LangGraph 父图、上下文装配、阶段能力、确定性修复、提交和回滚。
+- `backend/dm_graph.py`：LangGraph 父图、模型调用、提交、暂停恢复和回滚。
+- `backend/dm_workflow/`：阶段与意图规划、提示上下文、工具 schema、回合校验及受限修复。
 - `backend/agents/`：持续 DM 私有子图、阶段能力、真实 `StructuredTool` 适配器。
 - `backend/agent_tools.py`：供 Agent 调用的确定性状态工具。
 - `backend/action_service.py`：不经过模型的本地确定性动作入口。

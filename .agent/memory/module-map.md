@@ -9,7 +9,8 @@
 | `backend/agent.py` | 模型档案、Agent 生命周期、turn/resume facade | `dm_graph.py`、dotenv | health/config API、密钥脱敏、provider smoke |
 | `backend/model_backends.py` | OpenAI-compatible/Claude Code/Codex provider 常量与 CLI `BaseChatModel` 适配 | LangChain、CLI subprocess | 临时目录、结构化 schema、凭据隔离、真实 CLI smoke |
 | `backend/codex_transport.py` | 临时只读 app-server 会话、真实公开正文 delta、超时与进程清理 | Codex JSON-RPC、subprocess | 本机协议、无宿主工具、无私有推理输出、adapter、真实流式验证 |
-| `backend/dm_graph.py` | LangGraph 父图、上下文、确定性校验、事务提交 | agents、tools、RAG、models | phase policy、工具预算、interrupt、trace、workflow tests |
+| `backend/dm_graph.py` | LangGraph 父图、模型调用、暂停恢复、事务提交 | agents、dm_workflow、models | interrupt、trace、workflow tests |
+| `backend/dm_workflow/` | planning 与 policies 决定能力，context 装配上下文，validation 校验与修复，tool_schemas 定义模型工具契约 | agents/specs、GameState、规则与记忆服务 | 工具所有权、预算、注册、回合测试 |
 | `backend/combat_feedback.py` | Agent与本地武器/法术攻击的命中、重击及实际伤害骰式文案 | 已结算攻击result | 只展示结果，不重复掷骰或改伤害 |
 | `backend/combat_flow.py` | 本次对话的玩家行动者、DM 连续结算及玩家决策交接 | GameState、GameLogic | 图状态、工具适配器、控制切换、多人回归 |
 | `backend/agents/` | 持续 DM 私有循环、阶段能力、工具适配 | LangChain/LangGraph、tool registry | `specs.py` capability、runtime topology tests |
