@@ -828,6 +828,22 @@ function EvidencePanel({ evidence = [] }) {
     </section>
   );
 }
+function KnownWorldPanel({ entries = [] }) {
+  if (!entries.length) return null;
+  return (
+    <section className="panel-card timeline-panel">
+      <h3>战役见闻</h3>
+      <div className="timeline-list">
+        {entries.map(({ id, title, summary }) => (
+          <div key={id} className="timeline-item">
+            <div className="timeline-summary">{title}</div>
+            <div className="timeline-content">{summary}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 function CombatStatusStrip({ entries = [], name, loading = false }) {
   const labels = { buff: "增益", debuff: "减益", concentration: "专注", status: "状态" };
   return <aside className="combat-status-strip" aria-label={`${name}当前状态`}>
@@ -4013,6 +4029,7 @@ export default function App() {
               <TimelinePanel timeline={timeline} title="时间线" emptyText="这局游戏还没有时间线记录。" />
               <div className="status-side-stack">
                 <EvidencePanel evidence={evidenceRecords} />
+                <KnownWorldPanel entries={gameState?.known_world} />
                 <SceneActorPanel actors={actionOptions?.actors} ready={statusProjectionCurrent} />
                 <CombatantPanel
                   encounter={encounter}

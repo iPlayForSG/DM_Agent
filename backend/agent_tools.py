@@ -21,6 +21,8 @@ from starter_shop import get_shop_catalog
 from storage import MonsterStorage
 from combat_feedback import attack_outcome_text, attack_damage_text
 from roll_capture import dice_context
+from pydantic import ValidationError
+from world_state import WORLD_WRITES, LookupWorldEntry
 
 
 def merge_patch(current: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
@@ -429,6 +431,42 @@ class AgentToolService:
             event_type="inventory_item_added",
             state_patch=result["patch"],
         )
+
+    def _write_world(self, state: GameState, name: str, args: dict) -> AgentToolExecution:
+        try:
+            command = WORLD_WRITES[name].model_validate(args)
+            entry = command.apply(state)
+        except ValidationError as exc:
+            fields = ", ".join(".".join(map(str, issue["loc"])) for issue in exc.errors()[:4])
+            return self._error(f"Invalid world entry fields: {fields}")
+        except ValueError as exc:
+            return self._error(str(exc))
+        serialized = entry.model_dump(mode="json")
+        receipt = self._success(
+            tool_name=name, summary="战役世界记录已更新", event_type="world_updated",
+            payload={"visibility": "hidden"},
+            state_patch={"world": {"entries": {command.entry_id: serialized}}},
+        )
+        # ToolMessage 可携带 DM 继续行动需要的信息，历史/时间线收据仅保留隐藏标记。
+        receipt.payload = {"entry_id": command.entry_id, "entry": serialized}
+        state.world.entries[command.entry_id] = entry
+        return receipt
+
+    def record_world_entry(self, state: GameState, **args) -> AgentToolExecution:
+        return self._write_world(state, "record_world_entry", args)
+
+    def advance_world_clock(self, state: GameState, **args) -> AgentToolExecution:
+        return self._write_world(state, "advance_world_clock", args)
+
+    def reveal_world_entry(self, state: GameState, **args) -> AgentToolExecution:
+        return self._write_world(state, "reveal_world_entry", args)
+
+    def lookup_world_entry(self, state: GameState, **args) -> AgentToolExecution:
+        try:
+            query = LookupWorldEntry.model_validate(args)
+        except ValidationError:
+            return self._error("Provide a world ID or title of at most 100 characters.")
+        return AgentToolExecution(ok=True, payload=query.search(state.world))
 
     def record_evidence(
         self,

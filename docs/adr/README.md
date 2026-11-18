@@ -17,3 +17,4 @@
 - [ADR-0002：模型传输可选择 API 或 Coding Agent CLI，规则检索默认使用词法索引](0002-model-transports-and-lexical-rag-fallback.md) — Accepted
 - [ADR-0003：实时回合采用单一 DM Brain](0003-single-dm-brain.md) — Accepted
 - [ADR-0004：实际钱币统一使用物品栏记账](0004-inventory-currency.md) — Accepted
+- [ADR-0005：战役世界事实与玩家见闻](0005-campaign-world.md) — Accepted

@@ -390,6 +390,7 @@ class TurnContext:
         )
         instruction = build_dm_instruction(
             state_summary=state_summary,
+            world_context=state.world.context(graph_state.get("user_input", ""), PROMPT_CONTEXT_MAX_CHARS["world"]),
             recent_history=recent_history,
             campaign_memory=campaign_memory,
             rag_enabled=bool(self.rag_engine and self.rag_engine.is_ready()),

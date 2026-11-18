@@ -188,6 +188,7 @@ def build_dm_instruction(
     reply_min_chars: int = 0,
     reply_max_chars: int = 0,
     pacing_scope: str = "story",
+    world_context: str = "",
 ) -> str:
     rag_status = (
         "Rules retrieval is available. Use `lookup_rules` before citing detailed rules or niche monster lore."
@@ -282,6 +283,14 @@ Current game state:
 
 Campaign memory:
 {campaign_memory or "No durable campaign memory has been recorded yet."}
+
+Private campaign world (DM only):
+{world_context or "No entries in this context."}
+Use lookup_world_entry for an established NPC, place or linked secret beyond this excerpt.
+Roleplay motives and track quests privately with record_world_entry. Advance a clock only when its trigger occurs.
+Only discovery.title and discovery.summary are player knowledge. Keep other fields out of narration,
+live progress, choices and visible logs. On an earned discovery, call reveal_world_entry with the facts
+the party can now observe before narrating them. A player's suggestion alone cannot establish a fact.
 
 Recent visible conversation:
 {recent_history}

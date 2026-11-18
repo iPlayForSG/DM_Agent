@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from models import Combatant, GameState
 from rules_catalog import RuleCatalog
+from world_state import WORLD_WRITES
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,8 @@ class ToolGuardrailResult:
 
 
 TOOL_CONTRACT_METADATA: Dict[str, Dict[str, Any]] = {
+    **{name: {"side_effect": "story_write", "risk_level": "medium"} for name in WORLD_WRITES},
+    "lookup_world_entry": {"side_effect": "read", "risk_level": "low"},
     "check_spell_sequence": {"side_effect": "read", "risk_level": "low"},
     "register_scene_actor": {"side_effect": "state_write", "risk_level": "low"},
     "report_rule_conflict": {"side_effect": "interaction", "risk_level": "low"},

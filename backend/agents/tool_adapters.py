@@ -10,6 +10,7 @@ from langgraph.types import Command
 from agent_tools import merge_patch
 from models import GameState
 from combat_flow import after_tool
+from world_state import WORLD_TOOLS
 
 from .specs import AGENT_SPECS, AgentRole
 from .state import DMBrainState
@@ -98,7 +99,7 @@ class AgentToolFactory:
                 with decision_context(graph_decision):
                     execution = self.runner._execute_single_tool(state, tool_name, guardrail.args, allowed_tools)
 
-        if execution.ok:
+        if execution.ok and tool_name not in WORLD_TOOLS:
             from d20_bonuses import expire
             expire(state)
             execution.state_patch['granted_dice'] = [b.model_dump(mode='json') for b in state.granted_dice]
@@ -128,6 +129,7 @@ class AgentToolFactory:
                     "tool_name": tool_name,
                     "ok": execution.ok,
                     "error": execution.error,
+                    **({"visibility": "hidden"} if tool_name in WORLD_TOOLS else {}),
                     "guardrail": dict(guardrail.metadata),
                 }
             ],
@@ -155,7 +157,9 @@ class AgentToolFactory:
             ),
         }
         from resolution_protocol import update_failures
-        update["unresolved_operations"] = update_failures(state, graph_state.get("unresolved_operations", []), tool_name, args, execution.ok, execution.error)
+        # 被阶段拒绝的世界写入不能借“修复失败工具”取得本来没有的权限。
+        if tool_name not in WORLD_TOOLS or tool_name in allowed_tools:
+            update["unresolved_operations"] = update_failures(state, graph_state.get("unresolved_operations", []), tool_name, args, execution.ok, execution.error)
         if tool_name == "report_rule_conflict" and execution.ok:
             update["rules_feedback"] = {"message": execution.payload["message"]}
             update["turn_status"] = "rules_feedback"

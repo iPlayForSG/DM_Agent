@@ -32,6 +32,7 @@ React/Vite UI
 - 数据层 `models.py`：API、存档和图状态共享的 Pydantic schema。
 - 持久化层 `storage.py`：每游戏/角色/怪物一个 JSON；rewind 保存完整 `GameState`。
 - 剧情记忆层 `campaign_memory.py`：只从权威 `GameState` 派生有限提示上下文，不拥有独立业务状态。
+- `GameState.world` 随回合提交、存档和 rewind 保存。DM 私有提示和查询可读取完整条目，`known_world` 只从条目的已发布见闻派生，REST/SSE 与 trace 省略私有世界补丁。参见 ADR-0005。
 - 模型传输层 `model_backends.py`：默认通过 `codex_transport.py` 将本机 Codex app-server（`gpt-5.6-terra` / `high`）适配为 LangChain chat model，也支持 OpenAI-compatible API 与 Claude Code；CLI 不拥有游戏工具或状态。
 - 骰点观察层 `roll_capture.py`：在实际随机执行处以请求局部上下文采集 `RollRecord`，由 API 随主持消息或 pending 元数据保存；观察记录不参与规则结算。
 - 检索层 `rag.py`：默认使用 `lexical_rag.py` 的确定性词法索引；仅在 `RAG_RETRIEVAL_MODE=vector` 时优先 Chroma，并在 embedding/查询失败时降级词法。`rag_embeddings.py` 按需启动本地 llama.cpp，`rag_ingest.py` 构建可选向量索引。

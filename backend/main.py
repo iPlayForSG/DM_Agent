@@ -26,7 +26,7 @@ from resource_rule_text import tooltip_fields as resource_tooltip_fields
 from game_logic import GameLogic
 from library import Library
 from model_backends import DEFAULT_MODEL_PROVIDER
-from models import Character, ChatMessage, GameState, MonsterTemplate, SessionEvent, TurnResult
+from models import Character, ChatMessage, GameState, MonsterTemplate, PlayerGameSnapshot, SessionEvent, TurnResult
 from rules_catalog import RuleCatalog, proficiency_bonus_for_level
 from starter_shop import get_shop_item_by_name
 from storage import CharacterStorage, GameStorage, MonsterStorage, StateConflictError, PENDING_TURN_ACTION_MESSAGE
@@ -1246,13 +1246,13 @@ async def batch_delete_games(req: BatchDeleteRequest):
 
 
 @app.get("/api/v1/games/{game_id}")
-async def get_game_state(game_id: str) -> GameState:
+async def get_game_state(game_id: str) -> PlayerGameSnapshot:
     state = game_storage.load_game(game_id)
     if not state:
         raise HTTPException(status_code=404, detail="Game not found")
     if not state.pending_turn and ensure_adventure_generation_option(state):
         game_storage.save_game(game_id, state)
-    return state
+    return PlayerGameSnapshot.model_validate(player_payload(state.model_dump(mode="json")))
 
 
 @app.post("/api/v1/games/{game_id}/delete")

@@ -1,12 +1,15 @@
 """规则操作失败的事务级待办；成功的无关工具不能抹去未结算的操作。"""
 from game_logic import GameLogic
 from library import Library
+from world_state import WORLD_WRITES
 
-RESOLUTION_TOOLS = {"adjust_currency", "check_spell_sequence","cast_spell", "attack_target", "roll_saving_throw", "roll_skill_check", "use_item", "use_feature",
+RESOLUTION_TOOLS = {*WORLD_WRITES, "adjust_currency", "check_spell_sequence","cast_spell", "attack_target", "roll_saving_throw", "roll_skill_check", "use_item", "use_feature",
                     "register_scene_actor", "start_encounter", "add_status", "remove_status", "adjust_hp"}
 
 
 def identity(state, name, args):
+    if name in WORLD_WRITES:
+        return (name, "", "", args.get("entry_id", ""), ())
     logic = GameLogic(state)
     def ref(value):
         if not value:

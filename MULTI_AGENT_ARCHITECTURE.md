@@ -69,12 +69,14 @@ DM model
   -> deterministic validate
 ```
 
-工具 guardrail 负责 schema、阶段、当前行动者、动作槽、法术位、库存、遭遇前置条件和高风险确认。模型不能直接 patch `GameState`。
+工具 guardrail 检查 schema、阶段、当前行动者、动作槽、法术位、库存与遭遇前置条件。模型通过注册工具改变 `GameState`。
+
+战役世界保存在 `GameState.world`。DM 通过 `lookup_world_entry` 查询，使用 `record_world_entry` 定义人物、地点和剧情事实，按事件用 `advance_world_clock` 推进时钟。只有经 `reveal_world_entry` 发布的标题和摘要进入玩家快照的 `known_world`。详见 [ADR-0005](docs/adr/0005-campaign-world.md)。
 
 ## 5. 事务、interrupt 与恢复
 
 - 工具产生的状态在 `finalize_turn` 前都属于 staged transaction。
-- 高风险工具通过 LangGraph `interrupt()` 暂停，并从同一 checkpoint 恢复。
+- 缺少玩家实际决定时，`request_player_choice` 通过 LangGraph `interrupt()` 暂停，并从同一 checkpoint 恢复。风险元数据用于事务校验。
 - `input_required` 只发布上一次已提交的 `GameState` 加 `pending_turn`；staged delta、timeline 和 tool result 不会作为已提交结果返回或保存。
 - checkpoint 丢失时终止并回滚挂起事务，要求玩家重新描述行动；“确认”不会被重放成一个新玩家行动。
 - checkpoint 只用于执行恢复；剧情分支仍由完整 rewind snapshot 实现。
@@ -116,7 +118,7 @@ backend/agents/
   tool_adapters.py   # StructuredTool / ToolRuntime / Command adapter
 ```
 
-父工作流位于 `backend/dm_graph.py`；确定性工具与规则分别位于 `agent_tools.py`、`tool_registry.py`、`game_logic.py` 和 `rules_catalog.py`。
+父工作流与提交点位于 `backend/dm_graph.py`。规划、能力策略、上下文、工具声明与受限修复位于 `backend/dm_workflow/`。世界契约和确定性操作位于 `backend/world_state.py`。
 
 ## 9. 变更门禁
 

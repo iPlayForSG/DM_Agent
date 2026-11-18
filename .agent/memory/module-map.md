@@ -22,6 +22,7 @@
 | 模块 | 目的/对外接口 | 主要依赖 | 修改时联动检查 |
 | --- | --- | --- | --- |
 | `backend/models.py` | `Character`、`EncounterState`、`GameState`、请求/响应 schema | Pydantic | JSON 兼容、API、前端字段、rewind、测试 fixture |
+| `backend/world_state.py` | 世界条目、关联、时钟、见闻、私有上下文与查询 | Pydantic、GameState | dm_workflow 工具契约、AgentToolService、player_projection、时间线、rewind |
 | `backend/tool_registry.py` | 工具 schema、风险和运行前守卫 | models、rules catalog | agent specs、phase allowlist、tool tests |
 | `backend/agent_tools.py` | Agent 工具执行与统一 `ToolResult` | GameLogic、RuleCatalog | action service 对称行为、timeline、delta |
 | `backend/action_service.py` | 本地动作 API 的确定性执行 | GameLogic、RuleCatalog | agent tool 行为、main routes、action options |

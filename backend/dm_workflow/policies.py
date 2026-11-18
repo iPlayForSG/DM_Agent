@@ -3,6 +3,7 @@
 from typing import Any, Dict
 
 from agents.specs import PHASE_CAPABILITY_TOOL_NAMES
+from world_state import WORLD_TOOLS
 
 
 SCENE_ANCHOR_NOUNS: tuple[str, ...] = (
@@ -405,8 +406,10 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
         "guidance": "Keep the turn short and decision-oriented. Calibrate to player experience, offer defaults for beginners, and ask one setup question at a time.",
     },
     "conversation": {
-        "tool_round_limit": 1,
+        # 一次会面可依次查旧事实、更新私有动机、揭示公开见闻。
+        "tool_round_limit": 3,
         "tool_subset": [
+            *WORLD_TOOLS,
             "request_player_choice",
             "report_rule_conflict",
             "lookup_rules",
@@ -444,6 +447,7 @@ TURN_PROFILE_POLICIES: Dict[str, Dict[str, Any]] = {
 
 
 PROMPT_CONTEXT_MAX_CHARS = {
+    "world": 4800,
     "state_summary": 8000,
     "recent_history": 6000,
     "campaign_memory": 3600,

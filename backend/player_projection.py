@@ -37,7 +37,20 @@ def player_payload(value: Any) -> Any:
         if isinstance(item, dict):
             if hidden(item) or (item.get("kind") == "tool_result" and item.get("content") in hidden_summaries):
                 return omitted
-            return {key: result for key, child in item.items() if (result := project(child, key)) is not omitted}
+            public = {}
+            for key, child in item.items():
+                # 只转换快照和补丁的保留字段。其它映射中的 "world" 也可能是角色或物品 ID。
+                if key == "world" and field == "state_delta":
+                    # 私有增量可能只覆盖一个 NPC；玩家以同一响应中的完整见闻刷新，避免误清其余见闻。
+                    continue
+                if key == "world" and (field == "game_state" or ("game_id" in item and "campaign" in item)):
+                    public["known_world"] = [
+                        {name: discovery[name] for name in ("id", "title", "summary")}
+                        for entry in child["entries"].values() if (discovery := entry.get("discovery"))
+                    ]
+                elif (result := project(child, key)) is not omitted:
+                    public[key] = result
+            return public
         if isinstance(item, list):
             return [result for child in item if (result := project(child)) is not omitted]
         return item

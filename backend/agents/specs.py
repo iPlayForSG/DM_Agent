@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Tuple
 
+from world_state import WORLD_TOOLS
+
 
 class AgentRole(str, Enum):
     DM = "dm"
@@ -27,6 +29,7 @@ PLAYER_CHOICE_TOOL_NAMES = ("request_player_choice", "report_rule_conflict")
 
 BASE_DM_TOOL_NAMES = (
     *PLAYER_CHOICE_TOOL_NAMES,
+    *WORLD_TOOLS,
     "lookup_rules",
     "register_scene_actor",
     "check_spell_sequence",

@@ -2,8 +2,14 @@
 
 from typing import Any, Dict, List
 
+from world_state import WORLD_TOOLS
+
 
 LANGGRAPH_TOOL_SCHEMAS: List[Dict[str, Any]] = [
+    *(
+        {"name": name, "description": command.__doc__, "parameters": command.model_json_schema()}
+        for name, command in WORLD_TOOLS.items()
+    ),
     {"name":"check_spell_sequence", "description":"Before executing multiple spells in one player instruction, check the whole intended sequence. This is read-only and rolls no dice. A conflict must be explained through report_rule_conflict so the player can revise. preserve_effects=True checks whether earlier effects would be ended by later spells; use false only when the player explicitly intends that consequence.",
      "parameters":{"type":"object","properties":{"caster_ref":{"type":"string"},"preserve_effects":{"type":"boolean","default":True},
          "casts":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","properties":{"spell_name":{"type":"string"},"slot_level":{"type":"integer"},"target_refs":{"type":"array","items":{"type":"string"}}},"required":["spell_name"]}}},"required":["caster_ref","casts"]}},

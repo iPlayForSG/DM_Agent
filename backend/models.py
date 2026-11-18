@@ -7,6 +7,8 @@ from typing import Literal, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from world_state import CampaignWorld, Discovery
+
 
 def stable_id(prefix: str, raw_value: str) -> str:
     value = (raw_value or "").strip().lower()
@@ -721,10 +723,10 @@ class GrantedDie(BaseModel):
     expires_at_seconds: int
 
 
-class GameState(BaseModel):
+class GameSnapshotFields(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    schema_version: int = 4
+    schema_version: int = 5
     state_version: str = ""
     granted_dice: List[GrantedDie] = Field(default_factory=list)
     pending_spell_attacks: List[SpellAttackCast] = Field(default_factory=list)
@@ -756,6 +758,14 @@ class GameState(BaseModel):
     encounter: Optional[EncounterState] = None
     campaign: CampaignFlowState = Field(default_factory=CampaignFlowState)
     pending_turn: Optional[PendingTurnState] = None
+
+
+class PlayerGameSnapshot(GameSnapshotFields):
+    known_world: list[Discovery] = Field(default_factory=list)
+
+
+class GameState(GameSnapshotFields):
+    world: CampaignWorld = Field(default_factory=CampaignWorld)
 
     @model_validator(mode="before")
     @classmethod
@@ -852,7 +862,10 @@ class GameState(BaseModel):
                 raw_encounter["combatants"] = [migrate_temp_hp(raw) for raw in raw_combatants]
         data["encounter"] = EncounterState.model_validate(raw_encounter) if raw_encounter else None
         data["campaign"] = CampaignFlowState.model_validate(data["campaign"]) if data.get("campaign") else CampaignFlowState()
-        data.setdefault("schema_version", 4)
+        # 旧档与 rewind 都经过同一入口，缺省为空世界；仅在下一次正常保存时写回。
+        version = data.get("schema_version", 4)
+        if isinstance(version, (int, str)) and str(version).isdigit() and int(version) <= 4:
+            data["schema_version"] = 5
         return data
 
     def get_primary_character_id(self) -> Optional[str]:
