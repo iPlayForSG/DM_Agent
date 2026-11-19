@@ -44,7 +44,7 @@
 - 自动行动建议及其免版本缓存写入入口已移除；旧 `ChatMessage`、`AdventureHook` 和 trace 中的建议字段由 schema 忽略，加载或恢复不得触发建议模型调用。
 - 主持回复重试必须由服务端根据 assistant 消息索引解析前一条玩家行动和对应 rewind snapshot；重试或提交玩家消息重写后，前端先替换/移除目标及后续消息、旧 interrupt和思考过程，传输失败才恢复整组 UI 投影。失败回复常驻重试入口。
 - 公开骰点的正文标记必须逐条对应成功的权威工具结果，模型只能决定它出现在相关叙事段落的位置，不能编写数值。暗骰需要同时从最终叙事、玩家时间线和玩家可见 `tool.completed` SSE 中过滤，不能只靠前端样式隐藏。
-- `App.jsx` 是超过 3,000 行的单体组件；局部状态和 effect 依赖容易互相影响。当前 Lint 仍有两个 Hook dependency warning。
+- `App.jsx` 已拆分为 `dndLabels.js` 与 `components/*` 子模块，ESLint `react-hooks/exhaustive-deps` 与 `react-refresh/only-export-components` 均保持 0 warning / 0 error；新增组件若需要导出非组件辅助函数，应放入 `dndLabels.js` 或独立纯 JS 模块。
 
 ## 本地环境与生成内容
 

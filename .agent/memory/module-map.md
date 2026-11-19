@@ -70,7 +70,9 @@
 | 模块 | 目的/对外接口 | 修改时联动检查 |
 | --- | --- | --- |
 | `frontend/src/api.js` | API base URL、REST、SSE parser、错误标准化 | `main.py` 路由和响应 schema |
-| `frontend/src/App.jsx` | 大厅、构筑、游戏、战斗、分支和异步生命周期 | `api.js`、action options、CSS、build/lint |
+| `frontend/src/App.jsx` | 大厅、构筑、游戏、战斗、分支和异步生命周期主编排 | `api.js`、`dndLabels.js`、`components/*`、action options、CSS、build/lint |
+| `frontend/src/dndLabels.js` | D&D 2024 中文化字典、默认构筑状态及纯格式化/映射工具函数 | `App.jsx`、`components/*`、`dndLabels.test.mjs` |
+| `frontend/src/components/` | `SessionPanels.jsx`、`CharacterSheetDetail.jsx`、`ShopCarousel.jsx`、`MarkdownBlock.jsx`、`Icons.jsx` | `App.jsx`、`DescriptionTooltip.jsx`、`index.css` |
 | `frontend/src/LevelBuildChoices.jsx` | 建卡等级相关的子职业、属性提升、专精和特性预览；规则值来自服务端 | `App.jsx` 构筑指纹与迟到响应守卫、creation-options API |
 | `frontend/src/DescriptionTooltip.jsx` | 全局单窗说明：悬停1.5秒固定、光标进度圈、叉号/Escape关闭，Portal避免裁切 | `App.jsx`、action options 与 builder 装备目录的 description/notes、法术施法资料、视口与键盘验收；不回写角色状态 |
 | `frontend/src/descriptionTooltipState.js`、`frontend/src/descriptionMarkdown.js` | 单窗所有权与计时状态机；只整理显示层阶梯列表/强调格式 | 延迟回调隔离、固定后手动关闭、保留真正嵌套/代码和原文字词 |
